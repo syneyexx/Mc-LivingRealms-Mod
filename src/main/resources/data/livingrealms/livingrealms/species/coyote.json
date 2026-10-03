@@ -1,0 +1,40 @@
+{
+  "id": "coyote",
+  "commonName": "Coyote",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "PACK",
+  "adultMassKg": 16,
+  "lifespanDays": 5200,
+  "maturityDays": 700,
+  "gestationDays": 70,
+  "offspringPerBirth": 4,
+  "birthsPerYear": 0.8,
+  "dailyFoodKg": 2.5,
+  "dailyWaterLitres": 2,
+  "movementKmPerDay": 30,
+  "aggression": 0.7,
+  "fearfulness": 0.28,
+  "huntSkill": 0.8,
+  "defense": 0.5,
+  "minGroup": 1,
+  "maxGroup": 8,
+  "climates": [
+    "ARID",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "dry",
+    "grassland",
+    "open"
+  ],
+  "preySpecies": [
+    "rabbit"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "CANID",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

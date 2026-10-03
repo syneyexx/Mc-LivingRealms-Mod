@@ -1,0 +1,39 @@
+{
+  "id": "walrus",
+  "commonName": "Walrus",
+  "diet": "OMNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "FAMILY",
+  "adultMassKg": 800,
+  "lifespanDays": 6500,
+  "maturityDays": 700,
+  "gestationDays": 120,
+  "offspringPerBirth": 2,
+  "birthsPerYear": 0.8,
+  "dailyFoodKg": 3,
+  "dailyWaterLitres": 0,
+  "movementKmPerDay": 12,
+  "aggression": 0.48,
+  "fearfulness": 0.45,
+  "huntSkill": 0.45,
+  "defense": 0.55,
+  "minGroup": 3,
+  "maxGroup": 100,
+  "swimSpeedFactor": 0.8,
+  "climates": [
+    "AQUATIC",
+    "POLAR"
+  ],
+  "habitatTags": [
+    "amphibious",
+    "coast",
+    "cold",
+    "ice"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "PINNIPED",
+  "locomotion": "AMPHIBIOUS",
+  "flightSpeedFactor": 0.0
+}

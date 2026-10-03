@@ -1,0 +1,39 @@
+{
+  "id": "piranha",
+  "commonName": "Red-bellied Piranha",
+  "diet": "PISCIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SCHOOL",
+  "adultMassKg": 1.2,
+  "lifespanDays": 5000,
+  "maturityDays": 900,
+  "gestationDays": 60,
+  "offspringPerBirth": 40,
+  "birthsPerYear": 0.5,
+  "dailyFoodKg": 1.2,
+  "dailyWaterLitres": 0,
+  "movementKmPerDay": 35,
+  "aggression": 0.6,
+  "fearfulness": 0.4,
+  "huntSkill": 0.75,
+  "defense": 0.35,
+  "minGroup": 10,
+  "maxGroup": 200,
+  "climates": [
+    "AQUATIC",
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "freshwater",
+    "river",
+    "warm"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "FISH",
+  "locomotion": "AQUATIC",
+  "swimSpeedFactor": 1.0,
+  "flightSpeedFactor": 0.0
+}

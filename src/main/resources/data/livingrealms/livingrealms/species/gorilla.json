@@ -1,0 +1,37 @@
+{
+  "id": "gorilla",
+  "commonName": "Western Gorilla",
+  "diet": "OMNIVORE",
+  "activityCycle": "DIURNAL",
+  "socialPattern": "FAMILY",
+  "adultMassKg": 140,
+  "lifespanDays": 12000,
+  "maturityDays": 1800,
+  "gestationDays": 230,
+  "offspringPerBirth": 1,
+  "birthsPerYear": 0.4,
+  "dailyFoodKg": 3,
+  "dailyWaterLitres": 3,
+  "movementKmPerDay": 8,
+  "aggression": 0.4,
+  "fearfulness": 0.4,
+  "huntSkill": 0.25,
+  "defense": 0.45,
+  "minGroup": 3,
+  "maxGroup": 20,
+  "climates": [
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "forest",
+    "humid",
+    "warm"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "GENERIC_QUADRUPED",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

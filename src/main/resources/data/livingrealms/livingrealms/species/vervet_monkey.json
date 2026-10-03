@@ -1,0 +1,38 @@
+{
+  "id": "vervet_monkey",
+  "commonName": "Vervet Monkey",
+  "diet": "OMNIVORE",
+  "activityCycle": "DIURNAL",
+  "socialPattern": "FAMILY",
+  "adultMassKg": 5,
+  "lifespanDays": 12000,
+  "maturityDays": 1800,
+  "gestationDays": 230,
+  "offspringPerBirth": 1,
+  "birthsPerYear": 0.4,
+  "dailyFoodKg": 3,
+  "dailyWaterLitres": 3,
+  "movementKmPerDay": 8,
+  "aggression": 0.4,
+  "fearfulness": 0.4,
+  "huntSkill": 0.25,
+  "defense": 0.45,
+  "minGroup": 8,
+  "maxGroup": 60,
+  "climates": [
+    "SUBTROPICAL",
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "forest",
+    "grassland",
+    "warm"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "GENERIC_QUADRUPED",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

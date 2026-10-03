@@ -1,0 +1,38 @@
+{
+  "id": "moon_jellyfish",
+  "commonName": "Moon Jellyfish",
+  "diet": "FILTER_FEEDER",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SCHOOL",
+  "adultMassKg": 0.2,
+  "lifespanDays": 3000,
+  "maturityDays": 500,
+  "gestationDays": 30,
+  "offspringPerBirth": 200,
+  "birthsPerYear": 0.8,
+  "dailyFoodKg": 0.06,
+  "dailyWaterLitres": 0,
+  "movementKmPerDay": 18,
+  "aggression": 0.05,
+  "fearfulness": 0.88,
+  "huntSkill": 0.2,
+  "defense": 0.08,
+  "minGroup": 5,
+  "maxGroup": 200,
+  "swimSpeedFactor": 0.25,
+  "climates": [
+    "AQUATIC",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "coast",
+    "ocean"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "INVERTEBRATE",
+  "locomotion": "AQUATIC",
+  "flightSpeedFactor": 0.0
+}

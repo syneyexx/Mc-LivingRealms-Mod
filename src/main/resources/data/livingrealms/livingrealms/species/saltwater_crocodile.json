@@ -1,0 +1,41 @@
+{
+  "id": "saltwater_crocodile",
+  "commonName": "Saltwater Crocodile",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 500.0,
+  "lifespanDays": 25550.0,
+  "maturityDays": 3650.0,
+  "gestationDays": 90.0,
+  "offspringPerBirth": 35.0,
+  "birthsPerYear": 0.5,
+  "dailyFoodKg": 5.0,
+  "dailyWaterLitres": 3.0,
+  "movementKmPerDay": 8.0,
+  "aggression": 0.95,
+  "fearfulness": 0.05,
+  "huntSkill": 0.92,
+  "defense": 0.98,
+  "minGroup": 1.0,
+  "maxGroup": 3.0,
+  "climates": [
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "amphibious",
+    "coast",
+    "river",
+    "warm",
+    "wetland"
+  ],
+  "preySpecies": [
+    "wild_boar"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "CROCODILIAN",
+  "locomotion": "AMPHIBIOUS",
+  "swimSpeedFactor": 0.72,
+  "flightSpeedFactor": 0.0
+}

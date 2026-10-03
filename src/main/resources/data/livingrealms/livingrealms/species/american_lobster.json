@@ -1,0 +1,40 @@
+{
+  "id": "american_lobster",
+  "commonName": "American Lobster",
+  "diet": "OMNIVORE",
+  "activityCycle": "NOCTURNAL",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 2,
+  "lifespanDays": 4300,
+  "maturityDays": 360,
+  "gestationDays": 60,
+  "offspringPerBirth": 3,
+  "birthsPerYear": 1.3,
+  "dailyFoodKg": 0.6,
+  "dailyWaterLitres": 0.5,
+  "movementKmPerDay": 10,
+  "aggression": 0.28,
+  "fearfulness": 0.58,
+  "huntSkill": 0.35,
+  "defense": 0.25,
+  "minGroup": 1,
+  "maxGroup": 5,
+  "swimSpeedFactor": 0.25,
+  "climates": [
+    "AQUATIC",
+    "BOREAL",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "coast",
+    "ocean",
+    "rocky"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "INVERTEBRATE",
+  "locomotion": "AQUATIC",
+  "flightSpeedFactor": 0.0
+}

@@ -1,0 +1,41 @@
+{
+  "id": "pelican",
+  "commonName": "Pelican",
+  "diet": "OMNIVORE",
+  "activityCycle": "DIURNAL",
+  "socialPattern": "FLOCK",
+  "adultMassKg": 6,
+  "lifespanDays": 4200,
+  "maturityDays": 280,
+  "gestationDays": 28,
+  "offspringPerBirth": 4,
+  "birthsPerYear": 1.4,
+  "dailyFoodKg": 0.12,
+  "dailyWaterLitres": 0.08,
+  "movementKmPerDay": 35,
+  "aggression": 0.12,
+  "fearfulness": 0.75,
+  "huntSkill": 0.2,
+  "defense": 0.1,
+  "minGroup": 3,
+  "maxGroup": 60,
+  "swimSpeedFactor": 0.55,
+  "climates": [
+    "SUBTROPICAL",
+    "TEMPERATE",
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "coast",
+    "flying",
+    "wetland"
+  ],
+  "preySpecies": [
+    "sardine"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "BIRD",
+  "locomotion": "FLYING",
+  "flightSpeedFactor": 1.0
+}

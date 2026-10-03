@@ -1,0 +1,40 @@
+{
+  "id": "american_alligator",
+  "commonName": "American Alligator",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 230,
+  "lifespanDays": 7000,
+  "maturityDays": 900,
+  "gestationDays": 70,
+  "offspringPerBirth": 18,
+  "birthsPerYear": 0.5,
+  "dailyFoodKg": 0.9,
+  "dailyWaterLitres": 0.2,
+  "movementKmPerDay": 5,
+  "aggression": 0.62,
+  "fearfulness": 0.28,
+  "huntSkill": 0.66,
+  "defense": 0.62,
+  "minGroup": 1,
+  "maxGroup": 5,
+  "swimSpeedFactor": 0.9,
+  "climates": [
+    "SUBTROPICAL"
+  ],
+  "habitatTags": [
+    "amphibious",
+    "river",
+    "warm",
+    "wetland"
+  ],
+  "preySpecies": [
+    "capybara"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "CROCODILIAN",
+  "locomotion": "AMPHIBIOUS",
+  "flightSpeedFactor": 0.0
+}

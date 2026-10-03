@@ -1,0 +1,43 @@
+{
+  "id": "red_deer",
+  "commonName": "Red Deer",
+  "diet": "HERBIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "HERD",
+  "adultMassKg": 180.0,
+  "lifespanDays": 5475.0,
+  "maturityDays": 600.0,
+  "gestationDays": 235.0,
+  "offspringPerBirth": 1.0,
+  "birthsPerYear": 1.0,
+  "dailyFoodKg": 5.0,
+  "dailyWaterLitres": 8.0,
+  "movementKmPerDay": 8.0,
+  "aggression": 0.1,
+  "fearfulness": 0.8,
+  "huntSkill": 0.0,
+  "defense": 0.55,
+  "minGroup": 2.0,
+  "maxGroup": 30.0,
+  "climates": [
+    "BOREAL",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "forest",
+    "grassland"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [
+    "brown_bear",
+    "cougar",
+    "gray_wolf",
+    "saber_tooth_cat",
+    "tiger"
+  ],
+  "attacksHumans": false,
+  "morphology": "UNGULATE",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

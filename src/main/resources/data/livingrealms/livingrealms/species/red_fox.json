@@ -1,0 +1,39 @@
+{
+  "id": "red_fox",
+  "commonName": "Red Fox",
+  "diet": "OMNIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "PAIR",
+  "adultMassKg": 6.0,
+  "lifespanDays": 4380.0,
+  "maturityDays": 300.0,
+  "gestationDays": 52.0,
+  "offspringPerBirth": 4.0,
+  "birthsPerYear": 1.0,
+  "dailyFoodKg": 0.5,
+  "dailyWaterLitres": 0.5,
+  "movementKmPerDay": 12.0,
+  "aggression": 0.35,
+  "fearfulness": 0.55,
+  "huntSkill": 0.65,
+  "defense": 0.2,
+  "minGroup": 1.0,
+  "maxGroup": 4.0,
+  "climates": [
+    "BOREAL",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "forest",
+    "grassland"
+  ],
+  "preySpecies": [
+    "rabbit"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "CANID",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

@@ -1,0 +1,42 @@
+{
+  "id": "orca",
+  "commonName": "Orca",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "PACK",
+  "adultMassKg": 4000.0,
+  "lifespanDays": 18250.0,
+  "maturityDays": 3650.0,
+  "gestationDays": 510.0,
+  "offspringPerBirth": 1.0,
+  "birthsPerYear": 0.2,
+  "dailyFoodKg": 100.0,
+  "dailyWaterLitres": 0.0,
+  "movementKmPerDay": 80.0,
+  "aggression": 0.72,
+  "fearfulness": 0.1,
+  "huntSkill": 0.95,
+  "defense": 0.98,
+  "minGroup": 3.0,
+  "maxGroup": 25.0,
+  "climates": [
+    "AQUATIC",
+    "POLAR",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "coast",
+    "ocean"
+  ],
+  "preySpecies": [
+    "salmon",
+    "seal"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "CETACEAN",
+  "locomotion": "AQUATIC",
+  "swimSpeedFactor": 1.0,
+  "flightSpeedFactor": 0.0
+}

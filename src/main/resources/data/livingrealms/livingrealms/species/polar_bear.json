@@ -1,0 +1,38 @@
+{
+  "id": "polar_bear",
+  "commonName": "Polar Bear",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 450.0,
+  "lifespanDays": 9125.0,
+  "maturityDays": 1460.0,
+  "gestationDays": 240.0,
+  "offspringPerBirth": 2.0,
+  "birthsPerYear": 0.5,
+  "dailyFoodKg": 8.0,
+  "dailyWaterLitres": 8.0,
+  "movementKmPerDay": 20.0,
+  "aggression": 0.88,
+  "fearfulness": 0.12,
+  "huntSkill": 0.86,
+  "defense": 0.9,
+  "minGroup": 1.0,
+  "maxGroup": 2.0,
+  "climates": [
+    "POLAR"
+  ],
+  "habitatTags": [
+    "coast",
+    "cold"
+  ],
+  "preySpecies": [
+    "seal"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "URSID",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

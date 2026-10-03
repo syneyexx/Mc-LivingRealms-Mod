@@ -1,0 +1,13 @@
+{
+  "mod.livingrealms.name": "Living Realms",
+  "command.livingrealms.status": "Living Realms simulation status",
+  "command.livingrealms.seeded": "Demo civilization and ecosystem seeded.",
+  "key.categories.livingrealms": "Living Realms",
+  "key.livingrealms.open_dashboard": "Open Strategic Dashboard",
+  "screen.livingrealms.dashboard": "Living Realms \u2014 Strategic Dashboard",
+  "button.livingrealms.refresh": "Refresh",
+  "message.livingrealms.dashboard_error": "Living Realms dashboard data could not be read.",
+  "message.livingrealms.dashboard_server_error": "Living Realms could not build the strategic dashboard right now.",
+  "key.livingrealms.open_world_map": "Open Living Realms World Map",
+  "key.livingrealms.open_creative_catalog": "Open Living Realms Creative Mod Catalog"
+}

@@ -1,0 +1,42 @@
+{
+  "id": "clownfish",
+  "commonName": "Clownfish",
+  "diet": "OMNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SCHOOL",
+  "adultMassKg": 0.25,
+  "lifespanDays": 3000,
+  "maturityDays": 500,
+  "gestationDays": 30,
+  "offspringPerBirth": 200,
+  "birthsPerYear": 0.8,
+  "dailyFoodKg": 0.06,
+  "dailyWaterLitres": 0,
+  "movementKmPerDay": 18,
+  "aggression": 0.05,
+  "fearfulness": 0.88,
+  "huntSkill": 0.2,
+  "defense": 0.08,
+  "minGroup": 2,
+  "maxGroup": 40,
+  "climates": [
+    "AQUATIC",
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "ocean",
+    "reef",
+    "warm"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [
+    "blacktip_reef_shark",
+    "moray_eel"
+  ],
+  "attacksHumans": false,
+  "morphology": "FISH",
+  "locomotion": "AQUATIC",
+  "swimSpeedFactor": 1.0,
+  "flightSpeedFactor": 0.0
+}

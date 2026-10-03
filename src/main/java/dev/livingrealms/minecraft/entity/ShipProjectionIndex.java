@@ -1,0 +1,3 @@
+package dev.livingrealms.minecraft.entity;
+import java.util.*;import java.util.concurrent.ConcurrentHashMap;
+public final class ShipProjectionIndex{private static final Map<UUID,LivingRealmsShipEntity> BY_UUID=new ConcurrentHashMap<>();private ShipProjectionIndex(){}public static void joined(LivingRealmsShipEntity e){BY_UUID.put(e.getUUID(),e);}public static void left(LivingRealmsShipEntity e){BY_UUID.remove(e.getUUID());}public static Collection<LivingRealmsShipEntity> loaded(){return List.copyOf(BY_UUID.values());}public static LivingRealmsShipEntity forSlot(long fleet,int slot){return BY_UUID.values().stream().filter(e->e.fleetId()==fleet&&e.projectionSlot()==slot&&!e.isRemoved()).findFirst().orElse(null);}public static void clear(){BY_UUID.clear();}}

@@ -1,0 +1,42 @@
+{
+  "id": "great_white_shark",
+  "commonName": "Great White Shark",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 900.0,
+  "lifespanDays": 14600.0,
+  "maturityDays": 2920.0,
+  "gestationDays": 365.0,
+  "offspringPerBirth": 8.0,
+  "birthsPerYear": 0.2,
+  "dailyFoodKg": 30.0,
+  "dailyWaterLitres": 0.0,
+  "movementKmPerDay": 70.0,
+  "aggression": 0.85,
+  "fearfulness": 0.1,
+  "huntSkill": 0.93,
+  "defense": 0.86,
+  "minGroup": 1.0,
+  "maxGroup": 2.0,
+  "climates": [
+    "AQUATIC",
+    "SUBTROPICAL",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "coast",
+    "ocean"
+  ],
+  "preySpecies": [
+    "salmon",
+    "seal"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "SHARK",
+  "locomotion": "AQUATIC",
+  "swimSpeedFactor": 1.0,
+  "flightSpeedFactor": 0.0
+}

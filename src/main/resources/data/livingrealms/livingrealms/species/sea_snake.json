@@ -1,0 +1,39 @@
+{
+  "id": "sea_snake",
+  "commonName": "Sea Snake",
+  "diet": "CARNIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 1.5,
+  "lifespanDays": 4500,
+  "maturityDays": 500,
+  "gestationDays": 65,
+  "offspringPerBirth": 3,
+  "birthsPerYear": 1,
+  "dailyFoodKg": 0.8,
+  "dailyWaterLitres": 0.7,
+  "movementKmPerDay": 20,
+  "aggression": 0.5,
+  "fearfulness": 0.5,
+  "huntSkill": 0.7,
+  "defense": 0.3,
+  "minGroup": 1,
+  "maxGroup": 4,
+  "swimSpeedFactor": 0.85,
+  "climates": [
+    "AQUATIC",
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "coast",
+    "ocean",
+    "reef"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "OTHER_REPTILE",
+  "locomotion": "AQUATIC",
+  "flightSpeedFactor": 0.0
+}

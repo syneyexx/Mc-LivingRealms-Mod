@@ -1,0 +1,40 @@
+{
+  "id": "blue_whale",
+  "commonName": "Blue Whale",
+  "diet": "FILTER_FEEDER",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "PACK",
+  "adultMassKg": 100000,
+  "lifespanDays": 15000,
+  "maturityDays": 2500,
+  "gestationDays": 360,
+  "offspringPerBirth": 1,
+  "birthsPerYear": 0.3,
+  "dailyFoodKg": 1200,
+  "dailyWaterLitres": 0,
+  "movementKmPerDay": 80,
+  "aggression": 0.22,
+  "fearfulness": 0.15,
+  "huntSkill": 0.82,
+  "defense": 0.85,
+  "minGroup": 1,
+  "maxGroup": 3,
+  "swimSpeedFactor": 0.8,
+  "climates": [
+    "AQUATIC",
+    "POLAR",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "deep",
+    "ocean",
+    "pelagic"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "CETACEAN",
+  "locomotion": "AQUATIC",
+  "flightSpeedFactor": 0.0
+}

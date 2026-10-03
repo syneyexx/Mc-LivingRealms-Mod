@@ -1,0 +1,48 @@
+{
+  "id": "seal",
+  "commonName": "Harbor Seal",
+  "diet": "PISCIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "COLONY",
+  "adultMassKg": 90.0,
+  "lifespanDays": 10950.0,
+  "maturityDays": 1460.0,
+  "gestationDays": 300.0,
+  "offspringPerBirth": 1.0,
+  "birthsPerYear": 1.0,
+  "dailyFoodKg": 5.0,
+  "dailyWaterLitres": 0.0,
+  "movementKmPerDay": 25.0,
+  "aggression": 0.12,
+  "fearfulness": 0.75,
+  "huntSkill": 0.5,
+  "defense": 0.35,
+  "minGroup": 2.0,
+  "maxGroup": 40.0,
+  "climates": [
+    "AQUATIC",
+    "POLAR",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "amphibious",
+    "coast",
+    "cold",
+    "ocean"
+  ],
+  "preySpecies": [
+    "salmon"
+  ],
+  "predatorSpecies": [
+    "great_white_shark",
+    "hammerhead_shark",
+    "orca",
+    "polar_bear",
+    "tiger_shark"
+  ],
+  "attacksHumans": false,
+  "morphology": "PINNIPED",
+  "locomotion": "AMPHIBIOUS",
+  "swimSpeedFactor": 0.72,
+  "flightSpeedFactor": 0.0
+}

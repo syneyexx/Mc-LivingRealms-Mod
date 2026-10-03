@@ -1,0 +1,39 @@
+{
+  "id": "lion",
+  "commonName": "Lion",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "PACK",
+  "adultMassKg": 190.0,
+  "lifespanDays": 5475.0,
+  "maturityDays": 1100.0,
+  "gestationDays": 110.0,
+  "offspringPerBirth": 3.0,
+  "birthsPerYear": 0.7,
+  "dailyFoodKg": 6.0,
+  "dailyWaterLitres": 5.0,
+  "movementKmPerDay": 18.0,
+  "aggression": 0.85,
+  "fearfulness": 0.18,
+  "huntSkill": 0.88,
+  "defense": 0.65,
+  "minGroup": 2.0,
+  "maxGroup": 15.0,
+  "climates": [
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "grassland",
+    "warm"
+  ],
+  "preySpecies": [
+    "wildebeest",
+    "zebra"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "FELID",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

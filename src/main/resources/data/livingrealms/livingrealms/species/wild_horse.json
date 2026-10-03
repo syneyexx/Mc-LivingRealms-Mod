@@ -1,0 +1,37 @@
+{
+  "id": "wild_horse",
+  "commonName": "Wild Horse",
+  "diet": "HERBIVORE",
+  "activityCycle": "DIURNAL",
+  "socialPattern": "HERD",
+  "adultMassKg": 430,
+  "lifespanDays": 8000,
+  "maturityDays": 1000,
+  "gestationDays": 300,
+  "offspringPerBirth": 1,
+  "birthsPerYear": 0.8,
+  "dailyFoodKg": 13,
+  "dailyWaterLitres": 30,
+  "movementKmPerDay": 14,
+  "aggression": 0.3,
+  "fearfulness": 0.55,
+  "huntSkill": 0,
+  "defense": 0.86,
+  "minGroup": 3,
+  "maxGroup": 60,
+  "climates": [
+    "ARID",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "grassland",
+    "open"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "UNGULATE",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

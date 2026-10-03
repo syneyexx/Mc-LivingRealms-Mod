@@ -1,0 +1,41 @@
+{
+  "id": "cougar",
+  "commonName": "Cougar",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 70,
+  "lifespanDays": 6200,
+  "maturityDays": 1000,
+  "gestationDays": 105,
+  "offspringPerBirth": 2,
+  "birthsPerYear": 0.55,
+  "dailyFoodKg": 5,
+  "dailyWaterLitres": 4,
+  "movementKmPerDay": 25,
+  "aggression": 0.82,
+  "fearfulness": 0.18,
+  "huntSkill": 0.88,
+  "defense": 0.7,
+  "minGroup": 1,
+  "maxGroup": 3,
+  "climates": [
+    "ALPINE",
+    "ARID",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "forest",
+    "grassland",
+    "mountain"
+  ],
+  "preySpecies": [
+    "red_deer"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "FELID",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

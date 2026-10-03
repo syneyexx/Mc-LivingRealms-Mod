@@ -1,0 +1,36 @@
+{
+  "id": "koala",
+  "commonName": "Koala",
+  "diet": "HERBIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 9,
+  "lifespanDays": 3650,
+  "maturityDays": 300,
+  "gestationDays": 40,
+  "offspringPerBirth": 3,
+  "birthsPerYear": 2,
+  "dailyFoodKg": 0.45,
+  "dailyWaterLitres": 0.3,
+  "movementKmPerDay": 7,
+  "aggression": 0.08,
+  "fearfulness": 0.85,
+  "huntSkill": 0,
+  "defense": 0.15,
+  "minGroup": 2,
+  "maxGroup": 16,
+  "climates": [
+    "SUBTROPICAL"
+  ],
+  "habitatTags": [
+    "forest",
+    "warm"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "GENERIC_QUADRUPED",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

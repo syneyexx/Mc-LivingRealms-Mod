@@ -1,0 +1,38 @@
+{
+  "id": "galapagos_tortoise",
+  "commonName": "Galapagos Tortoise",
+  "diet": "HERBIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "HERD",
+  "adultMassKg": 200,
+  "lifespanDays": 6200,
+  "maturityDays": 600,
+  "gestationDays": 210,
+  "offspringPerBirth": 1,
+  "birthsPerYear": 1,
+  "dailyFoodKg": 4,
+  "dailyWaterLitres": 7,
+  "movementKmPerDay": 1,
+  "aggression": 0.15,
+  "fearfulness": 0.75,
+  "huntSkill": 0,
+  "defense": 0.9,
+  "minGroup": 3,
+  "maxGroup": 35,
+  "climates": [
+    "ARID",
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "dry",
+    "grassland",
+    "warm"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "OTHER_REPTILE",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

@@ -1,0 +1,3 @@
+package dev.livingrealms.minecraft.client;
+import dev.livingrealms.LivingRealms;import dev.livingrealms.minecraft.entity.BountyHunterEntity;import net.minecraft.client.renderer.entity.*;import net.minecraft.resources.ResourceLocation;
+public final class BountyHunterRenderer extends MobRenderer<BountyHunterEntity,BountyHunterModel>{private static final ResourceLocation TEXTURE=ResourceLocation.fromNamespaceAndPath(LivingRealms.MOD_ID,"textures/entity/bounty_hunter.png");public BountyHunterRenderer(EntityRendererProvider.Context c){super(c,new BountyHunterModel(c.bakeLayer(BountyHunterModel.LAYER)),.45F);}@Override public ResourceLocation getTextureLocation(BountyHunterEntity e){return TEXTURE;}}

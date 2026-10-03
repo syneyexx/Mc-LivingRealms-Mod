@@ -1,0 +1,40 @@
+{
+  "id": "manatee",
+  "commonName": "West Indian Manatee",
+  "diet": "HERBIVORE",
+  "activityCycle": "DIURNAL",
+  "socialPattern": "HERD",
+  "adultMassKg": 450,
+  "lifespanDays": 8000,
+  "maturityDays": 1000,
+  "gestationDays": 300,
+  "offspringPerBirth": 1,
+  "birthsPerYear": 0.8,
+  "dailyFoodKg": 13,
+  "dailyWaterLitres": 0,
+  "movementKmPerDay": 14,
+  "aggression": 0.3,
+  "fearfulness": 0.55,
+  "huntSkill": 0,
+  "defense": 0.86,
+  "minGroup": 1,
+  "maxGroup": 8,
+  "swimSpeedFactor": 0.55,
+  "climates": [
+    "AQUATIC",
+    "SUBTROPICAL",
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "coast",
+    "estuary",
+    "warm"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "CETACEAN",
+  "locomotion": "AQUATIC",
+  "flightSpeedFactor": 0.0
+}

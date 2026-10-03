@@ -1,0 +1,36 @@
+{
+  "id": "elephant",
+  "commonName": "African Bush Elephant",
+  "diet": "HERBIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "HERD",
+  "adultMassKg": 5000.0,
+  "lifespanDays": 23725.0,
+  "maturityDays": 3650.0,
+  "gestationDays": 660.0,
+  "offspringPerBirth": 1.0,
+  "birthsPerYear": 0.2,
+  "dailyFoodKg": 150.0,
+  "dailyWaterLitres": 120.0,
+  "movementKmPerDay": 20.0,
+  "aggression": 0.4,
+  "fearfulness": 0.25,
+  "huntSkill": 0.0,
+  "defense": 1.0,
+  "minGroup": 4.0,
+  "maxGroup": 40.0,
+  "climates": [
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "grassland",
+    "warm"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "PROBOSCIDEAN",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

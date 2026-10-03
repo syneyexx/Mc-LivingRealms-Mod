@@ -1,0 +1,38 @@
+{
+  "id": "hippopotamus",
+  "commonName": "Hippopotamus",
+  "diet": "HERBIVORE",
+  "activityCycle": "NOCTURNAL",
+  "socialPattern": "HERD",
+  "adultMassKg": 1500.0,
+  "lifespanDays": 14600.0,
+  "maturityDays": 2200.0,
+  "gestationDays": 240.0,
+  "offspringPerBirth": 1.0,
+  "birthsPerYear": 0.5,
+  "dailyFoodKg": 40.0,
+  "dailyWaterLitres": 50.0,
+  "movementKmPerDay": 8.0,
+  "aggression": 0.92,
+  "fearfulness": 0.15,
+  "huntSkill": 0.0,
+  "defense": 0.98,
+  "minGroup": 4.0,
+  "maxGroup": 30.0,
+  "climates": [
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "amphibious",
+    "river",
+    "warm",
+    "wetland"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "HIPPOPOTAMID",
+  "locomotion": "AMPHIBIOUS",
+  "swimSpeedFactor": 0.72,
+  "flightSpeedFactor": 0.0
+}

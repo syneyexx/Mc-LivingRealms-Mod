@@ -1,0 +1,38 @@
+{
+  "id": "giant_salamander",
+  "commonName": "Chinese Giant Salamander",
+  "diet": "CARNIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 25,
+  "lifespanDays": 4500,
+  "maturityDays": 500,
+  "gestationDays": 65,
+  "offspringPerBirth": 3,
+  "birthsPerYear": 1,
+  "dailyFoodKg": 0.8,
+  "dailyWaterLitres": 0.7,
+  "movementKmPerDay": 20,
+  "aggression": 0.5,
+  "fearfulness": 0.5,
+  "huntSkill": 0.7,
+  "defense": 0.3,
+  "minGroup": 1,
+  "maxGroup": 4,
+  "swimSpeedFactor": 0.8,
+  "climates": [
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "amphibious",
+    "cold",
+    "freshwater",
+    "river"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "AMPHIBIAN",
+  "locomotion": "AMPHIBIOUS",
+  "flightSpeedFactor": 0.0
+}

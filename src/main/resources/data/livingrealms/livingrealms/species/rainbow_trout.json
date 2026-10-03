@@ -1,0 +1,40 @@
+{
+  "id": "rainbow_trout",
+  "commonName": "Rainbow Trout",
+  "diet": "OMNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SCHOOL",
+  "adultMassKg": 2,
+  "lifespanDays": 3000,
+  "maturityDays": 500,
+  "gestationDays": 30,
+  "offspringPerBirth": 200,
+  "birthsPerYear": 0.8,
+  "dailyFoodKg": 0.06,
+  "dailyWaterLitres": 0,
+  "movementKmPerDay": 18,
+  "aggression": 0.05,
+  "fearfulness": 0.88,
+  "huntSkill": 0.2,
+  "defense": 0.08,
+  "minGroup": 20,
+  "maxGroup": 1200,
+  "climates": [
+    "AQUATIC",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "freshwater",
+    "river"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [
+    "kingfisher"
+  ],
+  "attacksHumans": false,
+  "morphology": "FISH",
+  "locomotion": "AQUATIC",
+  "swimSpeedFactor": 1.0,
+  "flightSpeedFactor": 0.0
+}

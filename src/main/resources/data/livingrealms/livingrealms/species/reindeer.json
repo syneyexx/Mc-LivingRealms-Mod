@@ -1,0 +1,38 @@
+{
+  "id": "reindeer",
+  "commonName": "Reindeer",
+  "diet": "HERBIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "HERD",
+  "adultMassKg": 150,
+  "lifespanDays": 6200,
+  "maturityDays": 600,
+  "gestationDays": 210,
+  "offspringPerBirth": 1,
+  "birthsPerYear": 1,
+  "dailyFoodKg": 4,
+  "dailyWaterLitres": 7,
+  "movementKmPerDay": 12,
+  "aggression": 0.15,
+  "fearfulness": 0.75,
+  "huntSkill": 0,
+  "defense": 0.5,
+  "minGroup": 3,
+  "maxGroup": 120,
+  "climates": [
+    "BOREAL",
+    "POLAR"
+  ],
+  "habitatTags": [
+    "cold",
+    "open",
+    "tundra"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "UNGULATE",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

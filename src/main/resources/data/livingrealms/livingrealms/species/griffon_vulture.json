@@ -1,0 +1,38 @@
+{
+  "id": "griffon_vulture",
+  "commonName": "Griffon Vulture",
+  "diet": "CARNIVORE",
+  "activityCycle": "DIURNAL",
+  "socialPattern": "PAIR",
+  "adultMassKg": 8,
+  "lifespanDays": 7300,
+  "maturityDays": 900,
+  "gestationDays": 40,
+  "offspringPerBirth": 2,
+  "birthsPerYear": 1,
+  "dailyFoodKg": 0.25,
+  "dailyWaterLitres": 0.08,
+  "movementKmPerDay": 55,
+  "aggression": 0.4,
+  "fearfulness": 0.5,
+  "huntSkill": 0.25,
+  "defense": 0.18,
+  "minGroup": 2,
+  "maxGroup": 40,
+  "climates": [
+    "ARID",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "flying",
+    "grassland",
+    "mountain"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "RAPTOR_BIRD",
+  "locomotion": "FLYING",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 1.0
+}

@@ -1,0 +1,37 @@
+package dev.livingrealms.sim.construction;
+
+/** Functional building/structure roles used by settlement growth and the Minecraft construction adapter. */
+public enum StructureRole {
+    KEEP,
+    HOUSE,
+    FARM,
+    ROAD,
+    MARKET,
+    WAREHOUSE,
+    WORKSHOP,
+    BARRACKS,
+    WALL,
+    FACTORY,
+    AIRFIELD,
+    DOCK,
+    MINE,
+    LUMBER_CAMP,
+    FISHERY,
+    TAVERN,
+    TEMPLE,
+    CLINIC,
+    SCHOOL,
+    COURTHOUSE,
+    PRISON,
+    ORPHANAGE,
+    WELL,
+    GATE,
+    MONUMENT,
+    OBSERVATORY,
+    WIZARD_HALL,
+    WIZARD_GROVE,
+    WIZARD_HOME,
+    WIZARD_TUNNEL,
+    IRRIGATION,
+    AQUEDUCT
+}

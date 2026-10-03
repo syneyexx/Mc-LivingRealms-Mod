@@ -1,0 +1,40 @@
+{
+  "id": "snowy_owl",
+  "commonName": "Snowy Owl",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "PAIR",
+  "adultMassKg": 1.8,
+  "lifespanDays": 7300,
+  "maturityDays": 900,
+  "gestationDays": 40,
+  "offspringPerBirth": 2,
+  "birthsPerYear": 1,
+  "dailyFoodKg": 0.25,
+  "dailyWaterLitres": 0.08,
+  "movementKmPerDay": 55,
+  "aggression": 0.4,
+  "fearfulness": 0.5,
+  "huntSkill": 0.78,
+  "defense": 0.18,
+  "minGroup": 1,
+  "maxGroup": 3,
+  "climates": [
+    "BOREAL",
+    "POLAR"
+  ],
+  "habitatTags": [
+    "cold",
+    "flying",
+    "tundra"
+  ],
+  "preySpecies": [
+    "rabbit"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "RAPTOR_BIRD",
+  "locomotion": "FLYING",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 1.0
+}

@@ -1,0 +1,38 @@
+{
+  "id": "canada_lynx",
+  "commonName": "Canada Lynx",
+  "diet": "CARNIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 11,
+  "lifespanDays": 4500,
+  "maturityDays": 500,
+  "gestationDays": 65,
+  "offspringPerBirth": 3,
+  "birthsPerYear": 1,
+  "dailyFoodKg": 0.8,
+  "dailyWaterLitres": 0.7,
+  "movementKmPerDay": 20,
+  "aggression": 0.5,
+  "fearfulness": 0.5,
+  "huntSkill": 0.7,
+  "defense": 0.3,
+  "minGroup": 1,
+  "maxGroup": 4,
+  "climates": [
+    "BOREAL"
+  ],
+  "habitatTags": [
+    "cold",
+    "forest"
+  ],
+  "preySpecies": [
+    "rabbit"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "FELID",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

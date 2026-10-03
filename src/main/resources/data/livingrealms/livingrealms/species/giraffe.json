@@ -1,0 +1,37 @@
+{
+  "id": "giraffe",
+  "commonName": "Giraffe",
+  "diet": "HERBIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "HERD",
+  "adultMassKg": 900,
+  "lifespanDays": 16000,
+  "maturityDays": 2400,
+  "gestationDays": 480,
+  "offspringPerBirth": 1,
+  "birthsPerYear": 0.35,
+  "dailyFoodKg": 60,
+  "dailyWaterLitres": 65,
+  "movementKmPerDay": 16,
+  "aggression": 0.45,
+  "fearfulness": 0.28,
+  "huntSkill": 0,
+  "defense": 0.98,
+  "minGroup": 2,
+  "maxGroup": 30,
+  "climates": [
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "grassland",
+    "open",
+    "warm"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "UNGULATE",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

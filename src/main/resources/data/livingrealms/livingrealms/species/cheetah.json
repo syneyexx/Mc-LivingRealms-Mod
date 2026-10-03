@@ -1,0 +1,40 @@
+{
+  "id": "cheetah",
+  "commonName": "Cheetah",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 55,
+  "lifespanDays": 6200,
+  "maturityDays": 1000,
+  "gestationDays": 105,
+  "offspringPerBirth": 2,
+  "birthsPerYear": 0.55,
+  "dailyFoodKg": 5,
+  "dailyWaterLitres": 4,
+  "movementKmPerDay": 35,
+  "aggression": 0.82,
+  "fearfulness": 0.18,
+  "huntSkill": 0.92,
+  "defense": 0.5,
+  "minGroup": 1,
+  "maxGroup": 3,
+  "climates": [
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "grassland",
+    "open",
+    "warm"
+  ],
+  "preySpecies": [
+    "gazelle",
+    "impala"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "FELID",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

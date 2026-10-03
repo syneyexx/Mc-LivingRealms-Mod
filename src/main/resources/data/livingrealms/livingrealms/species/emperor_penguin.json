@@ -1,0 +1,40 @@
+{
+  "id": "emperor_penguin",
+  "commonName": "Emperor Penguin",
+  "diet": "OMNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SCHOOL",
+  "adultMassKg": 30,
+  "lifespanDays": 3000,
+  "maturityDays": 500,
+  "gestationDays": 30,
+  "offspringPerBirth": 1,
+  "birthsPerYear": 0.8,
+  "dailyFoodKg": 0.06,
+  "dailyWaterLitres": 0,
+  "movementKmPerDay": 18,
+  "aggression": 0.05,
+  "fearfulness": 0.88,
+  "huntSkill": 0.2,
+  "defense": 0.08,
+  "minGroup": 20,
+  "maxGroup": 1000,
+  "swimSpeedFactor": 1.0,
+  "climates": [
+    "POLAR"
+  ],
+  "habitatTags": [
+    "amphibious",
+    "coast",
+    "cold",
+    "ice"
+  ],
+  "preySpecies": [
+    "salmon"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "BIRD",
+  "locomotion": "AMPHIBIOUS",
+  "flightSpeedFactor": 0.0
+}

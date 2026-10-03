@@ -1,0 +1,39 @@
+{
+  "id": "reticulated_python",
+  "commonName": "Reticulated Python",
+  "diet": "CARNIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 55,
+  "lifespanDays": 4500,
+  "maturityDays": 500,
+  "gestationDays": 65,
+  "offspringPerBirth": 3,
+  "birthsPerYear": 1,
+  "dailyFoodKg": 0.8,
+  "dailyWaterLitres": 0.7,
+  "movementKmPerDay": 3,
+  "aggression": 0.62,
+  "fearfulness": 0.5,
+  "huntSkill": 0.7,
+  "defense": 0.3,
+  "minGroup": 1,
+  "maxGroup": 4,
+  "climates": [
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "forest",
+    "warm",
+    "wetland"
+  ],
+  "preySpecies": [
+    "rabbit"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "OTHER_REPTILE",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

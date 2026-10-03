@@ -1,0 +1,41 @@
+{
+  "id": "brown_bear",
+  "commonName": "Brown Bear",
+  "diet": "OMNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 280.0,
+  "lifespanDays": 9125.0,
+  "maturityDays": 1460.0,
+  "gestationDays": 220.0,
+  "offspringPerBirth": 2.0,
+  "birthsPerYear": 0.5,
+  "dailyFoodKg": 7.0,
+  "dailyWaterLitres": 10.0,
+  "movementKmPerDay": 15.0,
+  "aggression": 0.72,
+  "fearfulness": 0.3,
+  "huntSkill": 0.62,
+  "defense": 0.85,
+  "minGroup": 1.0,
+  "maxGroup": 2.0,
+  "climates": [
+    "BOREAL",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "cold",
+    "forest",
+    "river"
+  ],
+  "preySpecies": [
+    "red_deer",
+    "salmon"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "URSID",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

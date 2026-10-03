@@ -1,0 +1,39 @@
+{
+  "id": "zebra",
+  "commonName": "Plains Zebra",
+  "diet": "HERBIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "HERD",
+  "adultMassKg": 350.0,
+  "lifespanDays": 7300.0,
+  "maturityDays": 1100.0,
+  "gestationDays": 375.0,
+  "offspringPerBirth": 1.0,
+  "birthsPerYear": 0.8,
+  "dailyFoodKg": 8.0,
+  "dailyWaterLitres": 20.0,
+  "movementKmPerDay": 12.0,
+  "aggression": 0.12,
+  "fearfulness": 0.8,
+  "huntSkill": 0.0,
+  "defense": 0.55,
+  "minGroup": 4.0,
+  "maxGroup": 30.0,
+  "climates": [
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "grassland",
+    "warm"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [
+    "lion",
+    "spotted_hyena"
+  ],
+  "attacksHumans": false,
+  "morphology": "UNGULATE",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

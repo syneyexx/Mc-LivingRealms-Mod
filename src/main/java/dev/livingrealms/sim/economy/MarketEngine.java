@@ -1,0 +1,30 @@
+package dev.livingrealms.sim.economy;
+
+import dev.livingrealms.sim.faction.*;
+import dev.livingrealms.sim.util.Mathx;
+import java.util.*;
+
+/** Scarcity-driven strategic pricing used by trade contracts and UIs. */
+public final class MarketEngine {
+    private static final EnumMap<ResourceType,Double> BASE=new EnumMap<>(ResourceType.class);
+    static {
+        BASE.put(ResourceType.FOOD,.45);BASE.put(ResourceType.WOOD,.65);BASE.put(ResourceType.STONE,.55);BASE.put(ResourceType.IRON,1.8);
+        BASE.put(ResourceType.COAL,1.2);BASE.put(ResourceType.COPPER,1.5);BASE.put(ResourceType.GOLD,8.0);BASE.put(ResourceType.FUEL,2.2);
+        BASE.put(ResourceType.AMMUNITION,4.5);BASE.put(ResourceType.TOOLS,3.2);BASE.put(ResourceType.MACHINERY,12.0);BASE.put(ResourceType.TEXTILES,2.0);
+    }
+    private MarketEngine(){}
+
+    public static MarketQuote quote(Faction faction,ResourceType resource){
+        int pop=Math.max(1,faction.population());
+        double dailyNeed=dailyNeed(pop,resource);
+        double supply=faction.stockpile().get(resource);
+        double days=dailyNeed<=0?999:supply/dailyNeed;
+        double scarcity=Mathx.clamp(1.4-Math.log1p(days)/Math.log(8),.2,2.5);
+        double prosperity=faction.settlements().stream().mapToDouble(Settlement::prosperity).average().orElse(.5);
+        double price=BASE.getOrDefault(resource,1.0)*scarcity*(.88+.24*prosperity)*(1+faction.government().corruption()*.18);
+        return new MarketQuote(resource,Math.max(.01,price),days,scarcity);
+    }
+    public static double unitPrice(Faction faction,ResourceType resource){return quote(faction,resource).unitPrice();}
+    public static Map<ResourceType,MarketQuote> all(Faction faction){EnumMap<ResourceType,MarketQuote> out=new EnumMap<>(ResourceType.class);for(ResourceType r:ResourceType.values())out.put(r,quote(faction,r));return Collections.unmodifiableMap(out);}
+    private static double dailyNeed(int pop,ResourceType r){return switch(r){case FOOD->pop*.20;case TEXTILES->pop*.002;case TOOLS->pop*.0012;case FUEL->pop*.0008;case AMMUNITION->pop*.00015;default->Math.max(1,pop*.0004);};}
+}

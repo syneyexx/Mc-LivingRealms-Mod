@@ -1,0 +1,41 @@
+{
+  "id": "lemon_shark",
+  "commonName": "Lemon Shark",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 180,
+  "lifespanDays": 9000,
+  "maturityDays": 1800,
+  "gestationDays": 300,
+  "offspringPerBirth": 4,
+  "birthsPerYear": 0.25,
+  "dailyFoodKg": 12,
+  "dailyWaterLitres": 0,
+  "movementKmPerDay": 60,
+  "aggression": 0.78,
+  "fearfulness": 0.12,
+  "huntSkill": 0.9,
+  "defense": 0.78,
+  "minGroup": 1,
+  "maxGroup": 4,
+  "swimSpeedFactor": 0.95,
+  "climates": [
+    "AQUATIC",
+    "SUBTROPICAL",
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "coast",
+    "mangrove"
+  ],
+  "preySpecies": [
+    "sardine"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "SHARK",
+  "locomotion": "AQUATIC",
+  "flightSpeedFactor": 0.0
+}

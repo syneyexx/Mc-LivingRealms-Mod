@@ -1,0 +1,39 @@
+{
+  "id": "wildebeest",
+  "commonName": "Blue Wildebeest",
+  "diet": "HERBIVORE",
+  "activityCycle": "DIURNAL",
+  "socialPattern": "HERD",
+  "adultMassKg": 230.0,
+  "lifespanDays": 7300.0,
+  "maturityDays": 900.0,
+  "gestationDays": 250.0,
+  "offspringPerBirth": 1.0,
+  "birthsPerYear": 1.0,
+  "dailyFoodKg": 7.0,
+  "dailyWaterLitres": 18.0,
+  "movementKmPerDay": 20.0,
+  "aggression": 0.08,
+  "fearfulness": 0.9,
+  "huntSkill": 0.0,
+  "defense": 0.45,
+  "minGroup": 8.0,
+  "maxGroup": 200.0,
+  "climates": [
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "grassland",
+    "warm"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [
+    "lion",
+    "spotted_hyena"
+  ],
+  "attacksHumans": false,
+  "morphology": "UNGULATE",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

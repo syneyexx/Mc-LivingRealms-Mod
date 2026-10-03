@@ -1,0 +1,42 @@
+{
+  "id": "bluefin_tuna",
+  "commonName": "Atlantic Bluefin Tuna",
+  "diet": "PISCIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SCHOOL",
+  "adultMassKg": 250,
+  "lifespanDays": 5000,
+  "maturityDays": 900,
+  "gestationDays": 60,
+  "offspringPerBirth": 40,
+  "birthsPerYear": 0.5,
+  "dailyFoodKg": 1.2,
+  "dailyWaterLitres": 0,
+  "movementKmPerDay": 35,
+  "aggression": 0.6,
+  "fearfulness": 0.4,
+  "huntSkill": 0.75,
+  "defense": 0.35,
+  "minGroup": 2,
+  "maxGroup": 80,
+  "swimSpeedFactor": 1.25,
+  "climates": [
+    "AQUATIC",
+    "SUBTROPICAL",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "ocean",
+    "pelagic"
+  ],
+  "preySpecies": [
+    "atlantic_cod",
+    "salmon"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "FISH",
+  "locomotion": "AQUATIC",
+  "flightSpeedFactor": 0.0
+}

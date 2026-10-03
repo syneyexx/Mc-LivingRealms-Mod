@@ -1,0 +1,44 @@
+{
+  "id": "sardine",
+  "commonName": "Sardine",
+  "diet": "OMNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SCHOOL",
+  "adultMassKg": 0.12,
+  "lifespanDays": 3000,
+  "maturityDays": 500,
+  "gestationDays": 30,
+  "offspringPerBirth": 200,
+  "birthsPerYear": 0.8,
+  "dailyFoodKg": 0.06,
+  "dailyWaterLitres": 0,
+  "movementKmPerDay": 18,
+  "aggression": 0.05,
+  "fearfulness": 0.88,
+  "huntSkill": 0.2,
+  "defense": 0.08,
+  "minGroup": 100,
+  "maxGroup": 5000,
+  "climates": [
+    "AQUATIC",
+    "SUBTROPICAL",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "coast",
+    "ocean"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [
+    "blacktip_reef_shark",
+    "lemon_shark",
+    "pelican",
+    "swordfish"
+  ],
+  "attacksHumans": false,
+  "morphology": "FISH",
+  "locomotion": "AQUATIC",
+  "swimSpeedFactor": 1.0,
+  "flightSpeedFactor": 0.0
+}

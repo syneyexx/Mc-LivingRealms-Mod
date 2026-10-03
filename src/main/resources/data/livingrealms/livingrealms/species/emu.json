@@ -1,0 +1,38 @@
+{
+  "id": "emu",
+  "commonName": "Emu",
+  "diet": "OMNIVORE",
+  "activityCycle": "DIURNAL",
+  "socialPattern": "PAIR",
+  "adultMassKg": 38,
+  "lifespanDays": 4200,
+  "maturityDays": 280,
+  "gestationDays": 28,
+  "offspringPerBirth": 4,
+  "birthsPerYear": 1.4,
+  "dailyFoodKg": 0.12,
+  "dailyWaterLitres": 0.08,
+  "movementKmPerDay": 25,
+  "aggression": 0.12,
+  "fearfulness": 0.75,
+  "huntSkill": 0.2,
+  "defense": 0.1,
+  "minGroup": 3,
+  "maxGroup": 60,
+  "flightSpeedFactor": 0,
+  "climates": [
+    "ARID",
+    "SUBTROPICAL"
+  ],
+  "habitatTags": [
+    "dry",
+    "grassland",
+    "open"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "BIRD",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2
+}

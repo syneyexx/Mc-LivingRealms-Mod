@@ -1,0 +1,40 @@
+{
+  "id": "golden_eagle",
+  "commonName": "Golden Eagle",
+  "diet": "CARNIVORE",
+  "activityCycle": "DIURNAL",
+  "socialPattern": "PAIR",
+  "adultMassKg": 5.0,
+  "lifespanDays": 9125.0,
+  "maturityDays": 1460.0,
+  "gestationDays": 45.0,
+  "offspringPerBirth": 1.5,
+  "birthsPerYear": 1.0,
+  "dailyFoodKg": 0.3,
+  "dailyWaterLitres": 0.1,
+  "movementKmPerDay": 60.0,
+  "aggression": 0.35,
+  "fearfulness": 0.5,
+  "huntSkill": 0.7,
+  "defense": 0.2,
+  "minGroup": 1.0,
+  "maxGroup": 2.0,
+  "climates": [
+    "ALPINE",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "flying",
+    "grassland",
+    "mountain"
+  ],
+  "preySpecies": [
+    "rabbit"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "RAPTOR_BIRD",
+  "locomotion": "FLYING",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 1.0
+}

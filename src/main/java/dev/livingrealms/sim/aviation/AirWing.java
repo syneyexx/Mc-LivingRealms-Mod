@@ -1,0 +1,16 @@
+package dev.livingrealms.sim.aviation;
+
+import dev.livingrealms.sim.util.Mathx;
+import dev.livingrealms.sim.world.SimPosition;
+
+public final class AirWing {
+    private final long id;private final long factionId;private final AircraftModel model;private int aircraft;private SimPosition position;private SimPosition basePosition;private SimPosition targetPosition;private double fuel=1;private double readiness=.8;private double experience=.25;private AirMission mission=AirMission.IDLE;
+    public AirWing(long id,long factionId,AircraftModel model,int aircraft,SimPosition basePosition){if(id<=0||factionId<=0||model==null||aircraft<1||basePosition==null)throw new IllegalArgumentException("air wing");this.id=id;this.factionId=factionId;this.model=model;this.aircraft=aircraft;this.position=basePosition;this.basePosition=basePosition;this.targetPosition=basePosition;}
+    public long id(){return id;}public long factionId(){return factionId;}public AircraftModel model(){return model;}public int aircraft(){return aircraft;}public SimPosition position(){return position;}public SimPosition basePosition(){return basePosition;}public SimPosition targetPosition(){return targetPosition;}public double fuel(){return fuel;}public double readiness(){return readiness;}public double experience(){return experience;}public AirMission mission(){return mission;} public boolean destroyed(){return aircraft<=0;}
+    public double combatPower(){return aircraft*model.attack()*(.55+.45*readiness)*(.7+.6*experience);}
+    public void assign(AirMission mission,SimPosition target){this.mission=mission;this.targetPosition=target==null?basePosition:target;}
+    public void setBasePosition(SimPosition p){basePosition=p;} public void refuel(double amount){fuel=Mathx.clamp(fuel+amount,0,1);}public void adjustReadiness(double v){readiness=Mathx.clamp(readiness+v,0,1);}public void gainExperience(double v){experience=Mathx.clamp(experience+v,0,1);}
+    public void moveDay(){SimPosition dest=mission==AirMission.RETURN_TO_BASE||mission==AirMission.IDLE?basePosition:targetPosition;double maxDistance=model.speed()*8.0*Math.max(.1,fuel);double d=position.distanceTo(dest);if(d<=maxDistance)position=dest;else position=position.lerp(dest,maxDistance/d);fuel=Mathx.clamp(fuel-Math.min(1,d/Math.max(1,model.range()*10))*.25,0,1);if(fuel<.16)mission=AirMission.RETURN_TO_BASE;if(position.distanceTo(basePosition)<8&&mission==AirMission.RETURN_TO_BASE)mission=AirMission.IDLE;}
+    public void loseAircraft(int count){if(count<0)throw new IllegalArgumentException("count");aircraft=Math.max(0,aircraft-count);if(count>0)readiness=Mathx.clamp(readiness-count*.04,0,1);}
+    public void losses(double fraction){fraction=Mathx.clamp(fraction,0,1);aircraft=(int)Math.floor(aircraft*(1-fraction));readiness=Mathx.clamp(readiness-fraction*.65,0,1);}public void restore(int aircraft,SimPosition pos,SimPosition base,SimPosition target,double fuel,double readiness,double experience,AirMission mission){this.aircraft=Math.max(0,aircraft);this.position=pos;this.basePosition=base;this.targetPosition=target;this.fuel=Mathx.clamp(fuel,0,1);this.readiness=Mathx.clamp(readiness,0,1);this.experience=Mathx.clamp(experience,0,1);this.mission=mission;}
+}

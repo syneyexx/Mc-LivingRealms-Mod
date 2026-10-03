@@ -1,0 +1,44 @@
+{
+  "id": "gray_wolf",
+  "commonName": "Gray Wolf",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "PACK",
+  "adultMassKg": 45.0,
+  "lifespanDays": 4745.0,
+  "maturityDays": 670.0,
+  "gestationDays": 63.0,
+  "offspringPerBirth": 5.0,
+  "birthsPerYear": 1.0,
+  "dailyFoodKg": 2.5,
+  "dailyWaterLitres": 2.0,
+  "movementKmPerDay": 30.0,
+  "aggression": 0.7,
+  "fearfulness": 0.35,
+  "huntSkill": 0.78,
+  "defense": 0.5,
+  "minGroup": 3.0,
+  "maxGroup": 12.0,
+  "climates": [
+    "BOREAL",
+    "POLAR",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "cold",
+    "forest",
+    "grassland"
+  ],
+  "preySpecies": [
+    "bison",
+    "moose",
+    "rabbit",
+    "red_deer"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "CANID",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

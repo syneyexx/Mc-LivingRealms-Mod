@@ -1,0 +1,51 @@
+{
+  "id": "rabbit",
+  "commonName": "European Rabbit",
+  "diet": "HERBIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "COLONY",
+  "adultMassKg": 1.8,
+  "lifespanDays": 3285.0,
+  "maturityDays": 180.0,
+  "gestationDays": 30.0,
+  "offspringPerBirth": 5.0,
+  "birthsPerYear": 6.0,
+  "dailyFoodKg": 0.25,
+  "dailyWaterLitres": 0.12,
+  "movementKmPerDay": 3.0,
+  "aggression": 0.05,
+  "fearfulness": 0.95,
+  "huntSkill": 0.0,
+  "defense": 0.1,
+  "minGroup": 2.0,
+  "maxGroup": 20.0,
+  "climates": [
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "forest",
+    "grassland"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [
+    "arctic_fox",
+    "bobcat",
+    "burmese_python",
+    "canada_lynx",
+    "coyote",
+    "domestic_cat",
+    "domestic_dog",
+    "golden_eagle",
+    "gray_wolf",
+    "great_horned_owl",
+    "red_fox",
+    "red_tailed_hawk",
+    "reticulated_python",
+    "snowy_owl"
+  ],
+  "attacksHumans": false,
+  "morphology": "LAGOMORPH",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

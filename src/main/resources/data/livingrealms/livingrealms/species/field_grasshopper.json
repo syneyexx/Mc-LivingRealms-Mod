@@ -1,0 +1,38 @@
+{
+  "id": "field_grasshopper",
+  "commonName": "Field Grasshopper",
+  "diet": "HERBIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "FAMILY",
+  "adultMassKg": 0.002,
+  "lifespanDays": 3650,
+  "maturityDays": 300,
+  "gestationDays": 40,
+  "offspringPerBirth": 80,
+  "birthsPerYear": 3,
+  "dailyFoodKg": 0.0005,
+  "dailyWaterLitres": 0.0001,
+  "movementKmPerDay": 1,
+  "aggression": 0.08,
+  "fearfulness": 0.85,
+  "huntSkill": 0,
+  "defense": 0.15,
+  "minGroup": 20,
+  "maxGroup": 5000,
+  "climates": [
+    "ARID",
+    "SUBTROPICAL",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "grassland",
+    "open"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "INVERTEBRATE",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

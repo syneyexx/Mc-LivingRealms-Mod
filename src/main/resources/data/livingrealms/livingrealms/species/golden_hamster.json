@@ -1,0 +1,38 @@
+{
+  "id": "golden_hamster",
+  "commonName": "Golden Hamster",
+  "diet": "HERBIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "FAMILY",
+  "adultMassKg": 0.13,
+  "lifespanDays": 3650,
+  "maturityDays": 300,
+  "gestationDays": 40,
+  "offspringPerBirth": 3,
+  "birthsPerYear": 2,
+  "dailyFoodKg": 0.45,
+  "dailyWaterLitres": 0.3,
+  "movementKmPerDay": 2,
+  "aggression": 0.08,
+  "fearfulness": 0.85,
+  "huntSkill": 0,
+  "defense": 0.15,
+  "minGroup": 1,
+  "maxGroup": 4,
+  "climates": [
+    "ARID",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "dry",
+    "grassland",
+    "settlement"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "RODENT",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

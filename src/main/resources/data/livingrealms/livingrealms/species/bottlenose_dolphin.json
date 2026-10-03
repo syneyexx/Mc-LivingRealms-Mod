@@ -1,0 +1,41 @@
+{
+  "id": "bottlenose_dolphin",
+  "commonName": "Bottlenose Dolphin",
+  "diet": "PISCIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "PACK",
+  "adultMassKg": 260,
+  "lifespanDays": 15000,
+  "maturityDays": 2500,
+  "gestationDays": 360,
+  "offspringPerBirth": 1,
+  "birthsPerYear": 0.3,
+  "dailyFoodKg": 45,
+  "dailyWaterLitres": 0,
+  "movementKmPerDay": 80,
+  "aggression": 0.22,
+  "fearfulness": 0.15,
+  "huntSkill": 0.82,
+  "defense": 0.85,
+  "minGroup": 3,
+  "maxGroup": 30,
+  "swimSpeedFactor": 1.2,
+  "climates": [
+    "AQUATIC",
+    "TEMPERATE",
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "coast",
+    "ocean"
+  ],
+  "preySpecies": [
+    "salmon"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "CETACEAN",
+  "locomotion": "AQUATIC",
+  "flightSpeedFactor": 0.0
+}

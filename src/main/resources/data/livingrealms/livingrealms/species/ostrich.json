@@ -1,0 +1,38 @@
+{
+  "id": "ostrich",
+  "commonName": "Common Ostrich",
+  "diet": "OMNIVORE",
+  "activityCycle": "DIURNAL",
+  "socialPattern": "FLOCK",
+  "adultMassKg": 105,
+  "lifespanDays": 4200,
+  "maturityDays": 280,
+  "gestationDays": 28,
+  "offspringPerBirth": 4,
+  "birthsPerYear": 1.4,
+  "dailyFoodKg": 0.12,
+  "dailyWaterLitres": 0.08,
+  "movementKmPerDay": 35,
+  "aggression": 0.12,
+  "fearfulness": 0.75,
+  "huntSkill": 0.2,
+  "defense": 0.1,
+  "minGroup": 2,
+  "maxGroup": 30,
+  "flightSpeedFactor": 0,
+  "climates": [
+    "ARID",
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "grassland",
+    "open",
+    "warm"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "BIRD",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2
+}

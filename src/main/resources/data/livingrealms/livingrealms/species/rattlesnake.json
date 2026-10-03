@@ -1,0 +1,38 @@
+{
+  "id": "rattlesnake",
+  "commonName": "Rattlesnake",
+  "diet": "CARNIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 2,
+  "lifespanDays": 4500,
+  "maturityDays": 500,
+  "gestationDays": 65,
+  "offspringPerBirth": 3,
+  "birthsPerYear": 1,
+  "dailyFoodKg": 0.8,
+  "dailyWaterLitres": 0.7,
+  "movementKmPerDay": 2,
+  "aggression": 0.58,
+  "fearfulness": 0.5,
+  "huntSkill": 0.7,
+  "defense": 0.3,
+  "minGroup": 1,
+  "maxGroup": 4,
+  "climates": [
+    "ARID",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "desert",
+    "dry",
+    "grassland"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "OTHER_REPTILE",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

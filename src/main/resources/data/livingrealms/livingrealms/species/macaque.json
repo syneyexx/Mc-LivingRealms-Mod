@@ -1,0 +1,38 @@
+{
+  "id": "macaque",
+  "commonName": "Macaque",
+  "diet": "OMNIVORE",
+  "activityCycle": "DIURNAL",
+  "socialPattern": "FAMILY",
+  "adultMassKg": 10,
+  "lifespanDays": 12000,
+  "maturityDays": 1800,
+  "gestationDays": 230,
+  "offspringPerBirth": 1,
+  "birthsPerYear": 0.4,
+  "dailyFoodKg": 3,
+  "dailyWaterLitres": 3,
+  "movementKmPerDay": 8,
+  "aggression": 0.4,
+  "fearfulness": 0.4,
+  "huntSkill": 0.25,
+  "defense": 0.45,
+  "minGroup": 5,
+  "maxGroup": 70,
+  "climates": [
+    "SUBTROPICAL",
+    "TEMPERATE",
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "forest",
+    "mountain"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "GENERIC_QUADRUPED",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

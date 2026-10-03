@@ -1,0 +1,78 @@
+package dev.livingrealms.sim.player;
+
+import dev.livingrealms.sim.util.Mathx;
+import java.util.*;
+
+/** Persistent faction reputation and membership state for one player/actor key. */
+public final class PlayerStanding {
+    private final String actorKey;
+    private final Map<Long,Double> reputationByFaction=new LinkedHashMap<>();
+    private long memberFactionId;
+    private FactionRank rank=FactionRank.OUTSIDER;
+    private long joinedDay=-1;
+    private double servicePoints;
+    private int expulsions;
+
+    public PlayerStanding(String actorKey){
+        if(actorKey==null||actorKey.isBlank()) throw new IllegalArgumentException("actorKey");
+        this.actorKey=actorKey;
+    }
+
+    public String actorKey(){return actorKey;}
+    public Map<Long,Double> reputations(){return Collections.unmodifiableMap(reputationByFaction);}
+    public double reputationWith(long factionId){return reputationByFaction.getOrDefault(factionId,0.0);}
+    public long memberFactionId(){return memberFactionId;}
+    public FactionRank rank(){return rank;}
+    public long joinedDay(){return joinedDay;}
+    public double servicePoints(){return servicePoints;}
+    public int expulsions(){return expulsions;}
+    public boolean isMember(){return memberFactionId>0&&rank!=FactionRank.OUTSIDER;}
+    public boolean isMemberOf(long factionId){return isMember()&&memberFactionId==factionId;}
+    public boolean isRulerOf(long factionId){return isMemberOf(factionId)&&rank==FactionRank.RULER;}
+
+    public double adjustReputation(long factionId,double delta){
+        if(factionId<=0||!Double.isFinite(delta)) throw new IllegalArgumentException("reputation");
+        double next=Mathx.clamp(reputationWith(factionId)+delta,-100,100);
+        reputationByFaction.put(factionId,next);
+        return next;
+    }
+
+    public void restoreReputation(long factionId,double value){
+        if(factionId<=0||!Double.isFinite(value)) throw new IllegalArgumentException("reputation");
+        reputationByFaction.put(factionId,Mathx.clamp(value,-100,100));
+    }
+
+    public void join(long factionId,long day){
+        if(factionId<=0||day<0||isMember()) throw new IllegalStateException("membership");
+        memberFactionId=factionId;rank=FactionRank.CITIZEN;joinedDay=day;servicePoints=0;
+    }
+
+    public void assumeRule(long factionId,long day){if(factionId<=0||day<0)throw new IllegalArgumentException("rule");if(isMember()&&!isMemberOf(factionId))throw new IllegalStateException("member elsewhere");memberFactionId=factionId;rank=FactionRank.RULER;joinedDay=joinedDay<0?day:joinedDay;servicePoints=Math.max(servicePoints,2000);}
+
+    public void leave(boolean expelled){
+        memberFactionId=0;rank=FactionRank.OUTSIDER;joinedDay=-1;servicePoints=0;
+        if(expelled) expulsions++;
+    }
+
+    public void grantService(double amount){
+        if(!isMember()||amount<0||!Double.isFinite(amount)) throw new IllegalArgumentException("service");
+        servicePoints=Math.max(0,servicePoints+amount);
+    }
+
+    public boolean refreshRank(){
+        if(!isMember()||rank==FactionRank.RULER) return false;
+        FactionRank next=FactionRank.CITIZEN;
+        for(FactionRank candidate:FactionRank.values()) {
+            if(candidate==FactionRank.OUTSIDER) continue;
+            if(servicePoints>=candidate.serviceRequired()&&reputationWith(memberFactionId)>=candidate.reputationRequired()) next=candidate;
+        }
+        if(next==rank) return false;
+        rank=next;return true;
+    }
+
+    public void restoreMembership(long factionId,FactionRank restoredRank,long restoredJoinedDay,double restoredService,int restoredExpulsions){
+        if(restoredRank==null||restoredService<0||!Double.isFinite(restoredService)||restoredExpulsions<0) throw new IllegalArgumentException("membership");
+        if(factionId<=0||restoredRank==FactionRank.OUTSIDER){memberFactionId=0;rank=FactionRank.OUTSIDER;joinedDay=-1;servicePoints=0;expulsions=restoredExpulsions;return;}
+        memberFactionId=factionId;rank=restoredRank;joinedDay=Math.max(0,restoredJoinedDay);servicePoints=restoredService;expulsions=restoredExpulsions;
+    }
+}

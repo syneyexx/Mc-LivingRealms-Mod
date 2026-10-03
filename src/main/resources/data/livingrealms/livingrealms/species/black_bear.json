@@ -1,0 +1,39 @@
+{
+  "id": "black_bear",
+  "commonName": "American Black Bear",
+  "diet": "OMNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "FAMILY",
+  "adultMassKg": 130,
+  "lifespanDays": 6500,
+  "maturityDays": 700,
+  "gestationDays": 120,
+  "offspringPerBirth": 2,
+  "birthsPerYear": 0.8,
+  "dailyFoodKg": 3,
+  "dailyWaterLitres": 4,
+  "movementKmPerDay": 12,
+  "aggression": 0.48,
+  "fearfulness": 0.45,
+  "huntSkill": 0.45,
+  "defense": 0.55,
+  "minGroup": 1,
+  "maxGroup": 8,
+  "climates": [
+    "BOREAL",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "forest",
+    "freshwater"
+  ],
+  "preySpecies": [
+    "salmon"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "URSID",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

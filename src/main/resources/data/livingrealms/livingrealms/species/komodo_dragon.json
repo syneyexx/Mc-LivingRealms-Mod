@@ -1,0 +1,39 @@
+{
+  "id": "komodo_dragon",
+  "commonName": "Komodo Dragon",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 75,
+  "lifespanDays": 7000,
+  "maturityDays": 900,
+  "gestationDays": 70,
+  "offspringPerBirth": 18,
+  "birthsPerYear": 0.5,
+  "dailyFoodKg": 0.9,
+  "dailyWaterLitres": 0.2,
+  "movementKmPerDay": 5,
+  "aggression": 0.8,
+  "fearfulness": 0.28,
+  "huntSkill": 0.66,
+  "defense": 0.75,
+  "minGroup": 1,
+  "maxGroup": 5,
+  "climates": [
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "dry",
+    "forest",
+    "warm"
+  ],
+  "preySpecies": [
+    "wild_boar"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "OTHER_REPTILE",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

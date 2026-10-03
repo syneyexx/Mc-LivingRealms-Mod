@@ -1,0 +1,5 @@
+package dev.livingrealms.sim.society;
+
+public enum Profession {
+    FARMER, FORESTER, MINER, FISHER, BUILDER, ARTISAN, MACHINIST, MERCHANT, SOLDIER, GUARD, SCHOLAR, HEALER, PILOT, SAILOR, UNEMPLOYED
+}

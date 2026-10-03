@@ -1,0 +1,39 @@
+{
+  "id": "sperm_whale",
+  "commonName": "Sperm Whale",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "PACK",
+  "adultMassKg": 35000,
+  "lifespanDays": 15000,
+  "maturityDays": 2500,
+  "gestationDays": 360,
+  "offspringPerBirth": 1,
+  "birthsPerYear": 0.3,
+  "dailyFoodKg": 400,
+  "dailyWaterLitres": 0,
+  "movementKmPerDay": 80,
+  "aggression": 0.22,
+  "fearfulness": 0.15,
+  "huntSkill": 0.82,
+  "defense": 0.85,
+  "minGroup": 1,
+  "maxGroup": 15,
+  "swimSpeedFactor": 0.85,
+  "climates": [
+    "AQUATIC",
+    "TEMPERATE",
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "aquatic",
+    "deep",
+    "ocean"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "CETACEAN",
+  "locomotion": "AQUATIC",
+  "flightSpeedFactor": 0.0
+}

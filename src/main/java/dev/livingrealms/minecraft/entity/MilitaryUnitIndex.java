@@ -1,0 +1,3 @@
+package dev.livingrealms.minecraft.entity;
+import java.util.*;import java.util.concurrent.ConcurrentHashMap;
+public final class MilitaryUnitIndex{private static final Map<UUID,MilitaryUnitEntity> BY_UUID=new ConcurrentHashMap<>();private MilitaryUnitIndex(){}public static void joined(MilitaryUnitEntity e){BY_UUID.put(e.getUUID(),e);}public static void left(MilitaryUnitEntity e){BY_UUID.remove(e.getUUID());}public static Collection<MilitaryUnitEntity> loaded(){return List.copyOf(BY_UUID.values());}public static MilitaryUnitEntity forSlot(long armyId,int slot){return BY_UUID.values().stream().filter(e->e.armyId()==armyId&&e.projectionSlot()==slot&&!e.isRemoved()).findFirst().orElse(null);}public static void clear(){BY_UUID.clear();}}

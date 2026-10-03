@@ -1,0 +1,37 @@
+{
+  "id": "bison",
+  "commonName": "American Bison",
+  "diet": "HERBIVORE",
+  "activityCycle": "DIURNAL",
+  "socialPattern": "HERD",
+  "adultMassKg": 700.0,
+  "lifespanDays": 7300.0,
+  "maturityDays": 730.0,
+  "gestationDays": 285.0,
+  "offspringPerBirth": 1.0,
+  "birthsPerYear": 1.0,
+  "dailyFoodKg": 12.0,
+  "dailyWaterLitres": 30.0,
+  "movementKmPerDay": 10.0,
+  "aggression": 0.25,
+  "fearfulness": 0.55,
+  "huntSkill": 0.0,
+  "defense": 0.9,
+  "minGroup": 4.0,
+  "maxGroup": 100.0,
+  "climates": [
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "grassland"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [
+    "gray_wolf"
+  ],
+  "attacksHumans": true,
+  "morphology": "UNGULATE",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

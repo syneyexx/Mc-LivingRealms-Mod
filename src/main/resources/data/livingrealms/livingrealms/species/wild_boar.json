@@ -1,0 +1,43 @@
+{
+  "id": "wild_boar",
+  "commonName": "Wild Boar",
+  "diet": "OMNIVORE",
+  "activityCycle": "NOCTURNAL",
+  "socialPattern": "HERD",
+  "adultMassKg": 90.0,
+  "lifespanDays": 5475.0,
+  "maturityDays": 365.0,
+  "gestationDays": 115.0,
+  "offspringPerBirth": 5.0,
+  "birthsPerYear": 1.5,
+  "dailyFoodKg": 3.0,
+  "dailyWaterLitres": 4.0,
+  "movementKmPerDay": 8.0,
+  "aggression": 0.55,
+  "fearfulness": 0.5,
+  "huntSkill": 0.25,
+  "defense": 0.6,
+  "minGroup": 2.0,
+  "maxGroup": 15.0,
+  "climates": [
+    "SUBTROPICAL",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "forest",
+    "wetland"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [
+    "jaguar",
+    "komodo_dragon",
+    "leopard",
+    "saltwater_crocodile",
+    "tiger"
+  ],
+  "attacksHumans": true,
+  "morphology": "SUID",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

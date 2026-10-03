@@ -1,0 +1,40 @@
+{
+  "id": "spotted_hyena",
+  "commonName": "Spotted Hyena",
+  "diet": "CARNIVORE",
+  "activityCycle": "CATHEMERAL",
+  "socialPattern": "PACK",
+  "adultMassKg": 60,
+  "lifespanDays": 5200,
+  "maturityDays": 700,
+  "gestationDays": 70,
+  "offspringPerBirth": 4,
+  "birthsPerYear": 0.8,
+  "dailyFoodKg": 2.5,
+  "dailyWaterLitres": 2,
+  "movementKmPerDay": 30,
+  "aggression": 0.7,
+  "fearfulness": 0.28,
+  "huntSkill": 0.8,
+  "defense": 0.5,
+  "minGroup": 3,
+  "maxGroup": 40,
+  "climates": [
+    "TROPICAL"
+  ],
+  "habitatTags": [
+    "grassland",
+    "warm"
+  ],
+  "preySpecies": [
+    "gazelle",
+    "wildebeest",
+    "zebra"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": true,
+  "morphology": "GENERIC_QUADRUPED",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

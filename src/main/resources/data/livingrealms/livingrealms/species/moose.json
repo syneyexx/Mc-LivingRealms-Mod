@@ -1,0 +1,40 @@
+{
+  "id": "moose",
+  "commonName": "Moose",
+  "diet": "HERBIVORE",
+  "activityCycle": "CREPUSCULAR",
+  "socialPattern": "SOLITARY",
+  "adultMassKg": 450.0,
+  "lifespanDays": 6570.0,
+  "maturityDays": 730.0,
+  "gestationDays": 235.0,
+  "offspringPerBirth": 1.5,
+  "birthsPerYear": 1.0,
+  "dailyFoodKg": 10.0,
+  "dailyWaterLitres": 25.0,
+  "movementKmPerDay": 10.0,
+  "aggression": 0.3,
+  "fearfulness": 0.55,
+  "huntSkill": 0.0,
+  "defense": 0.8,
+  "minGroup": 1.0,
+  "maxGroup": 3.0,
+  "climates": [
+    "BOREAL",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "cold",
+    "forest",
+    "wetland"
+  ],
+  "preySpecies": [],
+  "predatorSpecies": [
+    "gray_wolf"
+  ],
+  "attacksHumans": true,
+  "morphology": "UNGULATE",
+  "locomotion": "TERRESTRIAL",
+  "swimSpeedFactor": 0.2,
+  "flightSpeedFactor": 0.0
+}

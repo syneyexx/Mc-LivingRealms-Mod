@@ -1,0 +1,41 @@
+{
+  "id": "bald_eagle",
+  "commonName": "Bald Eagle",
+  "diet": "CARNIVORE",
+  "activityCycle": "DIURNAL",
+  "socialPattern": "PAIR",
+  "adultMassKg": 5,
+  "lifespanDays": 7300,
+  "maturityDays": 900,
+  "gestationDays": 40,
+  "offspringPerBirth": 2,
+  "birthsPerYear": 1,
+  "dailyFoodKg": 0.25,
+  "dailyWaterLitres": 0.08,
+  "movementKmPerDay": 55,
+  "aggression": 0.4,
+  "fearfulness": 0.5,
+  "huntSkill": 0.78,
+  "defense": 0.18,
+  "minGroup": 1,
+  "maxGroup": 3,
+  "flightSpeedFactor": 1.05,
+  "climates": [
+    "BOREAL",
+    "TEMPERATE"
+  ],
+  "habitatTags": [
+    "coast",
+    "flying",
+    "forest",
+    "river"
+  ],
+  "preySpecies": [
+    "salmon"
+  ],
+  "predatorSpecies": [],
+  "attacksHumans": false,
+  "morphology": "RAPTOR_BIRD",
+  "locomotion": "FLYING",
+  "swimSpeedFactor": 0.2
+}
