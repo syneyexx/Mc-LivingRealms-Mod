@@ -14,17 +14,26 @@ public final class MarketEngine {
     }
     private MarketEngine(){}
 
+    public static double basePrice(ResourceType resource){return BASE.getOrDefault(resource,1.0);}
+
     public static MarketQuote quote(Faction faction,ResourceType resource){
         int pop=Math.max(1,faction.population());
-        double dailyNeed=dailyNeed(pop,resource);
+        double dailyNeed=localDailyNeed(pop,resource);
         double supply=faction.stockpile().get(resource);
+        // Realm quotes see treasury + all settlement barns/granaries.
+        for(Settlement s:faction.settlements())supply+=s.stockpile().get(resource);
         double days=dailyNeed<=0?999:supply/dailyNeed;
         double scarcity=Mathx.clamp(1.4-Math.log1p(days)/Math.log(8),.2,2.5);
         double prosperity=faction.settlements().stream().mapToDouble(Settlement::prosperity).average().orElse(.5);
-        double price=BASE.getOrDefault(resource,1.0)*scarcity*(.88+.24*prosperity)*(1+faction.government().corruption()*.18);
+        double price=basePrice(resource)*scarcity*(.88+.24*prosperity)*(1+faction.government().corruption()*.18);
         return new MarketQuote(resource,Math.max(.01,price),days,scarcity);
     }
     public static double unitPrice(Faction faction,ResourceType resource){return quote(faction,resource).unitPrice();}
     public static Map<ResourceType,MarketQuote> all(Faction faction){EnumMap<ResourceType,MarketQuote> out=new EnumMap<>(ResourceType.class);for(ResourceType r:ResourceType.values())out.put(r,quote(faction,r));return Collections.unmodifiableMap(out);}
-    private static double dailyNeed(int pop,ResourceType r){return switch(r){case FOOD->pop*.20;case TEXTILES->pop*.002;case TOOLS->pop*.0012;case FUEL->pop*.0008;case AMMUNITION->pop*.00015;default->Math.max(1,pop*.0004);};}
+    public static double localDailyNeed(int pop,ResourceType r){return switch(r){case FOOD->pop*.20;case TEXTILES->pop*.002;case TOOLS->pop*.0012;case FUEL->pop*.0008;case AMMUNITION->pop*.00015;case WOOD->pop*.002;case STONE->pop*.001;default->Math.max(1,pop*.0004);};}
+    public static double localDaysOfSupply(Settlement settlement,ResourceType resource){
+        double need=localDailyNeed(Math.max(1,settlement.population()),resource);
+        if(need<=0)return 999;
+        return settlement.stockpile().get(resource)/need;
+    }
 }

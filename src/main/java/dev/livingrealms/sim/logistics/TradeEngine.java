@@ -23,7 +23,19 @@ public final class TradeEngine {
         for(TradeShipment shipment:new ArrayList<>(state.shipments())) {
             shipment.advanceDistance(CARAVAN_SPEED_PER_DAY);
             if(intercepted(state,shipment,rng)) {state.history().add(new WorldEvent(state.clock().day(),"trade_intercepted",describe(shipment)));remove.add(shipment.id());continue;}
-            if(shipment.arrived()) {Faction buyer=state.findFaction(shipment.buyerFactionId()).orElse(null);if(buyer!=null){buyer.stockpile().add(shipment.resource(),shipment.amount());state.history().add(new WorldEvent(state.clock().day(),"trade_delivered",describe(shipment)));}remove.add(shipment.id());}
+            if(shipment.arrived()) {
+                Faction buyer=state.findFaction(shipment.buyerFactionId()).orElse(null);
+                if(buyer!=null){
+                    Settlement dest=buyer.settlements().stream().min(Comparator.comparingDouble(s->s.position().distanceTo(shipment.destination()))).orElse(null);
+                    // Split delivery: local market barn + faction strategic reserve.
+                    double localShare=shipment.amount()*.65,strategic=shipment.amount()-localShare;
+                    if(dest!=null){dest.stockpile().add(shipment.resource(),localShare);dest.enforceStorageCaps();}
+                    else strategic=shipment.amount();
+                    buyer.stockpile().add(shipment.resource(),strategic);
+                    state.history().add(new WorldEvent(state.clock().day(),"trade_delivered",describe(shipment)));
+                }
+                remove.add(shipment.id());
+            }
         }
         for(long id:remove)state.removeShipment(id);
     }
@@ -54,11 +66,29 @@ public final class TradeEngine {
 
     private static void dispatchOne(SimulationState state,Faction seller,Faction buyer,ResourceType resource) {
         if(state.shipments().stream().anyMatch(s->s.sellerFactionId()==seller.id()&&s.buyerFactionId()==buyer.id()&&s.resource()==resource))return;
-        double desired=desiredReserve(buyer,resource),need=Math.max(0,desired-buyer.stockpile().get(resource)),sellerReserve=desiredReserve(seller,resource)*.75,surplus=Math.max(0,seller.stockpile().get(resource)-sellerReserve);
-        double sellerAsk=MarketEngine.unitPrice(seller,resource),buyerBid=MarketEngine.unitPrice(buyer,resource);double leverage=ResourceDominanceEngine.sellerLeverageMultiplier(state,seller.id(),resource);double price=Math.max(.01,(sellerAsk+buyerBid)*.5*leverage);
-        double amount=Math.min(Math.min(need,surplus),buyer.treasury()/price);amount=Math.min(amount,256.0);if(amount<1.0||seller.settlements().isEmpty()||buyer.settlements().isEmpty())return;
-        Settlement origin=closestPairOrigin(seller,buyer),destination=closestTo(buyer,origin.position());seller.stockpile().take(resource,amount);double value=amount*price;buyer.addTreasury(-value);seller.addTreasury(value);
+        // Strategic need looks at faction treasury stores; surplus can be drawn from local barns too.
+        double desired=desiredReserve(buyer,resource);
+        double need=Math.max(0,desired-buyer.stockpile().get(resource));
+        double sellerHeld=seller.stockpile().get(resource)+localHeld(seller,resource);
+        double sellerReserve=desiredReserve(seller,resource)*.75;
+        double surplus=Math.max(0,sellerHeld-sellerReserve);
+        Settlement origin=closestPairOrigin(seller,buyer),destination=closestTo(buyer,origin.position());
+        long day=state.clock().day();
+        double sellerAsk=dev.livingrealms.sim.economy.LocalMarketEngine.quote(seller,origin,resource,day).unitPrice();
+        double buyerBid=dev.livingrealms.sim.economy.LocalMarketEngine.quote(buyer,destination,resource,day).unitPrice();
+        boolean arbitrage=buyerBid>=sellerAsk*1.05;
+        if(!arbitrage&&need<desired*.35)return; // no price gap and buyer not short on treasury stores
+        if(need<=0&&arbitrage)need=Math.min(64,surplus*.15); // speculative shipment on clear price gap
+        double leverage=ResourceDominanceEngine.sellerLeverageMultiplier(state,seller.id(),resource);double price=Math.max(.01,(sellerAsk+buyerBid)*.5*leverage);
+        double amount=Math.min(Math.min(need,surplus),buyer.treasury()/Math.max(.01,price));amount=Math.min(amount,256.0);if(amount<1.0||seller.settlements().isEmpty()||buyer.settlements().isEmpty())return;
+        drawForTrade(seller,origin,resource,amount);double value=amount*price;buyer.addTreasury(-value);seller.addTreasury(value);
         TradeShipment shipment=new TradeShipment(state.nextId(),seller.id(),buyer.id(),resource,amount,value,origin.position(),destination.position());state.addShipment(shipment);state.history().add(new WorldEvent(state.clock().day(),"trade_dispatched",describe(shipment)+", price="+String.format(java.util.Locale.ROOT,"%.2f",price)));
+    }
+
+    private static double localHeld(Faction f,ResourceType r){double t=0;for(Settlement s:f.settlements())t+=s.stockpile().get(r);return t;}
+    private static void drawForTrade(Faction seller,Settlement origin,ResourceType resource,double amount){
+        double fromLocal=origin.stockpile().take(resource,amount);
+        if(fromLocal<amount)seller.stockpile().take(resource,amount-fromLocal);
     }
 
     private static Settlement closestPairOrigin(Faction seller,Faction buyer){Settlement best=seller.settlements().getFirst();double distance=Double.POSITIVE_INFINITY;for(Settlement s:seller.settlements())for(Settlement b:buyer.settlements()){double d=s.position().distanceTo(b.position());if(d<distance){distance=d;best=s;}}return best;}

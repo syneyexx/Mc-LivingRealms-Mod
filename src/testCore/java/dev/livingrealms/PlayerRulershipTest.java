@@ -15,7 +15,7 @@ public final class PlayerRulershipTest {
         check(!state.leaveFaction("player:founder"),"ordinary leave action must not silently abdicate a player ruler");
         SimulationState restored=SimulationStateCodec.decode(SimulationStateCodec.encode(state),state.species());
         check(restored.playerStanding("player:founder").rank()==FactionRank.RULER&&restored.playerRuler(founded.factionId()).isPresent(),"rulership did not survive save/load");
-        System.out.println("PASS player rulership: founder is authoritative ruler + no fake NPC ruler + no accidental leave + schema15 persistence");
+        System.out.println("PASS player rulership: founder is authoritative ruler + no fake NPC ruler + no accidental leave + schema16 persistence");
     }
     private static void check(boolean value,String message){if(!value)throw new AssertionError(message);}
 }

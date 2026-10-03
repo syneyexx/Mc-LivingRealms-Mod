@@ -36,18 +36,22 @@ public final class SettlementPlanner {
         addRoadNetwork(out,faction,settlement,layout,baseRotation);
         addHousing(out,faction,settlement,layout,baseRotation);
         addFarms(out,faction,settlement,layout,baseRotation);
+        addPastures(out,faction,settlement,layout,baseRotation);
 
         if(tier>=Settlement.Tier.HAMLET.ordinal())addCivic(out,faction,settlement,layout,baseRotation,StructureRole.WELL,0,5,5,116);
         if(tier>=Settlement.Tier.VILLAGE.ordinal()){
             addCivic(out,faction,settlement,layout,baseRotation,StructureRole.IRRIGATION,0,7,31,74);
+            addCivic(out,faction,settlement,layout,baseRotation,StructureRole.MILL,0,11,11,93);
             addCivic(out,faction,settlement,layout,baseRotation,StructureRole.MARKET,0,15,13,122);
             addCivic(out,faction,settlement,layout,baseRotation,StructureRole.WAREHOUSE,0,13,11,91);
             addCivic(out,faction,settlement,layout,baseRotation,StructureRole.TAVERN,0,13,11,94);
             addCivic(out,faction,settlement,layout,baseRotation,StructureRole.TEMPLE,0,13,15,88);
+            addCivic(out,faction,settlement,layout,baseRotation,StructureRole.BAKERY,0,11,9,90);
         }
         if(tier>=Settlement.Tier.TOWN.ordinal()){
             addCivic(out,faction,settlement,layout,baseRotation,StructureRole.BARRACKS,0,15,11,104);
             addCivic(out,faction,settlement,layout,baseRotation,StructureRole.WORKSHOP,0,13,11,92);
+            addCivic(out,faction,settlement,layout,baseRotation,StructureRole.BREWERY,0,13,11,88);
             addCivic(out,faction,settlement,layout,baseRotation,StructureRole.CLINIC,0,13,11,90);
             addCivic(out,faction,settlement,layout,baseRotation,StructureRole.SCHOOL,0,15,11,86);
             addCivic(out,faction,settlement,layout,baseRotation,StructureRole.COURTHOUSE,0,15,13,99);
@@ -107,17 +111,21 @@ public final class SettlementPlanner {
 
     private static void addHousing(List<ConstructionIntent> out,Faction faction,Settlement settlement,Layout layout,int baseRotation){
         int represented=Math.max(settlement.population(),settlement.housing());
-        int houses=Math.min(132,Math.max(5,(int)Math.ceil(represented/34.0)));
+        // No hard 132-house ceiling: cities grow wards as population/housing rise. Soft performance bound only.
+        int softCap=switch(settlement.tier()){case CAMP->24;case HAMLET->48;case VILLAGE->96;case TOWN->220;case CITY->480;case METROPOLIS->900;};
+        int houses=Math.min(softCap,Math.max(5,(int)Math.ceil(represented/22.0)));
         int spacing=switch(layout){case GRID->44;case MARKET_CROSS->48;case WARDS->52;case BOULEVARD->56;case OLD_TOWN->42;};
         int lotStep=14;
-        int emitted=0,scan=0,limit=houses*18+200;
+        int emitted=0,scan=0,limit=houses*22+400;
         while(emitted<houses&&scan<limit){
             int[] cell=spiral(scan++);
             int lx=cell[0]*lotStep,lz=cell[1]*lotStep;
             if(Math.abs(lx)<12&&Math.abs(lz)<12)continue;
             int streetStep=settlement.tier().ordinal()>=Settlement.Tier.VILLAGE.ordinal()?Math.max(18,spacing/2):spacing;
             if(distanceToStreet(lx,streetStep)<5||distanceToStreet(lz,streetStep)<5)continue;
-            int maxRadius=switch(settlement.tier()){case CAMP->34;case HAMLET->48;case VILLAGE->72;case TOWN->112;case CITY->164;case METROPOLIS->220;};
+            int maxRadius=switch(settlement.tier()){case CAMP->40;case HAMLET->64;case VILLAGE->96;case TOWN->148;case CITY->220;case METROPOLIS->320;};
+            // Population pressure expands the built envelope beyond tier defaults.
+            maxRadius+=Math.min(120,(int)Math.sqrt(Math.max(0,represented))/2);
             if(Math.abs(lx)>maxRadius||Math.abs(lz)>maxRadius)continue;
             SimPosition center=local(settlement,baseRotation,lx,lz);
             int variant=Math.floorMod((int)mix(settlement.id()^(long)emitted*0x9E3779B97F4A7C15L),7);
@@ -132,7 +140,7 @@ public final class SettlementPlanner {
     }
 
     private static void addFarms(List<ConstructionIntent> out,Faction faction,Settlement settlement,Layout layout,int baseRotation){
-        int farms=Math.min(24,Math.max(2,(int)Math.ceil(settlement.population()/220.0)));
+        int farms=Math.min(72,Math.max(2,(int)Math.ceil(settlement.population()/160.0)));
         int urbanRadius=switch(settlement.tier()){case CAMP->48;case HAMLET->64;case VILLAGE->88;case TOWN->132;case CITY->188;case METROPOLIS->244;};
         for(int i=0;i<farms;i++){
             int side=i&3,band=i/4;double along=(band-(farms/8.0))*32.0;double edge=urbanRadius+34+(band%2)*18;
@@ -140,6 +148,17 @@ public final class SettlementPlanner {
             double lz=switch(side){case 2->edge;case 3->-edge;default->along;};
             int size=11+2*Math.floorMod(i+(int)settlement.id(),3);
             addAt(out,faction,settlement,StructureRole.FARM,i,local(settlement,baseRotation,lx,lz),size,size,baseRotation,62);
+        }
+    }
+
+    private static void addPastures(List<ConstructionIntent> out,Faction faction,Settlement settlement,Layout layout,int baseRotation){
+        int pastures=Math.min(24,Math.max(1,(int)Math.ceil(settlement.population()/280.0)));
+        int urbanRadius=switch(settlement.tier()){case CAMP->48;case HAMLET->64;case VILLAGE->88;case TOWN->132;case CITY->188;case METROPOLIS->244;};
+        for(int i=0;i<pastures;i++){
+            int side=(i+1)&3;double along=(i-(pastures/4.0))*28.0;double edge=urbanRadius+58+(i%2)*14;
+            double lx=switch(side){case 0->edge;case 1->-edge;default->along;};
+            double lz=switch(side){case 2->edge;case 3->-edge;default->along;};
+            addAt(out,faction,settlement,StructureRole.PASTURE,i,local(settlement,baseRotation,lx,lz),13,13,baseRotation,58);
         }
     }
 
@@ -167,7 +186,7 @@ public final class SettlementPlanner {
     private static SimPosition civicPoint(Settlement settlement,Layout layout,StructureRole role){
         int r=Math.floorMod((int)mix(settlement.id()^0x4F1BBCDCBFA54001L),2);
         double[] p=switch(role){
-            case KEEP->new double[]{-18,-18};case MARKET->new double[]{18,18};case WAREHOUSE->new double[]{-30,28};case BARRACKS->new double[]{30,-30};case WORKSHOP->new double[]{54,18};case FACTORY->new double[]{86,54};case WELL->new double[]{0,18};case IRRIGATION->new double[]{92,44};case AQUEDUCT->new double[]{-126,32};case TAVERN->new double[]{30,28};case TEMPLE->new double[]{-32,-30};case CLINIC->new double[]{54,-18};case SCHOOL->new double[]{-54,18};case COURTHOUSE->new double[]{-18,54};case PRISON->new double[]{54,54};case ORPHANAGE->new double[]{-54,54};case MONUMENT->new double[]{18,0};case OBSERVATORY->new double[]{-96,-78};default->new double[]{0,0};};
+            case KEEP->new double[]{-18,-18};case MARKET->new double[]{18,18};case WAREHOUSE->new double[]{-30,28};case BARRACKS->new double[]{30,-30};case WORKSHOP->new double[]{54,18};case FACTORY->new double[]{86,54};case WELL->new double[]{0,18};case IRRIGATION->new double[]{92,44};case AQUEDUCT->new double[]{-126,32};case TAVERN->new double[]{30,28};case TEMPLE->new double[]{-32,-30};case CLINIC->new double[]{54,-18};case SCHOOL->new double[]{-54,18};case COURTHOUSE->new double[]{-18,54};case PRISON->new double[]{54,54};case ORPHANAGE->new double[]{-54,54};case MONUMENT->new double[]{18,0};case OBSERVATORY->new double[]{-96,-78};case MILL->new double[]{72,-28};case BAKERY->new double[]{42,42};case BREWERY->new double[]{-42,42};default->new double[]{0,0};};
         if(layout==Layout.WARDS){p=new double[]{p[0]+Math.signum(p[0])*8,p[1]};}
         else if(layout==Layout.BOULEVARD){p=new double[]{p[0],p[1]+Math.signum(p[1])*8};}
         return local(settlement,r,p[0],p[1]);
@@ -195,7 +214,7 @@ public final class SettlementPlanner {
     private static SimPosition local(Settlement s,int quarterTurns,double x,double z){
         return switch(Math.floorMod(quarterTurns,4)){case 0->new SimPosition(s.position().x()+x,s.position().z()+z);case 1->new SimPosition(s.position().x()-z,s.position().z()+x);case 2->new SimPosition(s.position().x()-x,s.position().z()-z);default->new SimPosition(s.position().x()+z,s.position().z()-x);};
     }
-    private static int adjustPriority(dev.livingrealms.sim.faction.DevelopmentPriority policy,StructureRole role,int base){int bonus=switch(policy){case BALANCED->0;case FOOD->(role==StructureRole.FARM||role==StructureRole.FISHERY||role==StructureRole.IRRIGATION||role==StructureRole.AQUEDUCT||role==StructureRole.WELL)?35:0;case HOUSING->role==StructureRole.HOUSE?60:0;case INDUSTRY->(role==StructureRole.WORKSHOP||role==StructureRole.FACTORY||role==StructureRole.MINE||role==StructureRole.LUMBER_CAMP)?35:0;case DEFENSE->(role==StructureRole.KEEP||role==StructureRole.BARRACKS||role==StructureRole.WALL||role==StructureRole.GATE||role==StructureRole.AIRFIELD)?35:0;};return Math.min(240,base+bonus);}
+    private static int adjustPriority(dev.livingrealms.sim.faction.DevelopmentPriority policy,StructureRole role,int base){int bonus=switch(policy){case BALANCED->0;case FOOD->(role==StructureRole.FARM||role==StructureRole.FISHERY||role==StructureRole.IRRIGATION||role==StructureRole.AQUEDUCT||role==StructureRole.WELL||role==StructureRole.MILL||role==StructureRole.BAKERY||role==StructureRole.PASTURE)?35:0;case HOUSING->role==StructureRole.HOUSE?60:0;case INDUSTRY->(role==StructureRole.WORKSHOP||role==StructureRole.FACTORY||role==StructureRole.MINE||role==StructureRole.LUMBER_CAMP||role==StructureRole.BREWERY)?35:0;case DEFENSE->(role==StructureRole.KEEP||role==StructureRole.BARRACKS||role==StructureRole.WALL||role==StructureRole.GATE||role==StructureRole.AIRFIELD)?35:0;};return Math.min(240,base+bonus);}
     private static Layout layout(Settlement settlement){return Layout.values()[Math.floorMod((int)mix(settlement.id()*0x9E3779B97F4A7C15L),Layout.values().length)];}
     private static long mix(long z){z=(z^(z>>>30))*0xBF58476D1CE4E5B9L;z=(z^(z>>>27))*0x94D049BB133111EBL;return z^(z>>>31);}
     private static void addAt(List<ConstructionIntent> out,Faction faction,Settlement settlement,StructureRole role,int index,SimPosition center,int width,int depth,int rotation,int priority){out.add(new ConstructionIntent(key(settlement,role,index),faction.id(),settlement.id(),role,center,width,depth,Math.floorMod(rotation,4),priority));}

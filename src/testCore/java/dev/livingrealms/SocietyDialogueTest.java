@@ -64,7 +64,7 @@ public final class SocietyDialogueTest {
         SocialCitizen rc=restored.findSocialCitizen(citizen.id()).orElseThrow();
         check(rc.name().equals(citizen.name())&&rc.memories().size()==SocialCitizen.MAX_MEMORIES,"social persistence");
         check(rc.relationships().containsKey(player),"relationship persistence");
-        check(SimulationStateCodec.SCHEMA_VERSION==15,"schema15");
+        check(SimulationStateCodec.SCHEMA_VERSION==16,"schema16");
 
         ModCompatibilityPolicy.validate();
         check(ModCompatibilityPolicy.isPlayerOnly("mr_guns")&&!ModCompatibilityPolicy.mayUseForLivingWorld("mr_guns"),"Guns++ NPC deny-list");

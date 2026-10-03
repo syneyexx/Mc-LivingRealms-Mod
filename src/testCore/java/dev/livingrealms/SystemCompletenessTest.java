@@ -228,11 +228,11 @@ public final class SystemCompletenessTest {
         check(plan.stream().anyMatch(i->i.role()==StructureRole.MINE),"temperate settlement must permit basic mine");
         check(plan.stream().anyMatch(i->i.role()==StructureRole.FISHERY),"freshwater forest settlement must permit fishery");
         for(ConstructionIntent i:plan)settlement.markConstructionCompleted(i.key());
-        double wood=faction.stockpile().get(ResourceType.WOOD),food=faction.stockpile().get(ResourceType.FOOD),iron=faction.stockpile().get(ResourceType.IRON);
+        double wood=settlement.stockpile().get(ResourceType.WOOD),food=settlement.stockpile().get(ResourceType.FOOD),iron=settlement.stockpile().get(ResourceType.IRON);
         new PrimaryEconomyEngine().simulateDay(state);
-        check(faction.stockpile().get(ResourceType.WOOD)>wood,"completed lumber camp must produce wood");
-        check(faction.stockpile().get(ResourceType.FOOD)>food,"completed fishery must produce food");
-        check(faction.stockpile().get(ResourceType.IRON)>iron,"completed mine must produce ore");
+        check(settlement.stockpile().get(ResourceType.WOOD)>wood,"completed lumber camp must produce wood into settlement stockpile");
+        check(settlement.stockpile().get(ResourceType.FOOD)>food,"completed fishery must produce food into settlement stockpile");
+        check(settlement.stockpile().get(ResourceType.IRON)>iron,"completed mine must produce ore into settlement stockpile");
         for(StructureRole role:List.of(StructureRole.MINE,StructureRole.LUMBER_CAMP,StructureRole.FISHERY)){
             ConstructionIntent intent=new ConstructionIntent(role.name().toLowerCase()+":test",faction.id(),settlement.id(),role,settlement.position(),13,11,0,50);
             check(!StructureBlueprintFactory.create(intent).placements().isEmpty(),"primary economy blueprint must contain blocks: "+role);
@@ -375,10 +375,13 @@ public final class SystemCompletenessTest {
     private static void testMarketAndTransport() {
         SimulationState scarceState = new SimulationState(13L);
         Faction scarce = faction(scarceState, "Scarce", "S", 0, 0, 1000, 1100);
+        for(ResourceType r:ResourceType.values()){scarce.stockpile().set(r,0);for(Settlement s:scarce.settlements())s.stockpile().set(r,0);}
+        scarce.stockpile().add(ResourceType.FOOD, 5);
         double scarceFood = MarketEngine.unitPrice(scarce, ResourceType.FOOD);
 
         SimulationState richState = new SimulationState(14L);
         Faction rich = faction(richState, "Rich", "R", 0, 0, 1000, 1100);
+        for(Settlement s:rich.settlements())s.stockpile().set(ResourceType.FOOD,0);
         rich.stockpile().add(ResourceType.FOOD, 100000);
         double richFood = MarketEngine.unitPrice(rich, ResourceType.FOOD);
         check(scarceFood > richFood, "scarcity must increase market price");

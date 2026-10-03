@@ -31,7 +31,7 @@ COMPLETE only when: model + sim + save + runtime + feedback + integration + test
 | NeoForge | 21.1.x |
 | Java | 21 |
 | Create | 6.0.10 |
-| Save schema | **15** (1–14 readable) |
+| Save schema | **16** (1–15 readable; settlement stockpiles) |
 | Dashboard protocol | **14** |
 | ContentRevision | **7** (Waystone provenance; keeps rev-6 construction rebuild) |
 | Dashboard key | F12 |
@@ -43,7 +43,7 @@ COMPLETE only when: model + sim + save + runtime + feedback + integration + test
 
 | Subsystem | Authority | Works | Partial / missing | Persist | MC runtime | UI | Tests | Status |
 |---|---|---|---|---|---|---|---|---|
-| Architecture/authority | `SimulationState` + engines | Dual world + LOD | Cross-system wiring gaps | schema 15 | adapters | dashboard | core suite | PARTIAL |
+| Architecture/authority | `SimulationState` + engines | Dual world + LOD | Cross-system wiring gaps | schema 16 | adapters | dashboard | core suite | PARTIAL |
 | City streets | `SettlementPlanner` | Orthogonal streets/sidewalks/housing | Lot→street polish | completion keys | materializer | map markers | WorldgenQuality | PARTIAL |
 | Intercity roads | `TransportNetworkEngine` + `RouteProjectionPlanner` + `TerrainCorridorPlanner` | Terrain-cost corridors + bridges | Linked mountain/pass proof | routes | materializer | map routes | Worldgen+Production | PARTIAL |
 | Doors/detail | `FactionBlockPalette` / blueprints | Real faction wood doors | Macaw optional polish | n/a | applyDoor | visible | ProductionQuality | PARTIAL |
@@ -60,8 +60,8 @@ COMPLETE only when: model + sim + save + runtime + feedback + integration + test
 | Culture visuals | FactionCivilizationState | State | Architecture/clothing identity | schema | palette | dialogue | — | PARTIAL |
 | Create industry | IndustryEngine | Projection | Kinetic verification (linked env) | schema | Create | Ops | — | PARTIAL |
 | Wildlife visuals | EcologyEngine 134 spp | Sim strong | Morphology art | schema | entities | Ecology | soak | PARTIAL |
-| Economy detail (Claude F2–5) | Market/Trade/PrimaryEconomy | Exists | Deeper stockpile/market day | may need schema | — | Economy | — | PARTIAL |
-| Farming/seasons (F3) | PrimaryEconomy + calendar | Partial | Crop/livestock depth | maybe | farm loop | — | — | PARTIAL |
+| Economy detail (Claude F2–5) | SettlementEconomy + LocalMarket + Trade | Local stockpile/tithe/market day/price trade | Full goods enum + caravan insurance | schema 16 | — | Economy/dialogue | SettlementEconomyTest | PARTIAL |
+| Farming/seasons (F3) | SettlementEconomyEngine + calendar | Seasonal farms/pastures/weather/mills | Named crops beyond FOOD proxy | schema 16 | farm/pasture/mill blueprints | — | SettlementEconomyTest | PARTIAL |
 | Jobs/wages (F6) | Profession / SocialCitizen | Roles | Workplace slots/wages | maybe | routines | — | — | PARTIAL |
 | Religion (F12) | faith state + temples | Partial | Hierarchy/rites | maybe | priests | — | — | PARTIAL |
 | Bandits/piracy (F15) | PirateBand/Hideout/RaidParty | Exists | Full camp causality | schema | projection | map | — | PARTIAL |

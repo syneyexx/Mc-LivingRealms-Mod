@@ -24,27 +24,38 @@ public final class FactionEngine {
     private void simulateEconomy(SimulationState state,List<Faction> factions) {
         for (Faction f : factions) {
             int pop = f.population();
-            double stewardship=.7+f.government().ruler().stewardship()*.6;
-            f.stockpile().add(ResourceType.FOOD, pop * .22*stewardship);
-            f.stockpile().add(ResourceType.WOOD, pop * .025*stewardship);
-            f.stockpile().add(ResourceType.STONE, pop * .018*stewardship);
-            f.stockpile().add(ResourceType.IRON, pop * .006 * (1 + f.technology())*stewardship);
-            f.stockpile().add(ResourceType.COAL, pop * .0025 * (1 + f.technology())*stewardship);
-            f.stockpile().add(ResourceType.COPPER, pop * .0015 * (1 + f.technology())*stewardship);
-            double foodNeed = pop * .20;double fed = f.stockpile().take(ResourceType.FOOD, foodNeed);double foodRatio = Mathx.clamp(Mathx.safeDiv(fed, Math.max(1, foodNeed)), 0, 1);
+            // Free pop*FOOD/WOOD/STONE minting is gone. Local production + primary industry + tithes
+            // feed settlement/faction stockpiles via SettlementEconomyEngine / PrimaryEconomyEngine.
+            double foodNeed = pop * .04; // residual court/army reserve draw on faction stores only
+            double fed = f.stockpile().take(ResourceType.FOOD, foodNeed);
+            double foodRatio = Mathx.clamp(Mathx.safeDiv(fed + localFood(f), Math.max(1, pop * .20)), 0, 1);
             for (Settlement s : f.settlements()) {
                 // The integrated SimulationState delegates births/deaths/refugees to CivilizationEngine so there is
                 // exactly one demographic authority. The list-only compatibility overload retains legacy net growth.
                 if(state==null){double growth=.00012*(foodRatio-.45)*(1-s.unrest()*.7);int delta=(int)Math.round(s.population()*growth);if(s.housingShortage()>0)delta=Math.min(delta,0);s.addPopulation(delta);}
-                if (s.housingShortage() > Math.max(5, s.population() * .05) && f.stockpile().get(ResourceType.WOOD) > 20) {int build = (int)Math.min(s.housingShortage() + 10, 25 + f.technology() * 25);f.stockpile().take(ResourceType.WOOD, build * .4);f.stockpile().take(ResourceType.STONE, build * .15);s.addHousing(build);s.improveInfrastructure(.001 * build);}
+                double woodAvail=s.stockpile().get(ResourceType.WOOD)+f.stockpile().get(ResourceType.WOOD);
+                double stoneAvail=s.stockpile().get(ResourceType.STONE)+f.stockpile().get(ResourceType.STONE);
+                if (s.housingShortage() > Math.max(5, s.population() * .05) && woodAvail > 20) {
+                    int build = (int)Math.min(s.housingShortage() + 10, 25 + f.technology() * 25);
+                    drawBuildMaterials(f,s,build*.4,build*.15);
+                    s.addHousing(build);s.improveInfrastructure(.001 * build);
+                }
                 // Proactive housing creates new physical house intents before overcrowding becomes severe.
-                if(state!=null&&s.housing()-s.population()<Math.max(10,s.population()/12)&&f.stockpile().get(ResourceType.WOOD)>45&&Math.floorMod(state.clock().day()+s.id(),7L)==0L){
-                    int build=Math.min(36,Math.max(12,s.population()/30));f.stockpile().take(ResourceType.WOOD,build*.45);f.stockpile().take(ResourceType.STONE,build*.18);s.addHousing(build);s.improveInfrastructure(.0007*build);
+                if(state!=null&&s.housing()-s.population()<Math.max(10,s.population()/12)&&woodAvail>45&&Math.floorMod(state.clock().day()+s.id(),7L)==0L){
+                    int build=Math.min(36,Math.max(12,s.population()/30));
+                    drawBuildMaterials(f,s,build*.45,build*.18);
+                    s.addHousing(build);s.improveInfrastructure(.0007*build);
                 }
             }
             f.advanceTechnology(.00002 * Math.sqrt(Math.max(1, pop))*(.6+.6*f.government().ruler().stewardship()));
             double militaryUpkeep = f.armies().stream().mapToDouble(a -> a.totalPersonnel() * .002).sum();double taxIncome=pop*f.government().taxRate()*(.10+f.settlements().stream().mapToDouble(Settlement::prosperity).average().orElse(.5)*.12);f.addTreasury(taxIncome - militaryUpkeep);
         }
+    }
+
+    private static double localFood(Faction f){double t=0;for(Settlement s:f.settlements())t+=s.stockpile().get(ResourceType.FOOD);return t;}
+    private static void drawBuildMaterials(Faction f,Settlement s,double wood,double stone){
+        double fromLocalWood=s.stockpile().take(ResourceType.WOOD,wood);if(fromLocalWood<wood)f.stockpile().take(ResourceType.WOOD,wood-fromLocalWood);
+        double fromLocalStone=s.stockpile().take(ResourceType.STONE,stone);if(fromLocalStone<stone)f.stockpile().take(ResourceType.STONE,stone-fromLocalStone);
     }
 
     private static void simulateDiplomacy(List<Faction> factions, DeterministicRng rng) {

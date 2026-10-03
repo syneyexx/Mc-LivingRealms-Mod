@@ -7,6 +7,7 @@ find "$ROOT/src/main/java/dev/livingrealms/sim" "$ROOT/src/testCore/java" -name 
 java -cp "$OUT" dev.livingrealms.CoreSimulationTest
 java -cp "$OUT" dev.livingrealms.SpeciesPackAuditTest
 java -cp "$OUT" dev.livingrealms.SystemCompletenessTest
+java -cp "$OUT" dev.livingrealms.SettlementEconomyTest
 java -cp "$OUT" dev.livingrealms.ProjectionStressTest
 java -cp "$OUT" dev.livingrealms.SaveMigrationMatrixTest
 java -cp "$OUT" dev.livingrealms.SaveIntegrityTest

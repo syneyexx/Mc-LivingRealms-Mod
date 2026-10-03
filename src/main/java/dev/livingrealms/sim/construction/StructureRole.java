@@ -33,5 +33,9 @@ public enum StructureRole {
     WIZARD_HOME,
     WIZARD_TUNNEL,
     IRRIGATION,
-    AQUEDUCT
+    AQUEDUCT,
+    MILL,
+    BAKERY,
+    BREWERY,
+    PASTURE
 }

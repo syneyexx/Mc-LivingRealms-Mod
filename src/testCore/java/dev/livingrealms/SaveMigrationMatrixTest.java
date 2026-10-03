@@ -41,7 +41,7 @@ public final class SaveMigrationMatrixTest {
             SimulationState state = SimulationStateCodec.decode(fixture, catalog);
             verify(schema, state);
         }
-        System.out.println("PASS save migration matrix: schemas 1-2 fixed fixtures + schemas 3-15 versioned compatibility fixtures");
+        System.out.println("PASS save migration matrix: schemas 1-2 fixed fixtures + schemas 3-16 versioned compatibility fixtures");
     }
 
     private static void verify(int schema, SimulationState state) {
@@ -120,6 +120,14 @@ public final class SaveMigrationMatrixTest {
             check(state.config().equals(SimulationConfig.defaults()), "schema " + schema + " legacy config default");
         }
         check(state.history().all().size() == 1 && state.history().all().getFirst().message().equals("legacy migration marker"), "schema " + schema + " history");
+        if (schema >= 16) {
+            check(close(settlement.barnCapacity(), 512.0) && close(settlement.granaryCapacity(), 640.0), "schema " + schema + " barn/granary capacity");
+            check(close(settlement.stockpile().get(ResourceType.FOOD), 222.0), "schema " + schema + " local food stockpile");
+            check(close(settlement.stockpile().get(ResourceType.WOOD), 88.0), "schema " + schema + " local wood stockpile");
+        } else {
+            check(settlement.barnCapacity() > 0 && settlement.granaryCapacity() > 0, "schema " + schema + " migrated storage capacity");
+            check(settlement.stockpile().get(ResourceType.FOOD) > 0, "schema " + schema + " migrated starter food");
+        }
     }
 
     private static byte[] fixture(int schema) throws IOException {
@@ -143,9 +151,29 @@ public final class SaveMigrationMatrixTest {
             if (schema >= 13) writeHumanity(out);
             if (schema >= 14) out.writeInt(0); // pirate hideouts
             if (schema >= 15) out.writeInt(0); // siege equipment extensions
+            if (schema >= 16) writeSettlementEconomy(out);
             writeHistory(out);
         }
         return bytes.toByteArray();
+    }
+
+    private static void writeSettlementEconomy(DataOutputStream out) throws IOException {
+        out.writeInt(2);
+        out.writeLong(SETTLEMENT_ID);
+        out.writeDouble(512.0);
+        out.writeDouble(640.0);
+        for (ResourceType type : ResourceType.values()) {
+            if (type == ResourceType.FOOD) out.writeDouble(222.0);
+            else if (type == ResourceType.WOOD) out.writeDouble(88.0);
+            else out.writeDouble(0.0);
+        }
+        out.writeLong(301L);
+        out.writeDouble(400.0);
+        out.writeDouble(500.0);
+        for (ResourceType type : ResourceType.values()) {
+            if (type == ResourceType.FOOD) out.writeDouble(111.0);
+            else out.writeDouble(0.0);
+        }
     }
 
     private static void writeRegions(DataOutputStream out, int schema) throws IOException {

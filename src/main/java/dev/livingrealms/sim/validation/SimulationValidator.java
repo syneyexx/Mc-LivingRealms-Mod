@@ -65,6 +65,8 @@ public final class SimulationValidator {
                 if(!position(s.position().x(),s.position().z()))errors.add("settlement "+s.id()+" invalid position");
                 if(s.population()<0||s.housing()<0) errors.add("settlement "+s.id()+" negative people/housing");
                 if(!finiteNonNegative(s.infrastructure())||!unit(s.prosperity())||!unit(s.unrest())||!unit(s.foodSecurity())||!unit(s.publicOrder())||!unit(s.employment())) errors.add("settlement "+s.id()+" invalid society state");
+                if(!finitePositive(s.barnCapacity())||!finitePositive(s.granaryCapacity())) errors.add("settlement "+s.id()+" invalid storage capacity");
+                for(ResourceType resource:ResourceType.values()) if(!finiteNonNegative(s.stockpile().get(resource))) errors.add("settlement "+s.id()+" invalid local stockpile "+resource);
             }
             for(Army a:f.armies()){
                 id(canonicalIds,max,a.id(),"army",errors); if(!armyIds.add(a.id())) errors.add("army owned more than once "+a.id());

@@ -30,7 +30,7 @@ import java.util.zip.CRC32;
 public final class SimulationStateCodec {
     private static final int MAGIC = 0x4C52534D; // LRSM
     public static final int MIN_SUPPORTED_SCHEMA = 1;
-    public static final int SCHEMA_VERSION = 15;
+    public static final int SCHEMA_VERSION = 16;
     /** Hard ceiling for one canonical world-state payload. Prevents corrupt/local saves from driving unbounded decode work. */
     public static final int MAX_STATE_BYTES = 32 * 1024 * 1024;
     /** Individual canonical text fields are metadata, identifiers or bounded event text; 64 KiB is intentionally generous. */
@@ -62,7 +62,7 @@ public final class SimulationStateCodec {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(bytes))) {
                 out.writeInt(MAGIC);out.writeInt(SCHEMA_VERSION);out.writeLong(state.seed());out.writeLong(state.clock().gameTicks());out.writeLong(state.peekNextId());
-                writeRegions(out,state);writeFactions(out,state);writeShipments(out,state);writeV4Strategic(out,state);writeV5Law(out,state);writeV6NavalAndPlayers(out,state);writeV7Industry(out,state);writeV9Config(out,state);writeV11Social(out,state);writeV12Civilization(out,state);writeV13Humanity(out,state);writeV14PirateHideouts(out,state);writeV15SiegeEquipment(out,state);writeHistory(out,state);
+                writeRegions(out,state);writeFactions(out,state);writeShipments(out,state);writeV4Strategic(out,state);writeV5Law(out,state);writeV6NavalAndPlayers(out,state);writeV7Industry(out,state);writeV9Config(out,state);writeV11Social(out,state);writeV12Civilization(out,state);writeV13Humanity(out,state);writeV14PirateHideouts(out,state);writeV15SiegeEquipment(out,state);writeV16SettlementEconomy(out,state);writeHistory(out,state);
             }
             byte[] payload=bytes.toByteArray();
             if(payload.length>MAX_STATE_BYTES)throw new IllegalStateException("Living Realms state exceeds hard size limit: "+payload.length);
@@ -193,6 +193,19 @@ public final class SimulationStateCodec {
         var sieges=new ArrayList<>(state.sieges());sieges.sort(Comparator.comparingLong(SiegeState::id));out.writeInt(sieges.size());for(SiegeState s:sieges){out.writeLong(s.id());out.writeInt(s.rams());out.writeInt(s.ladders());out.writeInt(s.artilleryPieces());out.writeDouble(s.breach());out.writeDouble(s.defenderCountermeasures());}
     }
 
+    private static void writeV16SettlementEconomy(DataOutputStream out,SimulationState state)throws IOException{
+        List<Settlement> settlements=new ArrayList<>();
+        for(Faction f:state.factions())settlements.addAll(f.settlements());
+        settlements.sort(Comparator.comparingLong(Settlement::id));
+        out.writeInt(settlements.size());
+        for(Settlement s:settlements){
+            out.writeLong(s.id());
+            out.writeDouble(s.barnCapacity());
+            out.writeDouble(s.granaryCapacity());
+            for(ResourceType rt:ResourceType.values())out.writeDouble(s.stockpile().get(rt));
+        }
+    }
+
     private static void writeCrimeLedger(DataOutputStream out,CrimeLedger ledger)throws IOException{
         var profiles=new ArrayList<>(ledger.profiles().values());profiles.sort(Comparator.comparing(WantedProfile::actorKey));out.writeInt(profiles.size());
         for(WantedProfile p:profiles){writeString(out,p.actorKey());out.writeDouble(p.globalInfamy());var jurisdictions=new ArrayList<>(p.jurisdictions().values());jurisdictions.sort(Comparator.comparingLong(JurisdictionWanted::factionId));out.writeInt(jurisdictions.size());for(JurisdictionWanted w:jurisdictions){out.writeLong(w.factionId());out.writeDouble(w.bounty());out.writeDouble(w.notoriety());out.writeDouble(w.heat());out.writeLong(w.lastCrimeDay());out.writeInt(w.witnessedCrimes());out.writeInt(w.violentCrimes());out.writeInt(w.captures());}}
@@ -210,7 +223,7 @@ public final class SimulationStateCodec {
             long seed=in.readLong();long ticks=in.readLong();long nextId=in.readLong();
             if(ticks<0)throw new IOException("Negative simulation clock: "+ticks);if(nextId<1)throw new IOException("Invalid nextId: "+nextId);
             SimulationState state=new SimulationState(seed,speciesCatalog);state.clock().restore(ticks);state.restoreNextId(nextId);
-            readRegions(in,state,version);readFactions(in,state,version);if(version>=3)readShipments(in,state);if(version>=4)readV4Strategic(in,state);if(version>=5)readV5Law(in,state);if(version>=6)readV6NavalAndPlayers(in,state);if(version>=7)readV7Industry(in,state);if(version>=9)readV9Config(in,state);if(version>=11)readV11Social(in,state);if(version>=12)readV12Civilization(in,state);if(version>=13)readV13Humanity(in,state);if(version>=14)readV14PirateHideouts(in,state);if(version>=15)readV15SiegeEquipment(in,state);readHistory(in,state);if(in.read()!=-1)throw new IOException("Trailing bytes after Living Realms state");
+            readRegions(in,state,version);readFactions(in,state,version);if(version>=3)readShipments(in,state);if(version>=4)readV4Strategic(in,state);if(version>=5)readV5Law(in,state);if(version>=6)readV6NavalAndPlayers(in,state);if(version>=7)readV7Industry(in,state);if(version>=9)readV9Config(in,state);if(version>=11)readV11Social(in,state);if(version>=12)readV12Civilization(in,state);if(version>=13)readV13Humanity(in,state);if(version>=14)readV14PirateHideouts(in,state);if(version>=15)readV15SiegeEquipment(in,state);if(version>=16)readV16SettlementEconomy(in,state);else migratePreV16SettlementEconomy(state);readHistory(in,state);if(in.read()!=-1)throw new IOException("Trailing bytes after Living Realms state");
             state.repairNextIdWatermark();
             if(version==SCHEMA_VERSION){try{SimulationValidator.validate(state).throwIfInvalid();}catch(IllegalStateException invalid){throw new IOException("Current-schema Living Realms state failed semantic validation",invalid);}}
             return state;
@@ -323,6 +336,23 @@ public final class SimulationStateCodec {
 
     private static void readV15SiegeEquipment(DataInputStream in,SimulationState state)throws IOException{
         int n=checkedCount(in.readInt(),100000,"siege equipment");for(int i=0;i<n;i++){long id=in.readLong();int rams=checkedCount(in.readInt(),10000,"siege rams"),ladders=checkedCount(in.readInt(),100000,"siege ladders"),artillery=checkedCount(in.readInt(),10000,"siege artillery");double breach=in.readDouble(),counter=in.readDouble();SiegeState siege=state.sieges().stream().filter(s->s.id()==id).findFirst().orElseThrow(()->new IOException("siege equipment references missing siege "+id));siege.restoreEquipment(rams,ladders,artillery,breach,counter);}
+    }
+
+    private static void readV16SettlementEconomy(DataInputStream in,SimulationState state)throws IOException{
+        int n=checkedCount(in.readInt(),100000,"settlement economy");
+        for(int i=0;i<n;i++){
+            long id=in.readLong();
+            double barn=in.readDouble(),granary=in.readDouble();
+            EnumMap<ResourceType,Double> stores=new EnumMap<>(ResourceType.class);
+            for(ResourceType rt:ResourceType.values())stores.put(rt,in.readDouble());
+            Settlement settlement=state.findSettlement(id).orElseThrow(()->new IOException("settlement economy references missing settlement "+id));
+            try{settlement.restoreEconomy(barn,granary,stores);}catch(IllegalArgumentException bad){throw new IOException("invalid settlement economy for "+id,bad);}
+        }
+    }
+
+    /** Pre-schema-16 worlds already receive starter stores from Settlement construction; refresh barn/granary from structures. */
+    private static void migratePreV16SettlementEconomy(SimulationState state){
+        for(Faction f:state.factions())for(Settlement s:f.settlements()){s.refreshStorageCapacity();s.enforceStorageCaps();}
     }
 
     private static void readCrimeLedger(DataInputStream in,CrimeLedger ledger)throws IOException{

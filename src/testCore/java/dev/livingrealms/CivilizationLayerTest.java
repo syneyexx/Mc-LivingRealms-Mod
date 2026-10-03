@@ -51,13 +51,13 @@ public final class CivilizationLayerTest {
 
         state.advanceDays(35);SimulationValidator.validate(state).throwIfInvalid();
         byte[] encoded=SimulationStateCodec.encode(state);SimulationState restored=SimulationStateCodec.decode(encoded,state.species());
-        check(SimulationStateCodec.SCHEMA_VERSION==15,"schema15");
+        check(SimulationStateCodec.SCHEMA_VERSION==16,"schema16");
         check(restored.settlementCivilizations().size()==state.settlementCivilizations().size(),"civilization persistence");
         check(restored.resourceClaims().size()==state.resourceClaims().size(),"claim persistence");
         check(restored.legends().size()==state.legends().size(),"legend persistence");
         check(restored.factionCivilizations().get(a.id()).cultureName().equals(state.factionCivilizations().get(a.id()).cultureName()),"culture persistence");
         SimulationValidator.validate(restored).throwIfInvalid();
-        System.out.println("PASS civilization layer: demography/health/culture/claims/raids/legends + schema15 persistence + broad grounded no-LLM dialogue");
+        System.out.println("PASS civilization layer: demography/health/culture/claims/raids/legends + schema16 persistence + broad grounded no-LLM dialogue");
     }
     private static void check(boolean value,String message){if(!value)throw new AssertionError(message);}
 }

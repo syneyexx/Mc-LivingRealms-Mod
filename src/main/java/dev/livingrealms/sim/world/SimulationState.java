@@ -9,6 +9,7 @@ import dev.livingrealms.sim.ecology.*;
 import dev.livingrealms.sim.faction.*;
 import dev.livingrealms.sim.government.GovernmentEngine;
 import dev.livingrealms.sim.industry.*;
+import dev.livingrealms.sim.economy.SettlementEconomyEngine;
 import dev.livingrealms.sim.economy.primary.PrimaryEconomyEngine;
 import dev.livingrealms.sim.law.*;
 import dev.livingrealms.sim.logistics.*;
@@ -85,6 +86,7 @@ public final class SimulationState {
     private final ReputationEngine reputationEngine=new ReputationEngine();
     private final IndustryEngine industryEngine=new IndustryEngine();
     private final PrimaryEconomyEngine primaryEconomyEngine=new PrimaryEconomyEngine();
+    private final SettlementEconomyEngine settlementEconomyEngine=new SettlementEconomyEngine();
     private final SocialPopulationEngine socialPopulationEngine=new SocialPopulationEngine();
     private final CivilizationEngine civilizationEngine=new CivilizationEngine();
 
@@ -122,9 +124,22 @@ public final class SimulationState {
     public Optional<SettlementCivilizationState> findSettlementCivilization(long settlementId){return Optional.ofNullable(settlementCivilizations.get(settlementId));}
     public FactionCivilizationState ensureFactionCivilization(long factionId){Faction faction=findFaction(factionId).orElseThrow(()->new IllegalArgumentException("unknown faction"));return factionCivilizations.computeIfAbsent(factionId,k->new FactionCivilizationState(factionId,CivilizationNaming.culture(factionId,faction.name()),CivilizationNaming.faith(factionId),CivilizationNaming.dialect(factionId)));}
     public Optional<FactionCivilizationState> findFactionCivilization(long factionId){return Optional.ofNullable(factionCivilizations.get(factionId));}
-    public void addResourceClaim(ResourceClaim value){Objects.requireNonNull(value);if(resourceClaims.size()>=MAX_RESOURCE_CLAIMS)throw new IllegalStateException("resource claim limit");observeCanonicalId(value.id());resourceClaims.add(value);} public void addRaid(RaidParty value){Objects.requireNonNull(value);if(raids.size()>=MAX_RAIDS)pruneRaids();if(raids.size()>=MAX_RAIDS)throw new IllegalStateException("raid limit");observeCanonicalId(value.id());raids.add(value);} public void addLegend(LegendRecord value){Objects.requireNonNull(value);if(legends.size()>=MAX_LEGENDS)return;observeCanonicalId(value.id());legends.add(value);} public void pruneRaids(){raids.removeIf(r->!r.active());}
+    public void addResourceClaim(ResourceClaim value){Objects.requireNonNull(value);if(resourceClaims.size()>=MAX_RESOURCE_CLAIMS)throw new IllegalStateException("resource claim limit");observeCanonicalId(value.id());resourceClaims.add(value);} public void addRaid(RaidParty value){Objects.requireNonNull(value);if(raids.size()>=MAX_RAIDS)pruneRaids();if(raids.size()>=MAX_RAIDS){RaidParty drop=null;for(RaidParty r:raids){if(drop==null||r.createdDay()<drop.createdDay()||(r.createdDay()==drop.createdDay()&&r.morale()<drop.morale()))drop=r;}if(drop!=null)raids.remove(drop);}if(raids.size()>=MAX_RAIDS)return;observeCanonicalId(value.id());raids.add(value);} public void addLegend(LegendRecord value){Objects.requireNonNull(value);if(legends.size()>=MAX_LEGENDS)return;observeCanonicalId(value.id());legends.add(value);} public void pruneRaids(){raids.removeIf(r->!r.active());}
     public void addHousehold(HouseholdState value){Objects.requireNonNull(value);if(households.size()>=MAX_HOUSEHOLDS)throw new IllegalStateException("household limit");observeCanonicalId(value.id());households.add(value);} public Optional<HouseholdState> findHousehold(long id){return households.stream().filter(h->h.id()==id).findFirst();} public Optional<DependentChild> findDependentChild(long id){for(HouseholdState household:households){Optional<DependentChild> child=household.findChild(id);if(child.isPresent())return child;}return Optional.empty();}
-    public void addEpidemic(EpidemicRecord value){Objects.requireNonNull(value);if(epidemics.size()>=MAX_EPIDEMICS)epidemics.removeIf(e->!e.active());if(epidemics.size()>=MAX_EPIDEMICS)throw new IllegalStateException("epidemic limit");observeCanonicalId(value.id());epidemics.add(value);}
+    public void addEpidemic(EpidemicRecord value){
+        Objects.requireNonNull(value);
+        if(epidemics.size()>=MAX_EPIDEMICS)epidemics.removeIf(e->!e.active());
+        if(epidemics.size()>=MAX_EPIDEMICS){
+            // Soft cap: drop the oldest lowest-severity record instead of hard-failing a living world under plague stress.
+            EpidemicRecord drop=null;
+            for(EpidemicRecord e:epidemics){
+                if(drop==null||e.startDay()<drop.startDay()||(e.startDay()==drop.startDay()&&e.severity()<drop.severity()))drop=e;
+            }
+            if(drop!=null)epidemics.remove(drop);
+        }
+        if(epidemics.size()>=MAX_EPIDEMICS)return;
+        observeCanonicalId(value.id());epidemics.add(value);
+    }
     public void addMigrationGroup(MigrationGroup value){Objects.requireNonNull(value);if(migrationGroups.size()>=MAX_MIGRATIONS)migrationGroups.removeIf(g->!g.active());if(migrationGroups.size()>=MAX_MIGRATIONS)throw new IllegalStateException("migration limit");observeCanonicalId(value.id());migrationGroups.add(value);}
     public void addJusticeCase(JusticeCase value){Objects.requireNonNull(value);if(justiceCases.size()>=MAX_JUSTICE_CASES)justiceCases.removeIf(c->!c.active());if(justiceCases.size()>=MAX_JUSTICE_CASES)throw new IllegalStateException("justice case limit");observeCanonicalId(value.id());justiceCases.add(value);}
     public void addHiddenCache(HiddenCache value){Objects.requireNonNull(value);if(hiddenCaches.size()>=MAX_HIDDEN_CACHES)hiddenCaches.removeIf(HiddenCache::recovered);if(hiddenCaches.size()>=MAX_HIDDEN_CACHES)return;observeCanonicalId(value.id());hiddenCaches.add(value);}
@@ -244,6 +259,8 @@ public final class SimulationState {
             for(EcosystemRegion r:regions)ecology.simulate(r,1,new DeterministicRng(seed^(day*0x9E3779B97F4A7C15L)^r.id()));
             factionEngine.simulateDay(this,new DeterministicRng(seed^day^0xC0FFEE1234L));
             primaryEconomyEngine.simulateDay(this);
+            // Local farms/workshops/consumption/tithe after primary industry so mines/fisheries enter settlement stores before levy.
+            settlementEconomyEngine.simulateDay(this);
             industryEngine.simulateDay(this,new DeterministicRng(seed^day^0x243F6A8885A308D3L));
             for(Faction faction:new ArrayList<>(factions))societyEngine.simulateDay(faction);
             socialPopulationEngine.simulateDay(this);

@@ -20,7 +20,7 @@
 - Full bundled species-pack audit passes: **134 species** with explicit morphology/locomotion fields and a validated food web.
 - Strategic completeness suite passes.
 - 3650-day deterministic soak now has explicit persistence/invariant gates at day 30, 365 and 3650, plus a biodiversity floor.
-- Save schema is **15**; schemas 1-14 remain readable. Dashboard snapshot protocol is **14**. Outer Minecraft `ContentRevision=7` adds Waystone provenance and keeps the revision-6 physical settlement-layout rebuild without changing binary schema.
+- Save schema is **16**; schemas 1-15 remain readable. Schema 16 persists per-settlement barn/granary capacity and local stockpiles. Dashboard snapshot protocol is **14**. Outer Minecraft `ContentRevision=7` adds Waystone provenance and keeps the revision-6 physical settlement-layout rebuild.
 
 ## Ecology/world integration
 - Ecosystem regions now have canonical world centers instead of existing only as abstract biome buckets.
