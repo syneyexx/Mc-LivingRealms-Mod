@@ -20,13 +20,41 @@ public final class TransportNetworkMaterializer {
     public static void tick(ServerLevel level,LivingRealmsSavedData data){
         if(level.players().isEmpty())return;int remaining=Math.max(16,data.state().config().constructionBlockOpsPerTick()/2);
         List<SimPosition> observers=level.players().stream().map(p->new SimPosition(p.getX(),p.getZ())).toList();
+        TerrainCorridorPlanner.TerrainSample terrain=sampler(level);
         for(TransportRoute route:data.state().routes()){
             if(remaining<=0)break;if(!route.operational()||(route.mode()!=TransportMode.ROAD&&route.mode()!=TransportMode.RAIL))continue;
             var from=data.state().findSettlement(route.fromSettlementId()).orElse(null);
             var to=data.state().findSettlement(route.toSettlementId()).orElse(null);if(from==null||to==null)continue;
-            var points=RouteProjectionPlanner.plan(route,from.position(),to.position(),observers,ACTIVATION_RADIUS,remaining);
+            var points=RouteProjectionPlanner.plan(route,from.position(),to.position(),observers,ACTIVATION_RADIUS,remaining,terrain);
             for(var point:points){if(remaining<=0)break;remaining-=applyPoint(level,point,remaining);}
         }
+    }
+
+    private static TerrainCorridorPlanner.TerrainSample sampler(ServerLevel level){
+        return new TerrainCorridorPlanner.TerrainSample(){
+            @Override public int height(int x,int z){
+                BlockPos probe=new BlockPos(x,level.getSeaLevel(),z);
+                if(!level.hasChunkAt(probe))return Integer.MIN_VALUE;
+                return naturalGroundY(level,x,z);
+            }
+            @Override public boolean water(int x,int z){
+                BlockPos probe=new BlockPos(x,level.getSeaLevel(),z);
+                if(!level.hasChunkAt(probe))return false;
+                int y=naturalGroundY(level,x,z);
+                return !level.getBlockState(new BlockPos(x,y,z)).getFluidState().isEmpty();
+            }
+            @Override public boolean blocked(int x,int z){
+                BlockPos probe=new BlockPos(x,level.getSeaLevel(),z);
+                if(!level.hasChunkAt(probe))return false;
+                int y=naturalGroundY(level,x,z);
+                BlockState st=level.getBlockState(new BlockPos(x,y,z));
+                if(st.hasBlockEntity())return true;
+                // Treat finished Living Realms structural shells as obstacles to route around.
+                Block b=st.getBlock();
+                return b==Blocks.BRICKS||b==Blocks.STONE_BRICKS||b==Blocks.OAK_PLANKS||b==Blocks.SPRUCE_PLANKS
+                        ||b==Blocks.BIRCH_PLANKS||b==Blocks.DARK_OAK_PLANKS||b instanceof DoorBlock;
+            }
+        };
     }
 
     private static int applyPoint(ServerLevel level,RouteProjectionPlanner.RoutePoint point,int budget){
@@ -35,6 +63,26 @@ public final class TransportNetworkMaterializer {
         int[] best=bestCorridorCenter(level,point,nx,nz);if(best==null)return 0;
         // Three-block carriageway plus one-block stone sidewalks. Detours stay local and only avoid bad terrain.
         for(int side=-2;side<=2&&used<budget;side++){int x=best[0]+nx*side,z=best[1]+nz*side;used+=Math.abs(side)==2?placeSidewalk(level,x,z):placeRoad(level,x,z);}
+        // Bridge deck when the corridor crosses water: raise a short stone span instead of skipping.
+        if(used<budget)used+=maybeBridge(level,best[0],best[1],point,budget-used);
+        return used;
+    }
+
+    private static int maybeBridge(ServerLevel level,int x,int z,RouteProjectionPlanner.RoutePoint point,int budget){
+        int surface=naturalGroundY(level,x,z);BlockState current=level.getBlockState(new BlockPos(x,surface,z));
+        if(current.getFluidState().isEmpty())return 0;
+        int used=0;int deckY=Math.max(level.getSeaLevel(),surface);
+        for(int i=-1;i<=1&&used<budget;i++){
+            int bx=x+point.dx()*i,bz=z+point.dz()*i;
+            BlockPos deck=new BlockPos(bx,deckY,bz);
+            if(!level.hasChunkAt(deck)||!safeTerrain(level.getBlockState(deck)))continue;
+            if(level.setBlock(deck,Blocks.STONE_BRICKS.defaultBlockState(),Block.UPDATE_ALL|Block.UPDATE_SUPPRESS_DROPS))used++;
+            for(int y=deckY-1;y>=level.getMinBuildHeight()+1&&y>=deckY-8&&used<budget;y--){
+                BlockPos pillar=new BlockPos(bx,y,bz);BlockState st=level.getBlockState(pillar);
+                if(st.isSolidRender(level,pillar)||st.hasBlockEntity())break;
+                if(level.setBlock(pillar,Blocks.STONE_BRICKS.defaultBlockState(),Block.UPDATE_ALL|Block.UPDATE_SUPPRESS_DROPS))used++;
+            }
+        }
         return used;
     }
 

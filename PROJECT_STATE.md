@@ -1,18 +1,18 @@
 # Living Realms project state
 
-**Checkpoint:** v3.0.0-rc4 buildfix13 checkpoint21 — worldgen/city/map/NPC correction pass
+**Checkpoint:** v3.0.0-rc4 buildfix14 — A–Z production completion pass
 
-## Current worldgen correction state
+## Current production state (buildfix14)
 - Starter density target is 26 settlements per surface realm plus Wizard Trees; physical entities/blocks remain player-local and budgeted.
 - Settlement streets are orthogonal/connected and include residential side streets + sidewalks; houses use cottage/longhouse/townhouse/porch variants and towns/cities add multi-storey apartment blocks.
-- Building floors are aligned to the walkable foundation/door level. Tier-specific road/keep/wall/gate keys ensure settlements physically expand again after population-tier upgrades.
-- The spawn kingdom is guaranteed city-scale physical presence and a capital castle footprint.
-- Intercity routes are strategically straight; the Minecraft adapter ignores vegetation as terrain and makes bounded local grade detours.
-- M-map has no world blur and always paints a terrain/biome base. Dashboard key is F12.
-- Vanilla/villager-derived NPCs enter the same persistent no-LLM dialogue layer; sneak-interact preserves native trading.
-- Waystones are assigned/deduplicated by nearest canonical settlement: one generated Waystone per settlement.
-- Dedicated mine/city locate implementations are present.
-- `WorldgenQualityTest` is a mandatory production gate.
+- Building floors are walkable; real faction wood doors are placed; EntranceAccessPlanner repairs door↔street grade mismatches. Tier-specific road/keep/wall/gate keys ensure settlements physically expand again after population-tier upgrades.
+- The spawn kingdom is city-scale with capital castle footprint; capitals also project a small court cluster.
+- Intercity routes use bounded terrain-cost corridor planning with local grade detours and water bridge decks.
+- `/setday`/`advance` catch-up uses PhysicalDevelopmentReconciler. M-map/dialogue/dashboard/catalog have no vanilla blur; M paints cached terrain when loaded. Dashboard key is F12.
+- Villagers + allowlisted civilians enter no-LLM dialogue; sneak-interact preserves native trading.
+- Waystones: one Living Realms-authored stone per settlement with outer-save provenance; player stones are never auto-destroyed.
+- Locate covers city/mine/tiers plus kingdom/market/port/wizardtrees/ruin via LocateQuery.
+- `WorldgenQualityTest` and `ProductionQualityTest` are mandatory. Ledger: `IMPLEMENTATION_LEDGER.md`.
 
 ## Verified core gates
 - Java 21 core compiles with `-Xlint:all -Werror`.
@@ -20,7 +20,7 @@
 - Full bundled species-pack audit passes: **134 species** with explicit morphology/locomotion fields and a validated food web.
 - Strategic completeness suite passes.
 - 3650-day deterministic soak now has explicit persistence/invariant gates at day 30, 365 and 3650, plus a biodiversity floor.
-- Save schema is **15**; schemas 1-14 remain readable. Dashboard snapshot protocol is **14**. Outer Minecraft `ContentRevision=6` performs the one-shot physical settlement-layout rebuild without changing binary schema.
+- Save schema is **15**; schemas 1-14 remain readable. Dashboard snapshot protocol is **14**. Outer Minecraft `ContentRevision=7` adds Waystone provenance and keeps the revision-6 physical settlement-layout rebuild without changing binary schema.
 
 ## Ecology/world integration
 - Ecosystem regions now have canonical world centers instead of existing only as abstract biome buckets.

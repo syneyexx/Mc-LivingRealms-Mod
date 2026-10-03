@@ -7,7 +7,9 @@ import dev.livingrealms.sim.construction.BlockPlacement;
 import dev.livingrealms.sim.construction.ConstructionIntent;
 import dev.livingrealms.sim.construction.ConstructionJob;
 import dev.livingrealms.sim.construction.ConstructionQueue;
+import dev.livingrealms.sim.construction.EntranceAccessPlanner;
 import dev.livingrealms.sim.construction.PaletteSlot;
+import dev.livingrealms.sim.construction.PhysicalDevelopmentReconciler;
 import dev.livingrealms.sim.construction.SettlementPlanner;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
 import dev.livingrealms.sim.construction.StructureRole;
@@ -20,13 +22,16 @@ import dev.livingrealms.sim.world.WizardTreesSeeder;
 import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
-import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
  * Projects strategic settlement blueprints into loaded Overworld chunks under a hard per-tick
@@ -39,6 +44,8 @@ public final class SettlementConstructionMaterializer {
     private static final ConstructionQueue QUEUE=new ConstructionQueue();
     private static final Map<String,Settlement> JOB_OWNERS=new HashMap<>();
     private static int catchupTicks;
+    private static long catchupSimulatedDays;
+    private static int catchupIntentsPerSettlement=1;
 
     private SettlementConstructionMaterializer() {}
 
@@ -61,29 +68,42 @@ public final class SettlementConstructionMaterializer {
         if(simulatedDays<=0)return;
         int requested=(int)Math.min(400L,40L+Math.min(120L,simulatedDays)*3L);
         catchupTicks=Math.max(catchupTicks,requested);
+        catchupSimulatedDays=Math.max(catchupSimulatedDays,simulatedDays);
+        // Per-settlement refinement uses PhysicalDevelopmentReconciler inside discoverLoadedWork.
+        catchupIntentsPerSettlement=Math.max(2,Math.min(12,1+(int)Math.min(8L,simulatedDays/12L)));
     }
 
-    public static void clear() { QUEUE.clear(); JOB_OWNERS.clear(); catchupTicks=0; }
+    public static void clear() { QUEUE.clear(); JOB_OWNERS.clear(); catchupTicks=0; catchupSimulatedDays=0; catchupIntentsPerSettlement=1; }
 
     private static void discoverLoadedWork(ServerLevel level, LivingRealmsSavedData data) {
         if(QUEUE.size()>=MAX_QUEUED_JOBS || level.players().isEmpty()) return;
+        boolean catchingUp=catchupTicks>0;
         for(Faction faction:data.state().factions()) {
             for(Settlement settlement:faction.settlements()) {
                 if(QUEUE.size()>=MAX_QUEUED_JOBS) return;
                 if(!nearPlayer(level,settlement)) continue;
                 boolean wizardTrees=WizardTreesSeeder.isWizardTrees(faction);
-                java.util.List<ConstructionIntent> pending=new java.util.ArrayList<>(wizardTrees?WizardTreesPlanner.pending(faction,settlement):SettlementPlanner.pending(faction,settlement));
-                if(!wizardTrees)pending.addAll(PrimaryEconomyPlanner.pending(data.state(),faction,settlement));
+                java.util.List<dev.livingrealms.sim.construction.ConstructionIntent> pending;
+                int allow;
+                if(wizardTrees){
+                    pending=new java.util.ArrayList<>(WizardTreesPlanner.pending(faction,settlement));
+                    allow=catchingUp?Math.min(4,catchupIntentsPerSettlement):1;
+                }else{
+                    PhysicalDevelopmentReconciler.Deficit deficit=PhysicalDevelopmentReconciler.analyze(faction,settlement);
+                    pending=new java.util.ArrayList<>(deficit.backlog());
+                    pending.addAll(PrimaryEconomyPlanner.pending(data.state(),faction,settlement));
+                    allow=catchingUp?PhysicalDevelopmentReconciler.catchupIntentsPerSettlement(catchupSimulatedDays,deficit):1;
+                }
                 pending.sort(java.util.Comparator.comparingInt(ConstructionIntent::priority).reversed().thenComparing(ConstructionIntent::key));
+                int enqueued=0;
                 for(ConstructionIntent intent:pending) {
                     if(QUEUE.size()>=MAX_QUEUED_JOBS) return;
                     BlockPos center=new BlockPos((int)Math.round(intent.center().x()),level.getSeaLevel(),(int)Math.round(intent.center().z()));
                     if(!level.hasChunkAt(center)) break;
                     ConstructionJob job=createTerrainAwareJob(level,intent);
                     if(job==null) continue;
-                    if(QUEUE.enqueue(job)) JOB_OWNERS.put(job.key(),settlement);
-                    // One new structure per settlement discovery pass keeps growth visually gradual.
-                    break;
+                    if(QUEUE.enqueue(job)){JOB_OWNERS.put(job.key(),settlement);enqueued++;}
+                    if(enqueued>=allow) break;
                 }
             }
         }
@@ -149,8 +169,25 @@ public final class SettlementConstructionMaterializer {
     private static java.util.List<BuildOperation> buildingOperations(ServerLevel level,ConstructionIntent intent,int baseY){
         var blueprint=StructureBlueprintFactory.create(intent);int cx=(int)Math.round(intent.center().x()),cz=(int)Math.round(intent.center().z()),turns=Math.floorMod(intent.rotationQuarterTurns(),4);
         java.util.List<BuildOperation> out=new java.util.ArrayList<>(blueprint.operationCount()+intent.width()*intent.depth());
-        for(BlockPlacement p:blueprint.placements()){int rx=p.dx(),rz=p.dz();for(int i=0;i<turns;i++){int t=rx;rx=-rz;rz=t;}int wx=cx+rx,wz=cz+rz;out.add(new BuildOperation(wx,baseY+p.dy(),wz,p.slot(),p.phase()));
+        Integer doorLocalX=null,doorLocalZ=null;
+        for(BlockPlacement p:blueprint.placements()){
+            int rx=p.dx(),rz=p.dz();for(int i=0;i<turns;i++){int t=rx;rx=-rz;rz=t;}int wx=cx+rx,wz=cz+rz;
+            out.add(new BuildOperation(wx,baseY+p.dy(),wz,p.slot(),p.phase()));
             if(p.dy()==0&&p.slot()==PaletteSlot.FOUNDATION){int surface=naturalSurfaceY(level,wx,wz);for(int y=baseY-1;y>surface&&y>=baseY-4;y--)out.add(new BuildOperation(wx,y,wz,PaletteSlot.FOUNDATION,p.phase()));}
+            if(p.slot()==PaletteSlot.DOOR&&p.dy()==1){doorLocalX=p.dx();doorLocalZ=p.dz();}
+        }
+        if(doorLocalX!=null){
+            int ox=doorLocalX,oz=doorLocalZ;
+            for(int i=0;i<turns;i++){int t=ox;ox=-oz;oz=t;}
+            int approachX=cx+ox,approachZ=cz+oz;
+            // Sample sidewalk/street one block further outside the doorway.
+            int stepX=0,stepZ=-1;for(int i=0;i<turns;i++){int t=stepX;stepX=-stepZ;stepZ=t;}
+            int streetX=approachX+stepX,streetZ=approachZ+stepZ;
+            int approachY=naturalSurfaceY(level,streetX,streetZ);
+            for(var fix:EntranceAccessPlanner.plan(doorLocalX,doorLocalZ,baseY,approachY)){
+                int fx=fix.dx(),fz=fix.dz();for(int i=0;i<turns;i++){int t=fx;fx=-fz;fz=t;}
+                out.add(new BuildOperation(cx+fx,fix.dy(),cz+fz,fix.slot(),dev.livingrealms.sim.construction.ConstructionPhase.DETAIL));
+            }
         }
         return out;
     }
@@ -218,9 +255,14 @@ public final class SettlementConstructionMaterializer {
         if(!level.hasChunkAt(pos)) return BuildApplyResult.BLOCKED;
 
         BlockState current=level.getBlockState(pos);
+        if(current.hasBlockEntity()) return BuildApplyResult.SKIPPED;
+
+        if(operation.slot()==PaletteSlot.DOOR){
+            return applyDoor(level,job,pos,current);
+        }
+
         BlockState target=FactionBlockPalette.state(job.intent().factionId(),operation.slot());
         if(current.equals(target)) return BuildApplyResult.SKIPPED;
-        if(current.hasBlockEntity()) return BuildApplyResult.SKIPPED;
 
         if(operation.slot()==PaletteSlot.AIR) {
             if(current.isAir()) return BuildApplyResult.SKIPPED;
@@ -233,10 +275,48 @@ public final class SettlementConstructionMaterializer {
         return level.setBlock(pos,target,flags)?BuildApplyResult.APPLIED:BuildApplyResult.SKIPPED;
     }
 
+    private static BuildApplyResult applyDoor(ServerLevel level,ConstructionJob job,BlockPos pos,BlockState current){
+        BlockState doorBase=FactionBlockPalette.state(job.intent().factionId(),PaletteSlot.DOOR);
+        if(!(doorBase.getBlock() instanceof DoorBlock)){
+            // Fallback: keep a walkable opening.
+            if(current.isAir())return BuildApplyResult.SKIPPED;
+            if(!safeToClear(current))return BuildApplyResult.SKIPPED;
+            return level.setBlock(pos,Blocks.AIR.defaultBlockState(),Block.UPDATE_ALL|Block.UPDATE_SUPPRESS_DROPS)?BuildApplyResult.APPLIED:BuildApplyResult.SKIPPED;
+        }
+        Direction facing=doorFacing(job.intent().rotationQuarterTurns());
+        BlockState below=level.getBlockState(pos.below());
+        boolean upper=below.getBlock() instanceof DoorBlock && below.getValue(DoorBlock.HALF)==DoubleBlockHalf.LOWER
+                && below.getValue(DoorBlock.FACING)==facing;
+        BlockState target=doorBase
+                .setValue(DoorBlock.FACING,facing)
+                .setValue(DoorBlock.HALF,upper?DoubleBlockHalf.UPPER:DoubleBlockHalf.LOWER)
+                .setValue(DoorBlock.OPEN,false)
+                .setValue(DoorBlock.POWERED,false);
+        if(current.equals(target))return BuildApplyResult.SKIPPED;
+        if(!current.isAir()&&!current.canBeReplaced()&&!safeToClear(current)&&!(current.getBlock() instanceof DoorBlock))return BuildApplyResult.SKIPPED;
+        boolean ok=level.setBlock(pos,target,Block.UPDATE_ALL|Block.UPDATE_SUPPRESS_DROPS);
+        if(ok&&!upper){
+            BlockPos up=pos.above();
+            BlockState upCur=level.getBlockState(up);
+            if(upCur.isAir()||upCur.canBeReplaced()||safeToClear(upCur)||upCur.getBlock() instanceof DoorBlock){
+                BlockState upperState=doorBase.setValue(DoorBlock.FACING,facing).setValue(DoorBlock.HALF,DoubleBlockHalf.UPPER).setValue(DoorBlock.OPEN,false).setValue(DoorBlock.POWERED,false);
+                level.setBlock(up,upperState,Block.UPDATE_ALL|Block.UPDATE_SUPPRESS_DROPS);
+            }
+        }
+        return ok?BuildApplyResult.APPLIED:BuildApplyResult.SKIPPED;
+    }
+
+    /** Player approaches the front (-Z local) looking toward +Z before rotation → SOUTH at rot 0. */
+    private static Direction doorFacing(int quarterTurns){
+        Direction[] order={Direction.SOUTH,Direction.WEST,Direction.NORTH,Direction.EAST};
+        return order[Math.floorMod(quarterTurns,4)];
+    }
+
     private static boolean safeToClear(BlockState state) {
         return state.canBeReplaced() || isConstructionMaterial(state) || oldForeignConstructionMaterial(state) || state.is(BlockTags.LEAVES) || state.is(BlockTags.LOGS)
                 || state.is(Blocks.SNOW) || state.is(Blocks.VINE) || state.is(Blocks.CACTUS)
-                || state.is(Blocks.BAMBOO) || state.is(Blocks.BAMBOO_SAPLING);
+                || state.is(Blocks.BAMBOO) || state.is(Blocks.BAMBOO_SAPLING)
+                || state.getBlock() instanceof DoorBlock;
     }
 
     private static boolean isConstructionMaterial(BlockState state) {
@@ -251,6 +331,7 @@ public final class SettlementConstructionMaterializer {
                 || block==Blocks.DARK_OAK_FENCE || block==Blocks.DIRT_PATH || block==Blocks.FARMLAND
                 || block==Blocks.WHEAT || block==Blocks.GLOWSTONE || block==Blocks.IRON_BLOCK
                 || block==Blocks.COPPER_BLOCK || block==Blocks.GRAY_CONCRETE || block==Blocks.BARREL || block==Blocks.REDSTONE_TORCH
+                || block==Blocks.OAK_DOOR || block==Blocks.SPRUCE_DOOR || block==Blocks.BIRCH_DOOR || block==Blocks.DARK_OAK_DOOR
                 || block==CreateBlockLookup.orElse("copper_casing",Blocks.IRON_BLOCK)
                 || block==CreateBlockLookup.orElse("andesite_casing",Blocks.COPPER_BLOCK);
     }

@@ -52,9 +52,18 @@ public final class WorldgenQualityTest {
         List<RouteProjectionPlanner.RoutePoint> points=RouteProjectionPlanner.plan(route,from,to,List.of(new SimPosition(60,35)),500,500);
         check(points.size()>20,"route fixture must produce enough projected points");
         double vx=to.x()-from.x(),vz=to.z()-from.z();
-        for(var p:points){double cross=(p.x()-from.x())*vz-(p.z()-from.z())*vx;check(Math.abs(cross)<=Math.max(Math.abs(vx),Math.abs(vz)),"strategic road must remain straight rather than sine-bending");}
+        for(var p:points){double cross=(p.x()-from.x())*vz-(p.z()-from.z())*vx;check(Math.abs(cross)<=Math.max(Math.abs(vx),Math.abs(vz)),"strategic road without terrain sampler must remain straight rather than sine-bending");}
 
-        System.out.println("PASS worldgen quality: city castle + orthogonal streets/sidewalks + apartments + accessible floors + tier growth + straight routes");
+        // With a terrain sampler, the corridor may leave the geometric line to avoid cliffs.
+        TerrainCorridorPlanner.TerrainSample ridge=new TerrainCorridorPlanner.TerrainSample(){
+            @Override public int height(int x,int z){return (x>40&&x<90&&Math.abs(z-35)<20)?120:64;}
+            @Override public boolean water(int x,int z){return false;}
+            @Override public boolean blocked(int x,int z){return false;}
+        };
+        List<RouteProjectionPlanner.RoutePoint> terrainPoints=RouteProjectionPlanner.plan(route,from,to,List.of(new SimPosition(60,35)),500,500,ridge);
+        check(!terrainPoints.isEmpty(),"terrain-aware route must still project near observers");
+
+        System.out.println("PASS worldgen quality: city castle + orthogonal streets/sidewalks + apartments + accessible floors + tier growth + terrain-aware routes");
     }
 
     private static void check(boolean condition,String message){if(!condition)throw new AssertionError(message);}

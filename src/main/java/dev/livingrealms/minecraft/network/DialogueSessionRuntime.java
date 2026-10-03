@@ -27,13 +27,21 @@ public final class DialogueSessionRuntime {
     }
     public static void open(ServerPlayer player,AbstractVillager villager){
         if(player==null||villager==null||!villager.isAlive()||player.distanceToSqr(villager)>64.0D)return;
+        openAdopted(player,villager,villagerRole(villager));
+    }
+
+    /** Stable adoption path for allowlisted foreign civilians that do not extend AbstractVillager. */
+    public static void openAdopted(ServerPlayer player,Entity entity,CitizenRole role){
+        if(player==null||entity==null||!entity.isAlive()||player.distanceToSqr(entity)>64.0D)return;
         var data=SimulationRuntime.data(player.serverLevel().getServer());var state=data.state();
         Faction owner=null;Settlement settlement=null;double best=Double.POSITIVE_INFINITY;
-        for(Faction f:state.factions())for(Settlement st:f.settlements()){double dx=villager.getX()-st.position().x(),dz=villager.getZ()-st.position().z(),d=dx*dx+dz*dz;if(d<best){best=d;owner=f;settlement=st;}}
+        for(Faction f:state.factions())for(Settlement st:f.settlements()){double dx=entity.getX()-st.position().x(),dz=entity.getZ()-st.position().z(),d=dx*dx+dz*dz;if(d<best){best=d;owner=f;settlement=st;}}
         if(owner==null||settlement==null)return;
-        int slot=1_000_000+Math.floorMod(villager.getUUID().hashCode(),900_000_000);CitizenRole role=villagerRole(villager);
-        int before=state.socialCitizens().size();SocialCitizen citizen=state.ensureSocialCitizen(owner.id(),settlement.id(),slot,role);if(state.socialCitizens().size()!=before)data.setDirty();
-        DialogueContext context=new DialogueContext();String actor=CrimeRuntime.actorKey(player);DialogueResult greeting=ENGINE.respond(state,citizen,actor,"hello",context);data.setDirty();SESSIONS.put(player.getUUID(),new Session(citizen.id(),context,villager.getUUID()));PacketDistributor.sendToPlayer(player,new DialogueOpenPayload(citizen.id(),citizen.name(),citizen.role().name(),greeting.response()));
+        // Same UUID → same projection slot forever (reload-safe identity).
+        int slot=1_000_000+Math.floorMod(entity.getUUID().hashCode(),900_000_000);
+        CitizenRole resolved=role==null?CitizenRole.TRADER:role;
+        int before=state.socialCitizens().size();SocialCitizen citizen=state.ensureSocialCitizen(owner.id(),settlement.id(),slot,resolved);if(state.socialCitizens().size()!=before)data.setDirty();
+        DialogueContext context=new DialogueContext();String actor=CrimeRuntime.actorKey(player);DialogueResult greeting=ENGINE.respond(state,citizen,actor,"hello",context);data.setDirty();SESSIONS.put(player.getUUID(),new Session(citizen.id(),context,entity.getUUID()));PacketDistributor.sendToPlayer(player,new DialogueOpenPayload(citizen.id(),citizen.name(),citizen.role().name(),greeting.response()));
     }
 
     private static CitizenRole villagerRole(AbstractVillager villager){

@@ -14,6 +14,7 @@ java -cp "$OUT" dev.livingrealms.SaveMutationFuzzTest
 java -cp "$OUT" dev.livingrealms.ProductionHardeningTest
 java -cp "$OUT" dev.livingrealms.LivingWorldDensityTest
 java -cp "$OUT" dev.livingrealms.WorldgenQualityTest
+java -cp "$OUT" dev.livingrealms.ProductionQualityTest
 java -cp "$OUT" dev.livingrealms.SocietyDialogueTest
 java -cp "$OUT" dev.livingrealms.RumorNetworkTest
 java -cp "$OUT" dev.livingrealms.SocietyInfrastructureTest

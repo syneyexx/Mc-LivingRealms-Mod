@@ -69,7 +69,8 @@ public final class CreativeItemCatalogScreen extends Screen {
     private int maxPage(){return Math.max(0,(filteredEntries.size()-1)/PAGE_SIZE);}
 
     @Override public void render(GuiGraphics graphics,int mouseX,int mouseY,float partialTick){
-        renderBackground(graphics,mouseX,mouseY,partialTick);super.render(graphics,mouseX,mouseY,partialTick);
+        // No vanilla world blur behind Living Realms screens.
+        graphics.fill(0,0,width,height,0xC805080B);super.render(graphics,mouseX,mouseY,partialTick);
         graphics.drawCenteredString(font,title,width/2,10,0xFFFFFFFF);
         int infoY=Math.min(height-18,54+PAGE_SIZE*20+34);
         graphics.drawCenteredString(font,"Creative only • search by name/mod id • click to spawn • page "+(page+1)+"/"+(maxPage()+1)+" • "+filteredEntries.size()+"/"+allEntries.size()+" items",width/2,infoY,0xFFB8C0CA);

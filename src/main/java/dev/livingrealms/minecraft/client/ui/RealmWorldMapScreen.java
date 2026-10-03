@@ -72,18 +72,26 @@ public final class RealmWorldMapScreen extends Screen {
 
     private void renderTerrainBase(GuiGraphics g,RealmDashboardSnapshot s,int x,int y,int w,int h){
         var regions=s.ecology().regions();
-        if(regions.isEmpty()){g.fill(x,y,x+w,y+h,0xFF35533D);return;}
         final int tile=6;
         var map=s.map();
         for(int py=y;py<y+h;py+=tile){
             double wz=map.minZ()+((py-y+tile*.5)/Math.max(1.0,h))*(map.maxZ()-map.minZ());
             for(int px=x;px<x+w;px+=tile){
                 double wx=map.minX()+((px-x+tile*.5)/Math.max(1.0,w))*(map.maxX()-map.minX());
-                RealmDashboardSnapshot.RegionEcologyView nearest=null;double best=Double.POSITIVE_INFINITY;
-                for(var region:regions){double dx=region.x()-wx,dz=region.z()-wz,d=dx*dx+dz*dz;if(d<best){best=d;nearest=region;}}
-                int color=nearest==null?0xFF35533D:opaque(biomeColor(nearest.biome()));
-                // Biomass gives subtle terrain contrast so the base reads like land rather than flat UI fill.
-                if(nearest!=null){double b=Math.max(0,Math.min(1,nearest.plantBiomass()/1200.0));color=shade(color,.82+b*.18);}
+                // Prefer real client-world surface samples from loaded chunks (cached). Terrain is never
+                // discovery-gated. Fall back to ecology-region tint for unloaded / distant cells.
+                ClientTerrainMapCache.Sample surface=ClientTerrainMapCache.sample((int)Math.round(wx),(int)Math.round(wz));
+                int color;
+                if(surface!=null){
+                    color=surface.color();
+                }else if(regions.isEmpty()){
+                    color=0xFF35533D;
+                }else{
+                    RealmDashboardSnapshot.RegionEcologyView nearest=null;double best=Double.POSITIVE_INFINITY;
+                    for(var region:regions){double dx=region.x()-wx,dz=region.z()-wz,d=dx*dx+dz*dz;if(d<best){best=d;nearest=region;}}
+                    color=nearest==null?0xFF35533D:opaque(biomeColor(nearest.biome()));
+                    if(nearest!=null){double b=Math.max(0,Math.min(1,nearest.plantBiomass()/1200.0));color=shade(color,.82+b*.18);}
+                }
                 g.fill(px,py,Math.min(x+w,px+tile),Math.min(y+h,py+tile),color);
             }
         }
@@ -99,7 +107,7 @@ public final class RealmWorldMapScreen extends Screen {
             if(yy>y+h-62)break;g.fill(x+8,yy+2,x+16,yy+10,factionColor(f.id(),0xFF));g.drawString(font,f.name(),x+21,yy+2,0xFFDDE5EC,false);yy+=13;shown++;
         }
         if(shown<s.factions().size()){g.drawString(font,"+"+(s.factions().size()-shown)+" more",x+8,yy+2,0xFF9DA8B3,false);yy+=14;}
-        yy=Math.max(yy+8,y+h-52);g.drawString(font,"Terrain = biome ground (always visible)",x+8,yy,0xFF9EC9A9,false);yy+=12;
+        yy=Math.max(yy+8,y+h-52);g.drawString(font,"Terrain always visible (cached ground)",x+8,yy,0xFF9EC9A9,false);yy+=12;
         g.drawString(font,"Routes • trade • migration • resources",x+8,yy,0xFFBDA66A,false);yy+=12;
         g.drawString(font,"Red threats • blue ports • purple disease",x+8,yy,0xFFE0A0A0,false);yy+=12;
         g.drawString(font,"X "+Math.round(s.map().playerX())+"  Z "+Math.round(s.map().playerZ()),x+8,yy,0xFFFFFFFF,false);

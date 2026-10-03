@@ -48,8 +48,6 @@ import dev.livingrealms.minecraft.construction.TransportNetworkMaterializer;
 import dev.livingrealms.minecraft.construction.IndustrialSiteMaterializer;
 import dev.livingrealms.minecraft.construction.HistoricalSiteMaterializer;
 import dev.livingrealms.sim.industry.*;
-import dev.livingrealms.sim.economy.primary.PrimaryEconomyPlanner;
-import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.ResourceType;
@@ -192,7 +190,12 @@ public final class LivingRealmsEvents {
         if(event.getTarget() instanceof FactionCitizenEntity citizen){DialogueSessionRuntime.open(player,citizen);event.setCanceled(true);return;}
         // Vanilla villagers and compatible villager-derived NPCs are adopted into the same social/dialogue system.
         // Sneak-interact intentionally keeps the vanilla/modded trading interaction available.
-        if(event.getTarget() instanceof AbstractVillager villager&&!player.isShiftKeyDown()){DialogueSessionRuntime.open(player,villager);event.setCanceled(true);}
+        if(event.getTarget() instanceof AbstractVillager villager&&!player.isShiftKeyDown()){DialogueSessionRuntime.open(player,villager);event.setCanceled(true);return;}
+        // Broader allowlisted civilian adapters (Better Villages / village-derived humanoids). Never hostiles.
+        if(!player.isShiftKeyDown()&&dev.livingrealms.minecraft.compat.CivilianNpcAdoption.isAdoptableCivilian(event.getTarget())){
+            DialogueSessionRuntime.openAdopted(player,event.getTarget(),dev.livingrealms.sim.civilian.CitizenRole.TRADER);
+            event.setCanceled(true);
+        }
     }
 
     @SubscribeEvent
@@ -435,12 +438,17 @@ public final class LivingRealmsEvents {
                         return 1;
                     })))
                 .then(Commands.literal("locate")
-                    .then(Commands.literal("mine").executes(ctx -> locateNearestMine(ctx.getSource())))
+                    .then(Commands.literal("mine").executes(ctx -> locateByQuery(ctx.getSource(), "mine")))
                     .then(Commands.literal("settlement").executes(ctx -> locateNearest(ctx.getSource(), settlement -> true, "settlement")))
-                    .then(Commands.literal("city").executes(ctx -> locateNearestCity(ctx.getSource())))
+                    .then(Commands.literal("city").executes(ctx -> locateByQuery(ctx.getSource(), "city")))
                     .then(Commands.literal("town").executes(ctx -> locateNearest(ctx.getSource(), settlement -> settlement.tier() == Settlement.Tier.TOWN, "town")))
                     .then(Commands.literal("village").executes(ctx -> locateNearest(ctx.getSource(), settlement -> settlement.tier() == Settlement.Tier.VILLAGE, "village")))
-                    .then(Commands.literal("hamlet").executes(ctx -> locateNearest(ctx.getSource(), settlement -> settlement.tier() == Settlement.Tier.HAMLET, "hamlet"))))
+                    .then(Commands.literal("hamlet").executes(ctx -> locateNearest(ctx.getSource(), settlement -> settlement.tier() == Settlement.Tier.HAMLET, "hamlet")))
+                    .then(Commands.literal("kingdom").executes(ctx -> locateByQuery(ctx.getSource(), "kingdom")))
+                    .then(Commands.literal("market").executes(ctx -> locateByQuery(ctx.getSource(), "market")))
+                    .then(Commands.literal("port").executes(ctx -> locateByQuery(ctx.getSource(), "port")))
+                    .then(Commands.literal("wizardtrees").executes(ctx -> locateByQuery(ctx.getSource(), "wizardtrees")))
+                    .then(Commands.literal("ruin").executes(ctx -> locateByQuery(ctx.getSource(), "ruin"))))
                 .then(Commands.literal("status").requires(src -> src.hasPermission(2)).executes(ctx -> {
                     var state = SimulationRuntime.data(ctx.getSource().getServer()).state();
                     ctx.getSource().sendSuccess(() -> Component.literal(state.summary()), false);
@@ -485,38 +493,26 @@ public final class LivingRealmsEvents {
         );
     }
 
-    private static int locateNearestCity(net.minecraft.commands.CommandSourceStack source) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        ServerPlayer player=source.getPlayerOrException();var state=SimulationRuntime.data(source.getServer()).state();
-        Settlement nearest=null;Faction owner=null;double best=Double.POSITIVE_INFINITY;
-        for(Faction faction:state.factions())for(Settlement settlement:faction.settlements()){
-            if(settlement.tier().ordinal()<Settlement.Tier.CITY.ordinal())continue;
-            double dx=player.getX()-settlement.position().x(),dz=player.getZ()-settlement.position().z(),d=dx*dx+dz*dz;
-            if(d<best){best=d;nearest=settlement;owner=faction;}
-        }
-        // Very old/custom saves can temporarily have no CITY tier before demographics catch up.
-        // Never make the locate command look broken: fall back to the largest real settlement and
-        // report its current tier explicitly. Content revision 6 promotes starter capitals to CITY.
-        if(nearest==null){
-            for(Faction faction:state.factions())for(Settlement settlement:faction.settlements()){
-                if(nearest==null||settlement.population()>nearest.population()){nearest=settlement;owner=faction;}
-            }
-        }
-        if(nearest==null){source.sendFailure(Component.literal("No Living Realms settlement exists in the canonical world state."));return 0;}
-        final Settlement found=nearest;final Faction realm=owner;final long distance=Math.round(Math.sqrt(Math.pow(player.getX()-found.position().x(),2)+Math.pow(player.getZ()-found.position().z(),2)));
-        final int x=(int)Math.round(found.position().x()),z=(int)Math.round(found.position().z());
-        source.sendSuccess(()->Component.literal("Nearest city: "+found.name()+" • "+found.tier()+" • "+realm.name()+" • X "+x+" Z "+z+" • "+distance+" blocks"),false);return 1;
-    }
-
-    private static int locateNearestMine(net.minecraft.commands.CommandSourceStack source) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        ServerPlayer player=source.getPlayerOrException();var state=SimulationRuntime.data(source.getServer()).state();
-        dev.livingrealms.sim.construction.ConstructionIntent nearest=null;Settlement settlementFound=null;Faction factionFound=null;double best=Double.POSITIVE_INFINITY;
-        for(Faction faction:state.factions())for(Settlement settlement:faction.settlements())for(var intent:PrimaryEconomyPlanner.plan(state,faction,settlement)){
-            if(intent.role()!=StructureRole.MINE)continue;double dx=player.getX()-intent.center().x(),dz=player.getZ()-intent.center().z(),d=dx*dx+dz*dz;
-            if(d<best){best=d;nearest=intent;settlementFound=settlement;factionFound=faction;}
-        }
-        if(nearest==null){source.sendFailure(Component.literal("No Living Realms mine is currently planned in the canonical world state."));return 0;}
-        final int x=(int)Math.round(nearest.center().x()),z=(int)Math.round(nearest.center().z());final long distance=Math.round(Math.sqrt(best));final Settlement st=settlementFound;final Faction f=factionFound;
-        source.sendSuccess(()->Component.literal("Nearest mine: "+st.name()+" • "+f.name()+" • X "+x+" Z "+z+" • "+distance+" blocks"),false);return 1;
+    private static int locateByQuery(net.minecraft.commands.CommandSourceStack source,String kind) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer player=source.getPlayerOrException();
+        var state=SimulationRuntime.data(source.getServer()).state();
+        SimPosition from=new SimPosition(player.getX(),player.getZ());
+        java.util.Optional<dev.livingrealms.sim.world.LocateQuery.Hit> hit=switch(kind){
+            case "city" -> dev.livingrealms.sim.world.LocateQuery.nearestCity(state,from);
+            case "mine" -> dev.livingrealms.sim.world.LocateQuery.nearestMine(state,from);
+            case "kingdom" -> dev.livingrealms.sim.world.LocateQuery.nearestKingdom(state,from);
+            case "market" -> dev.livingrealms.sim.world.LocateQuery.nearestMarket(state,from);
+            case "port" -> dev.livingrealms.sim.world.LocateQuery.nearestPort(state,from);
+            case "wizardtrees" -> dev.livingrealms.sim.world.LocateQuery.nearestWizardTrees(state,from);
+            case "ruin" -> dev.livingrealms.sim.world.LocateQuery.nearestRuin(state,from);
+            default -> java.util.Optional.empty();
+        };
+        if(hit.isEmpty()){source.sendFailure(Component.literal("No Living Realms "+kind+" exists in the canonical world state."));return 0;}
+        var found=hit.get();
+        final int x=(int)Math.round(found.x()),z=(int)Math.round(found.z());
+        final long distance=Math.round(found.distance());
+        source.sendSuccess(()->Component.literal("Nearest "+found.label()+": "+found.name()+" • "+found.type()+" • "+found.factionName()+" • X "+x+" Z "+z+" • "+distance+" blocks"),false);
+        return 1;
     }
 
     private static int locateOwnSettlement(net.minecraft.commands.CommandSourceStack source) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
