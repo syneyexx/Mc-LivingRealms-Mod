@@ -79,12 +79,15 @@ public final class SystemCompletenessTest {
     private static void testRuntimeProjectionPolicy(){
         SimulationConfig performance=SimulationPreset.PERFORMANCE.config();
         SimulationConfig cinematic=SimulationPreset.CINEMATIC.config();
+        SimulationConfig showcase=SimulationPreset.SHOWCASE.config();
         var wildlifePerformance=RuntimeProjectionPolicy.wildlife(performance);
         var wildlifeCinematic=RuntimeProjectionPolicy.wildlife(cinematic);
+        var wildlifeShowcase=RuntimeProjectionPolicy.wildlife(showcase);
         check(wildlifePerformance.physicalRadiusBlocks()==performance.physicalRadiusBlocks(),"wildlife physical radius must follow config");
         check(wildlifePerformance.regionalRadiusBlocks()==performance.regionalRadiusBlocks(),"wildlife regional radius must follow config");
         check(wildlifePerformance.maxAnimalsPerPlayer()==performance.maxPhysicalWildlife(),"wildlife budget must follow config");
         check(wildlifeCinematic.maxAnimalsPerPlayer()>wildlifePerformance.maxAnimalsPerPlayer(),"cinematic wildlife budget must exceed performance");
+        check(wildlifeShowcase.maxAnimalsPerPlayer()>wildlifeCinematic.maxAnimalsPerPlayer(),"showcase wildlife budget must exceed cinematic");
         var caravanPerformance=RuntimeProjectionPolicy.caravans(performance);
         var caravanCinematic=RuntimeProjectionPolicy.caravans(cinematic);
         check(caravanPerformance.physicalRadiusBlocks()==performance.physicalRadiusBlocks(),"caravan radius must follow config");
@@ -94,6 +97,12 @@ public final class SystemCompletenessTest {
         check(RuntimeProjectionPolicy.aircraftBudget(cinematic)>RuntimeProjectionPolicy.aircraftBudget(performance),"aircraft budget must scale with profile");
         check(RuntimeProjectionPolicy.navalRadiusBlocks(cinematic)>=RuntimeProjectionPolicy.navalRadiusBlocks(performance),"naval radius must scale with profile");
         check(RuntimeProjectionPolicy.citizenBudget(cinematic)>RuntimeProjectionPolicy.citizenBudget(performance),"citizen budget must scale with profile");
+        check(RuntimeProjectionPolicy.citizenBudget(showcase)>RuntimeProjectionPolicy.citizenBudget(cinematic),"showcase citizen budget must exceed cinematic");
+        check(RuntimeProjectionPolicy.citizenBudget(showcase)<=320,"showcase citizen budget must stay hard-bounded");
+        check(RuntimeProjectionPolicy.citizenRadiusBlocks(showcase)>RuntimeProjectionPolicy.citizenRadiusBlocks(cinematic),"showcase citizen radius must exceed cinematic");
+        check(RuntimeProjectionPolicy.migrationBudget(showcase)>RuntimeProjectionPolicy.migrationBudget(cinematic),"showcase migration budget must exceed cinematic");
+        check(showcase.physicalRadiusBlocks()==640&&showcase.regionalRadiusBlocks()==4096,"showcase radii must match high-end contract");
+        check(SimulationPreset.labelFor(showcase).equals("SHOWCASE"),"showcase preset label");
         SimulationConfig disabledWildlife=new SimulationConfig(128,512,0,0,0,0,10,3,1,.1,.8,10);
         check(RuntimeProjectionPolicy.wildlife(disabledWildlife).maxAnimalsPerPlayer()==0,"zero wildlife budget must be supported");
         check(RuntimeProjectionPolicy.caravans(disabledWildlife).maxPhysicalCaravans()==0,"zero caravan budget must be supported");

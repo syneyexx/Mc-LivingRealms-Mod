@@ -126,17 +126,22 @@ public final class RealmDashboardScreen extends Screen {
     }
 
     private void rebuildSettingsButtons(int left,int contentY,int panelWidth){
-        DashboardActionCommand.Action[] actions={DashboardActionCommand.Action.CONFIG_PERFORMANCE,DashboardActionCommand.Action.CONFIG_BALANCED,DashboardActionCommand.Action.CONFIG_IMMERSIVE,DashboardActionCommand.Action.CONFIG_CINEMATIC};
-        String[] labels={"Performance","Balanced","Immersive","Cinematic"};
+        DashboardActionCommand.Action[] actions={DashboardActionCommand.Action.CONFIG_PERFORMANCE,DashboardActionCommand.Action.CONFIG_BALANCED,DashboardActionCommand.Action.CONFIG_IMMERSIVE,DashboardActionCommand.Action.CONFIG_CINEMATIC,DashboardActionCommand.Action.CONFIG_SHOWCASE};
+        String[] labels={"Performance","Balanced","Immersive","Cinematic","Showcase"};
         int gap=6,buttonWidth=Math.max(90,(panelWidth-26-gap)/2);
         for (int i = 0; i < actions.length; i++) {
             final DashboardActionCommand.Action action = actions[i];
             final String label = labels[i];
             int col = i % 2;
             int row = i / 2;
+            // Showcase spans full width on its own row so the high-end profile is unmistakable.
+            boolean showcase = action == DashboardActionCommand.Action.CONFIG_SHOWCASE;
+            int x = showcase ? left + 10 : left + 10 + col * (buttonWidth + gap);
+            int y = contentY + 104 + row * 22;
+            int w = showcase ? panelWidth - 20 : buttonWidth;
             addRenderableWidget(Button.builder(Component.literal(label),
                     b -> DashboardClientState.sendAction(new DashboardActionCommand(action, 1)))
-                    .bounds(left + 10 + col * (buttonWidth + gap), contentY + 104 + row * 22, buttonWidth, 18).build());
+                    .bounds(x, y, w, 18).build());
         }
     }
 

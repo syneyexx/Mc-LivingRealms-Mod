@@ -46,17 +46,25 @@ public final class RuntimeProjectionPolicy {
     /** Civilian projections are bounded independently from population size but follow the profile envelope. */
     public static int citizenBudget(SimulationConfig config) {
         Objects.requireNonNull(config, "config");
-        return Math.max(64, Math.min(160, config.maxPhysicalMilitaryEntities() + 48));
+        // Showcase (physical radius >= 560) unlocks denser capitals on high-end singleplayer machines.
+        int ceiling = config.physicalRadiusBlocks() >= 560.0D ? 320 : 160;
+        return Math.max(64, Math.min(ceiling, config.maxPhysicalMilitaryEntities() + 48));
     }
 
     /** Citizens remain visible somewhat farther than wildlife so an approaching town looks inhabited. */
     public static double citizenRadiusBlocks(SimulationConfig config) {
         Objects.requireNonNull(config, "config");
-        return Math.min(720.0D, Math.max(520.0D, config.physicalRadiusBlocks() * 1.5D));
+        double scaled = config.physicalRadiusBlocks() * 1.5D;
+        double max = config.physicalRadiusBlocks() >= 560.0D ? 960.0D : 720.0D;
+        return Math.min(max, Math.max(520.0D, scaled));
     }
 
     /** Traveling civilians are sparse physical representatives of canonical MigrationGroup records. */
-    public static int migrationBudget(SimulationConfig config) {Objects.requireNonNull(config,"config");return Math.max(4,Math.min(32,citizenBudget(config)/6));}
+    public static int migrationBudget(SimulationConfig config) {
+        Objects.requireNonNull(config, "config");
+        int ceiling = config.physicalRadiusBlocks() >= 560.0D ? 48 : 32;
+        return Math.max(4, Math.min(ceiling, citizenBudget(config) / 6));
+    }
     public static double migrationRadiusBlocks(SimulationConfig config) {Objects.requireNonNull(config,"config");return Math.max(480.0D,config.physicalRadiusBlocks()*1.35D);}
     /** Pirates share the naval envelope but remain much more tightly bounded than real fleets. */
     public static int pirateBudget(SimulationConfig config) {Objects.requireNonNull(config,"config");return Math.max(2,Math.min(24,Math.max(2,config.maxPhysicalNavalEntities()/2)));}
