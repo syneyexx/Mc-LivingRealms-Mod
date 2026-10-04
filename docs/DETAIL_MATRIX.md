@@ -23,7 +23,7 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 | Farming seasons (F3) | SettlementEconomyEngine + calendar | PARTIAL | Seasonal farms, pastures, weather stress, mills/bakeries/breweries; crop enum still FOOD proxy |
 | Goods chains (F4) | ResourceType + industry | PARTIAL | Mill→bakery→brewery chain on FOOD proxy; full goods enum deferred (codec-safe) |
 | Trade routes (F5) | TradeEngine + TransportRoute | PARTIAL | Price-differential dispatch; local+faction draw; split delivery |
-| Jobs/wages (F6) | Profession/SocialCitizen | PARTIAL | |
+| Jobs/wages (F6) | SocietyDiagnostics + payWages | PARTIAL | Workplace-slot jobCapacity + monthly skill-scaled wages |
 | Households/day rhythm (F7) | HouseholdState + ActivityCycle | PARTIAL | |
 | Unlimited city growth (F8) | SettlementPlanner housing | PARTIAL | Soft tier caps (to 900); hard 132 ceiling removed |
 | Rural hierarchy (F9) | Settlement tiers + pastures/mills | PARTIAL | Pastures/mills/bakeries planned |
@@ -32,8 +32,8 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 | Religion depth (F12) | faith + temples | PARTIAL | |
 | Calendar/festivals (F13) | CivilizationCalendar + CivicEvent | PARTIAL | |
 | Politics/law (F14) | Government/Justice | PARTIAL | |
-| Bandits full (F15) | RaidParty/Pirate* | PARTIAL | Soft raid cap under stress |
-| War/refugees (F16) | War/MigrationGroup | PARTIAL | |
+| Bandits full (F15) | RaidParty/Pirate* | PARTIAL | Deserter→band+hideout; loot to hideout/origin; soft raid cap |
+| War/refugees (F16) | MigrationGroup + camps | PARTIAL | Camp absorb/cap, farm/well seed, REFUGEE_SUPPORT tasks, persecution reason |
 | Epidemics (F17) | EpidemicRecord | PARTIAL | Soft epidemic cap under plague stress |
 | Justice flow (F18) | Crime/Justice/Custody | PARTIAL | |
 | Naval (F19) | NavalEngine | PARTIAL | |
@@ -56,4 +56,4 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 |---|---|---|---|---|---|---|---|
 | year start | 0 | 256667 | 0 | 4295 | 0 | 0 | 0 |
 | year end | 365 | 312390 | 1471 | 1844 | 0 | 2 | 0 |
-| soak 3650 | 3650 | 1046894 | 2568 | 2437 | 2 | 4 | 0 |
+| soak 3650 | 3650 | 1105350 | 2868 | 2437 | 1 | 8 | 0 |
