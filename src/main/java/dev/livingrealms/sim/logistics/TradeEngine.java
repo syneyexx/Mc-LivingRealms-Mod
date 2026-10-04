@@ -8,6 +8,7 @@ import dev.livingrealms.sim.territory.TerritoryEngine;
 import dev.livingrealms.sim.transport.TransportNetworkEngine;
 import dev.livingrealms.sim.transport.TransportRoute;
 import dev.livingrealms.sim.util.DeterministicRng;
+import dev.livingrealms.sim.util.Mathx;
 import dev.livingrealms.sim.world.*;
 import java.util.*;
 
@@ -149,7 +150,11 @@ public final class TradeEngine {
             if(onRoute>=Math.max(1,(long)(route.get().capacityPerDay()/180.0)))return;
         }
         drawForTrade(seller,origin,resource,amount);double value=amount*price;buyer.addTreasury(-value);seller.addTreasury(value);
-        TradeShipment shipment=new TradeShipment(state.nextId(),seller.id(),buyer.id(),resource,amount,value,origin.position(),destination.position());state.addShipment(shipment);state.liveness().onShipmentDispatched();state.history().add(new WorldEvent(state.clock().day(),"trade_dispatched",describe(shipment)+", price="+String.format(java.util.Locale.ROOT,"%.2f",price)+(route.map(r->", route="+r.id()).orElse(""))));
+        TradeShipment shipment=new TradeShipment(state.nextId(),seller.id(),buyer.id(),resource,amount,value,origin.position(),destination.position());
+        double dist=origin.position().distanceTo(destination.position());long travelDays=Math.max(1L,Math.round(dist/220.0));
+        double routeRisk=route.map(r->Mathx.clamp(1.0-r.security(),0,1)).orElse(.35);
+        shipment.restoreLogistics(origin.id(),destination.id(),route.map(r->r.id()).orElse(0L),route.map(r->r.mode().ordinal()).orElse(-1),day,day+travelDays,routeRisk,route.map(r->r.security()).orElse(.4),TradeShipment.LossState.NONE,0);
+        state.addShipment(shipment);state.liveness().onShipmentDispatched();state.history().add(new WorldEvent(state.clock().day(),"trade_dispatched",describe(shipment)+", price="+String.format(java.util.Locale.ROOT,"%.2f",price)+(route.map(r->", route="+r.id()).orElse(""))));
     }
 
     private static double localHeld(Faction f,ResourceType r){double t=0;for(Settlement s:f.settlements())t+=s.stockpile().get(r);return t;}

@@ -8,6 +8,7 @@ dev.livingrealms.WorldQualityPassTest
 dev.livingrealms.SpeciesPackAuditTest
 dev.livingrealms.SystemCompletenessTest
 dev.livingrealms.SettlementEconomyTest
+dev.livingrealms.FinalProductSystemsTest
 dev.livingrealms.ProjectionStressTest
 dev.livingrealms.SaveMigrationMatrixTest
 dev.livingrealms.SaveIntegrityTest
@@ -37,3 +38,4 @@ dev.livingrealms.PlayerRulershipTest
 dev.livingrealms.MobileCivilizationProjectionTest
 dev.livingrealms.WizardTreesTest
 dev.livingrealms.LongRunSoakTest
+dev.livingrealms.FinalProductSystemsTest

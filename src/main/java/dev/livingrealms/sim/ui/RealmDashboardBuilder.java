@@ -43,6 +43,7 @@ public final class RealmDashboardBuilder {
     public static final int MAX_BOUNTIES=16;
     public static final int MAX_OBJECTIVES=24;
     public static final int MAX_SIEGES=16;
+    public static final int MAX_CAMPAIGN_PLANS=16;
     public static final int MAX_OPERATION_SHIPMENTS=24;
     public static final int MAX_OPERATION_ROUTES=24;
     public static final int MAX_OPERATION_INDUSTRY=24;
@@ -127,7 +128,12 @@ public final class RealmDashboardBuilder {
                 .sorted(Comparator.comparingLong(SiegeState::startDay).thenComparingLong(SiegeState::id))
                 .limit(MAX_SIEGES)
                 .map(s->new RealmDashboardSnapshot.SiegeView(s.id(),nameOf(state,s.attackerFactionId()),nameOf(state,s.defenderFactionId()),settlementName(state,s.settlementId()),s.startDay(),s.progress(),s.blockade())).toList();
-        return new RealmDashboardSnapshot.WarfareView(objectives,sieges);
+        List<RealmDashboardSnapshot.CampaignPlanView> campaigns=state.campaignPlans().stream()
+                .filter(p->p.active()&&p.factionId()==realmId)
+                .sorted(Comparator.comparingInt(dev.livingrealms.sim.military.CampaignPlan::priority).reversed().thenComparingLong(dev.livingrealms.sim.military.CampaignPlan::id))
+                .limit(MAX_CAMPAIGN_PLANS)
+                .map(p->new RealmDashboardSnapshot.CampaignPlanView(p.id(),p.type().name(),p.targetSettlementId()>0?settlementName(state,p.targetSettlementId()):"",p.priority(),p.active())).toList();
+        return new RealmDashboardSnapshot.WarfareView(objectives,sieges,campaigns);
     }
 
     private static String objectiveTargetName(SimulationState state,MilitaryObjective objective){
@@ -298,7 +304,15 @@ public final class RealmDashboardBuilder {
         String wantedLevel=wanted==null?WantedLevel.NONE.name():wanted.wantedLevel().name();
         double bounty=wanted==null?0:wanted.bounty(),notoriety=wanted==null?0:wanted.notoriety(),heat=wanted==null?0:wanted.heat();
         var custody=localFactionId<=0?Optional.<CustodyRecord>empty():state.activeCustody(actorKey,localFactionId);
-        return new RealmDashboardSnapshot.PlayerView(actorKey,memberId,memberName,rank,service,reputation,infamy,wantedLevel,bounty,notoriety,heat,custody.isPresent(),custody.map(CustodyRecord::releaseDay).orElse(-1L));
+        String careerTrack=standing==null?"":standing.careerTrack().name();
+        String careerRank=standing==null?"":standing.careerRank().title();
+        Map<String,Double> influence=new LinkedHashMap<>();
+        if(standing!=null&&localFactionId>0){
+            for(dev.livingrealms.sim.player.InfluenceInstitution inst:dev.livingrealms.sim.player.InfluenceInstitution.values()){
+                double v=standing.influenceWith(localFactionId,inst);if(v>0.05)influence.put(inst.name(),v);
+            }
+        }
+        return new RealmDashboardSnapshot.PlayerView(actorKey,memberId,memberName,rank,service,reputation,infamy,wantedLevel,bounty,notoriety,heat,custody.isPresent(),custody.map(CustodyRecord::releaseDay).orElse(-1L),careerTrack,careerRank,influence);
     }
 
     private static RealmDashboardSnapshot.RealmView realmView(SimulationState state,Faction faction){
@@ -320,8 +334,11 @@ public final class RealmDashboardBuilder {
         int shipments=(int)state.shipments().stream().filter(s->s.sellerFactionId()==faction.id()||s.buyerFactionId()==faction.id()).count();
         int wars=(int)state.wars().stream().filter(w->w.active()&&w.involves(faction.id())).count();
         int treaties=(int)state.treaties().stream().filter(t->t.active()&&t.involves(faction.id())).count();
+        int debts=(int)state.debts().stream().filter(d->d.active()&&d.debtorFactionId()==faction.id()).count();
+        int projects=(int)state.grandProjects().stream().filter(p->p.active()&&p.sponsorFactionId()==faction.id()).count();
+        int campaigns=(int)state.campaignPlans().stream().filter(p->p.active()&&p.factionId()==faction.id()).count();
         var g=faction.government();
-        return new RealmDashboardSnapshot.RealmView(faction.id(),faction.name(),faction.rulerName(),g.type().name(),g.successionLaw().name(),faction.population(),faction.settlements().size(),faction.treasury(),faction.technology(),g.stability(),g.legitimacy(),g.corruption(),g.taxRate(),armyPersonnel,airframes,ships,ports,industry,shipments,wars,treaties,resources,marketPrices,marketBuyCosts,marketSellPayouts);
+        return new RealmDashboardSnapshot.RealmView(faction.id(),faction.name(),faction.rulerName(),g.type().name(),g.successionLaw().name(),faction.population(),faction.settlements().size(),faction.treasury(),faction.technology(),g.stability(),g.legitimacy(),g.corruption(),g.taxRate(),armyPersonnel,airframes,ships,ports,industry,shipments,wars,treaties,debts,projects,campaigns,resources,marketPrices,marketBuyCosts,marketSellPayouts);
     }
 
     private static String nameOf(SimulationState state,long id){return id<=0?"":state.findFaction(id).map(Faction::name).orElse("Unknown #"+id);}

@@ -28,7 +28,7 @@ public record RealmDashboardSnapshot(
         StrategicMapView map,
         List<HistoryView> history
 ) {
-    public static final int PROTOCOL_VERSION = 16;
+    public static final int PROTOCOL_VERSION = 17;
 
     public RealmDashboardSnapshot {
         if (protocolVersion != PROTOCOL_VERSION) throw new IllegalArgumentException("protocolVersion");
@@ -64,28 +64,34 @@ public record RealmDashboardSnapshot(
     public record PlayerView(String actorKey, long memberFactionId, String memberFactionName, String rank,
                              double servicePoints, double localReputation, double globalInfamy,
                              String wantedLevel, double bounty, double notoriety, double heat,
-                             boolean inCustody, long custodyReleaseDay) {
+                             boolean inCustody, long custodyReleaseDay,
+                             String careerTrack, String careerRank, Map<String,Double> influence) {
         public PlayerView {
             actorKey=safe(actorKey);memberFactionName=safe(memberFactionName);rank=safe(rank);wantedLevel=safe(wantedLevel);
             servicePoints=finite(servicePoints);localReputation=finite(localReputation);globalInfamy=finite(globalInfamy);
             bounty=Math.max(0,finite(bounty));notoriety=Math.max(0,finite(notoriety));heat=Math.max(0,finite(heat));
+            careerTrack=safe(careerTrack);careerRank=safe(careerRank);
+            influence=Map.copyOf(influence==null?Map.of():influence);
         }
-        public static PlayerView empty(){return new PlayerView("",0,"","OUTSIDER",0,0,0,"NONE",0,0,0,false,-1);}
+        public static PlayerView empty(){return new PlayerView("",0,"","OUTSIDER",0,0,0,"NONE",0,0,0,false,-1,"","",Map.of());}
     }
 
     public record RealmView(long factionId, String name, String ruler, String governmentType, String successionLaw,
                             int population, int settlementCount, double treasury, double technology,
                             double stability, double legitimacy, double corruption, double taxRate,
                             int armyPersonnel, int airframes, int ships, int ports, int industrialSites,
-                            int activeShipments, int activeWars, int activeTreaties, Map<String,Double> resources, Map<String,Double> marketPrices, Map<String,Integer> marketBuyCosts, Map<String,Integer> marketSellPayouts) {
+                            int activeShipments, int activeWars, int activeTreaties,
+                            int activeDebts, int grandProjects, int campaignPlans,
+                            Map<String,Double> resources, Map<String,Double> marketPrices, Map<String,Integer> marketBuyCosts, Map<String,Integer> marketSellPayouts) {
         public RealmView {
             name=safe(name);ruler=safe(ruler);governmentType=safe(governmentType);successionLaw=safe(successionLaw);
             population=Math.max(0,population);settlementCount=Math.max(0,settlementCount);treasury=Math.max(0,finite(treasury));technology=Math.max(0,finite(technology));
             stability=bounded(stability);legitimacy=bounded(legitimacy);corruption=bounded(corruption);taxRate=Math.max(0,finite(taxRate));
             armyPersonnel=Math.max(0,armyPersonnel);airframes=Math.max(0,airframes);ships=Math.max(0,ships);ports=Math.max(0,ports);industrialSites=Math.max(0,industrialSites);activeShipments=Math.max(0,activeShipments);activeWars=Math.max(0,activeWars);activeTreaties=Math.max(0,activeTreaties);
+            activeDebts=Math.max(0,activeDebts);grandProjects=Math.max(0,grandProjects);campaignPlans=Math.max(0,campaignPlans);
             resources=Map.copyOf(resources==null?Map.of():resources);marketPrices=Map.copyOf(marketPrices==null?Map.of():marketPrices);marketBuyCosts=Map.copyOf(marketBuyCosts==null?Map.of():marketBuyCosts);marketSellPayouts=Map.copyOf(marketSellPayouts==null?Map.of():marketSellPayouts);
         }
-        public static RealmView none(){return new RealmView(0,"","","","",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,Map.of(),Map.of(),Map.of(),Map.of());}
+        public static RealmView none(){return new RealmView(0,"","","","",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,Map.of(),Map.of(),Map.of(),Map.of());}
     }
 
     public record SettingsView(String profile,double physicalRadius,double regionalRadius,int wildlifeBudget,int caravanBudget,int militaryBudget,int navalBudget,int constructionOpsPerTick){
@@ -111,9 +117,12 @@ public record RealmDashboardSnapshot(
 
 
 
-    public record WarfareView(List<ObjectiveView> objectives,List<SiegeView> sieges){
-        public WarfareView{objectives=List.copyOf(objectives==null?List.of():objectives);sieges=List.copyOf(sieges==null?List.of():sieges);}
-        public static WarfareView empty(){return new WarfareView(List.of(),List.of());}
+    public record WarfareView(List<ObjectiveView> objectives,List<SiegeView> sieges,List<CampaignPlanView> campaigns){
+        public WarfareView{objectives=List.copyOf(objectives==null?List.of():objectives);sieges=List.copyOf(sieges==null?List.of():sieges);campaigns=List.copyOf(campaigns==null?List.of():campaigns);}
+        public static WarfareView empty(){return new WarfareView(List.of(),List.of(),List.of());}
+    }
+    public record CampaignPlanView(long id,String type,String target,int priority,boolean active){
+        public CampaignPlanView{if(id<=0)throw new IllegalArgumentException("campaign id");type=safe(type);target=safe(target);priority=Math.max(0,priority);}
     }
     public record ObjectiveView(long id,long armyId,String type,String target,int priority,double distanceBlocks){
         public ObjectiveView{if(id<=0||armyId<=0)throw new IllegalArgumentException("objective identity");type=safe(type);target=safe(target);priority=Math.max(0,priority);distanceBlocks=Math.max(0,finite(distanceBlocks));}

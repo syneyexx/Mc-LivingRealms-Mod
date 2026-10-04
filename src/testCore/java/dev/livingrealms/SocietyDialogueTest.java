@@ -15,7 +15,7 @@ public final class SocietyDialogueTest {
         var faction=state.factions().getFirst();var settlement=faction.settlements().getFirst();
         SocialCitizen citizen=state.ensureSocialCitizen(faction.id(),settlement.id(),0,CitizenRole.GUARD);
         check(citizen==state.ensureSocialCitizen(faction.id(),settlement.id(),0,CitizenRole.GUARD),"projection citizen must be stable");
-        check(citizen.name()!=null&&!citizen.name().isBlank()&&citizen.skinVariant()>=0&&citizen.skinVariant()<12,"identity");
+        check(citizen.name()!=null&&!citizen.name().isBlank()&&citizen.skinVariant()>=0&&citizen.skinVariant()<48,"identity");
         check(citizen.personality().loyalty()>=0&&citizen.personality().loyalty()<=1,"personality");
         citizen.remember(new CitizenMemory(state.clock().day(),MemoryType.RUMOR,"bandits","merchant:Tess","Bandits were seen near the old north road.",new SimPosition(settlement.position().x()+50,settlement.position().z()-80),.8,.72));
 
@@ -64,7 +64,7 @@ public final class SocietyDialogueTest {
         SocialCitizen rc=restored.findSocialCitizen(citizen.id()).orElseThrow();
         check(rc.name().equals(citizen.name())&&rc.memories().size()==SocialCitizen.MAX_MEMORIES,"social persistence");
         check(rc.relationships().containsKey(player),"relationship persistence");
-        check(SimulationStateCodec.SCHEMA_VERSION==16,"schema16");
+        check(SimulationStateCodec.SCHEMA_VERSION==17,"schema17");
 
         ModCompatibilityPolicy.validate();
         check(ModCompatibilityPolicy.isPlayerOnly("mr_guns")&&!ModCompatibilityPolicy.mayUseForLivingWorld("mr_guns"),"Guns++ NPC deny-list");

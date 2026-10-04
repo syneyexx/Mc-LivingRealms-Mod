@@ -302,22 +302,33 @@ public final class StructureBlueprintFactory {
 
     private static StructureBlueprint road(int w,int d) {
         List<BlockPlacement> p=new ArrayList<>(); int hx=w/2,hz=d/2;
-        // Carriageway with sidewalks; periodic lamps/benches stay on sidewalk edges so the centerline stays clear.
+        StreetType street=StreetType.forWidth(w,false,w>=7,false);
+        // Carriageway with sidewalks; lamps/benches/clutter stay on sidewalk edges so the centerline stays clear.
         for(int z=-hz;z<=hz;z++) for(int x=-hx;x<=hx;x++) {
-            PaletteSlot slot=Math.abs(x)>=Math.max(1,hx-0)?PaletteSlot.FOUNDATION:PaletteSlot.PATH;
+            boolean edge=Math.abs(x)>=Math.max(1,hx-(street.sidewalk()?0:1));
+            PaletteSlot slot=edge?PaletteSlot.FOUNDATION:PaletteSlot.PATH;
             add(p,x,0,z,slot,ConstructionPhase.FOUNDATION);
         }
-        if(w>=5){
-            for(int z=-hz+2;z<=hz-2;z+=8){
-                add(p,-hx,1,z,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
-                add(p,hx,1,z,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
-                if(z+4<=hz-2){
-                    add(p,-hx,1,z+4,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
-                    add(p,hx,1,z+4,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
+        if(w>=3 && street.sidewalk()){
+            int lampStep=street.lighting()?6:10;
+            for(int z=-hz+2;z<=hz-2;z+=lampStep){
+                if(street.lighting()){
+                    add(p,-hx,1,z,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
+                    add(p,hx,1,z,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
+                }
+                // Benches / sign posts as fence slots on sidewalk.
+                if(z+3<=hz-2){
+                    add(p,-hx,1,z+3,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
+                    add(p,hx,1,z+3,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
+                }
+                // Market/arterial clutter: barrels/crates as storage on wide streets only.
+                if(w>=7 && z+5<=hz-2 && ((z/lampStep)&1)==0){
+                    add(p,-hx,1,z+5,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
+                    if(w>=9) add(p,hx,1,z+5,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
                 }
             }
         }
-        return bp("road_with_sidewalks",w,d,2,p);
+        return bp("road_"+street.name().toLowerCase(java.util.Locale.ROOT),w,d,2,p);
     }
 
     /** Open civic plaza: paved square, corner lamps, edge seating — keeps the center traversable. */

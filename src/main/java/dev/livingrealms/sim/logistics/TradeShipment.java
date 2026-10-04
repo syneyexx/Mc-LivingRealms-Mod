@@ -1,11 +1,14 @@
 package dev.livingrealms.sim.logistics;
 
 import dev.livingrealms.sim.faction.ResourceType;
+import dev.livingrealms.sim.util.Mathx;
 import dev.livingrealms.sim.world.SimPosition;
 import java.util.Objects;
 
 /** Canonical off-screen shipment. Physical caravans are temporary projections of this state. */
 public final class TradeShipment {
+    public enum LossState { NONE,PARTIAL,TOTAL }
+
     private final long id;
     private final long sellerFactionId;
     private final long buyerFactionId;
@@ -15,6 +18,12 @@ public final class TradeShipment {
     private final SimPosition origin;
     private final SimPosition destination;
     private double progress;
+    private long originSettlementId,destinationSettlementId,routeId;
+    private int transportModeOrdinal=-1;
+    private long departureDay,expectedArrivalDay;
+    private double risk,escortStrength;
+    private LossState lossState=LossState.NONE;
+    private int delayDays;
 
     public TradeShipment(long id,long sellerFactionId,long buyerFactionId,ResourceType resource,double amount,double value,SimPosition origin,SimPosition destination) {
         if(id<=0||sellerFactionId<=0||buyerFactionId<=0||sellerFactionId==buyerFactionId) throw new IllegalArgumentException("ids");
@@ -28,6 +37,18 @@ public final class TradeShipment {
     public SimPosition origin(){return origin;} public SimPosition destination(){return destination;} public double progress(){return progress;}
     public double distance(){return origin.distanceTo(destination);} public boolean arrived(){return progress>=1.0-1e-12;}
     public SimPosition position(){return origin.lerp(destination,progress);}
+    public long originSettlementId(){return originSettlementId;} public long destinationSettlementId(){return destinationSettlementId;}
+    public long routeId(){return routeId;} public int transportModeOrdinal(){return transportModeOrdinal;}
+    public long departureDay(){return departureDay;} public long expectedArrivalDay(){return expectedArrivalDay;}
+    public double risk(){return risk;} public double escortStrength(){return escortStrength;} public LossState lossState(){return lossState;} public int delayDays(){return delayDays;}
+
     public void advanceDistance(double blocks){if(blocks<0||!Double.isFinite(blocks))throw new IllegalArgumentException("blocks");double d=distance();progress=d<1e-9?1.0:Math.min(1.0,progress+blocks/d);}
     public void restoreProgress(double value){if(!Double.isFinite(value)||value<0||value>1)throw new IllegalArgumentException("progress");progress=value;}
+    public void restoreLogistics(long originSettlementId,long destinationSettlementId,long routeId,int transportModeOrdinal,long departureDay,long expectedArrivalDay,double risk,double escortStrength,LossState lossState,int delayDays){
+        if(originSettlementId<0||destinationSettlementId<0||routeId<0||transportModeOrdinal<-1||departureDay<0||expectedArrivalDay<0||delayDays<0)throw new IllegalArgumentException("logistics ids");
+        if(!Double.isFinite(risk)||risk<0||risk>1||!Double.isFinite(escortStrength)||escortStrength<0)throw new IllegalArgumentException("logistics risk");
+        this.originSettlementId=originSettlementId;this.destinationSettlementId=destinationSettlementId;this.routeId=routeId;this.transportModeOrdinal=transportModeOrdinal;
+        this.departureDay=departureDay;this.expectedArrivalDay=expectedArrivalDay;this.risk=Mathx.clamp(risk,0,1);this.escortStrength=escortStrength;
+        this.lossState=Objects.requireNonNullElse(lossState,LossState.NONE);this.delayDays=delayDays;
+    }
 }

@@ -13,7 +13,7 @@ import net.minecraft.resources.ResourceLocation;
 
 /** Reuses LivingRealms citizen skins while keeping pirate equipment visibly rendered. */
 public final class MobileCivilizationRenderer extends MobRenderer<MobileCivilizationEntity,MobileCivilizationModel> {
-    private static final ResourceLocation[] TEXTURES=new ResourceLocation[12];
+    private static final ResourceLocation[] TEXTURES=new ResourceLocation[48];
     static{for(int i=0;i<TEXTURES.length;i++)TEXTURES[i]=ResourceLocation.fromNamespaceAndPath(LivingRealms.MOD_ID,"textures/entity/faction_citizen_"+i+".png");}
     public MobileCivilizationRenderer(EntityRendererProvider.Context context){
         super(context,new MobileCivilizationModel(context.bakeLayer(MobileCivilizationModel.LAYER)),.45F);

@@ -11,12 +11,14 @@ import net.minecraft.client.renderer.entity.MobRenderer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
-/** Morphology-family wildlife renderer with mass-driven scale and family textures. */
+/** Morphology-family wildlife renderer with mass-driven scale and per-species textures when present. */
 public final class LivingRealmsAnimalRenderer extends MobRenderer<LivingRealmsAnimalEntity, LivingRealmsAnimalModel> {
     private static final ResourceLocation FALLBACK = ResourceLocation.fromNamespaceAndPath(
             LivingRealms.MOD_ID, "textures/entity/wildlife.png");
     private static final java.util.EnumMap<SpeciesMorphology, ResourceLocation> FAMILY_TEXTURES =
             new java.util.EnumMap<>(SpeciesMorphology.class);
+    private static final java.util.concurrent.ConcurrentHashMap<String, ResourceLocation> SPECIES_TEXTURES =
+            new java.util.concurrent.ConcurrentHashMap<>();
     static {
         for (SpeciesMorphology morph : SpeciesMorphology.values()) {
             FAMILY_TEXTURES.put(morph, ResourceLocation.fromNamespaceAndPath(
@@ -59,6 +61,18 @@ public final class LivingRealmsAnimalRenderer extends MobRenderer<LivingRealmsAn
     public ResourceLocation getTextureLocation(LivingRealmsAnimalEntity entity) {
         SpeciesDefinition sp = entity.species();
         if (sp == null) return FALLBACK;
+        String raw = sp.id();
+        String safe = raw.replace(':', '_').replace('/', '_');
+        ResourceLocation speciesTex = SPECIES_TEXTURES.computeIfAbsent(safe, id ->
+                ResourceLocation.fromNamespaceAndPath(LivingRealms.MOD_ID, "textures/entity/wildlife_species_" + id + ".png"));
+        // Prefer species texture path; resource pack missing files fall through visually only if absent at runtime.
+        // Family texture remains the deterministic fallback when species file is not bundled.
+        java.io.InputStream probe = LivingRealmsAnimalRenderer.class.getResourceAsStream(
+                "/assets/" + LivingRealms.MOD_ID + "/textures/entity/wildlife_species_" + safe + ".png");
+        if (probe != null) {
+            try { probe.close(); } catch (java.io.IOException ignored) {}
+            return speciesTex;
+        }
         ResourceLocation family = FAMILY_TEXTURES.get(SpeciesMorphologyResolver.resolve(sp));
         return family != null ? family : FALLBACK;
     }

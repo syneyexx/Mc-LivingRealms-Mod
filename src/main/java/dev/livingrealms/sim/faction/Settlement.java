@@ -41,6 +41,16 @@ public final class Settlement {
     public Stockpile stockpile(){return stockpile;} public double barnCapacity(){return barnCapacity;} public double granaryCapacity(){return granaryCapacity;}
     public SettlementGeographyProfile geography(){return geography;}
     public void setGeography(SettlementGeographyProfile value){geography=java.util.Objects.requireNonNull(value,"geography");}
+    /** Derived specialization label for planners/UI; not a separate economic authority. */
+    public SettlementSpecialization specialization(boolean capital,double technology){
+        return SettlementSpecialization.derive(this,capital,technology,
+                countPrefix("temple:")>0,countPrefix("school:")>0,countPrefix("barracks:")>0,
+                countPrefix("factory:")>0,countPrefix("dock:")>0);
+    }
+    public double developmentScore(double education,double tradeConnectivity,double administration,double publicServices){
+        return SettlementDevelopment.score(this,education,tradeConnectivity,administration,publicServices);
+    }
+    public Tier effectiveTier(double developmentScore){return SettlementDevelopment.effectiveTier(this,developmentScore);}
     public void rename(String value){if(value==null||value.isBlank())throw new IllegalArgumentException("name");name=value;if(!geography.worldDiscovered())geography=SettlementGeographyProfile.fromNameHeuristic(name);} public void addPopulation(int n){population=Math.max(0,population+n);recalc();refreshStorageCapacity();} public void addHousing(int n){housing=Math.max(0,housing+n);recalc();refreshStorageCapacity();} public void improveInfrastructure(double v){infrastructure=Math.max(0,infrastructure+v);refreshStorageCapacity();}
     public int housingShortage(){return Math.max(0,population-housing);}
     public Set<String> completedConstruction(){return Collections.unmodifiableSet(completedConstruction);}

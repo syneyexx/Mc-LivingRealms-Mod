@@ -418,7 +418,10 @@ public final class SettlementPlanner {
     }
 
     private static void addRoad(List<ConstructionIntent> out, Faction f, Settlement s, int i, SimPosition c, int w, int d, int rot, int p) {
-        addAt(out, f, s, StructureRole.ROAD, i, c, w, d, rot, p);
+        StreetType street = StreetType.forWidth(w, false, w >= 7 && p >= 118, p >= 130);
+        // Encode hierarchy in the construction key so morphology/history audits can classify roads.
+        String key = "road:" + street.name().toLowerCase(java.util.Locale.ROOT) + ":" + i;
+        out.add(new ConstructionIntent(key, f.id(), s.id(), StructureRole.ROAD, c, Math.max(street.width(), w), d, rot, p));
     }
 
     private static int houseFacing(int x, int z, int spacing, int baseRotation) {

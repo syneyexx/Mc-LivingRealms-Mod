@@ -5,7 +5,7 @@ import dev.livingrealms.sim.law.*;
 import dev.livingrealms.sim.world.*;
 import java.util.*;
 
-/** Membership, reputation, service progression and expulsion rules. */
+/** Membership, reputation, influence, service progression and expulsion rules. */
 public final class ReputationEngine {
     private static final double JOIN_REPUTATION=10;
     private static final double MAX_JOIN_BOUNTY=25;
@@ -22,6 +22,7 @@ public final class ReputationEngine {
         if(bounty>MAX_JOIN_BOUNTY)return new FactionJoinResult(false,"wanted",standing.rank());
         if(state.activeCustody(actorKey,factionId).isPresent())return new FactionJoinResult(false,"in_custody",standing.rank());
         standing.join(factionId,state.clock().day());
+        standing.adjustInfluence(factionId,InfluenceInstitution.COMMONERS,4);
         state.history().add(new WorldEvent(state.clock().day(),"faction_joined","actor="+actorKey+", faction="+factionId));
         return new FactionJoinResult(true,"joined",standing.rank());
     }
@@ -35,7 +36,24 @@ public final class ReputationEngine {
         if(points<=0||!Double.isFinite(points))throw new IllegalArgumentException("points");
         PlayerStanding standing=state.playerStanding(actorKey);if(!standing.isMemberOf(factionId))throw new IllegalStateException("not a member");
         standing.grantService(points);standing.adjustReputation(factionId,Math.min(10,points*.025));
+        bumpInfluenceForService(standing,factionId,points);
+        if(standing.rank()==FactionRank.SOLDIER||standing.rank()==FactionRank.OFFICER||standing.rank()==FactionRank.NOBLE){
+            if(standing.grantCareerService(CareerTrack.MILITARY,points))state.history().add(new WorldEvent(state.clock().day(),"career_promoted","actor="+actorKey+", track=MILITARY, rank="+standing.careerRank().title()));
+        }
         FactionRank before=standing.rank();if(standing.refreshRank()&&standing.rank()!=before)state.history().add(new WorldEvent(state.clock().day(),"faction_promoted","actor="+actorKey+", faction="+factionId+", rank="+standing.rank()));
+    }
+
+    public void grantCareerService(SimulationState state,String actorKey,CareerTrack track,double points){
+        if(points<=0||!Double.isFinite(points)||track==null)throw new IllegalArgumentException("career");
+        PlayerStanding standing=state.playerStanding(actorKey);
+        if(standing.grantCareerService(track,points))state.history().add(new WorldEvent(state.clock().day(),"career_promoted","actor="+actorKey+", track="+track+", rank="+standing.careerRank().title()));
+        if(standing.isMember()){
+            InfluenceInstitution inst=switch(track){
+                case MILITARY -> InfluenceInstitution.MILITARY; case POLITICAL -> InfluenceInstitution.CROWN;
+                case ECONOMIC -> InfluenceInstitution.MERCHANTS; case RELIGIOUS -> InfluenceInstitution.CLERGY;
+            };
+            standing.adjustInfluence(standing.memberFactionId(),inst,Math.min(8,points*.04));
+        }
     }
 
     public void onCrime(SimulationState state,CrimeIncident incident,CrimeResult result){
@@ -43,6 +61,8 @@ public final class ReputationEngine {
         PlayerStanding standing=state.playerStanding(incident.actorKey());
         double loss=Math.min(65,result.notorietyAdded()*.6+result.bountyAdded()*.035+(incident.type().violent()?8:0));
         standing.adjustReputation(incident.jurisdictionFactionId(),-loss);
+        standing.adjustInfluence(incident.jurisdictionFactionId(),InfluenceInstitution.UNDERWORLD,Math.min(12,loss*.15));
+        standing.adjustInfluence(incident.jurisdictionFactionId(),InfluenceInstitution.CROWN,-Math.min(10,loss*.12));
         if(standing.isMemberOf(incident.jurisdictionFactionId())) maybeExpel(state,standing,incident.jurisdictionFactionId(),"criminal_conduct");
     }
 
@@ -57,6 +77,20 @@ public final class ReputationEngine {
             maybeExpel(state,standing,standing.memberFactionId(),"standing_below_threshold");
             if(standing.isMember())standing.refreshRank();
         }
+    }
+
+    private static void bumpInfluenceForService(PlayerStanding standing,long factionId,double points){
+        double bump=Math.min(6,points*.03);
+        InfluenceInstitution inst=switch(standing.rank()){
+            case SOLDIER,OFFICER -> InfluenceInstitution.MILITARY;
+            case NOBLE,RULER -> InfluenceInstitution.CROWN;
+            case CITIZEN -> InfluenceInstitution.COMMONERS;
+            default -> InfluenceInstitution.COMMONERS;
+        };
+        standing.adjustInfluence(factionId,inst,bump);
+        if(standing.careerTrack()==CareerTrack.ECONOMIC)standing.adjustInfluence(factionId,InfluenceInstitution.MERCHANTS,bump*.5);
+        if(standing.careerTrack()==CareerTrack.RELIGIOUS)standing.adjustInfluence(factionId,InfluenceInstitution.CLERGY,bump*.5);
+        if(standing.careerTrack()==CareerTrack.POLITICAL)standing.adjustInfluence(factionId,InfluenceInstitution.CROWN,bump*.35);
     }
 
     private static void maybeExpel(SimulationState state,PlayerStanding standing,long factionId,String reason){

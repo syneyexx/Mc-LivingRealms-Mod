@@ -3,7 +3,9 @@ package dev.livingrealms.sim.persistence;
 import dev.livingrealms.sim.aviation.*;
 import dev.livingrealms.sim.config.SimulationConfig;
 import dev.livingrealms.sim.civilization.*;
+import dev.livingrealms.sim.civilian.AppearanceProfile;
 import dev.livingrealms.sim.civilian.CitizenRole;
+import dev.livingrealms.sim.construction.ConstructionPhase;
 import dev.livingrealms.sim.diplomacy.*;
 import dev.livingrealms.sim.ecology.*;
 import dev.livingrealms.sim.faction.*;
@@ -30,7 +32,7 @@ import java.util.zip.CRC32;
 public final class SimulationStateCodec {
     private static final int MAGIC = 0x4C52534D; // LRSM
     public static final int MIN_SUPPORTED_SCHEMA = 1;
-    public static final int SCHEMA_VERSION = 16;
+    public static final int SCHEMA_VERSION = 17;
     /** Hard ceiling for one canonical world-state payload. Prevents corrupt/local saves from driving unbounded decode work. */
     public static final int MAX_STATE_BYTES = 32 * 1024 * 1024;
     /** Individual canonical text fields are metadata, identifiers or bounded event text; 64 KiB is intentionally generous. */
@@ -62,7 +64,7 @@ public final class SimulationStateCodec {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(bytes))) {
                 out.writeInt(MAGIC);out.writeInt(SCHEMA_VERSION);out.writeLong(state.seed());out.writeLong(state.clock().gameTicks());out.writeLong(state.peekNextId());
-                writeRegions(out,state);writeFactions(out,state);writeShipments(out,state);writeV4Strategic(out,state);writeV5Law(out,state);writeV6NavalAndPlayers(out,state);writeV7Industry(out,state);writeV9Config(out,state);writeV11Social(out,state);writeV12Civilization(out,state);writeV13Humanity(out,state);writeV14PirateHideouts(out,state);writeV15SiegeEquipment(out,state);writeV16SettlementEconomy(out,state);writeHistory(out,state);
+                writeRegions(out,state);writeFactions(out,state);writeShipments(out,state);writeV4Strategic(out,state);writeV5Law(out,state);writeV6NavalAndPlayers(out,state);writeV7Industry(out,state);writeV9Config(out,state);writeV11Social(out,state);writeV12Civilization(out,state);writeV13Humanity(out,state);writeV14PirateHideouts(out,state);writeV15SiegeEquipment(out,state);writeV16SettlementEconomy(out,state);writeV17FinalProduct(out,state);writeHistory(out,state);
             }
             byte[] payload=bytes.toByteArray();
             if(payload.length>MAX_STATE_BYTES)throw new IllegalStateException("Living Realms state exceeds hard size limit: "+payload.length);
@@ -206,6 +208,42 @@ public final class SimulationStateCodec {
         }
     }
 
+    private static void writeV17FinalProduct(DataOutputStream out,SimulationState state)throws IOException{
+        var citizens=new ArrayList<>(state.socialCitizens());citizens.sort(Comparator.comparingLong(SocialCitizen::id));
+        out.writeInt(citizens.size());
+        for(SocialCitizen c:citizens){
+            out.writeLong(c.id());out.writeLong(c.appearancePacked());writeString(out,c.cultureKey());writeString(out,c.faithKey());
+            out.writeInt(c.socialClass().ordinal());out.writeDouble(c.education());writeString(out,c.workplaceKey());
+            out.writeInt(c.wealthClass().ordinal());out.writeDouble(c.personalInfluence());writeString(out,c.professionHistoryKey());
+            out.writeInt(c.employmentStatus().ordinal());
+        }
+        var standings=new ArrayList<>(state.playerStandings().values());standings.sort(Comparator.comparing(PlayerStanding::actorKey));
+        out.writeInt(standings.size());
+        for(PlayerStanding ps:standings){
+            writeString(out,ps.actorKey());
+            var factions=new ArrayList<>(ps.influences().entrySet());factions.sort(Map.Entry.comparingByKey());
+            out.writeInt(factions.size());
+            for(var fe:factions){
+                out.writeLong(fe.getKey());
+                var inst=new ArrayList<>(fe.getValue().entrySet());inst.sort(Comparator.comparing(e->e.getKey().ordinal()));
+                out.writeInt(inst.size());for(var ie:inst){out.writeInt(ie.getKey().ordinal());out.writeDouble(ie.getValue());}
+            }
+            out.writeInt(ps.careerTrack().ordinal());out.writeInt(ps.careerRankIndex());out.writeDouble(ps.careerService());
+        }
+        var debts=new ArrayList<>(state.debts());debts.sort(Comparator.comparingLong(SovereignDebt::id));
+        out.writeInt(debts.size());
+        for(SovereignDebt d:debts){out.writeLong(d.id());out.writeLong(d.debtorFactionId());writeString(out,d.creditorKey());out.writeDouble(d.principal());out.writeDouble(d.interestRate());out.writeDouble(d.remaining());out.writeLong(d.createdDay());out.writeLong(d.dueDay());out.writeDouble(d.risk());out.writeBoolean(d.defaulted());out.writeBoolean(d.active());}
+        var projects=new ArrayList<>(state.grandProjects());projects.sort(Comparator.comparingLong(GrandProject::id));
+        out.writeInt(projects.size());
+        for(GrandProject p:projects){out.writeLong(p.id());out.writeLong(p.sponsorFactionId());out.writeLong(p.settlementId());out.writeInt(p.type().ordinal());out.writeLong(p.createdDay());out.writeDouble(p.progress());out.writeInt(p.phase().ordinal());writeString(out,p.pauseReason());out.writeBoolean(p.complete());out.writeBoolean(p.active());out.writeDouble(p.spentTreasury());out.writeDouble(p.spentFood());out.writeDouble(p.spentTimber());out.writeDouble(p.spentStone());out.writeDouble(p.spentIron());out.writeInt(p.laborApplied());out.writeBoolean(p.effectInfrastructure());out.writeBoolean(p.effectProsperity());out.writeBoolean(p.effectLegitimacy());out.writeBoolean(p.effectLegend());}
+        var plans=new ArrayList<>(state.campaignPlans());plans.sort(Comparator.comparingLong(CampaignPlan::id));
+        out.writeInt(plans.size());
+        for(CampaignPlan p:plans){out.writeLong(p.id());out.writeLong(p.factionId());out.writeLong(p.warId());out.writeInt(p.type().ordinal());out.writeLong(p.targetSettlementId());out.writeInt(p.priority());out.writeLong(p.createdDay());out.writeBoolean(p.active());}
+        var shipments=new ArrayList<>(state.shipments());shipments.sort(Comparator.comparingLong(TradeShipment::id));
+        out.writeInt(shipments.size());
+        for(TradeShipment s:shipments){out.writeLong(s.id());out.writeLong(s.originSettlementId());out.writeLong(s.destinationSettlementId());out.writeLong(s.routeId());out.writeInt(s.transportModeOrdinal());out.writeLong(s.departureDay());out.writeLong(s.expectedArrivalDay());out.writeDouble(s.risk());out.writeDouble(s.escortStrength());out.writeInt(s.lossState().ordinal());out.writeInt(s.delayDays());}
+    }
+
     private static void writeCrimeLedger(DataOutputStream out,CrimeLedger ledger)throws IOException{
         var profiles=new ArrayList<>(ledger.profiles().values());profiles.sort(Comparator.comparing(WantedProfile::actorKey));out.writeInt(profiles.size());
         for(WantedProfile p:profiles){writeString(out,p.actorKey());out.writeDouble(p.globalInfamy());var jurisdictions=new ArrayList<>(p.jurisdictions().values());jurisdictions.sort(Comparator.comparingLong(JurisdictionWanted::factionId));out.writeInt(jurisdictions.size());for(JurisdictionWanted w:jurisdictions){out.writeLong(w.factionId());out.writeDouble(w.bounty());out.writeDouble(w.notoriety());out.writeDouble(w.heat());out.writeLong(w.lastCrimeDay());out.writeInt(w.witnessedCrimes());out.writeInt(w.violentCrimes());out.writeInt(w.captures());}}
@@ -223,7 +261,7 @@ public final class SimulationStateCodec {
             long seed=in.readLong();long ticks=in.readLong();long nextId=in.readLong();
             if(ticks<0)throw new IOException("Negative simulation clock: "+ticks);if(nextId<1)throw new IOException("Invalid nextId: "+nextId);
             SimulationState state=new SimulationState(seed,speciesCatalog);state.clock().restore(ticks);state.restoreNextId(nextId);
-            readRegions(in,state,version);readFactions(in,state,version);if(version>=3)readShipments(in,state);if(version>=4)readV4Strategic(in,state);if(version>=5)readV5Law(in,state);if(version>=6)readV6NavalAndPlayers(in,state);if(version>=7)readV7Industry(in,state);if(version>=9)readV9Config(in,state);if(version>=11)readV11Social(in,state);if(version>=12)readV12Civilization(in,state);if(version>=13)readV13Humanity(in,state);if(version>=14)readV14PirateHideouts(in,state);if(version>=15)readV15SiegeEquipment(in,state);if(version>=16)readV16SettlementEconomy(in,state);else migratePreV16SettlementEconomy(state);readHistory(in,state);if(in.read()!=-1)throw new IOException("Trailing bytes after Living Realms state");
+            readRegions(in,state,version);readFactions(in,state,version);if(version>=3)readShipments(in,state);if(version>=4)readV4Strategic(in,state);if(version>=5)readV5Law(in,state);if(version>=6)readV6NavalAndPlayers(in,state);if(version>=7)readV7Industry(in,state);if(version>=9)readV9Config(in,state);if(version>=11)readV11Social(in,state);if(version>=12)readV12Civilization(in,state);if(version>=13)readV13Humanity(in,state);if(version>=14)readV14PirateHideouts(in,state);if(version>=15)readV15SiegeEquipment(in,state);if(version>=16)readV16SettlementEconomy(in,state);else migratePreV16SettlementEconomy(state);if(version>=17)readV17FinalProduct(in,state);else migratePreV17FinalProduct(state);readHistory(in,state);if(in.read()!=-1)throw new IOException("Trailing bytes after Living Realms state");
             state.repairNextIdWatermark();
             if(version==SCHEMA_VERSION){try{SimulationValidator.validate(state).throwIfInvalid();}catch(IllegalStateException invalid){throw new IOException("Current-schema Living Realms state failed semantic validation",invalid);}}
             return state;
@@ -293,7 +331,7 @@ public final class SimulationStateCodec {
     private static void readV11Social(DataInputStream in,SimulationState state)throws IOException{
         int count=checkedCount(in.readInt(),100000,"social citizens");
         for(int i=0;i<count;i++){
-            long id=in.readLong(),faction=in.readLong(),settlement=in.readLong();int slot=checkedCount(in.readInt(),100000,"citizen projection slot");String name=readString(in);int skin=checkedCount(in.readInt(),11,"citizen skin");CitizenRole role=CitizenRole.values()[enumOrdinal(in.readInt(),CitizenRole.values().length,"citizen role")];long birthDay=in.readLong();double health=in.readDouble(),money=in.readDouble();boolean alive=in.readBoolean();
+            long id=in.readLong(),faction=in.readLong(),settlement=in.readLong();int slot=checkedCount(in.readInt(),100000,"citizen projection slot");String name=readString(in);int skin=checkedCount(in.readInt(),47,"citizen skin");CitizenRole role=CitizenRole.values()[enumOrdinal(in.readInt(),CitizenRole.values().length,"citizen role")];long birthDay=in.readLong();double health=in.readDouble(),money=in.readDouble();boolean alive=in.readBoolean();
             CitizenNeeds needs=new CitizenNeeds();needs.restore(in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble());CitizenPersonality personality=new CitizenPersonality(in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble());
             SocialCitizen citizen=new SocialCitizen(id,faction,settlement,slot,name,skin,role,birthDay,personality);citizen.restoreCore(role,health,money,alive);citizen.needs().restore(needs.hunger(),needs.safety(),needs.social(),needs.status(),needs.comfort());
             int memories=checkedCount(in.readInt(),SocialCitizen.MAX_MEMORIES,"citizen memories");for(int j=0;j<memories;j++){CitizenMemory memory=new CitizenMemory(in.readLong(),MemoryType.values()[enumOrdinal(in.readInt(),MemoryType.values().length,"memory type")],readString(in),readString(in),readString(in),readPosition(in),in.readDouble(),in.readDouble());citizen.restoreMemory(memory);}
@@ -353,6 +391,48 @@ public final class SimulationStateCodec {
     /** Pre-schema-16 worlds already receive starter stores from Settlement construction; refresh barn/granary from structures. */
     private static void migratePreV16SettlementEconomy(SimulationState state){
         for(Faction f:state.factions())for(Settlement s:f.settlements()){s.refreshStorageCapacity();s.enforceStorageCaps();}
+    }
+
+    private static void readV17FinalProduct(DataInputStream in,SimulationState state)throws IOException{
+        int n=checkedCount(in.readInt(),100000,"citizen appearance/social");
+        for(int i=0;i<n;i++){
+            long id=in.readLong();long packed=in.readLong();String culture=readString(in),faith=readString(in);
+            SocialClass socialClass=SocialClass.values()[enumOrdinal(in.readInt(),SocialClass.values().length,"social class")];
+            double education=in.readDouble();String workplace=readString(in);
+            SocialClass wealth=SocialClass.values()[enumOrdinal(in.readInt(),SocialClass.values().length,"wealth class")];
+            double influence=in.readDouble();String historyKey=readString(in);
+            EmploymentStatus employment=EmploymentStatus.values()[enumOrdinal(in.readInt(),EmploymentStatus.values().length,"employment")];
+            SocialCitizen c=state.findSocialCitizen(id).orElseThrow(()->new IOException("unknown citizen in schema17 social: "+id));
+            try{c.restoreSocialExtensions(culture,faith,socialClass,education,workplace,wealth,influence,packed,historyKey,employment);}catch(IllegalArgumentException bad){throw new IOException("invalid citizen social extensions "+id,bad);}
+        }
+        n=checkedCount(in.readInt(),1000000,"player influence/career");
+        for(int i=0;i<n;i++){
+            String actorKey=readString(in);PlayerStanding ps=state.playerStanding(actorKey);
+            int fc=checkedCount(in.readInt(),100000,"influence factions");
+            for(int j=0;j<fc;j++){long factionId=in.readLong();int ic=checkedCount(in.readInt(),InfluenceInstitution.values().length,"influence institutions");for(int k=0;k<ic;k++){InfluenceInstitution inst=InfluenceInstitution.values()[enumOrdinal(in.readInt(),InfluenceInstitution.values().length,"influence institution")];ps.restoreInfluence(factionId,inst,in.readDouble());}}
+            CareerTrack track=CareerTrack.values()[enumOrdinal(in.readInt(),CareerTrack.values().length,"career track")];int rankIdx=checkedCount(in.readInt(),CareerRank.ranks(track).length-1,"career rank");double service=in.readDouble();
+            try{ps.restoreCareer(track,rankIdx,service);}catch(IllegalArgumentException bad){throw new IOException("invalid career for "+actorKey,bad);}
+        }
+        n=checkedCount(in.readInt(),SimulationState.MAX_DEBTS,"sovereign debts");
+        for(int i=0;i<n;i++){long id=in.readLong(),debtor=in.readLong();String creditor=readString(in);double principal=in.readDouble(),rate=in.readDouble(),remaining=in.readDouble();long created=in.readLong(),due=in.readLong();double risk=in.readDouble();boolean defaulted=in.readBoolean(),active=in.readBoolean();SovereignDebt debt=new SovereignDebt(id,debtor,creditor,principal,rate,created,due,risk);debt.restore(remaining,risk,defaulted,active);state.addDebt(debt);}
+        n=checkedCount(in.readInt(),SimulationState.MAX_GRAND_PROJECTS,"grand projects");
+        for(int i=0;i<n;i++){long id=in.readLong(),sponsor=in.readLong(),settlement=in.readLong();GrandProjectType type=GrandProjectType.values()[enumOrdinal(in.readInt(),GrandProjectType.values().length,"grand project type")];long created=in.readLong();double progress=in.readDouble();ConstructionPhase phase=ConstructionPhase.values()[enumOrdinal(in.readInt(),ConstructionPhase.values().length,"project phase")];String pause=readString(in);boolean complete=in.readBoolean(),active=in.readBoolean();double spentTreasury=in.readDouble(),spentFood=in.readDouble(),spentTimber=in.readDouble(),spentStone=in.readDouble(),spentIron=in.readDouble();int labor=checkedCount(in.readInt(),100000000,"project labor");boolean ei=in.readBoolean(),ep=in.readBoolean(),el=in.readBoolean(),elegend=in.readBoolean();GrandProject project=new GrandProject(id,sponsor,settlement,type,created);project.restore(progress,phase,pause,complete,active,spentTreasury,spentFood,spentTimber,spentStone,spentIron,labor,ei,ep,el,elegend);state.addGrandProject(project);}
+        n=checkedCount(in.readInt(),SimulationState.MAX_CAMPAIGN_PLANS,"campaign plans");
+        for(int i=0;i<n;i++){long id=in.readLong(),faction=in.readLong(),war=in.readLong();CampaignPlanType type=CampaignPlanType.values()[enumOrdinal(in.readInt(),CampaignPlanType.values().length,"campaign plan type")];long target=in.readLong();int priority=checkedCount(in.readInt(),1000000,"campaign priority");long created=in.readLong();boolean active=in.readBoolean();CampaignPlan plan=new CampaignPlan(id,faction,war,type,target,priority,created);plan.restore(priority,active);state.addCampaignPlan(plan);}
+        n=checkedCount(in.readInt(),1000000,"shipment logistics");
+        for(int i=0;i<n;i++){long id=in.readLong();long origin=in.readLong(),dest=in.readLong(),route=in.readLong();int mode=in.readInt();long dep=in.readLong(),eta=in.readLong();double risk=in.readDouble(),escort=in.readDouble();TradeShipment.LossState loss=TradeShipment.LossState.values()[enumOrdinal(in.readInt(),TradeShipment.LossState.values().length,"shipment loss")];int delay=checkedCount(in.readInt(),100000,"shipment delay");TradeShipment shipment=state.findShipment(id).orElseThrow(()->new IOException("shipment logistics missing shipment "+id));try{shipment.restoreLogistics(origin,dest,route,mode,dep,eta,risk,escort,loss,delay);}catch(IllegalArgumentException bad){throw new IOException("invalid shipment logistics "+id,bad);}
+        }
+    }
+
+    private static void migratePreV17FinalProduct(SimulationState state){
+        for(SocialCitizen c:state.socialCitizens()){
+            if(c.appearancePacked()!=0)continue;
+            int age=Math.max(1,c.ageYears(state.clock().day()));
+            AppearanceProfile profile=AppearanceProfile.forCitizen(state.seed(),c.id(),c.role(),age,c.factionId());
+            c.restoreAppearance(profile.pack());
+            FactionCivilizationState civ=state.findFactionCivilization(c.factionId()).orElse(null);
+            if(civ!=null){c.setCultureKey(civ.cultureName());c.setFaithKey(civ.faithName());}
+        }
     }
 
     private static void readCrimeLedger(DataInputStream in,CrimeLedger ledger)throws IOException{

@@ -16,19 +16,21 @@ public record CitizenIdentity(String name,int skinVariant) {
     };
     public CitizenIdentity {
         if(name==null||name.isBlank())throw new IllegalArgumentException("name");
-        if(skinVariant<0||skinVariant>=12)throw new IllegalArgumentException("skinVariant");
+        if(skinVariant<0||skinVariant>=48)throw new IllegalArgumentException("skinVariant");
     }
     public static CitizenIdentity forAgent(long worldSeed,long agentId,long factionId,long settlementId,int slot,CitizenRole role){
         if(agentId<=0||factionId<=0||settlementId<=0||slot<0||role==null)throw new IllegalArgumentException("agent");
         long z=mix(worldSeed ^ agentId*0xA0761D6478BD642FL ^ factionId*0x9E3779B97F4A7C15L ^ settlementId*0xD1B54A32D192ED03L ^ (long)slot*0x94D049BB133111EBL ^ role.ordinal()*0x632BE59BD9B4E019L);
-        String first=FIRST[Math.floorMod((int)z,FIRST.length)];String last=LAST[Math.floorMod((int)(z>>>32),LAST.length)];int skin=Math.floorMod((int)(z^(z>>>17)),12);return new CitizenIdentity(first+" "+last,skin);
+        String first=FIRST[Math.floorMod((int)z,FIRST.length)];String last=LAST[Math.floorMod((int)(z>>>32),LAST.length)];
+        int skin=AppearanceProfile.forCitizen(worldSeed,agentId,role,20,factionId).textureIndex();
+        return new CitizenIdentity(first+" "+last,skin);
     }
     public static CitizenIdentity forProjection(long factionId,long settlementId,int slot,CitizenRole role){
         if(factionId<=0||settlementId<=0||slot<0||role==null)throw new IllegalArgumentException("projection");
         long z=mix(factionId*0x9E3779B97F4A7C15L ^ settlementId*0xD1B54A32D192ED03L ^ (long)slot*0x94D049BB133111EBL ^ role.ordinal()*0x632BE59BD9B4E019L);
         String first=FIRST[Math.floorMod((int)z,FIRST.length)];
         String last=LAST[Math.floorMod((int)(z>>>32),LAST.length)];
-        int skin=Math.floorMod((int)(z^(z>>>17)),12);
+        int skin=AppearanceProfile.forCitizen(factionId^settlementId,(factionId<<20)^settlementId^(slot+1L),role,20,factionId).textureIndex();
         return new CitizenIdentity(first+" "+last,skin);
     }
     private static long mix(long z){z=(z^(z>>>30))*0xBF58476D1CE4E5B9L;z=(z^(z>>>27))*0x94D049BB133111EBL;return z^(z>>>31);}
