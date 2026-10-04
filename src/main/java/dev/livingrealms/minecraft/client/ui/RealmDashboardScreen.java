@@ -152,7 +152,10 @@ public final class RealmDashboardScreen extends Screen {
         int panelHeight = Math.min(PANEL_HEIGHT, height - 20);
         int left = (width - panelWidth) / 2;
         int top = Math.max(10, (height - panelHeight) / 2);
-        graphics.fill(left, top, left + panelWidth, top + panelHeight, 0xE414171C);
+        // LivingRealms panel texture when present; fall back to solid fill.
+        var panelTex = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("livingrealms", "textures/gui/dashboard_panel.png");
+        graphics.blit(panelTex, left, top, 0, 0, panelWidth, panelHeight, panelWidth, panelHeight);
+        graphics.fill(left, top, left + panelWidth, top + panelHeight, 0x99101418);
         graphics.fill(left, top, left + panelWidth, top + 3, 0xFFB59A5A);
         graphics.drawCenteredString(font, title, width / 2, top + 9, 0xFFF2E8C9);
         super.render(graphics, mouseX, mouseY, partialTick);
@@ -219,6 +222,15 @@ public final class RealmDashboardScreen extends Screen {
         lines.add(text(j.claimed() ? "Location: " + j.primaryName() + (j.contested() ? " (CONTESTED)" : "") : "Location: Wilderness"));
         lines.add(text("Membership: " + (p.memberFactionId() > 0 ? p.memberFactionName() + " / " + p.rank() : "None")));
         lines.add(text("Reputation: " + whole(p.localReputation()) + "   Infamy: " + whole(p.globalInfamy())));
+        if (p.careerTrack() != null && !p.careerTrack().isBlank()) {
+            lines.add(text("Career: " + p.careerTrack() + " / " + p.careerRank()));
+        }
+        if (p.influence() != null && !p.influence().isEmpty()) {
+            StringBuilder inf = new StringBuilder("Influence:");
+            p.influence().entrySet().stream().sorted((a, b) -> Double.compare(b.getValue(), a.getValue())).limit(4)
+                    .forEach(e -> inf.append(' ').append(e.getKey()).append('=').append(whole(e.getValue())));
+            lines.add(text(inf.toString()));
+        }
         lines.add(text("Wanted: " + p.wantedLevel() + "   Bounty: " + whole(p.bounty())));
         if (p.inCustody()) lines.add(warn("IN CUSTODY until day " + p.custodyReleaseDay()));
         if (r.factionId() > 0) {
@@ -229,6 +241,9 @@ public final class RealmDashboardScreen extends Screen {
             lines.add(text("Army " + r.armyPersonnel() + "   airframes " + r.airframes() + "   ships " + r.ships()));
             lines.add(text("Industry " + r.industrialSites() + "   ports " + r.ports() + "   shipments " + r.activeShipments()));
             lines.add(text("Wars " + r.activeWars() + "   treaties " + r.activeTreaties()));
+            if (r.activeDebts() > 0 || r.grandProjects() > 0 || r.campaignPlans() > 0) {
+                lines.add(text("Debts " + r.activeDebts() + "   projects " + r.grandProjects() + "   campaigns " + r.campaignPlans()));
+            }
         }
         return lines;
     }

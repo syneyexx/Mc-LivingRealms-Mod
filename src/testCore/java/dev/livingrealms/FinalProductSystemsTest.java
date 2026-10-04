@@ -5,6 +5,7 @@ import dev.livingrealms.sim.civilian.CitizenRole;
 import dev.livingrealms.sim.civilization.AssistanceTask;
 import dev.livingrealms.sim.civilization.AssistanceTaskType;
 import dev.livingrealms.sim.civilization.ProductionContract;
+import dev.livingrealms.sim.construction.BuildingCondition;
 import dev.livingrealms.sim.diplomacy.WarGoalType;
 import dev.livingrealms.sim.diplomacy.WarState;
 import dev.livingrealms.sim.faction.*;
@@ -39,7 +40,8 @@ public final class FinalProductSystemsTest {
         testSocialMobilityAndWorkplace();
         testSiegeEquipmentProjection();
         testProductionContracts();
-        System.out.println("PASS final product systems: appearance48 + influence + debt + projects + campaigns + schema17 logistics + heroes + mobility + siege + contracts");
+        testBuildingCondition();
+        System.out.println("PASS final product systems: appearance48 + influence + debt + projects + campaigns + schema17 logistics + heroes + mobility + siege + contracts + building condition");
     }
 
     private static void testAppearanceRange() {
@@ -234,6 +236,20 @@ public final class FinalProductSystemsTest {
         check(contract.rewardTreasury() > 0 && contract.rewardReputation() > 0, "contract rewards derived");
         check(contract.why().contains("Cause"), "contract explains cause");
         check(AssistanceTaskType.values().length >= 13, "expanded contract vocabulary");
+    }
+
+    private static void testBuildingCondition() {
+        SimulationState state = seeded(911L);
+        Settlement s = state.factions().getFirst().settlements().getFirst();
+        s.adjustProsperity(.4);
+        s.adjustUnrest(-.05);
+        var healthy = BuildingCondition.of(s);
+        check(healthy == BuildingCondition.NEW || healthy == BuildingCondition.MAINTAINED || healthy == BuildingCondition.WORN, "healthy settlement condition");
+        s.adjustProsperity(-1);
+        s.adjustUnrest(.9);
+        var stressed = BuildingCondition.of(s);
+        check(stressed.ordinal() >= BuildingCondition.WORN.ordinal(), "stressed settlement worsens condition");
+        check(stressed.repairDemand() >= healthy.repairDemand(), "worse condition demands more repair");
     }
 
     private static SimulationState seeded(long seed) {

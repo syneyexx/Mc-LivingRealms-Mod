@@ -331,7 +331,7 @@ public final class StructureBlueprintFactory {
         return bp("road_"+street.name().toLowerCase(java.util.Locale.ROOT),w,d,2,p);
     }
 
-    /** Open civic plaza: paved square, corner lamps, edge seating — keeps the center traversable. */
+    /** Open civic plaza: paved square, corner lamps, edge seating, central well/fountain — keeps the center traversable. */
     private static StructureBlueprint plaza(int w,int d) {
         List<BlockPlacement> p=new ArrayList<>();int hx=w/2,hz=d/2;
         for(int z=-hz;z<=hz;z++)for(int x=-hx;x<=hx;x++){
@@ -342,8 +342,17 @@ public final class StructureBlueprintFactory {
             add(p,c[0],1,c[1],PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
             add(p,c[0],1,c[1]==0?1:c[1]+Integer.signum(-c[1]),PaletteSlot.FENCE,ConstructionPhase.DETAIL);
         }
-        add(p,0,0,0,PaletteSlot.PATH,ConstructionPhase.FOUNDATION);
-        return bp("civic_plaza",w,d,2,p);
+        // Central well / fountain base and notice-board posts on the rim midpoints.
+        add(p,0,0,0,PaletteSlot.FOUNDATION,ConstructionPhase.FOUNDATION);
+        add(p,0,1,0,PaletteSlot.WATER,ConstructionPhase.DETAIL);
+        add(p,0,2,0,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
+        if(hx>=4){
+            add(p,-hx,1,0,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
+            add(p,hx,1,0,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
+            add(p,0,1,-hz,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
+            add(p,0,1,hz,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
+        }
+        return bp("civic_plaza",w,d,3,p);
     }
 
     private static StructureBlueprint wall(int w,int d) {

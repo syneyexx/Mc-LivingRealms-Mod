@@ -144,7 +144,7 @@ public final class CivilizationLifecycleEngine {
             pressure.put(AssistanceTaskType.BRIDGE_REPAIR,bridgeNeeded?Mathx.clamp(.35+settlement.prosperity()*.2,0,1):0);
             boolean atWar=state.wars().stream().anyMatch(w->w.active()&&w.involves(faction.id()));
             pressure.put(AssistanceTaskType.MILITARY_SUPPLY,atWar?Mathx.clamp(.3+(1-settlement.foodSecurity())*.4,0,1):0);
-            pressure.put(AssistanceTaskType.RECONSTRUCTION_AID,Mathx.clamp(settlement.unrest()*.4+(1-settlement.infrastructure())*.5-settlement.prosperity()*.2,0,1));
+            pressure.put(AssistanceTaskType.RECONSTRUCTION_AID,Mathx.clamp(settlement.unrest()*.4+(1-settlement.infrastructure())*.5-settlement.prosperity()*.2+dev.livingrealms.sim.construction.BuildingCondition.of(settlement).repairDemand()*.35,0,1));
             long missingCaravans=state.history().recent(12).stream().filter(e->"trade_intercepted".equals(e.type())||"trade_partial_loss".equals(e.type())).count();
             pressure.put(AssistanceTaskType.MISSING_CARAVAN,Mathx.clamp(missingCaravans*.25,0,1));
             for(var entry:pressure.entrySet()){

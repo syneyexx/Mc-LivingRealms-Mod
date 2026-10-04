@@ -9,5 +9,17 @@
   "message.livingrealms.dashboard_error": "Living Realms dashboard data could not be read.",
   "message.livingrealms.dashboard_server_error": "Living Realms could not build the strategic dashboard right now.",
   "key.livingrealms.open_world_map": "Open Living Realms World Map",
-  "key.livingrealms.open_creative_catalog": "Open Living Realms Creative Mod Catalog"
+  "key.livingrealms.open_creative_catalog": "Open Living Realms Creative Mod Catalog",
+  "tooltip.livingrealms.legitimacy": "Legitimacy: how accepted the current ruler and government are.",
+  "tooltip.livingrealms.influence": "Influence: how much power you can exercise with an institution, separate from reputation.",
+  "tooltip.livingrealms.war_exhaustion": "War exhaustion: cumulative strain from fighting that weakens morale and peace willingness.",
+  "tooltip.livingrealms.route_security": "Route security: how safe a trade road is from bandits and war.",
+  "tooltip.livingrealms.settlement_pressure": "Settlement pressure: the strongest local shortage or threat driving contracts and unrest.",
+  "tooltip.livingrealms.sovereign_debt": "Sovereign debt: money a realm owes; unpaid service can lead to default and legitimacy loss.",
+  "tooltip.livingrealms.social_mobility": "Social mobility: citizens can rise or fall through education, skill, wealth and opportunity.",
+  "message.livingrealms.onboarding.first_settlement": "You have reached a Living Realms settlement. Roads, markets and citizens are projections of a living simulation.",
+  "message.livingrealms.onboarding.map": "Press M to open the strategic world map.",
+  "message.livingrealms.onboarding.dashboard": "Press F12 to open the realm dashboard for government, economy and contracts.",
+  "message.livingrealms.onboarding.npc": "Talk to citizens for local knowledge. Help requests come from real shortages.",
+  "message.livingrealms.onboarding.catalog": "Press K for the creative item catalog when in creative mode."
 }

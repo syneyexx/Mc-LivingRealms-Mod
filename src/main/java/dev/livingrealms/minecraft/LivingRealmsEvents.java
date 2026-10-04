@@ -121,6 +121,7 @@ public final class LivingRealmsEvents {
             HistoricalSiteMaterializer.tick(event.getServer().overworld(), data);
             CivicFestivalMaterializer.tick(event.getServer().overworld(), data);
             SettlementGeographyDiscoveryRuntime.tick(event.getServer().overworld(), data);
+            if (tickCounter % 100L == 0) dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.tick(event.getServer(), data);
         }
         // Construction is budgeted every tick; only loaded chunks near players are touched.
         SettlementConstructionMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
@@ -275,6 +276,7 @@ public final class LivingRealmsEvents {
         HistoricalSiteMaterializer.clear();
         CivicFestivalMaterializer.clear();
         ForeignStructureDiscoveryRuntime.clear();
+        dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.clear();
         tickCounter = 0;
         appliedSpeciesRevision = -1;
     }
