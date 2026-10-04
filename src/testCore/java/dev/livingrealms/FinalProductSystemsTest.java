@@ -11,6 +11,7 @@ import dev.livingrealms.sim.military.CampaignPlan;
 import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.player.*;
 import dev.livingrealms.sim.social.*;
+import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 import java.util.HashSet;

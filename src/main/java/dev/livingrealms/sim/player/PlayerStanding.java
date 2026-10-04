@@ -89,11 +89,13 @@ public final class PlayerStanding {
         servicePoints=Math.max(0,servicePoints+amount);
     }
 
-    public void grantCareerService(CareerTrack track,double amount){
+    public boolean grantCareerService(CareerTrack track,double amount){
         if(track==null||amount<0||!Double.isFinite(amount))throw new IllegalArgumentException("career");
+        int before=careerRankIndex;
         if(careerTrack!=track){careerTrack=track;careerRankIndex=0;careerService=0;}
         careerService=Math.max(0,careerService+amount);
         careerRankIndex=CareerRank.resolveIndex(careerTrack,careerService);
+        return careerRankIndex!=before;
     }
 
     public void restoreCareer(CareerTrack track,int rankIndex,double service){

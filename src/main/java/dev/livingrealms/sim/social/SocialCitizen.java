@@ -65,6 +65,7 @@ public final class SocialCitizen {
     public void setEmploymentStatus(EmploymentStatus status){employmentStatus=Objects.requireNonNull(status);}
     public void adjustEducation(double delta){if(!Double.isFinite(delta))throw new IllegalArgumentException("education");education=Mathx.clamp(education+delta,0,1);}
     public void adjustPersonalInfluence(double delta){if(!Double.isFinite(delta))throw new IllegalArgumentException("influence");personalInfluence=Mathx.clamp(personalInfluence+delta,0,1);}
+    public void setPersonalInfluence(double value){if(!Double.isFinite(value)||value<0||value>1)throw new IllegalArgumentException("influence");personalInfluence=value;}
     public void setSocialClass(SocialClass value){socialClass=Objects.requireNonNull(value);}
     public void restoreMemory(CitizenMemory memory){remember(memory);} public void restoreRelationship(CitizenRelationship rel){if(relationships.size()<MAX_RELATIONSHIPS)relationships.put(rel.targetKey(),rel);}
     private void refreshWealthClass(){wealthClass=money<5?SocialClass.POOR:money<20?SocialClass.WORKING:money<45?SocialClass.ARTISAN:money<90?SocialClass.MERCHANT:money<180?SocialClass.PROFESSIONAL:SocialClass.ELITE;}

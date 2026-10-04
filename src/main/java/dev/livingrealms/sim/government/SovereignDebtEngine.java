@@ -1,6 +1,6 @@
 package dev.livingrealms.sim.government;
 
-import dev.livingrealms.sim.diplomacy.RelationStatus;
+import dev.livingrealms.sim.faction.RelationStatus;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.util.DeterministicRng;
