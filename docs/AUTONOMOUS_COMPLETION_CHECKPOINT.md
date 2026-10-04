@@ -3,7 +3,7 @@
 **HEAD baseline at start:** `c2b1f5d8a33598fa145590ed509ca97a9207bd26`  
 **Branch:** `cursor/livingrealms-final-product-0116`  
 **PR:** https://github.com/syneyexx/Mc-LivingRealms-Mod/pull/8  
-**Current pins (source):** schema **17** · dashboard protocol **17** · network **14** · ContentRevision **10**
+**Current pins (source):** schema **17** · dashboard protocol **17** · network **14** · ContentRevision **11**
 
 ## Completed Waves (progress, not COMPLETE claims)
 

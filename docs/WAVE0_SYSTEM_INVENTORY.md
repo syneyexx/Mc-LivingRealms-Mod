@@ -2,7 +2,7 @@
 
 **Audited baseline HEAD:** `c2b1f5d8a33598fa145590ed509ca97a9207bd26`  
 **Working branch HEAD:** see `git rev-parse HEAD` on `cursor/livingrealms-final-product-0116`  
-**Pins (source):** schema **17** · dashboard protocol **17** · network **14** · ContentRevision **10** · MC 1.21.1 / NeoForge 21.1.x / Create 6.0.10 / Java 21  
+**Pins (source):** schema **17** · dashboard protocol **17** · network **14** · ContentRevision **11** · MC 1.21.1 / NeoForge 21.1.x / Create 6.0.10 / Java 21  
 **Status rule:** nothing marked COMPLETE in this inventory (progress only).
 
 | Subsystem | Authority | Persistence | Runtime projection | Assets | UI | Tests | Known deficiency |

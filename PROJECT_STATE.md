@@ -1,6 +1,6 @@
 # Living Realms project state
 
-**Checkpoint:** final-product wave (schema **17** / dashboard protocol **17** / ContentRevision **10**) — see `docs/AUTONOMOUS_COMPLETION_CHECKPOINT.md`
+**Checkpoint:** final-product wave (schema **17** / dashboard protocol **17** / ContentRevision **11**) — see `docs/AUTONOMOUS_COMPLETION_CHECKPOINT.md`
 
 ## Current production state
 - Starter density target is **32** settlements per surface realm (~380+ with Wizard Trees) including fertile rural hamlets; physical entities/blocks remain player-local and budgeted.

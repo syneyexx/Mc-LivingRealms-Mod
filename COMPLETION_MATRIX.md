@@ -1,6 +1,6 @@
 # Living Realms — Definition of Done matrix
 
-**Checkpoint:** final-product wave — see `docs/AUTONOMOUS_COMPLETION_CHECKPOINT.md` / `docs/WAVE0_SYSTEM_INVENTORY.md`. Schema **17**, dashboard protocol **17**, network **14**, ContentRevision **10**. Core suite includes `FinalProductSystemsTest` + 3650-day soak.
+**Checkpoint:** final-product wave — see `docs/AUTONOMOUS_COMPLETION_CHECKPOINT.md` / `docs/WAVE0_SYSTEM_INVENTORY.md`. Schema **17**, dashboard protocol **17**, network **14**, ContentRevision **11**. Core suite includes `FinalProductSystemsTest` + 3650-day soak.
 
 A subsystem is **COMPLETE** only when its authoritative model, simulation rules, persistence/migration, Minecraft runtime projection, player feedback/UI, required content/assets, and regression tests are all complete. `CORE VERIFIED` is deliberately not the same as complete. Do not treat this matrix as finished until Wave 227 rebuild is done against final HEAD.
 
