@@ -505,11 +505,13 @@ def generate_aircraft(kind: str = "aircraft") -> Image.Image:
         "aircraft": (170, 175, 180),
         "aircraft_patrol": (70, 95, 80),
         "aircraft_transport": (150, 140, 110),
+        "aircraft_bomber": (95, 90, 85),
     }[kind]
     accent = {
         "aircraft": (60, 90, 140),
         "aircraft_patrol": (200, 180, 60),
         "aircraft_transport": (90, 70, 50),
+        "aircraft_bomber": (140, 45, 40),
     }[kind]
     c = rgb(*body)
     a = rgb(*accent)
@@ -531,6 +533,11 @@ def generate_aircraft(kind: str = "aircraft") -> Image.Image:
     if kind == "aircraft_transport":
         fill_rect(img, (20, 36, 40, 42), shade(c, 0.75))
         fill_rect(img, (22, 38, 38, 44), shade(accent + (255,), 0.9) if False else rgb(*accent))
+    if kind == "aircraft_bomber":
+        fill_rect(img, (18, 38, 42, 44), shade(c, 0.7))  # bomb bay
+        fill_rect(img, (22, 40, 26, 44), a)
+        fill_rect(img, (34, 40, 38, 44), a)
+        fill_rect(img, (8, 30, 56, 34), shade(c, 1.05))  # broader wing plane
     # prop hint
     fill_rect(img, (54, 32, 60, 36), rgb(40, 40, 45))
     return img
@@ -1154,6 +1161,7 @@ def main() -> None:
         "aircraft.png": lambda: generate_aircraft("aircraft"),
         "aircraft_patrol.png": lambda: generate_aircraft("aircraft_patrol"),
         "aircraft_transport.png": lambda: generate_aircraft("aircraft_transport"),
+        "aircraft_bomber.png": lambda: generate_aircraft("aircraft_bomber"),
         "bounty_hunter.png": generate_bounty_hunter,
     }
     for name, fn in unit_specs.items():

@@ -41,4 +41,4 @@ See `docs/RELEASE_GATES.md` for the detailed test procedure.
 ## Current acceptance focus
 - Influence unlock actions, court/heraldry presentation, military formations, caravan wagon modes, and settlement ambience are implemented in source; confirm visibly in-world.
 - Schema 17 migrations from prior saves must round-trip without duplication.
-- Manual runtime acceptance (Wave 249) remains the remaining external gate after automated gates stay green.
+- Manual runtime acceptance (Wave 249) remains the remaining external gate after automated gates stay green — see `docs/MANUAL_RUNTIME_TEST_PLAN.md`.

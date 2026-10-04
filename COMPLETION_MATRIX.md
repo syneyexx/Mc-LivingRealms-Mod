@@ -23,8 +23,8 @@ A subsystem is **COMPLETE** only when its authoritative model, simulation rules,
 | Wildlife ecology | ✅ aggregate cohorts + region centers | ✅ stabilized food-web + colonization | ✅ schema 8 | ✅ bounded LOD | ✅ Ecology dashboard | ✅ 134 unique species textures + morphology families; animation QA pending | ✅ | PARTIAL |
 | Animal behaviour | ✅ utility brain + morphology/locomotion | ✅ hunt/flee/defend/migrate/social | ✅ | ✅ ground/water/amphibious/flying navigation | n/a | ✅ morphology + 134 species tex; intent-driven anim profiles | ✅ | PARTIAL |
 | Biomes/habitats | ✅ 25 archetypes + spatial ecology regions | ✅ exploration discovery/classification | ✅ schema 8 | ✅ overlay mapping; no biome-source replacement | ✅ Ecology tab | n/a | ✅ | COMPLETE (singleplayer core; linked runtime smoke pending globally) |
-| Aviation | ✅ | ✅ | ✅ | 🟡 aircraft entity projection | ✅ Forces tab | 🟡 class textures | ✅ | PARTIAL |
-| Naval systems | ✅ ports/fleets/classes | ✅ + geography port discovery | ✅ schema 6 | ✅ bounded ship projection + docks | ✅ Forces tab | 🟡 class textures | ✅ | PARTIAL |
+| Aviation | ✅ | ✅ | ✅ | 🟡 aircraft entity projection | ✅ Forces tab | ✅ role textures + part visibility (fighter/recon/transport/bomber) | ✅ | PARTIAL |
+| Naval systems | ✅ ports/fleets/classes | ✅ + geography port discovery | ✅ schema 6 | ✅ bounded ship projection + docks | ✅ Forces tab | ✅ class textures + funnel/ramp silhouette parts | ✅ | PARTIAL |
 | Player reputation/membership/influence/careers | ✅ reputation + influence + careers | ✅ join/leave/promotion + service | ✅ schema 6/17 | ✅ runtime commands + crime/combat-service hooks | ✅ dashboard influence/career lines + unlock actions | n/a | ✅ FinalProduct | PARTIAL |
 | Bounty hunters | ✅ contract/assignment/capture | ✅ | ✅ | ✅ bounded NPC hunter runtime | ✅ Law tab | 🟡 hunter texture | ✅ | PARTIAL |
 | Assistance/contracts | ✅ AssistanceTask + ProductionContract | ✅ expanded pressure types | ✅ schema 13 | ✅ assist runtime | ✅ Ops + dialogue | n/a | ✅ Assistance + FinalProduct | PARTIAL |
@@ -32,7 +32,7 @@ A subsystem is **COMPLETE** only when its authoritative model, simulation rules,
 | Config/data packs | ✅ simulation config + 134 species JSONs | ✅ catalog validation | ✅ schema 9 | ✅ atomic species reload | ✅ Settings tab | 🟡 | ✅ | PARTIAL |
 | Requested modpack compatibility | ✅ expanded target-pack policy | n/a | n/a | 🟡 Waystones + foreign adoption + safe palette | n/a | 🟡 RPG/magic/ranged; gun deny | ✅ | PARTIAL |
 | Performance/LOD | ✅ | ✅ | n/a | ✅ bounded projections | n/a | n/a | ✅ | STRONG, NOT FINAL |
-| World map/strategic UI | ✅ bounded dashboard + M map | n/a | n/a | 🟡 M-map + packet-backed dashboard | ✅ F12/M/K + onboarding + influence unlocks | 🟡 panel/icons + settlement ambience VFX | ✅ protocol 17 | PARTIAL |
+| World map/strategic UI | ✅ bounded dashboard + M map | n/a | n/a | 🟡 M-map + packet-backed dashboard | ✅ F12/M/K + onboarding + influence unlocks + a11y scale/contrast/keyboard | 🟡 panel/icons + settlement ambience VFX | ✅ protocol 17 | PARTIAL |
 
 ## Non-negotiable release gates
 
