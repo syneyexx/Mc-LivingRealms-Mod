@@ -278,7 +278,9 @@ public final class RealmDashboardScreen extends Screen {
 
     private List<Line> importantNotices() {
         List<Line> out = new ArrayList<>();
-        for (var h : snapshot.history()) {
+        var history = snapshot.history();
+        for (int i = history.size() - 1; i >= 0; i--) {
+            var h = history.get(i);
             if (!dev.livingrealms.sim.ui.ImportantNotifications.isImportant(h.type())) continue;
             String label = dev.livingrealms.sim.ui.ImportantNotifications.label(h.type());
             out.add(text("Day " + h.day() + " [" + label + "] " + h.message()));
