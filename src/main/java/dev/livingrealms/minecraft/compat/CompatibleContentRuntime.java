@@ -53,11 +53,25 @@ public final class CompatibleContentRuntime {
             pickMatchingWeapon(factionId,projectionSlot,59,"axe").ifPresentOrElse(
                     item->entity.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(item)),
                     ()->entity.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.IRON_AXE)));
+        }else if(role==CitizenRole.OFFICIAL){
+            // Court officials (incl. dynasty ruler/heir projections) wear visible ceremonial armor.
+            entity.setItemSlot(EquipmentSlot.HEAD,new ItemStack(Items.GOLDEN_HELMET));
+            entity.setItemSlot(EquipmentSlot.CHEST,new ItemStack(Items.GOLDEN_CHESTPLATE));
+            entity.setItemSlot(EquipmentSlot.LEGS,new ItemStack(Items.GOLDEN_LEGGINGS));
+            entity.setItemSlot(EquipmentSlot.FEET,new ItemStack(Items.GOLDEN_BOOTS));
+            List<Item> magic=weaponCandidates.stream().filter(CompatibleContentRuntime::looksMagical).toList();
+            pick(magic,factionId,projectionSlot,53+role.ordinal()).ifPresentOrElse(
+                    item->entity.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(item)),
+                    ()->entity.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.GOLDEN_SWORD)));
         }else{
-            // Officials, priests and scholars can visibly carry compatible fantasy/magic staves.
+            // Priests and scholars can visibly carry compatible fantasy/magic staves.
             // Actual spell casting stays behind an isolated runtime adapter instead of being faked.
             List<Item> magic=weaponCandidates.stream().filter(CompatibleContentRuntime::looksMagical).toList();
             pick(magic,factionId,projectionSlot,53+role.ordinal()).ifPresent(item->entity.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(item)));
+            if(role==CitizenRole.PRIEST){
+                entity.setItemSlot(EquipmentSlot.HEAD,new ItemStack(Items.LEATHER_HELMET));
+                entity.setItemSlot(EquipmentSlot.CHEST,new ItemStack(Items.LEATHER_CHESTPLATE));
+            }
         }
     }
 
