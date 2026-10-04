@@ -82,8 +82,9 @@ None known internally after this pass.
 ## Last clean build
 
 - Headless core: PASS (34 tests at `0bf2740`; RefugeeCampConstructionTest added after)
-- Linked NeoForge: PASS at `0bf2740` → `build/libs/livingrealms-3.0.0-rc4.jar` (runtimeSmoke still unverified)
+- Linked NeoForge: PASS at tip `3ddec75` → `build/libs/livingrealms-3.0.0-rc4.jar` (runtimeSmoke still unverified)
+- Headless core: PASS (35 tests)
 
 ## Last commit/checkpoint
 
-`0bf2740` on `cursor/az-living-world-completion-80fd`; follow-up camp enqueue commit pending
+`3ddec75` tip; linked build PASS + RELEASE_MANIFEST certifies this commit; runtimeSmoke unverified

@@ -1,7 +1,7 @@
 {
-  "generatedAtUtc": "2026-10-04T12:50:23Z",
-  "gitCommit": "0bf2740f65b86d7355fe1e84b67f4eb28ac926f4",
-  "gitWorktreeClean": false,
+  "generatedAtUtc": "2026-10-04T13:00:58Z",
+  "gitCommit": "3ddec751b3505c650fde47d947e78df9623b9017",
+  "gitWorktreeClean": true,
   "modVersion": "3.0.0-rc4",
   "minecraftVersion": "1.21.1",
   "neoforgeVersion": "21.1.219",
@@ -23,7 +23,7 @@
     "jar": "/workspace/build/libs/livingrealms-3.0.0-rc4.jar",
     "jarPresent": true,
     "jarBytes": 1513978,
-    "jarSha256": "b0d6bfacf18f4020e56f2c2586f717ea6e58e963767d092821acfc536ac0d25b"
+    "jarSha256": "585e603883758659f46e4f81fa40cb2dd952bfe10b25ff90bb18ee3e1b119db5"
   },
   "releaseCompleteClaimAllowed": false,
   "notes": [
