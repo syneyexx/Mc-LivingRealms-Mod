@@ -30,7 +30,7 @@ public final class LivingWorldDensityTest {
         absoluteDayProgressActuallySimulates();
         playerCanFoundARealGrowingRealm();
         citizenIdentityIsStableAndVaried();
-        System.out.println("PASS living-world density: 12 kingdoms + Wizard Trees / 219+ settlements + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
+        System.out.println("PASS living-world density: 12 kingdoms + Wizard Trees / 380+ settlements + rural hamlets + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
     }
 
     private static void denseStarterWorldIsHierarchicalAndIdempotent() {
@@ -38,7 +38,8 @@ public final class LivingWorldDensityTest {
         DemoSeeder.seed(state);
         check(state.factions().size() == 13, "starter world must contain twelve kingdoms plus Wizard Trees: " + state.factions().size());
         int settlements = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
-        check(settlements >= 219, "starter world is still too sparse: " + settlements);
+        // 12 realms × 32 (capital+satellites+frontier+rural hamlets) + Wizard Trees ≈ 380+
+        check(settlements >= 380, "starter world is still too sparse: " + settlements);
         long cities = state.factions().stream().flatMap(f -> f.settlements().stream())
                 .filter(s -> s.tier().ordinal() >= Settlement.Tier.CITY.ordinal()).count();
         long towns = state.factions().stream().flatMap(f -> f.settlements().stream())
@@ -47,8 +48,15 @@ public final class LivingWorldDensityTest {
                 .filter(s -> s.tier() == Settlement.Tier.VILLAGE).count();
         long hamlets = state.factions().stream().flatMap(f -> f.settlements().stream())
                 .filter(s -> s.tier() == Settlement.Tier.HAMLET).count();
-        check(cities >= 12 && towns >= 60 && villages >= 48 && hamlets >= 12,
-                "starter hierarchy lacks cities/towns/villages/hamlets");
+        check(cities >= 12 && towns >= 60 && villages >= 48 && hamlets >= 48,
+                "starter hierarchy lacks cities/towns/villages/hamlets: cities="+cities+" towns="+towns+" villages="+villages+" hamlets="+hamlets);
+        long ruralHamlets = state.factions().stream().flatMap(f -> f.settlements().stream())
+                .filter(s -> {
+                    String n = s.name();
+                    return n.contains(" Croft") || n.contains(" Thorp") || n.contains(" End") || n.contains(" Green")
+                            || n.contains(" Wick") || n.contains(" Fold") || n.contains(" Ley") || n.contains(" Combe");
+                }).count();
+        check(ruralHamlets >= 48, "rural countryside hamlets missing: " + ruralHamlets);
         long monarchies=state.factions().stream().filter(f->f.government().type()==GovernmentType.FEUDAL_MONARCHY).count();
         check(monarchies==12,"starter world must retain twelve ordinary kingdoms: "+monarchies);
         Faction wizard=state.factions().stream().filter(f->f.name().equals("Wizard Trees")).findFirst().orElseThrow();
@@ -56,7 +64,7 @@ public final class LivingWorldDensityTest {
         // Idempotency is about the densifier itself, not about surviving a strategic day of demography/raids.
         check(SettlementDensitySeeder.ensureStarterDensity(state) == 0, "density migration is not idempotent");
         state.advanceDays(1);
-        check(state.routes().size() >= 220, "kingdom road graph is too sparse after first strategic day: " + state.routes().size());
+        check(state.routes().size() >= 350, "kingdom road graph is too sparse after first strategic day: " + state.routes().size());
 
         Set<Long> ids = new HashSet<>();
         Set<String> names = new HashSet<>();
@@ -89,7 +97,7 @@ public final class LivingWorldDensityTest {
         check(houseFootprints.size() >= 4, "house footprints remain too repetitive: " + houseFootprints);
         check(houseBlueprints.size() >= 3, "house geometry remains too repetitive: " + houseBlueprints);
         check(marketBlueprints.size() >= 2, "market geometry did not diversify: " + marketBlueprints);
-        check(roadRichSettlements >= 170, "too few settlements have a real street network: " + roadRichSettlements);
+        check(roadRichSettlements >= 280, "too few settlements have a real street network: " + roadRichSettlements);
     }
 
     private static void populatedSettlementsProjectVisibleCrowdsWithinBudget() {

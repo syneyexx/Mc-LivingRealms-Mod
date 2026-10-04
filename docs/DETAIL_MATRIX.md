@@ -26,8 +26,8 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 | Jobs/wages (F6) | SocietyDiagnostics + payWages | PARTIAL | Workplace-slot jobCapacity + monthly skill-scaled wages |
 | Households/day rhythm (F7) | HouseholdState + ActivityCycle | PARTIAL | |
 | Unlimited city growth (F8) | SettlementPlanner housing | PARTIAL | Soft tier caps (to 900); hard 132 ceiling removed |
-| Rural hierarchy (F9) | Settlement tiers + pastures/mills | PARTIAL | Pastures/mills/bakeries planned |
-| Terrain worldgen 60% (F10) | Density seeder | PARTIAL | Seeded realms, not fully emergent |
+| Rural hierarchy (F9) | SettlementDensitySeeder + tiers | PARTIAL | 4 rural hamlets/realm (Croft/Thorp/…) with farm/pasture/well seed; hierarchy cities/towns/villages/hamlets gated |
+| Terrain worldgen 60% (F10) | Density seeder | PARTIAL | 32 settlements/realm (~387 total); rural placement biased to fertile biome centers; still authored realm list + densifier, not fully emergent from terrain |
 | Infrastructure decay (F11) | Transport quality | PARTIAL | |
 | Religion depth (F12) | faith + temples | PARTIAL | |
 | Calendar/festivals (F13) | CivilizationCalendar + CivicEvent | PARTIAL | |

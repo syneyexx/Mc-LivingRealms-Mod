@@ -4,6 +4,7 @@ import dev.livingrealms.sim.faction.Army;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -17,7 +18,10 @@ import java.util.Objects;
  */
 public final class SettlementDensitySeeder {
     private SettlementDensitySeeder() {}
-    private static final int TARGET_SETTLEMENTS_PER_REALM = 26;
+    /** Capitals + satellites + frontier ring + fertile rural hamlets ≈ denser medieval countryside. */
+    private static final int TARGET_SETTLEMENTS_PER_REALM = 32;
+    private static final int RURAL_HAMLETS_PER_REALM = 4;
+    private static final String[] RURAL_SUFFIXES = {"Croft","End","Green","Thorp","Wick","Fold","Ley","Combe"};
     private static final String[] FRONTIER_SUFFIXES = {"Millbrook","Pinecross","Ridgeham","Littlemere","Eastwick","Westfield","Northstead","Southmere","Foxbridge","Riverwatch","Greenhollow","Stonefield","Ashbrook","Kingsford","Meadowgate","Oakfield","Rosemere","Hillcross","Brighton","Westwick","Eastmere","Northfield","Southwatch","Brookstead","Pineford","Stoneham","Rivergate","Greenmere","Foxfield","Willowcross"};
 
     private static final List<RealmSpec> REALMS = List.of(
@@ -121,6 +125,7 @@ public final class SettlementDensitySeeder {
         }
         int added = addSatellites(state, faction, capital.position(), spec.satellites());
         added += addFrontierSettlements(state,faction,capital.position(),spec.capitalName());
+        added += addRuralHamlets(state,faction,capital.position(),spec.capitalName());
         if (added > 0) { provision(faction, added); changes += added; }
         return changes;
     }
@@ -146,21 +151,79 @@ public final class SettlementDensitySeeder {
     }
 
     private static int addFrontierSettlements(SimulationState state,Faction faction,SimPosition origin,String capitalName){
-        int needed=Math.max(0,TARGET_SETTLEMENTS_PER_REALM-faction.settlements().size()),added=0;
+        // Reserve slots so rural hamlets are not crowded out by the frontier ring.
+        int needed=Math.max(0,TARGET_SETTLEMENTS_PER_REALM-RURAL_HAMLETS_PER_REALM-faction.settlements().size()),added=0;
         int baseIndex=faction.settlements().size();
-        int[] populations={2_450,1_450,850,620,420,260,145,82,560,310,180,96};
-        for(int i=0;i<needed;i++){
-            String prefix=capitalName.replace(" Keep","").replace("keep","").replace(" Citadel","").replace("haven","");
-            String name=(prefix+" "+FRONTIER_SUFFIXES[Math.floorMod(i,FRONTIER_SUFFIXES.length)]).trim();
+        // Skew frontier toward towns/villages/hamlets rather than extra cities.
+        int[] populations={1_450,850,620,420,310,260,180,145,96,82,560,220};
+        String prefix=capitalName.replace(" Keep","").replace("keep","").replace(" Citadel","").replace("haven","").trim();
+        for(int attempt=0;added<needed&&attempt<needed*3;attempt++){
+            String name=(prefix+" "+FRONTIER_SUFFIXES[Math.floorMod(attempt,FRONTIER_SUFFIXES.length)]).trim();
+            if(attempt>=FRONTIER_SUFFIXES.length)name=(prefix+" "+FRONTIER_SUFFIXES[Math.floorMod(attempt,FRONTIER_SUFFIXES.length)]+" "+(attempt/FRONTIER_SUFFIXES.length+1)).trim();
             if(settlement(faction,name)!=null)continue;
-            double angle=(baseIndex+i)*2.399963229728653;
-            double radius=1_280.0+(i%5)*270.0+(i/5)*150.0;
+            double angle=(baseIndex+attempt)*2.399963229728653;
+            double radius=1_280.0+(attempt%5)*270.0+(attempt/5)*150.0;
             SimPosition position=new SimPosition(origin.x()+Math.cos(angle)*radius,origin.z()+Math.sin(angle)*radius);
-            position=avoidCrowding(state,position,faction.id(),100+i);
-            int pop=populations[Math.floorMod(i,populations.length)],housing=(int)Math.ceil(pop*1.13);
+            position=avoidCrowding(state,position,faction.id(),100+attempt);
+            int pop=populations[Math.floorMod(attempt,populations.length)],housing=(int)Math.ceil(pop*1.13);
             faction.addSettlement(new Settlement(state.nextId(),name,position,pop,housing));added++;
         }
         return added;
+    }
+
+    /**
+     * Places small rural hamlets toward fertile ecology regions (temperate forest / grassland proxies).
+     * Seed-deterministic and idempotent by settlement name; does not replace the authored realm list.
+     */
+    private static int addRuralHamlets(SimulationState state,Faction faction,SimPosition origin,String capitalName){
+        int existingRural=(int)faction.settlements().stream().filter(s->isRuralHamletName(s.name())).count();
+        int needed=Math.max(0,RURAL_HAMLETS_PER_REALM-existingRural);
+        // Also top up any shortfall vs per-realm target (name collisions / prior migrations).
+        needed=Math.max(needed,Math.max(0,TARGET_SETTLEMENTS_PER_REALM-faction.settlements().size()));
+        if(needed<=0)return 0;
+        // Prefer fertile biome centers when present; otherwise spiral around the capital.
+        List<SimPosition> fertile=new ArrayList<>();
+        for(var region:state.regions()){
+            String biome=region.biome().id();
+            if(biome.contains("forest")||biome.contains("grass")||biome.contains("river")||biome.contains("temperate")||biome.contains("savanna"))
+                fertile.add(region.center());
+        }
+        int added=0;
+        String prefix=capitalName.replace(" Keep","").replace("keep","").replace(" Citadel","").replace("haven","").trim();
+        for(int attempt=0;added<needed&&attempt<needed*4;attempt++){
+            int suffixIndex=existingRural+attempt;
+            String name=(prefix+" "+RURAL_SUFFIXES[Math.floorMod(suffixIndex,RURAL_SUFFIXES.length)]).trim();
+            if(suffixIndex>=RURAL_SUFFIXES.length)name=name+" "+(suffixIndex/RURAL_SUFFIXES.length+1);
+            if(settlement(faction,name)!=null)continue;
+            SimPosition anchor=fertile.isEmpty()?origin:fertile.get(Math.floorMod(attempt+(int)faction.id(),fertile.size()));
+            double angle=(attempt+3)*2.399963229728653;
+            double radius=520.0+(attempt%3)*160.0;
+            SimPosition position=new SimPosition(anchor.x()+Math.cos(angle)*radius,anchor.z()+Math.sin(angle)*radius);
+            // Pull slightly toward capital so hamlets remain in the realm's countryside belt.
+            position=new SimPosition(position.x()*.65+origin.x()*.35,position.z()*.65+origin.z()*.35);
+            position=avoidCrowding(state,position,faction.id(),400+attempt);
+            int pop=48+Math.floorMod((int)mix(state.seed()^faction.id()^(attempt*17L)),40); // 48–87 hamlet
+            Settlement hamlet=new Settlement(state.nextId(),name,position,pop,(int)Math.ceil(pop*1.2));
+            hamlet.markConstructionCompleted("farm:0");
+            hamlet.markConstructionCompleted("pasture:0");
+            hamlet.markConstructionCompleted("well:0");
+            faction.addSettlement(hamlet);added++;
+        }
+        return added;
+    }
+
+    /** Whole-word rural suffix only — avoids false positives like "Eastwick" / "Greenhollow". */
+    private static boolean isRuralHamletName(String name){
+        for(String suffix:RURAL_SUFFIXES){
+            if(name.endsWith(" "+suffix))return true;
+            String marker=" "+suffix+" ";
+            int idx=name.lastIndexOf(marker);
+            if(idx>=0){
+                String rest=name.substring(idx+marker.length());
+                if(!rest.isEmpty()&&rest.chars().allMatch(Character::isDigit))return true;
+            }
+        }
+        return false;
     }
 
     private static SimPosition avoidCrowding(SimulationState state,SimPosition initial,long factionId,int index){
