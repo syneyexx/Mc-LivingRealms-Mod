@@ -400,7 +400,7 @@ property_rights=(root/'src/main/java/dev/livingrealms/sim/property/PropertyRight
 require('SettlementPlanCache.plan' in property_rights,'PropertyRightsEngine must use SettlementPlanCache (no expensive replans per resolve)')
 require('catchupOpsBoost' in (root/'src/main/java/dev/livingrealms/minecraft/construction/SettlementConstructionMaterializer.java').read_text(),'construction catch-up must soft-ramp ops instead of hard 960 hitch')
 require('foreign:protectorate' in (root/'src/main/java/dev/livingrealms/minecraft/ForeignSettlementDiscoveryRuntime.java').read_text(),'foreign village adoption must use soft protectorate period')
-require('Profession.fromRole' in (root/'src/main/java/dev/livingrealms/sim/society/Profession.java').read_text(),'Profession enum must map from CitizenRole')
+require('static Profession fromRole' in (root/'src/main/java/dev/livingrealms/sim/society/Profession.java').read_text(),'Profession enum must map from CitizenRole')
 require('path.contains("gun")' in content_runtime and 'equipMilitary' in content_runtime,'faction equipment must discover gun-class mod weapons and military loadouts')
 policy_text=(root/'src/main/java/dev/livingrealms/sim/compat/ModCompatibilityPolicy.java').read_text()
 require('\"Guns++\",\"mr_guns\",Category.COMBAT,Strategy.PLAYER_ONLY,false' in policy_text,'Guns++ must remain player-only/NPC-forbidden')
