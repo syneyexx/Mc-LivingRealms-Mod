@@ -38,7 +38,7 @@ Proven in this pass:
 - court/ruler presentation: keep-centered spawn, government titles, distinct skins, dialogue self/ruler awareness
 - `INFRASTRUCTURE_REPAIR` assistance tasks from route/industry wear; stone contributions reopen routes and repair sites
 - holy-day civic rites + festival decorations + verified assistance + refugee camp enqueue remain intact
-- linked NeoForge/Create build must be re-run on this tip (prior tip was green)
+- linked NeoForge/Create `build-production.sh` **PASS** on this tip (JAR `livingrealms-3.0.0-rc4.jar`)
 
 Still unverified externally:
 - fresh-world / migrated-world client smoke
