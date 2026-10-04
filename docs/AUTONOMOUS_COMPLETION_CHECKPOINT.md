@@ -22,28 +22,32 @@
 - Schema **17** encode/decode + migration fixtures + `migratePreV17FinalProduct`
 - Dashboard protocol **17** (influence, careers, debts, projects, campaigns)
 
+### Siege / mobility / contracts (this iteration)
+- **SiegeEquipmentEntity** + materializer/planner/model/renderer (RAM/LADDER/ARTILLERY from SiegeState)
+- **Settlement.damageAuthoredStructure** + siege breach threshold damage (authored walls/gates only)
+- **SocialMobilityEngine** — workplace assignment + upward/downward mobility + class refresh
+- **ProductionContract** facade + expanded `AssistanceTaskType` (bandit bounty, bridge repair, military supply, reconstruction, missing caravan)
+- Trade escort strength reduces intercept; partial loss path when escorts hold
+- Court officials: heraldry-dyed ceremonial leather + banner (not universal gold armor)
+- Clergy: distinct dyed leather kit
+
 ### Worldgen / streets
 - `StreetType` hierarchy wired into planner road keys + blueprint street life
 - `SettlementGrowthLayer`, `SettlementSpecialization`, `SettlementDevelopment`
 
 ### Presentation assets
 - 48 citizen skins, 134 species textures, heraldry banners 0–15, differentiated ship/military/aircraft/siege/caravan/hunter textures, GUI panel/icons
-- Renderer updates: citizen 48, wildlife species textures, ship/military/aircraft class textures
+- Renderer updates: citizen 48, wildlife species textures, ship/military/aircraft class textures, siege equipment
 
 ## Tests
-- `./scripts/test-core.sh` — green through Wizard Trees + **3650-day soak PASS**
-- `FinalProductSystemsTest` added to `scripts/core-tests.list`
+- `./scripts/test-core.sh` — green including FinalProductSystemsTest (mobility/siege/contracts) + **3650-day soak PASS**
 
 ## Unresolved / next exact actions
-1. Siege machinery **physical entities** (textures exist; materializer/entity still needed)
-2. Social mobility engine deepen + workplace ownership loop
-3. Full caravan escort/attack player experience polish
-4. Production contract layer deepen beyond AssistanceTask
-5. UI art pass (dashboard still largely text; panel texture exists)
-6. Court art beyond gold armor (textures expanded; ceremonial kit still vanilla-leaning)
-7. Linked NeoForge `build-production.sh` + release manifest regenerate at final HEAD
-8. Continue Waves 18–250 presentation/integration polish
-9. Update COMPLETION_MATRIX / PROJECT_STATE / RELEASE_MANIFEST to match schema17/protocol17 (Wave 226–227 — only after more systems land)
+1. Linked NeoForge `build-production.sh` + RELEASE_MANIFEST regenerate at final HEAD
+2. UI art pass (dashboard still largely text; panel texture exists)
+3. Continue Waves presentation/integration polish (festivals VFX, wildlife animation depth, architecture variety)
+4. Update COMPLETION_MATRIX / PROJECT_STATE / RELEASE_MANIFEST to match schema17/protocol17 (Wave 226–227)
+5. Caravan physical escort NPCs (metadata present; optional military escort projections)
 
 ## Exact next action
-Implement siege equipment materializer + SocialMobilityEngine, then production build + PR update.
+Production build attempt + documentation reconciliation + PR update.
