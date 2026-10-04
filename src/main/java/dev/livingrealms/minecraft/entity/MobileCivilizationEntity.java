@@ -75,7 +75,43 @@ public final class MobileCivilizationEntity extends PathfinderMob {
         }
     }
     private void navigateToward(SimPosition desired,double speed,double threshold){double dx=desired.x()-getX(),dz=desired.z()-getZ();if(dx*dx+dz*dz>threshold*threshold)getNavigation().moveTo(desired.x(),getY(),desired.z(),speed);}
-    private void applyKind(){if(kind()==MobileCivilizationKind.PIRATE){setBase(Attributes.MAX_HEALTH,26);setBase(Attributes.ATTACK_DAMAGE,5);setBase(Attributes.ARMOR,2);setBase(Attributes.MOVEMENT_SPEED,.29);CompatibleContentRuntime.equipPirate(this,factionId(),projectionSlot());}else{setBase(Attributes.MAX_HEALTH,20);setBase(Attributes.ATTACK_DAMAGE,2);setBase(Attributes.ARMOR,0);setBase(Attributes.MOVEMENT_SPEED,.26);setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND,net.minecraft.world.item.ItemStack.EMPTY);}setHealth(getMaxHealth());}
+    private void applyKind(){
+        if(kind()==MobileCivilizationKind.PIRATE){
+            setBase(Attributes.MAX_HEALTH,26);setBase(Attributes.ATTACK_DAMAGE,5);setBase(Attributes.ARMOR,2);setBase(Attributes.MOVEMENT_SPEED,.29);
+            CompatibleContentRuntime.equipPirate(this,factionId(),projectionSlot());
+        }else{
+            setBase(Attributes.MAX_HEALTH,20);setBase(Attributes.ATTACK_DAMAGE,2);setBase(Attributes.ARMOR,0);setBase(Attributes.MOVEMENT_SPEED,.26);
+            equipRefugeeKit();
+        }
+        setHealth(getMaxHealth());
+    }
+
+    /** Worn travel clothing + carried goods — distinct from ordinary citizen presentation. */
+    private void equipRefugeeKit(){
+        MigrationReason reason=migrationReason();
+        int worn=switch(reason){
+            case WAR -> 0x5A4636;
+            case FAMINE -> 0x6E5A3C;
+            case DISEASE -> 0x4A5540;
+            case PERSECUTION -> 0x3F3F4A;
+            default -> 0x6B5B45;
+        };
+        setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD,dyedLeather(net.minecraft.world.item.Items.LEATHER_HELMET,worn));
+        setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST,dyedLeather(net.minecraft.world.item.Items.LEATHER_CHESTPLATE,worn^0x101010));
+        setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS,dyedLeather(net.minecraft.world.item.Items.LEATHER_LEGGINGS,worn^0x080808));
+        setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET,dyedLeather(net.minecraft.world.item.Items.LEATHER_BOOTS,0x2E2418));
+        setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND,net.minecraft.world.item.ItemStack.EMPTY);
+        // Carried goods / family kit — bundle when available, otherwise a chest as travel pack silhouette.
+        net.minecraft.world.item.Item pack=net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace("bundle"));
+        if(pack==null||pack==net.minecraft.world.item.Items.AIR)pack=net.minecraft.world.item.Items.CHEST;
+        setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND,new net.minecraft.world.item.ItemStack(pack));
+    }
+
+    private static net.minecraft.world.item.ItemStack dyedLeather(net.minecraft.world.item.Item item,int rgb){
+        net.minecraft.world.item.ItemStack stack=new net.minecraft.world.item.ItemStack(item);
+        stack.set(net.minecraft.core.component.DataComponents.DYED_COLOR,new net.minecraft.world.item.component.DyedItemColor(rgb&0xFFFFFF,true));
+        return stack;
+    }
     private void setBase(net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> attribute,double value){AttributeInstance instance=getAttribute(attribute);if(instance!=null)instance.setBaseValue(value);}
     private static String migrationLabel(MigrationReason reason){return switch(reason){case WAR,FAMINE,DISEASE,PERSECUTION->"Refugees";default->"Traveling Families";};}
 
