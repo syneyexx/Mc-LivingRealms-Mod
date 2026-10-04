@@ -557,6 +557,8 @@ The project uses:
 
 The ambition is a world with a very large simulated population without requiring Minecraft to physically tick every individual at all times.
 
+Singleplayer immersion profiles (F12 → Settings): **Performance**, **Balanced**, **Immersive**, **Cinematic**, and **Showcase**. Showcase is the high-end target profile for strong single-GPU machines (RTX 16GB-class + 32GB RAM): denser citizens, wildlife, caravans and construction near the player while canonical LOD stays bounded. See `docs/HIGH_END_SYSTEM_CONCEPT.md`.
+
 ---
 
 ## Save safety and determinism

@@ -22,6 +22,7 @@ public final class DashboardActionService {
             case CONFIG_BALANCED -> SimulationPreset.BALANCED;
             case CONFIG_IMMERSIVE -> SimulationPreset.IMMERSIVE;
             case CONFIG_CINEMATIC -> SimulationPreset.CINEMATIC;
+            case CONFIG_SHOWCASE -> SimulationPreset.SHOWCASE;
             default -> null;
         };
         if(preset!=null){state.setConfig(preset.config());return new Result(true,true,"config_"+preset.name().toLowerCase());}
@@ -50,7 +51,7 @@ public final class DashboardActionService {
         return switch(command.action()){
             case BOUNTY_ACCEPT -> {var r=state.acceptBounty(contract.id(),actorKey);yield new Result(r.success(),r.success(),r.reason());}
             case BOUNTY_ABANDON -> {var r=state.abandonBounty(contract.id(),actorKey);yield new Result(r.success(),r.success(),r.reason());}
-            case CONFIG_PERFORMANCE,CONFIG_BALANCED,CONFIG_IMMERSIVE,CONFIG_CINEMATIC,FACTION_JOIN_LOCAL,FACTION_LEAVE,TAX_LOWER,TAX_RAISE,SETTLEMENT_BALANCED,SETTLEMENT_FOOD,SETTLEMENT_HOUSING,SETTLEMENT_INDUSTRY,SETTLEMENT_DEFENSE,MARKET_BUY,MARKET_SELL -> new Result(false,false,"action_unreachable");
+            case CONFIG_PERFORMANCE,CONFIG_BALANCED,CONFIG_IMMERSIVE,CONFIG_CINEMATIC,CONFIG_SHOWCASE,FACTION_JOIN_LOCAL,FACTION_LEAVE,TAX_LOWER,TAX_RAISE,SETTLEMENT_BALANCED,SETTLEMENT_FOOD,SETTLEMENT_HOUSING,SETTLEMENT_INDUSTRY,SETTLEMENT_DEFENSE,MARKET_BUY,MARKET_SELL -> new Result(false,false,"action_unreachable");
         };
     }
 

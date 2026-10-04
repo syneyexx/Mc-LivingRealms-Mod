@@ -80,6 +80,7 @@ public final class LivingRealmsNetwork {
             case CONFIG_BALANCED -> "Living Realms profile: Balanced.";
             case CONFIG_IMMERSIVE -> "Living Realms profile: Immersive.";
             case CONFIG_CINEMATIC -> "Living Realms profile: Cinematic.";
+            case CONFIG_SHOWCASE -> "Living Realms profile: Showcase (high-end).";
             case FACTION_JOIN_LOCAL -> "Joined local realm.";
             case FACTION_LEAVE -> "Left your realm.";
             case TAX_LOWER -> "Realm tax rate lowered.";

@@ -23,6 +23,7 @@ This roadmap reflects the current **v3.0.0-rc4** codebase. The older prototype c
 - [x] Aviation, naval systems, military physical projection and loss reconciliation.
 - [x] Server-authoritative dashboard with bounded protocol **14** snapshots (F12).
 - [x] Runtime performance profiles persisted in the world.
+- [x] High-end Showcase profile + hardware playbook (`docs/HIGH_END_SYSTEM_CONCEPT.md`).
 - [x] Fixed target-modpack integration policy, including Iron's Lib, registry/API compatible content integration, Create Deep Seas/Aeronautics exclusions, explicit Guns++ and GamingBarn's Guns NPC deny-lists.
 - [x] Exact 3650-day deterministic soak with 30/365/3650 persistence/invariant checkpoints.
 - [x] Projection stress gates for wildlife, caravans, citizens, military, aircraft and ships.

@@ -3,6 +3,7 @@
 **Checkpoint:** v3.0.0-rc4 A–Z production completion pass (buildf15)
 
 ## Current production state
+- High-end **Showcase** simulation preset (F12 Settings) raises physical/regional projection budgets for RTX 16GB-class + 32GB RAM singleplayer; see `docs/HIGH_END_SYSTEM_CONCEPT.md`.
 - Starter density target is **32** settlements per surface realm (~380+ with Wizard Trees) including fertile rural hamlets; physical entities/blocks remain player-local and budgeted.
 - Local settlement economy (schema **16**): barn/granary/stockpile, seasonal farms/pastures, agrarian crop mix, faith calendars, route upkeep, typed bandits, trader price rumors.
 - Naval ports are discovered from ship-suitable geography; coastal settlements plan docks; locate-port works after discovery.
