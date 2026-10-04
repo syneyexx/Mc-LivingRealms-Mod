@@ -151,6 +151,12 @@ public final class LivingRealmsEvents {
             data.setDirty();
             LivingRealms.LOGGER.debug("Simulation: {}", data.state().summary());
         }
+        // Mid-day presentation pulse: shipment crawl / siege nudge / migration columns without full advanceDays.
+        if (tickCounter % 24000L == 12000L) {
+            var data = SimulationRuntime.data(event.getServer());
+            data.state().advancePresentationPulse(0.5);
+            data.setDirty();
+        }
     }
 
 

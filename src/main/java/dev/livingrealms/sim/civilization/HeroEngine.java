@@ -32,6 +32,10 @@ public final class HeroEngine {
         }
         if(legend.renown()>=.65&&!legend.monumented()){
             legend.markMonumented();
+            state.findSettlement(citizen.settlementId()).ifPresent(s->{
+                s.requestLandmark("monument:0");
+                state.requestConstructionCatchup(12);
+            });
             state.history().add(new WorldEvent(state.clock().day(),"hero_monumented","citizen="+citizen.id()+", name="+citizen.name()+", renown="+String.format(java.util.Locale.ROOT,"%.2f",legend.renown())));
         }
     }

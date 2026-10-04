@@ -13,10 +13,9 @@ import java.util.Comparator;
  * Local settlement production, consumption and tithe. Replaces free {@code pop * constant}
  * faction magic with farm/pasture/structure-backed stockpiles.
  * <p>
- * Headless/sim worlds often have no Minecraft-completed construction markers yet; agrarian
- * capacity therefore uses {@code max(completed farms, implied fields from population)} so the
- * canonical economy still runs. Completing physical farms/pastures/mills raises yield above the
- * subsistence floor. Faction treasury stockpile receives tax transfers only.
+ * Headless/unloaded settlements use {@code max(completed, implied population floor)} so the
+ * canonical economy stays continuous. Near loaded players, yield requires completed
+ * {@code farm:}/{@code pasture:} markers — lagging construction produces shortage/famine.
  */
 public final class SettlementEconomyEngine {
     public void simulateDay(SimulationState state) {
@@ -26,13 +25,15 @@ public final class SettlementEconomyEngine {
         for (Faction faction : state.factions()) {
             for (Settlement settlement : faction.settlements()) {
                 settlement.refreshStorageCapacity();
+                boolean requirePhysical = state.presentationScope().anyActivated()
+                        && state.presentationScope().isActivated(settlement.id());
                 double weatherMul = weatherMultiplier(day, settlement.id(), season);
                 AgrarianProfile.Mix agronomy = AgrarianProfile.of(settlement, season);
                 double rotation = AgrarianProfile.rotationMultiplier(day);
-                produceFarms(settlement, season, faction.technology(), weatherMul, agronomy, rotation);
-                produceLivestock(settlement, season, faction.technology(), weatherMul, agronomy);
+                produceFarms(settlement, season, faction.technology(), weatherMul, agronomy, rotation, requirePhysical);
+                produceLivestock(settlement, season, faction.technology(), weatherMul, agronomy, requirePhysical);
                 produceHinterland(state, settlement, faction.technology());
-                produceWorkshops(settlement, faction.technology());
+                produceWorkshops(settlement, faction.technology(), requirePhysical);
                 consumeLocalNeeds(state, faction, settlement, day);
                 applyMarketDayPressure(settlement, weekday);
                 FaithEconomyHooks.applyHolyDayAndTithe(state, faction, settlement, day);
@@ -43,9 +44,10 @@ public final class SettlementEconomyEngine {
     }
 
     private static void produceFarms(Settlement settlement, CivilizationCalendar.Season season, double technology,
-                                     double weatherMul, AgrarianProfile.Mix cropMix, double rotation) {
+                                     double weatherMul, AgrarianProfile.Mix cropMix, double rotation, boolean requirePhysical) {
         int completedFarms = count(settlement, "farm:");
         int impliedFarms = Math.max(1, (int) Math.ceil(settlement.population() / 160.0));
+        int effectiveFarms = requirePhysical ? completedFarms : Math.max(completedFarms, impliedFarms);
         int irrigation = count(settlement, "irrigation:") + count(settlement, "aqueduct:");
         // Winter has no harvest; autumn is peak; spring/summer grow stores more slowly.
         double seasonMul = switch (season) {
@@ -55,14 +57,20 @@ public final class SettlementEconomyEngine {
             case AUTUMN -> 1.40;
         };
         if (seasonMul <= 0) return;
+        if (requirePhysical && completedFarms <= 0) {
+            // Subsistence kitchen gardens only — visible famine pressure when fields lag.
+            settlement.stockpile().add(ResourceType.FOOD, settlement.population() * .08 * seasonMul * weatherMul);
+            if (seasonMul > .5) settlement.adjustUnrest(.002);
+            return;
+        }
         double tech = .80 + .40 * Math.min(1.5, technology);
         double irrig = 1.0 + Math.min(.40, irrigation * .14);
-        // Completed fields above the subsistence floor raise yield; missing physical farms stay near floor.
         double intensification = .72 + .28 * Mathx.clamp(completedFarms / (double) Math.max(1, impliedFarms), 0, 1.6);
-        // Three-field / plow / collar innovation proxies + regional crop mix + braak rotation.
+        if (requirePhysical) intensification = .55 + .45 * Mathx.clamp(completedFarms / (double) Math.max(1, impliedFarms), 0, 1.6);
         double agronomy = 1.0 + Math.min(.28, technology * .14) + (count(settlement, "workshop:") > 0 ? .06 : 0);
         double food = settlement.population() * .48 * seasonMul * tech * irrig * weatherMul * intensification
-                * agronomy * cropMix.yieldMul() * rotation;
+                * agronomy * cropMix.yieldMul() * rotation
+                * Math.min(1.35, effectiveFarms / (double) Math.max(1, impliedFarms));
         settlement.stockpile().add(ResourceType.FOOD, food);
         if (season == CivilizationCalendar.Season.AUTUMN || cropMix.primaryCrop() == AgrarianProfile.Crop.FLAX) {
             settlement.stockpile().add(ResourceType.TEXTILES,
@@ -72,10 +80,14 @@ public final class SettlementEconomyEngine {
     }
 
     private static void produceLivestock(Settlement settlement, CivilizationCalendar.Season season, double technology,
-                                         double weatherMul, AgrarianProfile.Mix cropMix) {
+                                         double weatherMul, AgrarianProfile.Mix cropMix, boolean requirePhysical) {
         int completedPastures = count(settlement, "pasture:");
         int impliedPastures = Math.max(1, (int) Math.ceil(settlement.population() / 280.0));
-        int pastures = Math.max(completedPastures, impliedPastures);
+        int pastures = requirePhysical ? completedPastures : Math.max(completedPastures, impliedPastures);
+        if (requirePhysical && completedPastures <= 0) {
+            settlement.stockpile().add(ResourceType.FOOD, settlement.population() * .012 * weatherMul);
+            return;
+        }
         double tech = .82 + .32 * Math.min(1.5, technology);
         double seasonMul = switch (season) {
             case WINTER -> 1.90; // slaughter/dairy season keeps villages alive when fields sleep
@@ -150,13 +162,13 @@ public final class SettlementEconomyEngine {
         return 1.0;
     }
 
-    private static void produceWorkshops(Settlement settlement, double technology) {
+    private static void produceWorkshops(Settlement settlement, double technology, boolean requirePhysical) {
         int workshops = count(settlement, "workshop:");
         int mills = count(settlement, "mill:") + count(settlement, "windmill:") + count(settlement, "watermill:");
         int bakeries = count(settlement, "bakery:");
         int breweries = count(settlement, "brewery:");
-        // Implied mill for villages+ once population supports grain processing.
-        if (mills == 0 && settlement.population() >= 100) mills = 1;
+        // Implied mill for unloaded/headless villages+; near players mills must be completed.
+        if (!requirePhysical && mills == 0 && settlement.population() >= 100) mills = 1;
         if (workshops > 0) {
             double craft = Math.max(4, settlement.population() * .01) * workshops * (.7 + .4 * technology);
             settlement.stockpile().add(ResourceType.TOOLS, craft * .08);

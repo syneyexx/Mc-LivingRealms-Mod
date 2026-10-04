@@ -101,6 +101,10 @@ public final class SimulationState {
     private final SocialPopulationEngine socialPopulationEngine=new SocialPopulationEngine();
     private final SocialMobilityEngine socialMobilityEngine=new SocialMobilityEngine();
     private final CivilizationEngine civilizationEngine=new CivilizationEngine();
+    /** Transient player-near settlement ids (not persisted). Empty ⇒ headless/implied floors. */
+    private final SettlementPresentationScope presentationScope=new SettlementPresentationScope();
+    /** Transient catch-up request consumed by SettlementConstructionMaterializer. */
+    private long pendingConstructionCatchupDays;
 
     public SimulationState(long seed){this(seed,SpeciesCatalog.starter(),SimulationConfig.defaults());}
     public SimulationState(long seed,Map<String,SpeciesDefinition> initialSpecies){this(seed,initialSpecies,SimulationConfig.defaults());}
@@ -111,6 +115,9 @@ public final class SimulationState {
     }
 
     public long seed(){return seed;} public SimClock clock(){return clock;} public SimulationConfig config(){return config;} public void setConfig(SimulationConfig config){this.config=Objects.requireNonNull(config,"config");} public Map<String,SpeciesDefinition> species(){return species;} public Map<String,EcoBiome> biomes(){return biomes;}
+    public SettlementPresentationScope presentationScope(){return presentationScope;}
+    public void requestConstructionCatchup(long days){if(days>0)pendingConstructionCatchupDays=Math.max(pendingConstructionCatchupDays,days);}
+    public long consumeConstructionCatchup(){long d=pendingConstructionCatchupDays;pendingConstructionCatchupDays=0;return d;}
     public List<EcosystemRegion> regions(){return Collections.unmodifiableList(regions);} public List<Faction> factions(){return Collections.unmodifiableList(factions);} public List<TradeShipment> shipments(){return Collections.unmodifiableList(shipments);}
     public List<Treaty> treaties(){return Collections.unmodifiableList(treaties);} public List<WarState> wars(){return Collections.unmodifiableList(wars);} public List<TransportRoute> routes(){return Collections.unmodifiableList(routes);} public List<MilitaryObjective> objectives(){return Collections.unmodifiableList(objectives);} public List<SiegeState> sieges(){return Collections.unmodifiableList(sieges);} public List<AirWing> airWings(){return Collections.unmodifiableList(airWings);} public List<BountyContract> bounties(){return Collections.unmodifiableList(bounties);} public List<CustodyRecord> custody(){return Collections.unmodifiableList(custody);} public List<PortState> ports(){return Collections.unmodifiableList(ports);} public List<Fleet> fleets(){return Collections.unmodifiableList(fleets);} public List<IndustrialSite> industrialSites(){return Collections.unmodifiableList(industrialSites);} public List<SocialCitizen> socialCitizens(){return Collections.unmodifiableList(socialCitizens);} public Map<Long,SettlementCivilizationState> settlementCivilizations(){return Collections.unmodifiableMap(settlementCivilizations);} public Map<Long,FactionCivilizationState> factionCivilizations(){return Collections.unmodifiableMap(factionCivilizations);} public List<ResourceClaim> resourceClaims(){return Collections.unmodifiableList(resourceClaims);} public List<RaidParty> raids(){return Collections.unmodifiableList(raids);} public List<LegendRecord> legends(){return Collections.unmodifiableList(legends);} public List<HouseholdState> households(){return Collections.unmodifiableList(households);} public List<EpidemicRecord> epidemics(){return Collections.unmodifiableList(epidemics);} public List<MigrationGroup> migrationGroups(){return Collections.unmodifiableList(migrationGroups);} public List<JusticeCase> justiceCases(){return Collections.unmodifiableList(justiceCases);} public List<HiddenCache> hiddenCaches(){return Collections.unmodifiableList(hiddenCaches);} public List<PirateBand> pirateBands(){return Collections.unmodifiableList(pirateBands);} public List<PirateHideout> pirateHideouts(){return Collections.unmodifiableList(pirateHideouts);} public List<DiplomaticMarriage> diplomaticMarriages(){return Collections.unmodifiableList(diplomaticMarriages);} public List<CivicEvent> civicEvents(){return Collections.unmodifiableList(civicEvents);} public List<IntelligenceOperation> intelligenceOperations(){return Collections.unmodifiableList(intelligenceOperations);} public List<PropagandaCampaign> propagandaCampaigns(){return Collections.unmodifiableList(propagandaCampaigns);} public List<RuinSite> ruinSites(){return Collections.unmodifiableList(ruinSites);} public List<AssistanceTask> assistanceTasks(){return Collections.unmodifiableList(assistanceTasks);} public List<SovereignDebt> debts(){return Collections.unmodifiableList(debts);} public List<GrandProject> grandProjects(){return Collections.unmodifiableList(grandProjects);} public List<CampaignPlan> campaignPlans(){return Collections.unmodifiableList(campaignPlans);} public Map<Long,DynastyState> dynasties(){return Collections.unmodifiableMap(dynasties);} public Map<String,PlayerStanding> playerStandings(){return Collections.unmodifiableMap(playerStandings);} public CrimeLedger crimeLedger(){return crimeLedger;} public WorldHistory history(){return history;} public LivenessCounters liveness(){return liveness;}
     public long nextId(){return nextId++;} public long peekNextId(){return nextId;} public void restoreNextId(long v){nextId=Math.max(1,v);}
@@ -289,6 +296,35 @@ public final class SimulationState {
         long remaining=delta;
         while(remaining>0){int step=(int)Math.min(remaining,365L);advanceDays(step);remaining-=step;}
         return delta;
+    }
+
+    /**
+     * Safe mid-day presentation pulse: shipment progress + migration column crawl.
+     * Does <em>not</em> run full {@link #advanceDays} engines or advance the world clock.
+     */
+    public void advancePresentationPulse(double dayFraction){
+        if(!(dayFraction>0)||!Double.isFinite(dayFraction))return;
+        double frac=Math.min(1.0,dayFraction);
+        long day=clock.day();
+        tradeEngine.presentationPulse(this,new DeterministicRng(seed^day^0x51ED0015EL^(Double.doubleToLongBits(frac))),frac);
+        for(MigrationGroup group:migrationGroups){
+            if(group.status()!=MigrationStatus.TRAVELING)continue;
+            group.advance(frac*.12);
+        }
+        // Subtle siege pressure presentation: nudge attacker armies a few blocks toward the target.
+        for(SiegeState siege:sieges){
+            if(!siege.active())continue;
+            findFaction(siege.attackerFactionId()).ifPresent(attacker->{
+                findSettlement(siege.settlementId()).ifPresent(target->{
+                    for(Army army:attacker.armies()){
+                        if(army.destroyed())continue;
+                        double dist=army.position().distanceTo(target.position());
+                        if(dist<8||dist>400)continue;
+                        army.moveToward(target.position(),Math.min(dist*.08,18*frac));
+                    }
+                });
+            });
+        }
     }
 
     public void advanceDays(int days){

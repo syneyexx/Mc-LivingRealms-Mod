@@ -66,10 +66,12 @@ public final class PhysicalDevelopmentReconciler {
         // Catch-up backlog: roads and housing first after large time jumps, then civic.
         // Under housing pressure, denser house intents sort ahead of cottages. District anchors
         // give market/harbor/government a bounded priority nudge without relocating geometry.
+        // Founder / grand-project / hero landmarks float to the front of the growth ring.
         boolean denseHousingPreferred = housingCapacityGap > 80 || settlement.tier().ordinal() >= Settlement.Tier.CITY.ordinal();
         List<ConstructionIntent> backlog = new ArrayList<>(pending);
         backlog.sort(Comparator
-                .comparingInt((ConstructionIntent i) -> roleCatchupWeight(i.role()))
+                .comparingInt((ConstructionIntent i) -> settlement.priorityLandmarks().contains(i.key()) ? 0 : 1)
+                .thenComparingInt((ConstructionIntent i) -> roleCatchupWeight(i.role()))
                 .thenComparingInt((ConstructionIntent i) -> denseHousingPreferred && i.role() == StructureRole.HOUSE
                         ? -HousingCapacity.representedResidents(i) : 0)
                 .thenComparing(Comparator.comparingInt((ConstructionIntent i) -> i.priority() + districts.priorityBoost(i)).reversed())

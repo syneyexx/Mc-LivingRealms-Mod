@@ -4,6 +4,7 @@ import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.util.Mathx;
+import dev.livingrealms.sim.world.SimulationState;
 import java.util.Objects;
 
 /** Single source of truth for civilian needs used by both simulation and UI diagnostics. */
@@ -11,6 +12,10 @@ public final class SocietyDiagnostics {
     private SocietyDiagnostics() {}
 
     public static SocietyAssessment assess(Faction faction, Settlement settlement) {
+        return assess(null, faction, settlement);
+    }
+
+    public static SocietyAssessment assess(SimulationState state, Faction faction, Settlement settlement) {
         Objects.requireNonNull(faction, "faction");
         Objects.requireNonNull(settlement, "settlement");
         int pop = Math.max(1, settlement.population());
@@ -25,7 +30,7 @@ public final class SocietyDiagnostics {
         double food = Mathx.clamp(foodDays / 4.0, 0, 1);
         double housing = Mathx.clamp((double) settlement.housing() / Math.max(1, settlement.population()), 0, 1);
         double safety = Mathx.clamp(.35 + faction.government().lawEnforcement() * .55 - settlement.unrest() * .25, 0, 1);
-        double employment = Mathx.clamp(jobCapacity(faction, settlement) / Math.max(1, settlement.population() * .52), 0, 1);
+        double employment = Mathx.clamp(jobCapacity(state, faction, settlement) / Math.max(1, settlement.population() * .52), 0, 1);
         double marketGoods = Mathx.clamp(goods / 2.0, 0, 1);
         SettlementNeeds needs = new SettlementNeeds(food, housing, safety, employment, marketGoods);
         SocietyPressure pressure = primaryPressure(needs);
@@ -35,6 +40,10 @@ public final class SocietyDiagnostics {
 
     /** Workplace-slot–aware job capacity: completed structures create real employment seats. */
     public static double jobCapacity(Faction faction, Settlement settlement) {
+        return jobCapacity(null, faction, settlement);
+    }
+
+    public static double jobCapacity(SimulationState state, Faction faction, Settlement settlement) {
         int farms = count(settlement, "farm:");
         int pastures = count(settlement, "pasture:");
         int workshops = count(settlement, "workshop:") + count(settlement, "bakery:") + count(settlement, "brewery:") + count(settlement, "mill:");
@@ -46,9 +55,11 @@ public final class SocietyDiagnostics {
                 + count(settlement, "courthouse:") + count(settlement, "barracks:") + count(settlement, "keep:");
         int docks = count(settlement, "dock:");
         int factories = count(settlement, "factory:");
-        // Implied hinterland work when physical markers are not yet completed (headless sim).
-        double impliedFields = Math.max(farms, Math.ceil(settlement.population() / 160.0));
-        double impliedPastures = Math.max(pastures, Math.ceil(settlement.population() / 280.0));
+        boolean requirePhysical = state != null && state.presentationScope().anyActivated()
+                && state.presentationScope().isActivated(settlement.id());
+        // Implied hinterland work when unloaded/headless; near players employment tracks completed markers.
+        double impliedFields = requirePhysical ? farms : Math.max(farms, Math.ceil(settlement.population() / 160.0));
+        double impliedPastures = requirePhysical ? pastures : Math.max(pastures, Math.ceil(settlement.population() / 280.0));
         double slots = impliedFields * 14 + impliedPastures * 8 + workshops * 18 + mines * 22 + lumber * 16
                 + fisheries * 14 + markets * 12 + civic * 10 + docks * 14 + factories * 28;
         double tools = (settlement.stockpile().get(ResourceType.TOOLS) + faction.stockpile().get(ResourceType.TOOLS) * .2) * .05;

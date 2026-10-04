@@ -27,6 +27,10 @@ public final class Settlement {
     private double granaryCapacity=600;
     /** Geography is sidecar/runtime state; name heuristic bootstraps until world discovery authors it. */
     private SettlementGeographyProfile geography=SettlementGeographyProfile.unknown();
+    /** Ephemeral: intent key of the active physical construction job near players (not saved). */
+    private String activeConstructionKey="";
+    /** Ephemeral priority landmark keys (grand projects / hero monuments) forcing planner backlog. */
+    private final Set<String> priorityLandmarks=new LinkedHashSet<>();
 
     public Settlement(long id,String name,SimPosition pos,int pop,int housing){
         if(id<=0)throw new IllegalArgumentException("id");
@@ -55,7 +59,11 @@ public final class Settlement {
     public int housingShortage(){return Math.max(0,population-housing);}
     public Set<String> completedConstruction(){return Collections.unmodifiableSet(completedConstruction);}
     public boolean isConstructionCompleted(String key){return completedConstruction.contains(key);}
-    public boolean markConstructionCompleted(String key){if(key==null||key.isBlank())throw new IllegalArgumentException("key");boolean added=completedConstruction.add(key);if(added)refreshStorageCapacity();return added;}
+    public boolean markConstructionCompleted(String key){if(key==null||key.isBlank())throw new IllegalArgumentException("key");boolean added=completedConstruction.add(key);if(added){priorityLandmarks.remove(key);refreshStorageCapacity();}return added;}
+    public String activeConstructionKey(){return activeConstructionKey;}
+    public void setActiveConstructionKey(String key){activeConstructionKey=key==null?"":key;}
+    public Set<String> priorityLandmarks(){return Collections.unmodifiableSet(priorityLandmarks);}
+    public void requestLandmark(String key){if(key==null||key.isBlank())throw new IllegalArgumentException("key");if(!completedConstruction.contains(key))priorityLandmarks.add(key);}
     /**
      * Removes one LivingRealms-authored structure matching a prefix (e.g. wall:/gate:/keep:).
      * Used for siege damage against simulation construction keys — never player/foreign builds.

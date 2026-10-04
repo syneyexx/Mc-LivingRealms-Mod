@@ -13,8 +13,10 @@ import dev.livingrealms.sim.construction.ConstructionJob;
 import dev.livingrealms.sim.construction.ConstructionQueue;
 import dev.livingrealms.sim.construction.ConstructionRetryKey;
 import dev.livingrealms.sim.construction.EntranceAccessPlanner;
+import dev.livingrealms.sim.construction.HousingCapacity;
 import dev.livingrealms.sim.construction.PaletteSlot;
 import dev.livingrealms.sim.construction.PhysicalDevelopmentReconciler;
+import dev.livingrealms.sim.construction.SettlementPlanCache;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
 import dev.livingrealms.sim.construction.StructureGeometryRules;
 import dev.livingrealms.sim.construction.StructureRole;
@@ -61,6 +63,9 @@ public final class SettlementConstructionMaterializer {
     private SettlementConstructionMaterializer() {}
 
     public static void tick(ServerLevel level, LivingRealmsSavedData data) {
+        long catchup=data.state().consumeConstructionCatchup();
+        if(catchup>0)requestCatchup(catchup);
+        refreshPresentationScope(level,data);
         discoverLoadedWork(level,data);
         int operationBudget=Math.max(320,data.state().config().constructionBlockOpsPerTick());
         if(catchupTicks>0){operationBudget=Math.max(operationBudget,960);catchupTicks--;}
@@ -72,7 +77,11 @@ public final class SettlementConstructionMaterializer {
             Settlement owner=JOB_OWNERS.remove(completed);
             ConstructionRetryKey retryKey=ConstructionRetryKey.parse(completed);
             RETRY_AFTER_DAY.remove(retryKey.wire());
-            if(owner!=null && owner.markConstructionCompleted(retryKey.intentKey())) dirty=true;
+            if(owner!=null && owner.markConstructionCompleted(retryKey.intentKey())) {
+                dirty=true;
+                creditHousingFromCompletedHouse(data,owner,retryKey.intentKey());
+                if(retryKey.intentKey().equals(owner.activeConstructionKey()))owner.setActiveConstructionKey("");
+            }
         }
         for(String rejected:result.rejectedJobKeys()) {
             Settlement owner=JOB_OWNERS.remove(rejected);
@@ -153,6 +162,7 @@ public final class SettlementConstructionMaterializer {
                 }
                 if(QUEUE.enqueue(job)){
                     JOB_OWNERS.put(job.key(),settlement);
+                    settlement.setActiveConstructionKey(intent.key());
                     queuedSettlements.add(settlement.id());
                     enqueued++;
                 }
@@ -160,6 +170,27 @@ public final class SettlementConstructionMaterializer {
             }
         }
         settlementScanCursor=Math.floorMod(settlementScanCursor+Math.max(1,scanned),Math.max(1,near.size()));
+    }
+
+    private static void refreshPresentationScope(ServerLevel level,LivingRealmsSavedData data){
+        java.util.Set<Long> activated=new HashSet<>();
+        for(Faction faction:data.state().factions())for(Settlement settlement:faction.settlements()){
+            if(nearPlayer(level,settlement))activated.add(settlement.id());
+        }
+        data.state().presentationScope().setActivated(activated);
+    }
+
+    private static void creditHousingFromCompletedHouse(LivingRealmsSavedData data,Settlement owner,String intentKey){
+        if(intentKey==null||!intentKey.startsWith("house:"))return;
+        Faction faction=null;
+        for(Faction f:data.state().factions()){
+            if(f.settlements().stream().anyMatch(s->s.id()==owner.id())){faction=f;break;}
+        }
+        if(faction==null){owner.addHousing(8);return;}
+        ConstructionIntent intent=SettlementPlanCache.plan(faction,owner).stream()
+                .filter(i->i.key().equals(intentKey)&&i.role()==StructureRole.HOUSE).findFirst().orElse(null);
+        int beds=intent==null?HousingCapacity.representedResidents(7,7):HousingCapacity.representedResidents(intent);
+        owner.addHousing(Math.max(4,beds));
     }
 
 

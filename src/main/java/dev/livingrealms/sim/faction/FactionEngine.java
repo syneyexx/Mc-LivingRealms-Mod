@@ -1,5 +1,7 @@
 package dev.livingrealms.sim.faction;
 
+import dev.livingrealms.sim.construction.SettlementPlanner;
+import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.military.*;
 import dev.livingrealms.sim.util.DeterministicRng;
 import dev.livingrealms.sim.util.Mathx;
@@ -35,16 +37,27 @@ public final class FactionEngine {
                 if(state==null){double growth=.00012*(foodRatio-.45)*(1-s.unrest()*.7);int delta=(int)Math.round(s.population()*growth);if(s.housingShortage()>0)delta=Math.min(delta,0);s.addPopulation(delta);}
                 double woodAvail=s.stockpile().get(ResourceType.WOOD)+f.stockpile().get(ResourceType.WOOD);
                 double stoneAvail=s.stockpile().get(ResourceType.STONE)+f.stockpile().get(ResourceType.STONE);
+                boolean physicalHouseBacklog=state!=null&&hasPendingHouses(f,s);
+                boolean playerActivated=state!=null&&state.presentationScope().anyActivated()&&state.presentationScope().isActivated(s.id());
+                // Near players: stop (or sharply cut) phantom housing — beds come from completed house: intents.
+                // Headless / unloaded: keep the implied housing floor so soak tests stay continuous.
                 if (s.housingShortage() > Math.max(5, s.population() * .05) && woodAvail > 20) {
                     int build = (int)Math.min(s.housingShortage() + 10, 25 + f.technology() * 25);
                     drawBuildMaterials(f,s,build*.4,build*.15);
-                    s.addHousing(build);s.improveInfrastructure(.001 * build);
+                    if(!playerActivated){
+                        s.addHousing(build);
+                    }else if(!physicalHouseBacklog&&s.housingShortage()>s.population()*.3){
+                        s.addHousing(Math.min(6,Math.max(2,build/5)));
+                    }
+                    s.improveInfrastructure(.001 * build);
                 }
-                // Proactive housing creates new physical house intents before overcrowding becomes severe.
                 if(state!=null&&s.housing()-s.population()<Math.max(10,s.population()/12)&&woodAvail>45&&Math.floorMod(state.clock().day()+s.id(),7L)==0L){
                     int build=Math.min(36,Math.max(12,s.population()/30));
                     drawBuildMaterials(f,s,build*.45,build*.18);
-                    s.addHousing(build);s.improveInfrastructure(.0007*build);
+                    if(!playerActivated){
+                        s.addHousing(build);
+                    }
+                    s.improveInfrastructure(.0007*build);
                 }
             }
             f.advanceTechnology(.00002 * Math.sqrt(Math.max(1, pop))*(.6+.6*f.government().ruler().stewardship()));
@@ -52,6 +65,9 @@ public final class FactionEngine {
         }
     }
 
+    private static boolean hasPendingHouses(Faction f,Settlement s){
+        return SettlementPlanner.pending(f,s).stream().anyMatch(i->i.role()==StructureRole.HOUSE);
+    }
     private static double localFood(Faction f){double t=0;for(Settlement s:f.settlements())t+=s.stockpile().get(ResourceType.FOOD);return t;}
     private static void drawBuildMaterials(Faction f,Settlement s,double wood,double stone){
         double fromLocalWood=s.stockpile().take(ResourceType.WOOD,wood);if(fromLocalWood<wood)f.stockpile().take(ResourceType.WOOD,wood-fromLocalWood);
