@@ -122,21 +122,24 @@ public final class StructureBlueprintFactory {
     }
 
     private static StructureBlueprint house(ConstructionIntent intent) {
-        int w=intent.width(),d=intent.depth();
+        CultureArchitecture culture=CultureArchitecture.fromStyleIndex(Math.floorMod((int)intent.factionId(),8));
+        int w=Math.max(intent.width(),culture.minHouseWidth());
+        int d=Math.max(intent.depth(),culture.minHouseDepth());
         if(w>=13&&d>=13)return mansion(w,d);
-        if(w>=11||d>=11)return apartmentBlock(w,d,variant(intent,3));
-        int variant=variant(intent,10);
-        return switch(variant){
-            case 0 -> hut(w,d);
-            case 1 -> cottage(w,d);
-            case 2 -> farmhouse(w,d);
-            case 3 -> longhouse(w,d);
-            case 4 -> terrace(w,d);
-            case 5 -> townhouse(w,d);
-            case 6 -> porchHouse(w,d);
-            case 7 -> courtyardHouse(w,d);
-            case 8 -> hallHouse(w,d);
-            default -> L_shapedHouse(w,d);
+        if(w>=11||d>=11){
+            // Large urban lots stay multi-storey so cities densify vertically; culture styles the shell.
+            return apartmentBlock(w,d,variant(intent,3));
+        }
+        // BuildPaste-inspired culture → massing grammar (materials still come from FactionBlockPalette).
+        return switch(culture){
+            case MEDIEVAL_FACHWERK -> switch(variant(intent,3)){case 0->cottage(w,d);case 1->farmhouse(w,d);default->hallHouse(w,d);};
+            case NORDIC_FORTRESS -> longhouse(w,d);
+            case DESERT_COURTYARD -> courtyardHouse(w,d);
+            case FANTASY_MANOR -> switch(variant(intent,2)){case 0->hallHouse(w,d);default->mansion(Math.max(w,13),Math.max(d,13));};
+            case MERCANTILE_TOWNHOUSE -> switch(variant(intent,2)){case 0->townhouse(w,d);default->terrace(w,d);};
+            case COASTAL_VILLA -> porchHouse(w,d);
+            case TIMBER_PAVILION -> switch(variant(intent,2)){case 0->courtyardHouse(w,d);default->L_shapedHouse(w,d);};
+            case SCHOLAR_VILLA -> switch(variant(intent,2)){case 0->courtyardHouse(w,d);default->hallHouse(w,d);};
         };
     }
 
@@ -294,10 +297,15 @@ public final class StructureBlueprintFactory {
         return bp("mansion",w,d,12,p);
     }
 
-    /** Beds/table/storage cooking area — functional interior grammar for homes. */
+    /**
+     * Beds/table/storage cooking area — functional interior grammar for homes.
+     * Beds are two-block footprints (foot + head) so Minecraft never leaves a half bed.
+     */
     private static void furnishHome(List<BlockPlacement> p,int y,int suite){
         int ox=suite%2==0?-1:1,oz=suite%3==0?-1:1;
+        // Foot at (ox,oz), head toward +Z so materializer can pair PART=FOOT/HEAD.
         add(p,ox,y,oz,PaletteSlot.BED,ConstructionPhase.DETAIL);
+        add(p,ox,y,oz+1,PaletteSlot.BED,ConstructionPhase.DETAIL);
         add(p,-ox,y,oz,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
         add(p,0,y,-oz,PaletteSlot.TABLE,ConstructionPhase.DETAIL);
         if(suite==0)add(p,ox,y,-oz,PaletteSlot.MACHINE,ConstructionPhase.DETAIL); // cooking/work
@@ -417,35 +425,33 @@ public final class StructureBlueprintFactory {
     private static StructureBlueprint road(int w,int d) {
         List<BlockPlacement> p=new ArrayList<>(); int hx=w/2,hz=d/2;
         StreetType street=StreetType.forWidth(w,false,w>=7,false);
-        // Carriageway with sidewalks; lamps/benches/clutter stay on sidewalk edges so the centerline stays clear.
+        boolean rural=!street.sidewalk() || w<=3 || "dirt".equals(street.surfaceKey());
+        // Full floor/carriageway. Rural lanes are pure PATH (dirt) with no sidewalk fences.
         for(int z=-hz;z<=hz;z++) for(int x=-hx;x<=hx;x++) {
-            boolean edge=Math.abs(x)>=Math.max(1,hx-(street.sidewalk()?0:1));
+            boolean edge=!rural && Math.abs(x)>=Math.max(1,hx);
             PaletteSlot slot=edge?PaletteSlot.FOUNDATION:PaletteSlot.PATH;
             add(p,x,0,z,slot,ConstructionPhase.FOUNDATION);
         }
-        if(w>=3 && street.sidewalk()){
+        // Urban furniture only on sidewalk streets — never fence-in countryside nature paths.
+        if(!rural && w>=5 && street.sidewalk()){
             int lampStep=street.lighting()?6:10;
             for(int z=-hz+2;z<=hz-2;z+=lampStep){
                 if(street.lighting()){
                     add(p,-hx,1,z,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
                     add(p,hx,1,z,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
                 }
-                // Benches / sign posts as fence slots on sidewalk.
                 if(z+3<=hz-2){
                     add(p,-hx,1,z+3,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
                     add(p,hx,1,z+3,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
                 }
-                // Market/arterial clutter: barrels/crates as storage on wide streets only.
                 if(w>=7 && z+5<=hz-2 && ((z/lampStep)&1)==0){
                     add(p,-hx,1,z+5,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
                     if(w>=9) add(p,hx,1,z+5,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
                 }
-                // Tree wells / shrine posts on boulevard+ arterial edges (decoration, not carriageway).
                 if(w>=8 && z+7<=hz-2 && ((z/lampStep)&1)==1){
                     add(p,-hx,1,z+7,PaletteSlot.DECORATION,ConstructionPhase.DETAIL);
                     add(p,hx,1,z+7,PaletteSlot.DECORATION,ConstructionPhase.DETAIL);
                 }
-                // Faction banner posts on royal/arterial widths.
                 if(w>=9 && z+2<=hz-2 && z%lampStep==0){
                     add(p,-hx,2,z,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
                     add(p,hx,2,z,PaletteSlot.FENCE,ConstructionPhase.DETAIL);

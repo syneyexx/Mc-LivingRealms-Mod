@@ -26,11 +26,11 @@ public final class LivingRealmsSavedData extends SavedData {
     private static final String KEY_PAYLOAD_INTEGRITY = "PayloadCrc32Plus1";
     private static final String KEY_CONTENT_REVISION = "ContentRevision";
     /**
-     * Revision 12: ~35% countryside density (fewer authored satellites, sparse roads) plus far-world
-     * frontier continuity. Does not shrink already-dense migrated worlds; new seeds use the sparse
-     * target. Morphology rebuild gates from revision 10 remain intact.
+     * Revision 13: 2000-block settlement spacing, countryside dirt paths (no fence grids), bridge/gate
+     * junctions, culture architecture wiring, live HUD. Densifier remains add-only for migrated dense
+     * saves; new seeds use the sparse 2000m lattice. Morphology rebuild gates from revision 10 remain.
      */
-    private static final int CONTENT_REVISION = 12;
+    private static final int CONTENT_REVISION = 13;
 
     private final SimulationState state;
     /** settlementId -> packed BlockPos of Living Realms-authored Waystone only. */
@@ -79,10 +79,12 @@ public final class LivingRealmsSavedData extends SavedData {
         SettlementGeographyNbt.read(tag, loaded.state());
         // Revision 3 rebuilt unsafe early-RC structures. Revision 4 expands the canonical world
         // to the twelve-kingdom target while preserving already-migrated physical construction.
-        // Revision 12 re-runs densifier for worlds that never received the sparse ~35% target
+        // Revision 12/13 re-runs densifier for worlds that never received the sparse 2000m target
         // (idempotent add-only — existing dense saves keep their settlements).
-        int densityChanges = contentRevision < 6 || contentRevision < 12 ? SettlementDensitySeeder.ensureStarterDensity(loaded.state()) : 0;
+        int densityChanges = contentRevision < 6 || contentRevision < 13 ? SettlementDensitySeeder.ensureStarterDensity(loaded.state()) : 0;
         int wizardChanges = contentRevision < 5 ? WizardTreesSeeder.ensure(loaded.state()) : 0;
+        int spacingChanges = SettlementDensitySeeder.enforceSpacing(loaded.state());
+        densityChanges += spacingChanges;
         int constructionResets=0;
         // Revision 6 replaces the old curved/free-form settlement layouts with connected street
         // blocks, accessible floors, denser housing and capital castles. Completion keys must be

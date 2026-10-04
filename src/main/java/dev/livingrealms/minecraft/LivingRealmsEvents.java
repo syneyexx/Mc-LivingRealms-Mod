@@ -108,31 +108,42 @@ public final class LivingRealmsEvents {
         }
         if (tickCounter % 400L == 0) ForeignSettlementDiscoveryRuntime.tick(event.getServer().overworld(),SimulationRuntime.data(event.getServer()));
         if (tickCounter % 600L == 0) ForeignStructureDiscoveryRuntime.tick(event.getServer().overworld(),SimulationRuntime.data(event.getServer()));
+        // Spread entity/materializer work across a 20-tick window so frames don't stall together.
         if (tickCounter % 20L == 0) {
             var data = SimulationRuntime.data(event.getServer());
             WildlifeMaterializer.tick(event.getServer(), data);
-            TradeCaravanMaterializer.tick(event.getServer().overworld(), data);
             FactionCitizenMaterializer.tick(event.getServer(), data);
+            if (tickCounter % 100L == 0) dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.tick(event.getServer(), data);
+            SettlementAmbienceRuntime.tick(event.getServer().overworld(), data, tickCounter);
+        } else if (tickCounter % 20L == 5) {
+            var data = SimulationRuntime.data(event.getServer());
+            TradeCaravanMaterializer.tick(event.getServer().overworld(), data);
             MilitaryUnitMaterializer.tick(event.getServer(), data);
+            CaravanEscortMaterializer.tick(event.getServer(), data);
+        } else if (tickCounter % 20L == 10) {
+            var data = SimulationRuntime.data(event.getServer());
             MobileCivilizationMaterializer.tick(event.getServer().overworld(), data);
             AircraftMaterializer.tick(event.getServer(), data);
             NavalMaterializer.tick(event.getServer(), data);
             BountyHunterMaterializer.tick(event.getServer(), data);
+        } else if (tickCounter % 20L == 15) {
+            var data = SimulationRuntime.data(event.getServer());
             SiegeEquipmentMaterializer.tick(event.getServer(), data);
-            CaravanEscortMaterializer.tick(event.getServer(), data);
             CustodyRuntime.tick(event.getServer(), data);
             CitizenConversationRuntime.tick(event.getServer(), data, tickCounter);
             HistoricalSiteMaterializer.tick(event.getServer().overworld(), data);
             CivicFestivalMaterializer.tick(event.getServer().overworld(), data);
             SettlementGeographyDiscoveryRuntime.tick(event.getServer().overworld(), data);
-            if (tickCounter % 100L == 0) dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.tick(event.getServer(), data);
-            SettlementAmbienceRuntime.tick(event.getServer().overworld(), data, tickCounter);
         }
-        // Construction is budgeted every tick; only loaded chunks near players are touched.
-        SettlementConstructionMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
-        TransportNetworkMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
-        UrbanCoreMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
-        IndustrialSiteMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
+        // Time-slice construction systems across ticks so the sim stays live without hitching.
+        // Features are not removed — each still runs every 4 ticks with the same per-tick budgets.
+        var overworld = event.getServer().overworld();
+        var buildData = SimulationRuntime.data(event.getServer());
+        int phase = (int) (tickCounter & 3L);
+        if (phase == 0) SettlementConstructionMaterializer.tick(overworld, buildData);
+        else if (phase == 1) TransportNetworkMaterializer.tick(overworld, buildData);
+        else if (phase == 2) UrbanCoreMaterializer.tick(overworld, buildData);
+        else IndustrialSiteMaterializer.tick(overworld, buildData);
         // Sparse far-world continuity: when players roam beyond the authored belt, seed frontier outposts.
         if (tickCounter % 100L == 0) {
             var data = SimulationRuntime.data(event.getServer());

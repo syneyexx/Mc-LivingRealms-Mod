@@ -10,19 +10,19 @@ import java.util.Objects;
 
 /**
  * Keeps Living Realms civilization continuous across the whole Overworld, not only the authored
- * ±8k starter belt. When a player travels far from every canonical settlement, this seeder plants a
+ * starter belt. When a player travels far from every canonical settlement, this seeder plants a
  * sparse frontier hamlet/village under the nearest surface kingdom so the world never empties out.
  *
- * <p>Target coverage is intentionally light (~35% developed countryside): large nature gaps remain,
- * roads stay rare, and each realm may only absorb a bounded number of frontier outposts.</p>
+ * <p>Spacing matches the product floor of 2000 blocks between settlements so wilderness belts stay
+ * wide enough for player founding and inter-city travel.</p>
  */
 public final class FrontierExplorationSeeder {
     /** Minimum distance from any existing settlement before a frontier seed may spawn. */
-    public static final double GAP_BEFORE_SEED = 1_100.0;
+    public static final double GAP_BEFORE_SEED = 3_400.0;
     /** Preferred spacing between frontier settlements worldwide. */
-    public static final double FRONTIER_SPACING = 980.0;
+    public static final double FRONTIER_SPACING = 2_000.0;
     /** Soft cap of exploration-seeded settlements per ordinary realm. */
-    public static final int MAX_FRONTIER_PER_REALM = 48;
+    public static final int MAX_FRONTIER_PER_REALM = 24;
     private static final String[] SUFFIXES = {
             "Outpost", "March", "Wilds", "Reach", "Camp", "Hold", "Crossing", "Rest",
             "Lookout", "Trailhead", "Hollow", "Ridge", "Ford", "Glen"
@@ -98,13 +98,13 @@ public final class FrontierExplorationSeeder {
     }
 
     private static SimPosition placeAround(SimulationState state, SimPosition observer, long factionId) {
-        // Prefer a ring around the player so the outpost is discoverable but not on top of them.
-        for (int attempt = 0; attempt < 12; attempt++) {
+        // Place well outside the 2000m founding clearance so players can still found nearby.
+        for (int attempt = 0; attempt < 24; attempt++) {
             long m = mix(state.seed() ^ factionId ^ (attempt * 0x9E3779B97F4A7C15L) ^ Math.round(observer.x() * 17 + observer.z()));
             double angle = ((m >>> 11) & 0xFFFFL) / 65535.0 * Math.PI * 2.0;
-            double radius = 220.0 + ((m >>> 27) & 0xFFL);
+            double radius = 2_100.0 + ((m >>> 27) & 0x3FFL); // 2100–3123 blocks from the observer
             SimPosition p = new SimPosition(observer.x() + Math.cos(angle) * radius, observer.z() + Math.sin(angle) * radius);
-            if (!tooClose(state, p, FRONTIER_SPACING * 0.85)) return p;
+            if (!tooClose(state, p, FRONTIER_SPACING)) return p;
         }
         return null;
     }

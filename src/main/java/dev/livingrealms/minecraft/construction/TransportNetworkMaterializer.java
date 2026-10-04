@@ -29,11 +29,16 @@ public final class TransportNetworkMaterializer {
         TerrainCorridorPlanner.TerrainSample terrain=sampler(level,data.authoredBlocks());
         AuthoredBlockLedger ledger=data.authoredBlocks();
         for(TransportRoute route:data.state().routes()){
-            if(remaining<=0)break;if(!route.operational()||(route.mode()!=TransportMode.ROAD&&route.mode()!=TransportMode.RAIL))continue;
+            if(remaining<=0)break;
+            // ROAD/RAIL keep full carriageways; CARAVAN becomes a narrow countryside dirt path.
+            if(!route.operational()||(route.mode()!=TransportMode.ROAD&&route.mode()!=TransportMode.RAIL&&route.mode()!=TransportMode.CARAVAN))continue;
             var from=data.state().findSettlement(route.fromSettlementId()).orElse(null);
             var to=data.state().findSettlement(route.toSettlementId()).orElse(null);if(from==null||to==null)continue;
             var points=RouteProjectionPlanner.plan(route,from.position(),to.position(),observers,ACTIVATION_RADIUS,remaining,terrain);
-            for(var point:points){if(remaining<=0)break;remaining-=applyPoint(level,ledger,point,remaining);}
+            boolean rural=route.mode()==TransportMode.CARAVAN
+                    || from.tier().ordinal()<=dev.livingrealms.sim.faction.Settlement.Tier.VILLAGE.ordinal()
+                    || to.tier().ordinal()<=dev.livingrealms.sim.faction.Settlement.Tier.VILLAGE.ordinal();
+            for(var point:points){if(remaining<=0)break;remaining-=applyPoint(level,ledger,point,remaining,rural);}
         }
     }
 
@@ -70,18 +75,20 @@ public final class TransportNetworkMaterializer {
         };
     }
 
-    private static int applyPoint(ServerLevel level,AuthoredBlockLedger ledger,RouteProjectionPlanner.RoutePoint point,int budget){
+    private static int applyPoint(ServerLevel level,AuthoredBlockLedger ledger,RouteProjectionPlanner.RoutePoint point,int budget,boolean rural){
         int used=0;if(point.mode()==TransportMode.RAIL)return applyRail(level,ledger,point,budget);
         int nx=point.dz()==0?0:Integer.signum(point.dz()),nz=point.dx()==0?0:-Integer.signum(point.dx());if(nx==0&&nz==0)nx=1;
         int[] best=bestCorridorCenter(level,ledger,point,nx,nz);if(best==null)return 0;
         int deckY=corridorDeckY(level,best[0],best[1],point);
-        for(int side=-2;side<=2&&used<budget;side++){
+        // Rural / caravan: single dirt path, no sidewalk fences. Urban: full carriageway + curb.
+        int half=rural?0:2;
+        for(int side=-half;side<=half&&used<budget;side++){
             int x=best[0]+nx*side,z=best[1]+nz*side;
-            used+=Math.abs(side)==2?placeSidewalk(level,ledger,x,z,deckY):placeRoad(level,ledger,x,z,deckY,side==0);
+            if(!rural&&Math.abs(side)==2)used+=placeSidewalk(level,ledger,x,z,deckY);
+            else used+=placeRoad(level,ledger,x,z,deckY,side==0,rural);
         }
-        if(used<budget)used+=maybeBridge(level,ledger,best[0],best[1],point,deckY,budget-used);
-        // Occasional roadside lamp for realism without clutter.
-        if(used<budget&&Math.floorMod(best[0]*17+best[1],29)==0){
+        if(used<budget)used+=maybeBridge(level,ledger,best[0],best[1],point,deckY,budget-used,rural);
+        if(!rural&&used<budget&&Math.floorMod(best[0]*17+best[1],29)==0){
             used+=placeLamp(level,ledger,best[0]+nx*2,best[1]+nz*2,deckY);
         }
         return used;
@@ -99,27 +106,29 @@ public final class TransportNetworkMaterializer {
         return surface;
     }
 
-    private static int maybeBridge(ServerLevel level,AuthoredBlockLedger ledger,int x,int z,RouteProjectionPlanner.RoutePoint point,int deckY,int budget){
+    private static int maybeBridge(ServerLevel level,AuthoredBlockLedger ledger,int x,int z,RouteProjectionPlanner.RoutePoint point,int deckY,int budget,boolean rural){
         int surface=naturalGroundY(level,x,z);
         boolean water=!level.getBlockState(new BlockPos(x,surface,z)).getFluidState().isEmpty()
-                ||!level.getFluidState(new BlockPos(x,surface+1,z)).isEmpty();
+                ||!level.getFluidState(new BlockPos(x,surface+1,z)).isEmpty()
+                ||surface<level.getSeaLevel();
         int ahead=naturalGroundY(level,x+point.dx()*3,z+point.dz()*3);
         int behind=naturalGroundY(level,x-point.dx()*3,z-point.dz()*3);
         int gap=Math.max(Math.abs(surface-ahead),Math.abs(surface-behind));
         if(!water&&gap<BRIDGE_GAP_THRESHOLD&&deckY<=surface)return 0;
         int used=0;
-        BlockState deck=bridgeDeckState();
-        BlockState pillar=Blocks.STONE_BRICKS.defaultBlockState();
-        for(int i=-2;i<=2&&used<budget;i++){
+        BlockState deck=rural?Blocks.SPRUCE_PLANKS.defaultBlockState():bridgeDeckState();
+        BlockState pillar=rural?Blocks.OAK_LOG.defaultBlockState():Blocks.STONE_BRICKS.defaultBlockState();
+        int half=rural?1:2;
+        for(int i=-half;i<=half&&used<budget;i++){
             int bx=x+point.dx()*i,bz=z+point.dz()*i;
             BlockPos deckPos=new BlockPos(bx,deckY,bz);
             if(!level.hasChunkAt(deckPos))continue;
             clearNaturalVegetation(level,ledger,deckPos.above(),8,true);
             if(WorldMutationGuard.trySetAuthored(level,deckPos,deck,ledger,AuthoredOwnerType.INTERCITY_ROUTE,true,false))used++;
-            // Railings on outer edges of the bridge.
-            if(Math.abs(i)==2){
+            if(Math.abs(i)==half){
                 BlockPos rail=deckPos.above();
-                if(WorldMutationGuard.trySetAuthored(level,rail,Blocks.STONE_BRICK_WALL.defaultBlockState(),ledger,AuthoredOwnerType.INTERCITY_ROUTE,false,false))used++;
+                BlockState railing=rural?Blocks.OAK_FENCE.defaultBlockState():Blocks.STONE_BRICK_WALL.defaultBlockState();
+                if(WorldMutationGuard.trySetAuthored(level,rail,railing,ledger,AuthoredOwnerType.INTERCITY_ROUTE,false,false))used++;
             }
             int ground=naturalGroundY(level,bx,bz);
             for(int y=deckY-1;y>=level.getMinBuildHeight()+1&&y>=Math.min(ground,deckY-16)&&used<budget;y--){
@@ -161,12 +170,14 @@ public final class TransportNetworkMaterializer {
         return WorldMutationGuard.trySetAuthored(level,ground,curb,ledger,AuthoredOwnerType.INTERCITY_ROUTE,true,false)?1:0;
     }
 
-    private static int placeRoad(ServerLevel level,AuthoredBlockLedger ledger,int x,int z,int deckY,boolean center){
+    private static int placeRoad(ServerLevel level,AuthoredBlockLedger ledger,int x,int z,int deckY,boolean center,boolean rural){
         BlockPos ground=new BlockPos(x,deckY,z);if(!level.hasChunkAt(ground))return 0;
         if(!clearNaturalVegetation(level,ledger,ground.above(),8,true))return 0;
-        // Prefer Macaw path/paving when present; otherwise packed mud / dirt path for a realistic carriageway.
-        BlockState surface=CompatibleContentRuntime.decorativeBlock(center?2L:3L,PaletteSlot.PATH)
-                .orElse(center?Blocks.PACKED_MUD.defaultBlockState():Blocks.DIRT_PATH.defaultBlockState());
+        // Countryside: plain dirt path. Urban: packed mud / Macaw paving carriageway.
+        BlockState surface=rural
+                ?Blocks.DIRT_PATH.defaultBlockState()
+                :CompatibleContentRuntime.decorativeBlock(center?2L:3L,PaletteSlot.PATH)
+                    .orElse(center?Blocks.PACKED_MUD.defaultBlockState():Blocks.DIRT_PATH.defaultBlockState());
         int used=WorldMutationGuard.trySetAuthored(level,ground,surface,ledger,AuthoredOwnerType.INTERCITY_ROUTE,true,false)?1:0;
         // Keep grass/dirt from regenerating into the carriageway for a few blocks of clearance.
         for(int dy=1;dy<=2;dy++){

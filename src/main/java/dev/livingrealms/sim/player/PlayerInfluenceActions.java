@@ -51,8 +51,8 @@ public final class PlayerInfluenceActions {
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(unlock, "unlock");
         if (actorKey == null || actorKey.isBlank() || factionId <= 0) return Result.fail("invalid_actor");
-        PlayerStanding standing = state.findPlayerStanding(actorKey).orElse(null);
-        if (standing == null) return Result.fail("no_standing");
+        // Auto-create standing so dashboard influence buttons work for new players.
+        PlayerStanding standing = state.playerStanding(actorKey);
         Faction faction = state.findFaction(factionId).orElse(null);
         if (faction == null) return Result.fail("faction_missing");
         if (!can(standing, factionId, unlock)) return Result.fail("insufficient_influence");

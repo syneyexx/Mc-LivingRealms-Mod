@@ -38,9 +38,9 @@
   "message.livingrealms.action.military_support": "Military support secured.",
   "message.livingrealms.action.petition_trade": "Trade petition heard.",
   "message.livingrealms.action.petition_clergy": "Clergy petition heard.",
-  "message.livingrealms.onboarding.first_settlement": "You have reached a Living Realms settlement. Roads, markets and citizens are projections of a living simulation.",
-  "message.livingrealms.onboarding.map": "Press M to open the strategic world map.",
-  "message.livingrealms.onboarding.dashboard": "Press F12 to open the realm dashboard for government, economy and contracts.",
+  "message.livingrealms.onboarding.first_settlement": "You have reached a Living Realms settlement. The world around you IS the live simulation — roads, markets and citizens update in real time.",
+  "message.livingrealms.onboarding.map": "Press M for the full terrain world map. F12 Map shows labeled settlements and routes.",
+  "message.livingrealms.onboarding.dashboard": "Press F12 for the realm dashboard. Overview → Found settlement here (needs 2000 blocks from every town), or /livingrealms found <name>.",
   "message.livingrealms.onboarding.npc": "Talk to citizens for local knowledge. Help requests come from real shortages.",
   "message.livingrealms.onboarding.catalog": "Press K for the creative item catalog when in creative mode."
 }

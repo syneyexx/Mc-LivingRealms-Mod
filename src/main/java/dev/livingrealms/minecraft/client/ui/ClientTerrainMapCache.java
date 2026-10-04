@@ -1,8 +1,10 @@
 package dev.livingrealms.minecraft.client.ui;
 
+import dev.livingrealms.sim.ui.RealmDashboardSnapshot;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.world.level.Level;
@@ -51,6 +53,34 @@ public final class ClientTerrainMapCache {
     }
 
     public static void clear(){CACHE.clear();}
+
+    /** Soft terrain wash for the F12 Map tab — samples when loaded, procedural fallback otherwise. */
+    public static void paintIfAvailable(GuiGraphics g, RealmDashboardSnapshot snapshot, int x, int y, int w, int h) {
+        if (g == null || snapshot == null || w <= 4 || h <= 4) return;
+        var map = snapshot.map();
+        double minX = map.minX(), maxX = map.maxX(), minZ = map.minZ(), maxZ = map.maxZ();
+        if (!(maxX > minX) || !(maxZ > minZ)) return;
+        final int tile = 5;
+        for (int py = y; py < y + h; py += tile) {
+            double wz = minZ + ((py - y + tile * 0.5) / Math.max(1.0, h)) * (maxZ - minZ);
+            for (int px = x; px < x + w; px += tile) {
+                double wx = minX + ((px - x + tile * 0.5) / Math.max(1.0, w)) * (maxX - minX);
+                Sample surface = sample((int) Math.round(wx), (int) Math.round(wz));
+                int color;
+                if (surface != null) color = surface.color();
+                else {
+                    double n = Math.sin(wx * 0.0031 + wz * 0.0027) * 0.5
+                            + Math.sin(wx * 0.0011 - wz * 0.0017) * 0.3
+                            + Math.sin((wx + wz) * 0.0007) * 0.2;
+                    n = Math.max(0, Math.min(1, (n + 1) * 0.5));
+                    color = n > 0.62 ? 0xFF6E7468 : n > 0.38 ? 0xFF4F6B45 : 0xFF3A5A3E;
+                }
+                // Keep overlays readable — wash rather than opaque cover.
+                int washed = (0x66 << 24) | (color & 0x00FFFFFF);
+                g.fill(px, py, Math.min(x + w, px + tile), Math.min(y + h, py + tile), washed);
+            }
+        }
+    }
 
     private static int biomeColor(Holder<Biome> biome){
         String path=biome.unwrapKey().map(k->k.location().getPath()).orElse("");
