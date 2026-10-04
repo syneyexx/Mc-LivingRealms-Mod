@@ -13,8 +13,9 @@ public final class SocietyEngine {
             double grievance=(1-assessment.satisfaction())*.035+Math.max(0,faction.government().taxRate()-.20)*.025;
             double calming=s.prosperity()*.014+faction.government().legitimacy()*.009;
             s.adjustUnrest(grievance-calming);
-            s.setFoodSecurity(needs.food());
-            s.setPublicOrder(needs.safety());
+            // Blend diagnostics with SettlementEconomyEngine's granary-backed foodSecurity (do not clobber).
+            s.setFoodSecurity(s.foodSecurity()*.55+needs.food()*.45);
+            s.setPublicOrder(s.publicOrder()*.35+needs.safety()*.65);
             s.setEmployment(needs.employment());
         }
     }

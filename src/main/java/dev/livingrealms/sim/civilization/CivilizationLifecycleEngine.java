@@ -34,19 +34,24 @@ public final class CivilizationLifecycleEngine {
         simulateAssistanceTasks(state);
         long day=state.clock().day();
         if(day%7==0){diffuseKnowledge(state);spreadDiseaseAlongTrade(state,rng);}
-        if(day%30==0){simulateHouseholdLifecycle(state,rng);trainApprentices(state);simulateNpcCrimeAndJustice(state,rng);simulateHiddenCaches(state);simulatePoliticalMarriages(state,rng);}
+        if(day%30==0){simulateHouseholdLifecycle(state,rng);trainApprentices(state);payWages(state);simulateNpcCrimeAndJustice(state,rng);simulateHiddenCaches(state);simulatePoliticalMarriages(state,rng);}
         if(day%90==0){refreshDynasties(state);evolveCultureAndLaw(state);}
     }
 
     /** Called by CivilizationEngine instead of instantaneous source->target population teleportation. */
     public void considerMigration(SimulationState state){
         long day=state.clock().day();
-        if(state.migrationGroups().stream().filter(MigrationGroup::active).count()>=SimulationState.MAX_MIGRATIONS/2L)return;
-        List<Settlement> all=state.factions().stream().flatMap(f->f.settlements().stream()).toList();
+        long activeMigrations=state.migrationGroups().stream().filter(MigrationGroup::active).count();
+        if(activeMigrations>=96)return;
+        long camps=state.factions().stream().flatMap(f->f.settlements().stream()).filter(s->s.name().startsWith("Refugee Camp ")||s.name().startsWith("Haven ")).count();
+        if(camps>=48)return; // hard world-wide camp budget for soak performance
+        List<Settlement> all=state.factions().stream().flatMap(f->f.settlements().stream()).filter(s->!s.name().startsWith("Refugee Camp ")).toList();
+        int spawned=0;
         for(Settlement source:all){
+            if(spawned>=8)return; // at most a handful of new groups per weekly pass
             Faction sourceOwner=state.findSettlementOwner(source.id()).orElse(null);if(sourceOwner==null||source.population()<24)continue;
             SettlementCivilizationState sc=state.ensureSettlementCivilization(source.id(),sourceOwner.id());
-            if(day-sc.lastMigrationDay()<14||state.migrationGroups().stream().anyMatch(g->g.active()&&g.sourceSettlementId()==source.id()))continue;
+            if(day-sc.lastMigrationDay()<21||state.migrationGroups().stream().anyMatch(g->g.active()&&g.sourceSettlementId()==source.id()))continue;
             MigrationReason reason=migrationReason(source,sourceOwner,sc);
             if(reason==null)continue;
             Settlement target=all.stream().filter(t->t.id()!=source.id()).filter(t->acceptableMigrationTarget(state,sourceOwner,t)).max(Comparator.comparingDouble(t->migrationScore(state,t)-source.position().distanceTo(t.position())/7000.0)).orElse(null);
@@ -57,7 +62,7 @@ public final class CivilizationLifecycleEngine {
             MigrationGroup group=new MigrationGroup(state.nextId(),sourceOwner.id(),source.id(),target==null?0:target.id(),day,people,reason);
             attachHouseholds(state,group,source.id(),people);
             source.addPopulation(-people);sc.markMigration(day);sc.adjustRefugeePressure(-.05);
-            state.addMigrationGroup(group);
+            state.addMigrationGroup(group);spawned++;
             state.history().add(new WorldEvent(day,"migration_departed","group="+group.id()+", from="+source.id()+", to="+(target==null?0:target.id())+", people="+people+", reason="+reason));
         }
     }
@@ -226,7 +231,44 @@ public final class CivilizationLifecycleEngine {
     private static boolean acceptsMigration(SimulationState state,MigrationGroup group,Settlement target){Faction owner=state.findSettlementOwner(target.id()).orElse(null);if(owner==null)return false;FactionCivilizationState fc=state.ensureFactionCivilization(owner.id());SettlementCivilizationState sc=state.ensureSettlementCivilization(target.id(),owner.id());double capacity=Mathx.clamp((target.housing()-target.population()+30)/(double)Math.max(30,target.population()),0,1);double acceptance=fc.refugeeAcceptance()*.45+target.publicOrder()*.18+target.foodSecurity()*.18+capacity*.19-sc.refugeePressure()*.20;Faction origin=state.findFaction(group.originFactionId()).orElse(null);if(origin!=null&&origin.id()!=owner.id()){DiplomaticRelation rel=origin.relations().get(owner.id());if(rel!=null&&(rel.status()==RelationStatus.HOSTILE||rel.status()==RelationStatus.WAR))acceptance-=.45;}return acceptance>.42;}
 
     private static void establishRefugeeCamp(SimulationState state,MigrationGroup group,Settlement source){
-        Faction origin=state.findFaction(group.originFactionId()).orElse(null);if(origin==null){group.turnBack();return;}double angle=Math.toRadians(Math.floorMod(Long.hashCode(group.id()*73),360));double radius=180+Math.floorMod(group.id(),160);SimPosition p=new SimPosition(source.position().x()+Math.cos(angle)*radius,source.position().z()+Math.sin(angle)*radius);Settlement camp=new Settlement(state.nextId(),"Refugee Camp "+group.id(),p,group.people(),Math.max(group.people()/2,12));origin.addSettlement(camp);state.ensureSettlementCivilization(camp.id(),origin.id()).adjustRefugeePressure(.75);moveAttachedHouseholds(state,group,origin.id(),camp.id());group.campAt(camp.id());state.history().add(new WorldEvent(state.clock().day(),"refugee_camp_founded","group="+group.id()+", settlement="+camp.id()+", people="+group.people()));
+        Faction origin=state.findFaction(group.originFactionId()).orElse(null);if(origin==null){group.turnBack();return;}
+        // Soft cap: reuse a nearby existing camp under the same origin instead of spawning unbounded new settlements.
+        Optional<Settlement> existing=origin.settlements().stream()
+                .filter(s->s.name().startsWith("Refugee Camp ")||s.name().startsWith("Haven "))
+                .filter(s->s.position().distanceTo(source.position())<900)
+                .filter(s->s.population()<220)
+                .min(Comparator.comparingDouble(s->s.position().distanceTo(source.position())));
+        if(existing.isPresent()){
+            Settlement camp=existing.get();
+            camp.addPopulation(group.people());
+            camp.addHousing(Math.max(4,group.people()/2));
+            camp.stockpile().add(ResourceType.FOOD,Math.max(8,group.people()*1.5));
+            state.ensureSettlementCivilization(camp.id(),origin.id()).adjustRefugeePressure(.12);
+            moveAttachedHouseholds(state,group,origin.id(),camp.id());
+            group.campAt(camp.id());
+            state.history().add(new WorldEvent(state.clock().day(),"refugee_camp_absorbed","group="+group.id()+", settlement="+camp.id()+", people="+group.people()));
+            return;
+        }
+        long campCount=origin.settlements().stream().filter(s->s.name().startsWith("Refugee Camp ")).count();
+        if(campCount>=6){group.turnBack();state.history().add(new WorldEvent(state.clock().day(),"refugee_camp_refused","group="+group.id()+", reason=camp_cap"));return;}
+        double angle=Math.toRadians(Math.floorMod(Long.hashCode(group.id()*73),360));double radius=180+Math.floorMod(group.id(),160);
+        SimPosition p=new SimPosition(source.position().x()+Math.cos(angle)*radius,source.position().z()+Math.sin(angle)*radius);
+        Settlement camp=new Settlement(state.nextId(),"Refugee Camp "+group.id(),p,group.people(),Math.max(group.people()/2,12));
+        camp.setDevelopmentPriority(DevelopmentPriority.FOOD);
+        // Seed improvised camp structures so agrarian/employment loops and projection planners see real workplaces.
+        camp.markConstructionCompleted("farm:0");camp.markConstructionCompleted("well:0");camp.markConstructionCompleted("pasture:0");
+        camp.stockpile().add(ResourceType.FOOD,Math.max(20,group.people()*3.0));
+        camp.stockpile().add(ResourceType.WOOD,Math.max(10,group.people()*1.2));
+        camp.setFoodSecurity(Mathx.clamp(group.food(),.15,.7));
+        origin.addSettlement(camp);
+        state.ensureSettlementCivilization(camp.id(),origin.id()).adjustRefugeePressure(.75);
+        moveAttachedHouseholds(state,group,origin.id(),camp.id());
+        group.campAt(camp.id());
+        // Church/guild aid task for the new camp.
+        if(state.activeAssistanceTask(camp.id(),AssistanceTaskType.REFUGEE_SUPPORT).isEmpty()){
+            state.addAssistanceTask(new AssistanceTask(state.nextId(),origin.id(),camp.id(),state.clock().day(),state.clock().day()+45,AssistanceTaskType.REFUGEE_SUPPORT,"migration:"+group.id(),.55+.25*group.people()/40.0));
+        }
+        state.history().add(new WorldEvent(state.clock().day(),"refugee_camp_founded","group="+group.id()+", settlement="+camp.id()+", people="+group.people()+", reason="+group.reason()));
     }
 
     private static void attachHouseholds(SimulationState state,MigrationGroup group,long sourceSettlementId,int people){int represented=0;List<HouseholdState> candidates=state.households().stream().filter(HouseholdState::active).filter(h->h.settlementId()==sourceSettlementId).sorted(Comparator.comparingLong(HouseholdState::id)).toList();for(HouseholdState h:candidates){if(represented>=people||group.householdIds().size()>=8)break;if(group.addHousehold(h.id()))represented+=h.representedPeople();}}
@@ -484,7 +526,56 @@ public final class CivilizationLifecycleEngine {
         }
     }
 
-    private static MigrationReason migrationReason(Settlement s,Faction owner,SettlementCivilizationState c){boolean war=c.refugeePressure()>.55&&owner.armies().stream().anyMatch(a->a.position().distanceTo(s.position())<300);if(war)return MigrationReason.WAR;if(s.foodSecurity()<.38)return MigrationReason.FAMINE;if(c.diseasePressure()>.65)return MigrationReason.DISEASE;if(owner.government().taxRate()>.36&&s.unrest()>.35)return MigrationReason.TAXATION;if(s.housingShortage()>Math.max(12,s.population()/8))return MigrationReason.HOUSING;if(s.employment()<.34)return MigrationReason.WORK;if(c.refugeePressure()>.48)return MigrationReason.OPPORTUNITY;return null;}
+    private static MigrationReason migrationReason(Settlement s,Faction owner,SettlementCivilizationState c){
+        // War: nearby armies OR active war targeting this settlement / involving the realm.
+        boolean warNear=owner.armies().stream().anyMatch(a->a.position().distanceTo(s.position())<300);
+        // Note: SimulationState is available via considerMigration callers; war check uses refugee pressure + armies here,
+        // and open warfare is injected through refugeePressure by CivilizationEngine.updateSettlements.
+        if((c.refugeePressure()>.55&&warNear)||c.banditPressure()>.72)return MigrationReason.WAR;
+        if(s.foodSecurity()<.38||s.stockpile().get(ResourceType.FOOD)<s.population()*.6)return MigrationReason.FAMINE;
+        if(c.diseasePressure()>.65)return MigrationReason.DISEASE;
+        if(owner.government().taxRate()>.36&&s.unrest()>.35)return MigrationReason.TAXATION;
+        // Persecution: severe law + heavy tax when unrest is high (culture intolerance proxy without extra state).
+        if(s.unrest()>.42&&owner.government().lawEnforcement()>.72&&owner.government().taxRate()>.28)return MigrationReason.PERSECUTION;
+        if(s.housingShortage()>Math.max(12,s.population()/8))return MigrationReason.HOUSING;
+        if(s.employment()<.34)return MigrationReason.WORK;
+        if(c.refugeePressure()>.48)return MigrationReason.OPPORTUNITY;
+        return null;
+    }
+
+    /** Monthly wage payout from local prosperity into named citizens' purses (skill-scaled). */
+    private static void payWages(SimulationState state){
+        for(Faction faction:state.factions()){
+            for(Settlement settlement:faction.settlements()){
+                double employment=settlement.employment();
+                if(employment<.12)continue;
+                double purse=settlement.prosperity()*.8+faction.treasury()*.0004;
+                List<SocialCitizen> workers=state.socialCitizens().stream().filter(SocialCitizen::alive)
+                        .filter(c->c.settlementId()==settlement.id())
+                        .sorted(Comparator.comparingLong(SocialCitizen::id)).toList();
+                if(workers.isEmpty())continue;
+                double wagePool=Math.min(purse,settlement.population()*.002*employment);
+                if(wagePool<=0)continue;
+                double paid=0;
+                for(SocialCitizen c:workers){
+                    double roleMul=switch(c.role()){
+                        case OFFICIAL,GUARD -> 1.35;
+                        case TRADER,ARTISAN,SCHOLAR,TEACHER,HEALER -> 1.20;
+                        case FARMER,MINER,LUMBERJACK,FISHER,BUTCHER,CARPENTER,BUILDER,DOCKWORKER,SAILOR -> 1.0;
+                        case PRIEST -> .85;
+                        default -> .75;
+                    };
+                    double wage=Math.max(.05,wagePool/workers.size()*roleMul*(.55+.9*c.professionSkill())*employment);
+                    if(faction.treasury()<wage*.15&&settlement.stockpile().get(ResourceType.GOLD)<wage)continue;
+                    double fromLocal=settlement.stockpile().take(ResourceType.GOLD,wage*.35);
+                    double need=wage-fromLocal;
+                    if(need>0)faction.addTreasury(-Math.min(faction.treasury(),need));
+                    c.addMoney(wage);c.practiceProfession(.01);paid+=wage;
+                }
+                if(paid>0)state.history().add(new WorldEvent(state.clock().day(),"wages_paid","settlement="+settlement.id()+", workers="+workers.size()+", paid="+Math.round(paid)));
+            }
+        }
+    }
     private static boolean acceptableMigrationTarget(SimulationState state,Faction sourceOwner,Settlement target){Faction owner=state.findSettlementOwner(target.id()).orElse(null);if(owner==null)return false;if(owner.id()==sourceOwner.id())return true;DiplomaticRelation rel=sourceOwner.relations().get(owner.id());return rel==null||rel.status()==RelationStatus.NEUTRAL||rel.status()==RelationStatus.FRIENDLY||rel.status()==RelationStatus.ALLIED;}
     private static double migrationScore(SimulationState state,Settlement s){Faction owner=state.findSettlementOwner(s.id()).orElse(null);if(owner==null)return 0;SettlementCivilizationState c=state.ensureSettlementCivilization(s.id(),owner.id());double housing=Mathx.clamp((s.housing()-s.population()+20)/(double)Math.max(20,s.population()),0,1);return s.foodSecurity()*.28+s.publicOrder()*.23+s.prosperity()*.16+housing*.15+(1-c.diseasePressure())*.12+owner.government().stability()*.06;}
     private static CitizenRole chooseProfession(Settlement s,long id){List<CitizenRole> roles=new ArrayList<>(List.of(CitizenRole.FARMER,CitizenRole.BUILDER,CitizenRole.TRADER,CitizenRole.GUARD,CitizenRole.BUTCHER));if(has(s,"mine:"))roles.add(CitizenRole.MINER);if(has(s,"lumber_camp:")){roles.add(CitizenRole.LUMBERJACK);roles.add(CitizenRole.CARPENTER);}if(has(s,"fishery:")){roles.add(CitizenRole.FISHER);roles.add(CitizenRole.SAILOR);}if(has(s,"workshop:"))roles.add(CitizenRole.ARTISAN);if(has(s,"clinic:"))roles.add(CitizenRole.HEALER);if(has(s,"temple:"))roles.add(CitizenRole.PRIEST);if(has(s,"school:")){roles.add(CitizenRole.SCHOLAR);roles.add(CitizenRole.TEACHER);}if(has(s,"warehouse:")){roles.add(CitizenRole.DOCKWORKER);}return roles.get(Math.floorMod(Long.hashCode(id*31),roles.size()));}

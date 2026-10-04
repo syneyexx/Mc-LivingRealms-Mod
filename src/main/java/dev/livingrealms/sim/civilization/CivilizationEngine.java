@@ -138,7 +138,28 @@ public final class CivilizationEngine {
         long day=state.clock().day();
         for(Faction faction:state.factions())for(Army army:new ArrayList<>(faction.armies())){
             double unrest=faction.settlements().stream().mapToDouble(Settlement::unrest).average().orElse(.1);double moraleDrift=(army.supply()-.55)*.0025+(faction.government().stability()-.5)*.0015-unrest*.0015;army.adjustMorale(moraleDrift);
-            if(army.totalPersonnel()>12&&army.supply()<.24&&army.morale()<.34&&rng.chance(.003+.018*(.34-army.morale())+.012*(.24-army.supply()))){int deserters=Math.min(24,Math.max(1,(int)Math.round(army.totalPersonnel()*(.01+.025*(1-army.morale())))));army.desertPersonnel(deserters);Settlement nearest=faction.settlements().stream().min(Comparator.comparingDouble(s->s.position().distanceTo(army.position()))).orElse(null);if(nearest!=null)state.ensureSettlementCivilization(nearest.id(),faction.id()).adjustBanditPressure(Math.min(.18,deserters/100.0));state.history().add(new WorldEvent(day,"military_desertion","faction="+faction.id()+", army="+army.id()+", deserters="+deserters));}
+            if(army.totalPersonnel()>12&&army.supply()<.24&&army.morale()<.34&&rng.chance(.003+.018*(.34-army.morale())+.012*(.24-army.supply()))){
+                int deserters=Math.min(24,Math.max(1,(int)Math.round(army.totalPersonnel()*(.01+.025*(1-army.morale())))));
+                army.desertPersonnel(deserters);
+                Settlement nearest=faction.settlements().stream().min(Comparator.comparingDouble(s->s.position().distanceTo(army.position()))).orElse(null);
+                if(nearest!=null){
+                    state.ensureSettlementCivilization(nearest.id(),faction.id()).adjustBanditPressure(Math.min(.22,deserters/80.0));
+                    // Deserters become a land pirate band with a wilderness hideout (reuse Pirate* authorities).
+                    if(state.pirateBands().stream().filter(PirateBand::active).count()<SimulationState.MAX_PIRATE_BANDS
+                            &&state.pirateHideouts().stream().filter(PirateHideout::active).count()<SimulationState.MAX_PIRATE_HIDEOUTS
+                            &&rng.chance(.55)){
+                        double ang=Math.toRadians(Math.floorMod(Long.hashCode(army.id()^day),360));
+                        SimPosition camp=new SimPosition(army.position().x()+Math.cos(ang)*90,army.position().z()+Math.sin(ang)*90);
+                        PirateBand band=new PirateBand(state.nextId(),nearest.id(),day,camp,Math.max(3,deserters));
+                        state.addPirateBand(band);
+                        PirateHideout hideout=new PirateHideout(state.nextId(),band.id(),nearest.id(),day,camp);
+                        hideout.adjustDefense(.12);
+                        state.addPirateHideout(hideout);
+                        state.history().add(new WorldEvent(day,"deserter_band_formed","faction="+faction.id()+", army="+army.id()+", band="+band.id()+", deserters="+deserters));
+                    }
+                }
+                state.history().add(new WorldEvent(day,"military_desertion","faction="+faction.id()+", army="+army.id()+", deserters="+deserters));
+            }
         }
         if(day%7!=0||state.raids().stream().filter(RaidParty::active).count()>=MAX_ACTIVE_RAIDS)return;
         List<Settlement> allSettlements=new ArrayList<>();Map<Long,Faction> owners=new HashMap<>();
@@ -164,7 +185,29 @@ public final class CivilizationEngine {
         long day=state.clock().day();for(RaidParty raid:new ArrayList<>(state.raids()))if(raid.active()){
             Settlement origin=state.findSettlement(raid.originSettlementId()).orElse(null),target=state.findSettlement(raid.targetSettlementId()).orElse(null);if(origin==null||target==null){raid.finish();continue;}double distance=Math.max(100,origin.position().distanceTo(target.position()));raid.advance(Mathx.clamp(120.0/distance, .08,.32)*(.55+.45*raid.morale()));if(raid.progress()<1)continue;
             Faction defender=state.findSettlementOwner(target.id()).orElse(null);if(defender==null){raid.finish();continue;}long guards=state.socialCitizens().stream().filter(SocialCitizen::alive).filter(c->c.settlementId()==target.id()&&c.role()==CitizenRole.GUARD).count();double fort=has(target,"wall:")?.35:has(target,"barracks:")?.16:0;double defense=Math.max(4,target.population()*.012+guards*2.2+target.publicOrder()*12+fort*20);double attack=raid.manpower()*(.55+.65*raid.morale());boolean success=attack>defense;
-            if(success){int casualties=Math.min(4,Math.max(0,raid.manpower()/12));target.addPopulation(-casualties);target.adjustUnrest(.035);target.setPublicOrder(target.publicOrder()-.04);double food=defender.stockpile().take(ResourceType.FOOD,Math.min(defender.stockpile().get(ResourceType.FOOD),raid.manpower()*.8));double gold=defender.stockpile().take(ResourceType.GOLD,Math.min(defender.stockpile().get(ResourceType.GOLD),raid.manpower()*.05));if(!raid.bandit()){Faction attacker=state.findFaction(raid.attackerFactionId()).orElse(null);if(attacker!=null){attacker.stockpile().add(ResourceType.FOOD,food);attacker.stockpile().add(ResourceType.GOLD,gold);}}state.ensureSettlementCivilization(target.id(),defender.id()).adjustBanditPressure(.04);state.history().add(new WorldEvent(day,"raid_success","raid="+raid.id()+", target="+target.id()+", casualties="+casualties+", food="+Math.round(food)+", gold="+Math.round(gold)));}
+            if(success){
+                int casualties=Math.min(4,Math.max(0,raid.manpower()/12));target.addPopulation(-casualties);target.adjustUnrest(.035);target.setPublicOrder(target.publicOrder()-.04);
+                // Prefer local granary theft, then faction treasury.
+                double needFood=raid.manpower()*.8,needGold=raid.manpower()*.05;
+                double food=target.stockpile().take(ResourceType.FOOD,Math.min(target.stockpile().get(ResourceType.FOOD),needFood));
+                if(food<needFood)food+=defender.stockpile().take(ResourceType.FOOD,needFood-food);
+                double gold=target.stockpile().take(ResourceType.GOLD,Math.min(target.stockpile().get(ResourceType.GOLD),needGold));
+                if(gold<needGold)gold+=defender.stockpile().take(ResourceType.GOLD,needGold-gold);
+                if(raid.bandit()){
+                    // Stolen goods go to the nearest active hideout or the origin settlement black market.
+                    PirateHideout hideout=state.pirateHideouts().stream().filter(PirateHideout::active)
+                            .min(Comparator.comparingDouble(h->h.position().distanceTo(target.position()))).orElse(null);
+                    if(hideout!=null&&hideout.position().distanceTo(target.position())<2200)hideout.addLoot(food*.4+gold*8);
+                    else origin.stockpile().add(ResourceType.FOOD,food*.55);
+                    origin.adjustUnrest(.01); // bandit economy corrodes the origin too
+                    state.findSettlementOwner(origin.id()).ifPresent(o->state.ensureSettlementCivilization(origin.id(),o.id()).adjustBanditPressure(.03));
+                }else{
+                    Faction attacker=state.findFaction(raid.attackerFactionId()).orElse(null);
+                    if(attacker!=null){attacker.stockpile().add(ResourceType.FOOD,food);attacker.stockpile().add(ResourceType.GOLD,gold);}
+                }
+                state.ensureSettlementCivilization(target.id(),defender.id()).adjustBanditPressure(.04);
+                state.history().add(new WorldEvent(day,"raid_success","raid="+raid.id()+", target="+target.id()+", casualties="+casualties+", food="+Math.round(food)+", gold="+Math.round(gold)+(raid.bandit()?", bandit=true":"")));
+            }
             else{target.adjustUnrest(-.006);state.history().add(new WorldEvent(day,"raid_repelled","raid="+raid.id()+", target="+target.id()+", defendersHeld=true"));}
             raid.finish();
         }

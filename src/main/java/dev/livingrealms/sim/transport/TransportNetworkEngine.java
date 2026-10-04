@@ -7,7 +7,8 @@ import java.util.*;
 /** Plans and maintains faction infrastructure. Physical road/rail blocks are projections of these routes. */
 public final class TransportNetworkEngine {
     public void simulateDay(SimulationState state){
-        discoverRoutes(state);
+        // Route discovery is O(settlements × neighbours); run weekly so soak stays bounded as camps grow.
+        if(state.clock().day()%7==0)discoverRoutes(state);
         for(TransportRoute route:state.routes()){
             Faction owner=state.findFaction(route.ownerFactionId()).orElse(null);if(owner==null){route.setOperational(false);continue;}
             route.improve(owner.technology()*.000025);
@@ -27,7 +28,7 @@ public final class TransportNetworkEngine {
                         .sorted(Comparator.comparingDouble(b->a.position().distanceTo(b.position())))
                         .limit(4).toList();
                 for(Settlement b:nearest){
-                    double d=a.position().distanceTo(b.position());if(d>2_600)continue;
+                    double d=a.position().distanceTo(b.position());if(!(d>1)||d>2_600)continue;
                     TransportMode mode=faction.technology()>=1.2&&a.tier().ordinal()>=Settlement.Tier.TOWN.ordinal()&&b.tier().ordinal()>=Settlement.Tier.TOWN.ordinal()?TransportMode.RAIL:TransportMode.ROAD;
                     RouteKey key=RouteKey.of(a.id(),b.id(),mode);
                     if(existing.contains(key))continue;

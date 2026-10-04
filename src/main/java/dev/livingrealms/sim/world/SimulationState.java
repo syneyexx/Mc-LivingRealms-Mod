@@ -140,8 +140,32 @@ public final class SimulationState {
         if(epidemics.size()>=MAX_EPIDEMICS)return;
         observeCanonicalId(value.id());epidemics.add(value);
     }
-    public void addMigrationGroup(MigrationGroup value){Objects.requireNonNull(value);if(migrationGroups.size()>=MAX_MIGRATIONS)migrationGroups.removeIf(g->!g.active());if(migrationGroups.size()>=MAX_MIGRATIONS)throw new IllegalStateException("migration limit");observeCanonicalId(value.id());migrationGroups.add(value);}
-    public void addJusticeCase(JusticeCase value){Objects.requireNonNull(value);if(justiceCases.size()>=MAX_JUSTICE_CASES)justiceCases.removeIf(c->!c.active());if(justiceCases.size()>=MAX_JUSTICE_CASES)throw new IllegalStateException("justice case limit");observeCanonicalId(value.id());justiceCases.add(value);}
+    public void addMigrationGroup(MigrationGroup value){
+        Objects.requireNonNull(value);
+        if(migrationGroups.size()>=MAX_MIGRATIONS)migrationGroups.removeIf(g->!g.active());
+        if(migrationGroups.size()>=MAX_MIGRATIONS){
+            MigrationGroup drop=null;
+            for(MigrationGroup g:migrationGroups){
+                if(drop==null||g.createdDay()<drop.createdDay()||(g.createdDay()==drop.createdDay()&&g.people()<drop.people()))drop=g;
+            }
+            if(drop!=null)migrationGroups.remove(drop);
+        }
+        if(migrationGroups.size()>=MAX_MIGRATIONS)return;
+        observeCanonicalId(value.id());migrationGroups.add(value);
+    }
+    public void addJusticeCase(JusticeCase value){
+        Objects.requireNonNull(value);
+        if(justiceCases.size()>=MAX_JUSTICE_CASES)justiceCases.removeIf(c->!c.active());
+        if(justiceCases.size()>=MAX_JUSTICE_CASES){
+            JusticeCase drop=null;
+            for(JusticeCase c:justiceCases){
+                if(drop==null||c.openedDay()<drop.openedDay())drop=c;
+            }
+            if(drop!=null)justiceCases.remove(drop);
+        }
+        if(justiceCases.size()>=MAX_JUSTICE_CASES)return;
+        observeCanonicalId(value.id());justiceCases.add(value);
+    }
     public void addHiddenCache(HiddenCache value){Objects.requireNonNull(value);if(hiddenCaches.size()>=MAX_HIDDEN_CACHES)hiddenCaches.removeIf(HiddenCache::recovered);if(hiddenCaches.size()>=MAX_HIDDEN_CACHES)return;observeCanonicalId(value.id());hiddenCaches.add(value);}
     public void addPirateBand(PirateBand value){Objects.requireNonNull(value);if(pirateBands.size()>=MAX_PIRATE_BANDS)pirateBands.removeIf(p->!p.active());if(pirateBands.size()>=MAX_PIRATE_BANDS)return;observeCanonicalId(value.id());pirateBands.add(value);}
     public void addPirateHideout(PirateHideout value){Objects.requireNonNull(value);if(pirateHideouts.size()>=MAX_PIRATE_HIDEOUTS)pirateHideouts.removeIf(h->!h.active());if(pirateHideouts.size()>=MAX_PIRATE_HIDEOUTS)return;observeCanonicalId(value.id());pirateHideouts.add(value);}

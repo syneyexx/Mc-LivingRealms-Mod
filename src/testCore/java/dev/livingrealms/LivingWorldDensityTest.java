@@ -53,6 +53,8 @@ public final class LivingWorldDensityTest {
         check(monarchies==12,"starter world must retain twelve ordinary kingdoms: "+monarchies);
         Faction wizard=state.factions().stream().filter(f->f.name().equals("Wizard Trees")).findFirst().orElseThrow();
         check(wizard.government().type()==GovernmentType.THEOCRACY&&wizard.settlements().size()==3,"Wizard Trees must be a distinct hidden theocratic faction");
+        // Idempotency is about the densifier itself, not about surviving a strategic day of demography/raids.
+        check(SettlementDensitySeeder.ensureStarterDensity(state) == 0, "density migration is not idempotent");
         state.advanceDays(1);
         check(state.routes().size() >= 220, "kingdom road graph is too sparse after first strategic day: " + state.routes().size());
 
@@ -62,7 +64,6 @@ public final class LivingWorldDensityTest {
             check(ids.add(settlement.id()), "duplicate settlement id " + settlement.id());
             check(names.add(settlement.name()), "duplicate settlement name " + settlement.name());
         }
-        check(SettlementDensitySeeder.ensureStarterDensity(state) == 0, "density migration is not idempotent");
     }
 
     private static void settlementsUseDiverseOrganicBlueprints() {
