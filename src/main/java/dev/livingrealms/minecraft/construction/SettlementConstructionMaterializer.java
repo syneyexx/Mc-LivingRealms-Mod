@@ -103,6 +103,8 @@ public final class SettlementConstructionMaterializer {
         catchupIntentsPerSettlement=Math.max(2,Math.min(12,1+(int)Math.min(8L,simulatedDays/12L)));
     }
 
+    public static boolean catchupActive(){return catchupTicks>0;}
+
     public static void clear() {
         QUEUE.clear(); JOB_OWNERS.clear(); RETRY_AFTER_DAY.clear();
         catchupTicks=0; catchupSimulatedDays=0; catchupIntentsPerSettlement=1; settlementScanCursor=0;

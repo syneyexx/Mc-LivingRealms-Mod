@@ -99,6 +99,11 @@ public final class SystemCompletenessTest {
         check(RuntimeProjectionPolicy.caravans(disabledWildlife).maxPhysicalCaravans()==0,"zero caravan budget must be supported");
         check(RuntimeProjectionPolicy.aircraftBudget(disabledWildlife)==0,"zero military budget must disable aircraft projection");
         check(disabledWildlife.strategicDaysPerStep()==3,"strategic step test fixture invalid");
+        check(RuntimeProjectionPolicy.regionalImpostorOuterRadius(cinematic)>RuntimeProjectionPolicy.regionalImpostorInnerRadius(cinematic),"impostor band must be non-empty");
+        check(RuntimeProjectionPolicy.regionalImpostorBudget(cinematic)>=RuntimeProjectionPolicy.regionalImpostorBudget(performance),"cinematic impostor budget must not shrink");
+        check(RuntimeProjectionPolicy.militaryRadiusBlocks(performance)==performance.physicalRadiusBlocks(),"military radius must follow physical policy");
+        check(RuntimeProjectionPolicy.escortRadiusBlocks(performance)==performance.physicalRadiusBlocks(),"escort radius must follow physical policy");
+        check(RuntimeProjectionPolicy.citizenNearBudget(cinematic)+RuntimeProjectionPolicy.citizenFarBudget(cinematic)==RuntimeProjectionPolicy.citizenBudget(cinematic),"citizen near/far budgets must partition");
     }
 
     private static void testCompatibilityPolicy(){

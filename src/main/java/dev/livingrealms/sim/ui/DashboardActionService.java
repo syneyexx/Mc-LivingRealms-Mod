@@ -4,7 +4,9 @@ import dev.livingrealms.sim.config.SimulationPreset;
 import dev.livingrealms.sim.faction.DevelopmentPriority;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.military.MilitaryObjectiveType;
 import dev.livingrealms.sim.player.FactionRank;
+import dev.livingrealms.sim.player.PlayerAgencyActions;
 import dev.livingrealms.sim.player.PlayerInfluenceActions;
 import dev.livingrealms.sim.player.PlayerSettlementFounder;
 import dev.livingrealms.sim.territory.TerritoryEngine;
@@ -57,7 +59,48 @@ public final class DashboardActionService {
             return new Result(r.success(),r.success(),r.success()?"founded_"+r.settlementName():r.reason());
         }
         if(command.action()==DashboardActionCommand.Action.MARKET_BUY||command.action()==DashboardActionCommand.Action.MARKET_SELL)return new Result(false,false,"runtime_inventory_required");
+        if(command.action()==DashboardActionCommand.Action.ABDICATE){
+            var r=PlayerAgencyActions.abdicate(state,actorKey);
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
+        if(command.action()==DashboardActionCommand.Action.PETITION_PEACE){
+            var r=PlayerAgencyActions.petitionPeace(state,actorKey,command.targetId());
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
+        if(command.action()==DashboardActionCommand.Action.PROPOSE_TRADE_PACT){
+            var r=PlayerAgencyActions.proposeTradePact(state,actorKey,command.targetId());
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
+        if(command.action()==DashboardActionCommand.Action.ARMY_DEFEND_HOME){
+            var r=PlayerAgencyActions.armyOrder(state,actorKey,command.targetId(),MilitaryObjectiveType.DEFEND);
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
+        if(command.action()==DashboardActionCommand.Action.ARMY_STAND_DOWN){
+            var r=PlayerAgencyActions.armyOrder(state,actorKey,command.targetId(),MilitaryObjectiveType.RETREAT);
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
+        if(command.action()==DashboardActionCommand.Action.ARMY_RALLY){
+            var r=PlayerAgencyActions.armyOrder(state,actorKey,command.targetId(),MilitaryObjectiveType.PATROL_BORDER);
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
+        if(command.action()==DashboardActionCommand.Action.SURRENDER||command.action()==DashboardActionCommand.Action.PAY_FINE){
+            long factionId=command.targetId();
+            if(command.action()==DashboardActionCommand.Action.SURRENDER){
+                double bounty=state.captureCriminal(actorKey,factionId);
+                return new Result(true,true,"surrendered_bounty_"+Math.round(Math.max(0,bounty)));
+            }
+            double offer=25;
+            if(!command.argument().isBlank()){
+                try{offer=Math.max(1,Double.parseDouble(command.argument()));}catch(NumberFormatException ignored){offer=25;}
+            }
+            double paid=state.payFine(actorKey,factionId,offer);
+            return new Result(paid>0,paid>0,paid>0?"fine_paid_"+Math.round(paid):"fine_failed");
+        }
         if(isInfluenceAction(command.action())){
+            if(command.action()==DashboardActionCommand.Action.REQUEST_MILITARY_SUPPORT){
+                var r=PlayerAgencyActions.requestMilitarySupportMission(state,actorKey,command.targetId());
+                return new Result(r.success(),r.dirty(),r.reason());
+            }
             var unlock=switch(command.action()){
                 case REQUEST_AUDIENCE -> PlayerInfluenceActions.Unlock.REQUEST_AUDIENCE;
                 case PROPOSE_PROJECT -> PlayerInfluenceActions.Unlock.PROPOSE_PROJECT;
@@ -80,7 +123,7 @@ public final class DashboardActionService {
         return switch(command.action()){
             case BOUNTY_ACCEPT -> {var r=state.acceptBounty(contract.id(),actorKey);yield new Result(r.success(),r.success(),r.reason());}
             case BOUNTY_ABANDON -> {var r=state.abandonBounty(contract.id(),actorKey);yield new Result(r.success(),r.success(),r.reason());}
-            case CONFIG_PERFORMANCE,CONFIG_BALANCED,CONFIG_IMMERSIVE,CONFIG_CINEMATIC,FACTION_JOIN_LOCAL,FACTION_LEAVE,TAX_LOWER,TAX_RAISE,SETTLEMENT_BALANCED,SETTLEMENT_FOOD,SETTLEMENT_HOUSING,SETTLEMENT_INDUSTRY,SETTLEMENT_DEFENSE,MARKET_BUY,MARKET_SELL,REQUEST_AUDIENCE,PROPOSE_PROJECT,REQUEST_MILITARY_SUPPORT,PETITION_TRADE,PETITION_CLERGY,FOUND_SETTLEMENT -> new Result(false,false,"action_unreachable");
+            case CONFIG_PERFORMANCE,CONFIG_BALANCED,CONFIG_IMMERSIVE,CONFIG_CINEMATIC,FACTION_JOIN_LOCAL,FACTION_LEAVE,TAX_LOWER,TAX_RAISE,SETTLEMENT_BALANCED,SETTLEMENT_FOOD,SETTLEMENT_HOUSING,SETTLEMENT_INDUSTRY,SETTLEMENT_DEFENSE,MARKET_BUY,MARKET_SELL,REQUEST_AUDIENCE,PROPOSE_PROJECT,REQUEST_MILITARY_SUPPORT,PETITION_TRADE,PETITION_CLERGY,FOUND_SETTLEMENT,ABDICATE,PETITION_PEACE,PROPOSE_TRADE_PACT,ARMY_DEFEND_HOME,ARMY_RALLY,ARMY_STAND_DOWN,SURRENDER,PAY_FINE -> new Result(false,false,"action_unreachable");
         };
     }
 

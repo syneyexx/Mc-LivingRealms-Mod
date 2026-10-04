@@ -1,6 +1,7 @@
 package dev.livingrealms.minecraft.entity;
 
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
+import dev.livingrealms.sim.config.RuntimeProjectionPolicy;
 import dev.livingrealms.sim.logistics.TradeShipment;
 import dev.livingrealms.sim.military.MilitaryUnitClass;
 import dev.livingrealms.sim.world.SimPosition;
@@ -25,7 +26,7 @@ public final class CaravanEscortMaterializer {
         ServerLevel level = server.overworld();
         List<SimPosition> players = level.players().stream().map(p -> new SimPosition(p.getX(), p.getZ())).toList();
         if (players.isEmpty()) return;
-        double radius = data.state().config().physicalRadiusBlocks();
+        double radius = RuntimeProjectionPolicy.escortRadiusBlocks(data.state().config());
         Set<String> wanted = new HashSet<>();
         int spawned = 0;
         for (TradeShipment shipment : data.state().shipments()) {

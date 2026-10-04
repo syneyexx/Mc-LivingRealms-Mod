@@ -24,7 +24,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Custom payload registration for bounded strategic UI synchronization. */
 public final class LivingRealmsNetwork {
-    public static final String NETWORK_VERSION = "14";
+    public static final String NETWORK_VERSION = "15";
 
     private LivingRealmsNetwork() {}
 
@@ -41,6 +41,7 @@ public final class LivingRealmsNetwork {
         registrar.playToClient(DashboardSnapshotPayload.TYPE, DashboardSnapshotPayload.STREAM_CODEC, LivingRealmsNetwork::handleDashboardSnapshot);
         registrar.playToClient(DialogueOpenPayload.TYPE, DialogueOpenPayload.STREAM_CODEC, LivingRealmsNetwork::handleDialogueOpen);
         registrar.playToClient(DialogueResponsePayload.TYPE, DialogueResponsePayload.STREAM_CODEC, LivingRealmsNetwork::handleDialogueResponse);
+        registrar.playToClient(WaypointPayload.TYPE, WaypointPayload.STREAM_CODEC, LivingRealmsNetwork::handleWaypoint);
     }
 
     private static void handleDashboardRequest(DashboardRequestPayload ignored, IPayloadContext context) {
@@ -118,6 +119,14 @@ public final class LivingRealmsNetwork {
             case PETITION_TRADE -> "message.livingrealms.action.petition_trade";
             case PETITION_CLERGY -> "message.livingrealms.action.petition_clergy";
             case FOUND_SETTLEMENT -> "Settlement founded. Your realm can now grow, trade and enter diplomacy.";
+            case ABDICATE -> "You abdicated. A court successor now holds the realm.";
+            case PETITION_PEACE -> "Peace petition accepted — war ended with a treaty.";
+            case PROPOSE_TRADE_PACT -> "Trade pact signed.";
+            case ARMY_DEFEND_HOME -> "Army ordered to defend home.";
+            case ARMY_RALLY -> "Army ordered to rally / patrol the border.";
+            case ARMY_STAND_DOWN -> "Army ordered to stand down and resupply.";
+            case SURRENDER -> "You surrendered to local authorities.";
+            case PAY_FINE -> "Fine paid toward your bounty.";
         };
     }
 
@@ -152,6 +161,7 @@ public final class LivingRealmsNetwork {
 
     private static void handleDialogueOpen(DialogueOpenPayload payload,IPayloadContext context){try{DialogueClientBridge.open(payload);}catch(RuntimeException ex){LivingRealms.LOGGER.error("Rejected dialogue-open payload",ex);}}
     private static void handleDialogueResponse(DialogueResponsePayload payload,IPayloadContext context){try{DialogueClientBridge.response(payload);}catch(RuntimeException ex){LivingRealms.LOGGER.error("Rejected dialogue-response payload",ex);}}
+    private static void handleWaypoint(WaypointPayload payload,IPayloadContext context){try{WaypointClientBridge.receive(payload);}catch(RuntimeException ex){LivingRealms.LOGGER.error("Rejected waypoint payload",ex);}}
 
     private static void handleDashboardSnapshot(DashboardSnapshotPayload payload, IPayloadContext context) {
         try {

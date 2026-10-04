@@ -1,7 +1,7 @@
 {
-  "generatedAtUtc": "2026-10-04T23:14:14Z",
-  "gitCommit": "6876408daa0fd3eef65fb806ab93971d06eb28ce",
-  "gitWorktreeClean": true,
+  "generatedAtUtc": "2026-10-04T23:38:25Z",
+  "gitCommit": "2d86e9b31057a28cfbc87042f5c20733c60a5be8",
+  "gitWorktreeClean": false,
   "modVersion": "3.0.0-rc4",
   "minecraftVersion": "1.21.1",
   "neoforgeVersion": "21.1.219",
@@ -11,7 +11,7 @@
   "saveSchema": 17,
   "minSupportedSchema": 1,
   "dashboardProtocol": 17,
-  "networkProtocol": "14",
+  "networkProtocol": "15",
   "contentRevision": 12,
   "gates": {
     "coreSuite": "pass",

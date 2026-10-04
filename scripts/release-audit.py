@@ -109,7 +109,7 @@ content_revision=int_const(saved_data_for_rev,'CONTENT_REVISION')
 require(schema_version==17,f'save schema must be 17 (source currently {schema_version})')
 require(min_schema==1,f'min supported schema must remain 1 (source {min_schema})')
 require(dashboard_protocol==17,f'dashboard protocol must be 17 (source {dashboard_protocol})')
-require(network_version=='14',f'network registration version must be 14 (source {network_version!r})')
+require(network_version=='15',f'network registration version must be 15 (source {network_version!r})')
 require(content_revision==12,f'content revision must be 12 (source {content_revision})')
 
 
@@ -119,7 +119,7 @@ entities=(root/'src/main/java/dev/livingrealms/minecraft/entity/ModEntities.java
 require('DeferredRegister.Entities' not in entities and 'createEntities(' not in entities,'NeoForge 1.21.1 must use generic DeferredRegister<EntityType<?>>; specialized Entities helper is not part of the 1.21.1 API')
 require('DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(Registries.ENTITY_TYPE' in entities,'entity register must target Registries.ENTITY_TYPE through generic DeferredRegister')
 require('.build(ResourceKey.create' not in entities,'NeoForge 1.21.1 entity builders must not use ResourceKey build overload')
-for entity_id in ['wildlife','trade_caravan','faction_citizen','military_unit','aircraft','ship','bounty_hunter']:
+for entity_id in ['wildlife','trade_caravan','faction_citizen','military_unit','aircraft','ship','bounty_hunter','regional_impostor']:
     require(f'.build(LivingRealms.MOD_ID + ":{entity_id}")' in entities,f'entity {entity_id} must use the 1.21.1 build(String) signature')
 
 # Production runners share one canonical core-suite list; never maintain duplicated test arrays.
@@ -379,6 +379,23 @@ animal_renderer=(root/'src/main/java/dev/livingrealms/minecraft/client/LivingRea
 require('FAMILY_TEXTURES' in animal_renderer and 'wildlife_' in animal_renderer,'wildlife renderer must select morphology-family textures')
 for morph in ('small_quadruped','ungulate','predator_quadruped','bear','large_mammal','crocodilian','fish','cetacean','pinniped','bird'):
     require((root/f'src/main/resources/assets/livingrealms/textures/entity/wildlife_{morph}.png').exists(),f'missing wildlife morphology texture {morph}')
+# Atlas sizes must match Java LayerDefinition (broken 64-on-128 / 64-on-72 is a release blocker).
+try:
+    from PIL import Image
+    def png_size(rel):
+        with Image.open(root/rel) as im: return im.size
+    for morph in ('small_quadruped','ungulate','predator_quadruped','bear','bird'):
+        require(png_size(f'src/main/resources/assets/livingrealms/textures/entity/wildlife_{morph}.png')==(64,72),f'wildlife_{morph} must be 64x72')
+    for ship in ('ship','ship_cargo','ship_patrol','ship_war','ship_landing'):
+        require(png_size(f'src/main/resources/assets/livingrealms/textures/entity/{ship}.png')==(128,128),f'{ship} must be 128x128')
+    for siege in ('siege_ram','siege_ladder','siege_artillery'):
+        require(png_size(f'src/main/resources/assets/livingrealms/textures/entity/{siege}.png')==(128,128),f'{siege} must be 128x128')
+except ImportError:
+    pass  # Pillow optional in CI; generator gate still enforces sizes when regenerating.
+require('WaypointPayload' in (root/'src/main/java/dev/livingrealms/minecraft/network/LivingRealmsNetwork.java').read_text(),'network must register dialogue waypoint payloads')
+require('RegionalImpostorMaterializer' in events,'server tick must reconcile regional impostors')
+require('FarPresenceRuntime' in events,'server tick must emit far-presence cues')
+require((root/'src/main/java/dev/livingrealms/sim/presentation/RegionalImpostorPlanner.java').exists(),'regional impostor planner must exist')
 require('path.contains("gun")' in content_runtime and 'equipMilitary' in content_runtime,'faction equipment must discover gun-class mod weapons and military loadouts')
 policy_text=(root/'src/main/java/dev/livingrealms/sim/compat/ModCompatibilityPolicy.java').read_text()
 require('\"Guns++\",\"mr_guns\",Category.COMBAT,Strategy.PLAYER_ONLY,false' in policy_text,'Guns++ must remain player-only/NPC-forbidden')

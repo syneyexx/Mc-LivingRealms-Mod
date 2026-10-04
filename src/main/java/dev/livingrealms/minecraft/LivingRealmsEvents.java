@@ -3,8 +3,13 @@ package dev.livingrealms.minecraft;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.livingrealms.LivingRealms;
+import dev.livingrealms.minecraft.ambience.FarPresenceRuntime;
 import dev.livingrealms.minecraft.ambience.SettlementAmbienceRuntime;
 import dev.livingrealms.minecraft.entity.LivingRealmsAnimalEntity;
+import dev.livingrealms.minecraft.entity.RegionalImpostorEntity;
+import dev.livingrealms.minecraft.entity.RegionalImpostorIndex;
+import dev.livingrealms.minecraft.entity.RegionalImpostorMaterializer;
+import dev.livingrealms.minecraft.player.PlayerOnboardingRuntime;
 import dev.livingrealms.minecraft.compat.WaystoneSettlementRuntime;
 import dev.livingrealms.sim.player.PlayerSettlementFounder;
 import dev.livingrealms.sim.world.SimPosition;
@@ -108,31 +113,47 @@ public final class LivingRealmsEvents {
         }
         if (tickCounter % 400L == 0) ForeignSettlementDiscoveryRuntime.tick(event.getServer().overworld(),SimulationRuntime.data(event.getServer()));
         if (tickCounter % 600L == 0) ForeignStructureDiscoveryRuntime.tick(event.getServer().overworld(),SimulationRuntime.data(event.getServer()));
+        // Temporal LOD: near living projections tick often; far/strategic systems slower.
         if (tickCounter % 20L == 0) {
             var data = SimulationRuntime.data(event.getServer());
             WildlifeMaterializer.tick(event.getServer(), data);
-            TradeCaravanMaterializer.tick(event.getServer().overworld(), data);
             FactionCitizenMaterializer.tick(event.getServer(), data);
             MilitaryUnitMaterializer.tick(event.getServer(), data);
-            MobileCivilizationMaterializer.tick(event.getServer().overworld(), data);
+            CustodyRuntime.tick(event.getServer(), data);
+            CitizenConversationRuntime.tick(event.getServer(), data, tickCounter);
+            SettlementGeographyDiscoveryRuntime.tick(event.getServer().overworld(), data);
+            SettlementAmbienceRuntime.tick(event.getServer().overworld(), data, tickCounter);
+        }
+        if (tickCounter % 40L == 0) {
+            var data = SimulationRuntime.data(event.getServer());
+            TradeCaravanMaterializer.tick(event.getServer().overworld(), data);
+            CaravanEscortMaterializer.tick(event.getServer(), data);
+            SiegeEquipmentMaterializer.tick(event.getServer(), data);
             AircraftMaterializer.tick(event.getServer(), data);
             NavalMaterializer.tick(event.getServer(), data);
             BountyHunterMaterializer.tick(event.getServer(), data);
-            SiegeEquipmentMaterializer.tick(event.getServer(), data);
-            CaravanEscortMaterializer.tick(event.getServer(), data);
-            CustodyRuntime.tick(event.getServer(), data);
-            CitizenConversationRuntime.tick(event.getServer(), data, tickCounter);
             HistoricalSiteMaterializer.tick(event.getServer().overworld(), data);
             CivicFestivalMaterializer.tick(event.getServer().overworld(), data);
-            SettlementGeographyDiscoveryRuntime.tick(event.getServer().overworld(), data);
-            if (tickCounter % 100L == 0) dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.tick(event.getServer(), data);
-            SettlementAmbienceRuntime.tick(event.getServer().overworld(), data, tickCounter);
         }
-        // Construction is budgeted every tick; only loaded chunks near players are touched.
-        SettlementConstructionMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
-        TransportNetworkMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
-        UrbanCoreMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
-        IndustrialSiteMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
+        if (tickCounter % 60L == 0) {
+            var data = SimulationRuntime.data(event.getServer());
+            MobileCivilizationMaterializer.tick(event.getServer().overworld(), data);
+        }
+        if (tickCounter % 100L == 0) {
+            var data = SimulationRuntime.data(event.getServer());
+            PlayerOnboardingRuntime.tick(event.getServer(), data);
+            RegionalImpostorMaterializer.tick(event.getServer(), data);
+            FarPresenceRuntime.tick(event.getServer().overworld(), data, tickCounter);
+        }
+        // Construction is budgeted every tick; throttle urban/transport when catch-up is idle.
+        var constructionData = SimulationRuntime.data(event.getServer());
+        SettlementConstructionMaterializer.tick(event.getServer().overworld(), constructionData);
+        boolean tightOps = tickCounter % 2L != 0 && !SettlementConstructionMaterializer.catchupActive();
+        if (!tightOps) {
+            TransportNetworkMaterializer.tick(event.getServer().overworld(), constructionData);
+            UrbanCoreMaterializer.tick(event.getServer().overworld(), constructionData);
+            IndustrialSiteMaterializer.tick(event.getServer().overworld(), constructionData);
+        }
         // Sparse far-world continuity: when players roam beyond the authored belt, seed frontier outposts.
         if (tickCounter % 100L == 0) {
             var data = SimulationRuntime.data(event.getServer());
@@ -172,6 +193,7 @@ public final class LivingRealmsEvents {
         if (!event.getLevel().isClientSide() && event.getEntity() instanceof LivingRealmsShipEntity ship) ShipProjectionIndex.joined(ship);
         if (!event.getLevel().isClientSide() && event.getEntity() instanceof BountyHunterEntity hunter) BountyHunterIndex.joined(hunter);
         if (!event.getLevel().isClientSide() && event.getEntity() instanceof SiegeEquipmentEntity siege) SiegeEquipmentIndex.joined(siege);
+        if (!event.getLevel().isClientSide() && event.getEntity() instanceof RegionalImpostorEntity impostor) RegionalImpostorIndex.joined(impostor);
     }
 
     @SubscribeEvent
@@ -211,6 +233,8 @@ public final class LivingRealmsEvents {
             BountyHunterIndex.left(hunter);
         } else if (event.getEntity() instanceof SiegeEquipmentEntity siege) {
             SiegeEquipmentIndex.left(siege);
+        } else if (event.getEntity() instanceof RegionalImpostorEntity impostor) {
+            RegionalImpostorIndex.left(impostor);
         } else if (event.getEntity() instanceof TradeCaravanEntity caravan) {
             TradeCaravanIndex.left(caravan);
             if (!caravan.isDematerializing() && !caravan.lossReported() && !caravan.isAlive() && event.getLevel() instanceof ServerLevel level) {
@@ -289,6 +313,7 @@ public final class LivingRealmsEvents {
         ShipProjectionIndex.clear();
         BountyHunterIndex.clear();
         SiegeEquipmentIndex.clear();
+        RegionalImpostorIndex.clear();
         DashboardRequestLimiter.clear();
         DashboardActionLimiter.clear();
         DialogueRequestLimiter.clear();

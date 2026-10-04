@@ -2,11 +2,13 @@ package dev.livingrealms.minecraft.client;
 
 import dev.livingrealms.LivingRealms;
 import dev.livingrealms.minecraft.entity.ModEntities;
+import dev.livingrealms.minecraft.client.ui.ClientWaypointState;
 import dev.livingrealms.minecraft.client.ui.DashboardClientState;
 import dev.livingrealms.minecraft.client.ui.LivingRealmsKeyMappings;
 import dev.livingrealms.minecraft.client.ui.NpcDialogueClientState;
 import dev.livingrealms.minecraft.network.DialogueClientBridge;
 import dev.livingrealms.minecraft.network.DashboardClientBridge;
+import dev.livingrealms.minecraft.network.WaypointClientBridge;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -23,6 +25,7 @@ public final class LivingRealmsClientEvents {
     public static void clientSetup(FMLClientSetupEvent event) {
         DashboardClientBridge.install(DashboardClientState::receive);
         DialogueClientBridge.install(NpcDialogueClientState::receive);
+        WaypointClientBridge.install(p -> ClientWaypointState.add(p.label(), p.x(), p.z(), p.ttlSeconds()));
     }
 
     @SubscribeEvent
@@ -56,5 +59,6 @@ public final class LivingRealmsClientEvents {
         event.registerEntityRenderer(ModEntities.SHIP.get(), ShipRenderer::new);
         event.registerEntityRenderer(ModEntities.BOUNTY_HUNTER.get(), BountyHunterRenderer::new);
         event.registerEntityRenderer(ModEntities.SIEGE_EQUIPMENT.get(), SiegeEquipmentRenderer::new);
+        event.registerEntityRenderer(ModEntities.REGIONAL_IMPOSTOR.get(), RegionalImpostorRenderer::new);
     }
 }

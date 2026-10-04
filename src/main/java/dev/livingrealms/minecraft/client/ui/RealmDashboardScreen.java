@@ -92,11 +92,25 @@ public final class RealmDashboardScreen extends Screen {
             rebuildFactionButton(left,contentY,panelWidth);
             rebuildInfluenceButtons(left,contentY,panelWidth);
         }
+        if (tab == Tab.POLITICS) rebuildDiplomacyButtons(left,contentY,panelWidth);
+        if (tab == Tab.FORCES) rebuildArmyOrderButtons(left,contentY,panelWidth);
         if (tab == Tab.ECONOMY) rebuildEconomyButtons(left,contentY,panelWidth);
         if (tab == Tab.SETTLEMENTS) rebuildSettlementButtons(left,contentY,panelWidth);
     }
 
     private void rebuildLawButtons(int left,int top,int panelWidth){
+        var player=snapshot.player();
+        var jurisdiction=snapshot.jurisdiction();
+        if(jurisdiction.claimed()&&!jurisdiction.contested()&&jurisdiction.primaryFactionId()>0
+                &&(!"NONE".equalsIgnoreCase(player.wantedLevel())||player.bounty()>0||player.inCustody())){
+            long fid=jurisdiction.primaryFactionId();
+            addRenderableWidget(Button.builder(Component.literal("Surrender"),b->DashboardClientState.sendAction(
+                    new DashboardActionCommand(DashboardActionCommand.Action.SURRENDER,fid)))
+                    .bounds(left+10,top-2,78,16).build());
+            addRenderableWidget(Button.builder(Component.literal("Pay fine"),b->DashboardClientState.sendAction(
+                    new DashboardActionCommand(DashboardActionCommand.Action.PAY_FINE,fid,"25")))
+                    .bounds(left+92,top-2,78,16).build());
+        }
         int start=Math.min(snapshot.bounties().size(),page*BOUNTIES_PER_PAGE);
         int end=Math.min(snapshot.bounties().size(),start+BOUNTIES_PER_PAGE);
         for(int i=start;i<end;i++){
@@ -108,6 +122,50 @@ public final class RealmDashboardScreen extends Screen {
         }
     }
 
+    private void rebuildDiplomacyButtons(int left,int contentY,int panelWidth){
+        if(snapshot.player().memberFactionId()<=0||snapshot.wars().isEmpty()&&snapshot.factions().size()<2)return;
+        int y=contentY+4;
+        int shown=0;
+        long selfId=snapshot.player().memberFactionId();
+        for(var war:snapshot.wars()){
+            if(shown>=3)break;
+            if(war.attackerFactionId()!=selfId&&war.defenderFactionId()!=selfId)continue;
+            long enemy=war.attackerFactionId()==selfId?war.defenderFactionId():war.attackerFactionId();
+            if(enemy<=0)continue;
+            String name=snapshot.factions().stream().filter(f->f.id()==enemy).map(RealmDashboardSnapshot.FactionSummary::name).findFirst().orElse("Enemy");
+            addRenderableWidget(Button.builder(Component.literal("Peace vs "+name),b->DashboardClientState.sendAction(
+                    new DashboardActionCommand(DashboardActionCommand.Action.PETITION_PEACE,enemy)))
+                    .bounds(left+10,y,Math.min(180,panelWidth-20),16).build());
+            y+=18;shown++;
+        }
+        // Offer trade pact with nearest foreign capital on the map.
+        for(var f:snapshot.factions()){
+            if(f.id()==selfId||f.localRealm())continue;
+            addRenderableWidget(Button.builder(Component.literal("Trade pact: "+f.name()),b->DashboardClientState.sendAction(
+                    new DashboardActionCommand(DashboardActionCommand.Action.PROPOSE_TRADE_PACT,f.id())))
+                    .bounds(left+10,y,Math.min(180,panelWidth-20),16).build());
+            break;
+        }
+    }
+
+    private void rebuildArmyOrderButtons(int left,int contentY,int panelWidth){
+        if(snapshot.player().memberFactionId()<=0||snapshot.map().armies().isEmpty())return;
+        var army=snapshot.map().armies().stream()
+                .filter(a->a.factionId()==snapshot.player().memberFactionId())
+                .findFirst().orElse(null);
+        if(army==null)return;
+        int bw=Math.max(70,(panelWidth-28)/3);
+        addRenderableWidget(Button.builder(Component.literal("Defend home"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_DEFEND_HOME,army.id())))
+                .bounds(left+10,contentY+4,bw-3,16).build());
+        addRenderableWidget(Button.builder(Component.literal("Rally"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_RALLY,army.id())))
+                .bounds(left+10+bw,contentY+4,bw-3,16).build());
+        addRenderableWidget(Button.builder(Component.literal("Stand down"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_STAND_DOWN,army.id())))
+                .bounds(left+10+bw*2,contentY+4,bw-3,16).build());
+    }
+
     private void rebuildFactionButton(int left,int contentY,int panelWidth){
         var player=snapshot.player();var jurisdiction=snapshot.jurisdiction();
         int panelHeight = Math.min(panelHeightPref(), height - 20);
@@ -117,7 +175,11 @@ public final class RealmDashboardScreen extends Screen {
         foundNameBox = null;
         if(player.memberFactionId()>0){
             if("RULER".equalsIgnoreCase(player.rank())){
-                // Rulers cannot leave — leave always fails. Abdication is a later agency path.
+                var abdicate=Button.builder(Component.literal("Abdicate"),b->DashboardClientState.sendAction(
+                        new DashboardActionCommand(DashboardActionCommand.Action.ABDICATE,player.memberFactionId())))
+                        .bounds(left+panelWidth-150,joinY,136,18).build();
+                abdicate.setTooltip(Tooltip.create(Component.literal("Step down as ruler. A court successor takes the name; you become an outsider.")));
+                addRenderableWidget(abdicate);
             }else{
                 addRenderableWidget(Button.builder(Component.literal("Leave "+player.memberFactionName()),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_LEAVE,1))).bounds(left+panelWidth-150,joinY,136,18).build());
             }

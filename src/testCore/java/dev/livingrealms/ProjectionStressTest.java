@@ -2,6 +2,8 @@ package dev.livingrealms;
 
 import dev.livingrealms.sim.aviation.*;
 import dev.livingrealms.sim.civilian.*;
+import dev.livingrealms.sim.config.RuntimeProjectionPolicy;
+import dev.livingrealms.sim.config.SimulationPreset;
 import dev.livingrealms.sim.ecology.*;
 import dev.livingrealms.sim.faction.*;
 import dev.livingrealms.sim.logistics.TradeShipment;
@@ -9,7 +11,9 @@ import dev.livingrealms.sim.logistics.projection.*;
 import dev.livingrealms.sim.materialization.*;
 import dev.livingrealms.sim.military.*;
 import dev.livingrealms.sim.naval.*;
+import dev.livingrealms.sim.presentation.RegionalImpostorPlanner;
 import dev.livingrealms.sim.world.SimPosition;
+import dev.livingrealms.sim.world.SimulationState;
 import java.util.*;
 
 /**
@@ -26,7 +30,8 @@ public final class ProjectionStressTest {
         stressMilitary();
         stressAircraft();
         stressNaval();
-        System.out.println("PASS projection stress: wildlife + caravans + citizens + military + aircraft + naval budgets/identity/reconciliation");
+        stressRegionalImpostors();
+        System.out.println("PASS projection stress: wildlife + caravans + citizens + military + aircraft + naval + regional impostors budgets/identity/reconciliation");
     }
 
     private static void stressWildlife() {
@@ -138,6 +143,37 @@ public final class ProjectionStressTest {
         List<FleetProjection> projections = NavalMaterializationPlanner.plan(fleets, List.of(new SimPosition(0, 0)), 500, 48);
         check(projections.size() == 48, "naval planner must enforce global cap");
         check(uniqueStrings(projections.stream().map(FleetProjection::projectionKey).toList()), "naval projection keys must be unique");
+    }
+
+    private static void stressRegionalImpostors() {
+        SimulationState state = new SimulationState(0x494D50L);
+        for (int f = 0; f < 40; f++) {
+            Faction faction = new Faction(state.nextId(), "Impostor Realm " + f, "Ruler " + f);
+            for (int s = 0; s < 8; s++) {
+                faction.addSettlement(new Settlement(state.nextId(), "Town " + f + "-" + s,
+                        new SimPosition(400 + (f % 10) * 120.0 + s * 8, (f / 10) * 140.0), 900 + s * 40, 1_000));
+            }
+            faction.addArmy(new Army(state.nextId(), faction.id(), new SimPosition(500 + f * 15.0, 80), 200));
+            state.addFaction(faction);
+        }
+        long sellerId = state.factions().getFirst().id();
+        long buyerId = state.factions().get(1).id();
+        for (int i = 0; i < 80; i++) {
+            TradeShipment shipment = new TradeShipment(state.nextId(), sellerId, buyerId, ResourceType.FOOD, 10, 20,
+                    new SimPosition(0, 0), new SimPosition(2_000, 0));
+            shipment.restoreProgress(0.3 + (i % 50) * 0.01);
+            state.addShipment(shipment);
+        }
+        var config = SimulationPreset.CINEMATIC.config();
+        List<RegionalImpostorPlanner.Token> tokens = RegionalImpostorPlanner.plan(
+                state,
+                List.of(new SimPosition(0, 0)),
+                RuntimeProjectionPolicy.regionalImpostorInnerRadius(config),
+                RuntimeProjectionPolicy.regionalImpostorOuterRadius(config),
+                RuntimeProjectionPolicy.regionalImpostorBudget(config));
+        check(tokens.size() <= RuntimeProjectionPolicy.regionalImpostorBudget(config), "impostor planner must enforce budget");
+        check(uniqueStrings(tokens.stream().map(RegionalImpostorPlanner.Token::key).toList()), "impostor keys must be unique");
+        check(!tokens.isEmpty(), "dense regional scene must produce impostors");
     }
 
     private static boolean uniqueLong(List<Long> values) {

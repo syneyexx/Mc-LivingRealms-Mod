@@ -12,7 +12,15 @@ public record DashboardActionCommand(Action action, long targetId, String argume
         /** Influence unlocks — targetId is the faction id. */
         REQUEST_AUDIENCE, PROPOSE_PROJECT, REQUEST_MILITARY_SUPPORT, PETITION_TRADE, PETITION_CLERGY,
         /** Found a player realm at the actor position; argument is the settlement name. */
-        FOUND_SETTLEMENT
+        FOUND_SETTLEMENT,
+        /** Ruler escape hatch: abdicate and hand court presentation to a successor. targetId = member faction. */
+        ABDICATE,
+        /** Diplomacy: targetId = other faction. */
+        PETITION_PEACE, PROPOSE_TRADE_PACT,
+        /** Army orders: targetId = army id. */
+        ARMY_DEFEND_HOME, ARMY_RALLY, ARMY_STAND_DOWN,
+        /** Crime mitigation: targetId = local faction id. */
+        SURRENDER, PAY_FINE
     }
 
     public DashboardActionCommand(Action action, long targetId) {

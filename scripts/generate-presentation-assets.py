@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Generate original LivingRealms presentation textures (Pillow, 64x64 skins/units).
+"""Generate original LivingRealms presentation textures (Pillow).
 
 Creates distinct citizen skins, unit silhouettes, wildlife morphology + per-species
-palette variants, heraldry banners, siege icons, and simple GUI panels/icons.
-No third-party mod assets are copied.
+palette variants, heraldry banners, siege/ship/aircraft UV atlases sized to match
+their Java LayerDefinition (wildlife 64x72, ships/siege 128x128, aircraft/caravan 64x64),
+and simple GUI panels/icons. No third-party mod assets are copied.
+
+Critical: vehicle/animal generators MUST paint Minecraft cube UV islands via
+paint_box_uv / *_uv_atlas helpers. Never emit centered 64x64 silhouettes for models
+that sample a larger or differently laid-out atlas — that produces invisible limbs.
 """
 from __future__ import annotations
 
@@ -76,6 +81,120 @@ def rng(seed: int) -> callable:
 
 def new_img(w: int = 64, h: int = 64) -> Image.Image:
     return Image.new("RGBA", (w, h), (0, 0, 0, 0))
+
+
+def paint_box_uv(img: Image.Image, u: int, v: int, w: int, h: int, d: int, color: RGBA) -> None:
+    """Fill the Minecraft cube UV island for texOffs(u,v)+addBox(w,h,d) with an opaque color.
+
+    Layout (NeoForge/Minecraft entity models):
+      width  = 2*d + 2*w
+      height = d + h
+    Filling the island solidly prevents transparent limbs/wings when art drifts.
+    """
+    tw = 2 * d + 2 * w
+    th = d + h
+    fill_rect_shade(img, (u, v, u + tw, v + th), color, 0.88)
+    # Slight face differentiation so the atlas is not a flat slab.
+    fill_rect(img, (u + d, v, u + d + w, v + d), shade(color, 1.08))  # top
+    fill_rect(img, (u + d, v + d, u + d + w, v + d + h), shade(color, 1.0))  # front
+    fill_rect(img, (u, v + d, u + d, v + d + h), shade(color, 0.82))  # left
+
+
+def wildlife_uv_atlas(body: RGBA, accent: RGBA) -> Image.Image:
+    """64×72 atlas matching LivingRealmsAnimalModel LayerDefinition.create(..., 64, 72)."""
+    img = new_img(64, 72)
+    # Quadruped (exact texOffs from LivingRealmsAnimalModel)
+    paint_box_uv(img, 0, 0, 8, 10, 14, body)          # body
+    paint_box_uv(img, 0, 24, 6, 6, 6, shade(body, 0.95))  # head
+    paint_box_uv(img, 44, 0, 3, 9, 3, shade(body, 0.72))  # legs (shared UV)
+    # Aquatic / avian shared strips
+    paint_box_uv(img, 0, 38, 6, 8, 18, body)           # fish_body / bird_body region
+    paint_box_uv(img, 48, 34, 2, 10, 8, accent)         # fish_tail
+    paint_box_uv(img, 38, 52, 8, 1, 5, accent)          # fins
+    paint_box_uv(img, 32, 38, 4, 4, 5, shade(body, 0.9))  # bird_head
+    paint_box_uv(img, 0, 58, 12, 1, 7, accent)          # wings (requires height 72)
+    # Reptile body/tail (may clip atlas edge; fill_rect clamps — still opaque where sampled)
+    paint_box_uv(img, 0, 0, 10, 6, 18, shade(body, 0.92))  # reptile_body overlaps body island
+    paint_box_uv(img, 38, 0, 6, 4, 15, shade(body, 0.8))    # reptile_tail
+    return img
+
+
+def ship_uv_atlas(hull: RGBA, sail: RGBA, accent: RGBA) -> Image.Image:
+    """128×128 atlas matching ShipModel LayerDefinition.create(..., 128, 128)."""
+    img = new_img(128, 128)
+    # Exact texOffs/addBox sizes from ShipModel.java
+    paint_box_uv(img, 0, 0, 12, 5, 28, hull)                 # hull
+    paint_box_uv(img, 0, 34, 10, 2, 22, shade(hull, 1.12))    # deck
+    paint_box_uv(img, 0, 58, 6, 6, 8, shade(hull, 0.95))      # superstructure
+    paint_box_uv(img, 30, 58, 2, 5, 2, shade(hull, 0.75))     # cabin post
+    paint_box_uv(img, 48, 58, 2, 16, 2, shade(hull, 0.7))     # mast
+    paint_box_uv(img, 56, 34, 16, 1, 1, sail)                  # yard / sail spar
+    paint_box_uv(img, 80, 0, 8, 4, 10, accent)                 # cargo_stack
+    paint_box_uv(img, 80, 20, 2, 2, 8, shade(hull, 0.85))     # bowsprit
+    paint_box_uv(img, 80, 34, 1, 2, 24, shade(hull, 0.8))     # gunwale
+    paint_box_uv(img, 100, 0, 3, 8, 3, shade(accent, 0.9))    # funnel
+    paint_box_uv(img, 100, 20, 8, 1, 6, shade(hull, 1.05))    # landing_ramp
+    # Sail cloth accent in free space near yard
+    fill_rect(img, (58, 38, 90, 56), sail)
+    fill_rect(img, (60, 40, 88, 54), shade(sail, 0.92))
+    return img
+
+
+def siege_uv_atlas(kind: str) -> Image.Image:
+    """128×128 atlas matching SiegeEquipmentModel LayerDefinition.create(..., 128, 128)."""
+    img = new_img(128, 128)
+    wood = rgb(120, 85, 50)
+    dark = rgb(70, 50, 30)
+    metal = rgb(90, 95, 100)
+    # Shared base platform
+    paint_box_uv(img, 0, 0, 12, 2, 16, wood)                  # base
+    if kind == "siege_ram":
+        paint_box_uv(img, 0, 20, 4, 4, 20, shade(wood, 0.95)) # ram beam
+        paint_box_uv(img, 48, 20, 6, 6, 4, metal)              # ram head
+        paint_box_uv(img, 0, 48, 2, 10, 2, dark)               # posts
+    elif kind == "siege_ladder":
+        paint_box_uv(img, 56, 0, 2, 24, 2, wood)              # rails
+        paint_box_uv(img, 64, 0, 10, 1, 2, shade(wood, 1.1))   # rungs
+        paint_box_uv(img, 0, 48, 2, 10, 2, dark)
+    else:  # siege_artillery
+        paint_box_uv(img, 0, 64, 10, 4, 12, wood)             # carriage
+        paint_box_uv(img, 48, 64, 4, 8, 10, metal)             # barrel
+        paint_box_uv(img, 80, 64, 3, 3, 3, dark)               # wheels
+        fill_rect(img, (52, 68, 60, 76), rgb(140, 50, 40))    # breech mark
+    return img
+
+
+def aircraft_uv_atlas(body: RGBA, accent: RGBA) -> Image.Image:
+    """64×64 atlas matching AircraftModel LayerDefinition.create(..., 64, 64)."""
+    img = new_img(64, 64)
+    paint_box_uv(img, 0, 0, 4, 4, 20, body)                   # fuselage
+    paint_box_uv(img, 0, 24, 28, 2, 7, shade(body, 0.95))      # wings
+    paint_box_uv(img, 0, 34, 12, 2, 5, shade(body, 0.9))       # tailplane
+    paint_box_uv(img, 36, 34, 2, 7, 4, accent)                 # vertical stabilizer
+    paint_box_uv(img, 48, 0, 12, 1, 1, shade(body, 0.8))       # prop
+    paint_box_uv(img, 0, 42, 6, 4, 10, shade(accent, 0.85))    # cargo_pod
+    paint_box_uv(img, 32, 42, 2, 2, 10, shade(body, 0.85))     # twin_boom
+    paint_box_uv(img, 48, 8, 3, 2, 5, rgb(40, 70, 100))        # canopy
+    paint_box_uv(img, 48, 16, 5, 3, 8, shade(accent, 0.75))    # bomb_bay
+    return img
+
+
+def trade_caravan_uv_atlas() -> Image.Image:
+    """64×64 atlas matching TradeCaravanModel LayerDefinition.create(..., 64, 64)."""
+    img = new_img(64, 64)
+    animal = rgb(140, 110, 80)
+    wood = rgb(120, 80, 45)
+    cloth = rgb(160, 120, 70)
+    dark = rgb(80, 55, 30)
+    paint_box_uv(img, 0, 0, 10, 10, 16, animal)               # body
+    paint_box_uv(img, 0, 26, 6, 6, 6, shade(animal, 0.95))     # head
+    paint_box_uv(img, 36, 0, 4, 8, 10, cloth)                  # packs
+    paint_box_uv(img, 48, 22, 3, 10, 3, shade(animal, 0.7))    # legs
+    paint_box_uv(img, 0, 42, 14, 6, 16, wood)                  # wagon
+    paint_box_uv(img, 36, 42, 10, 6, 10, shade(wood, 1.1))     # cargo
+    paint_box_uv(img, 48, 0, 12, 2, 2, dark)                   # yoke
+    fill_rect(img, (4, 44, 28, 50), cloth)                    # canopy hint
+    return img
 
 
 def fill_rect(img: Image.Image, box: tuple[int, int, int, int], color: RGBA) -> None:
@@ -374,12 +493,34 @@ def generate_citizen(index: int) -> Image.Image:
 
 
 def generate_role_overlay(index: int) -> Image.Image:
-    """Optional translucent accent strip overlay; keeps base skin readable."""
+    """Role-readable translucent overlay (humanoid UV); wired as FactionCitizenOverlayLayer."""
     p = citizen_palette(index)
     img = new_img()
-    accent = (*p["accent"][:3], 140)
+    group = p["group"]
+    accent = (*p["accent"][:3], 150)
+    cloth = (*p["cloth"][:3], 120)
     x, y, w, h = BODY["front"]
-    fill_rect(img, (x + 2, y + 1, x + w - 2, y + 3), accent)
+    if group == "guard":
+        fill_rect(img, (x + 1, y + 1, x + w - 1, y + 8), (*p["accent"][:3], 110))
+        fill_rect(img, (HEAD["front"][0] + 1, HEAD["front"][1], HEAD["front"][0] + 7, HEAD["front"][1] + 2), accent)
+    elif group == "farmer":
+        fill_rect(img, (x + 2, y + 4, x + w - 2, y + 7), accent)
+        fill_rect(img, (RARM["front"][0], RARM["front"][1] + 2, RARM["front"][0] + 4, RARM["front"][1] + 6), cloth)
+    elif group == "merchant":
+        fill_rect(img, (x + 1, y + 3, x + w - 1, y + 6), accent)
+        fill_rect(img, (x + 3, y + 7, x + 5, y + 11), (*p["accent"][:3], 160))
+    elif group == "clergy":
+        fill_rect(img, (x + 3, y + 1, x + 5, y + 10), accent)
+        fill_rect(img, (x + 2, y + 4, x + 6, y + 5), accent)
+    elif group == "ruler":
+        fill_rect(img, (x + 1, y + 1, x + w - 1, y + 3), accent)
+        tx, ty, tw, th = HEAD["top"]
+        fill_rect(img, (tx + 1, ty + 4, tx + tw - 1, ty + th), accent)
+    elif group == "scholar":
+        fill_rect(img, (x + 2, y, x + w - 2, y + 2), accent)
+        fill_rect(img, (x + 1, y + 8, x + w - 1, y + 11), cloth)
+    else:
+        fill_rect(img, (x + 2, y + 1, x + w - 2, y + 3), accent)
     return img
 
 
@@ -423,35 +564,10 @@ def paint_humanoid_unit(primary: RGB, secondary: RGB, accent: RGB, helmet: bool 
 
 
 def generate_trade_caravan() -> Image.Image:
-    img = new_img()
-    wood = rgb(120, 80, 45)
-    dark = rgb(80, 55, 30)
-    cloth = rgb(160, 120, 70)
-    animal = rgb(140, 110, 80)
-    # pack animal body (left)
-    fill_rect_shade(img, (8, 28, 28, 44), animal, 0.75)
-    fill_rect_shade(img, (10, 20, 22, 30), animal, 0.8)  # neck/head
-    fill_rect(img, (18, 16, 24, 22), shade(animal, 0.7))  # ears/head top
-    draw_pixel(img, 21, 18, rgb(20, 20, 20))
-    # legs
-    for x in (10, 16, 20, 24):
-        fill_rect(img, (x, 44, x + 3, 56), shade(animal, 0.65))
-    # wagon (right)
-    fill_rect_shade(img, (30, 30, 56, 46), wood, 0.72)
-    fill_rect(img, (32, 22, 54, 32), cloth)  # canopy
-    fill_rect(img, (32, 22, 54, 24), shade(cloth, 0.8))
-    # wheels
-    for cx in (34, 50):
-        fill_rect(img, (cx, 44, cx + 6, 54), dark)
-        fill_rect(img, (cx + 2, 46, cx + 4, 52), shade(dark, 1.3))
-    # cargo crates
-    fill_rect(img, (36, 34, 44, 42), rgb(150, 100, 50))
-    fill_rect(img, (45, 36, 52, 42), rgb(100, 70, 40))
-    return img
+    return trade_caravan_uv_atlas()
 
 
 def generate_ship(kind: str = "ship") -> Image.Image:
-    img = new_img()
     hull_colors = {
         "ship": (90, 70, 45),
         "ship_cargo": (110, 85, 50),
@@ -469,38 +585,23 @@ def generate_ship(kind: str = "ship") -> Image.Image:
     hull = rgb(*hull_colors[kind])
     sail = rgb(*sail_colors[kind])
     trim = rgb(200, 170, 70) if "war" in kind else rgb(160, 140, 100)
-    # hull silhouette
-    fill_rect_shade(img, (8, 34, 56, 50), hull, 0.75)
-    for i, w in enumerate((10, 8, 6, 4)):
-        fill_rect(img, (8 + i, 50 + i, 56 - i, 51 + i), shade(hull, 0.7))
-    # deck
-    fill_rect(img, (12, 32, 52, 36), shade(hull, 1.15))
-    # mast + sail
-    fill_rect(img, (30, 8, 34, 34), rgb(70, 50, 30))
-    fill_rect_shade(img, (18, 10, 46, 28), sail, 0.85)
-    # kind markers
+    img = ship_uv_atlas(hull, sail, trim)
+    # Kind markers painted onto already-opaque UV islands (detail only).
     if kind == "ship_cargo":
-        fill_rect(img, (14, 36, 24, 44), rgb(140, 100, 55))
-        fill_rect(img, (40, 36, 50, 44), rgb(130, 95, 50))
+        fill_rect(img, (82, 2, 96, 12), rgb(140, 100, 55))
     elif kind == "ship_patrol":
-        fill_rect(img, (28, 6, 36, 10), trim)
-        fill_rect(img, (22, 18, 42, 20), rgb(40, 60, 80))
+        fill_rect(img, (2, 36, 20, 40), trim)
     elif kind == "ship_war":
-        fill_rect(img, (20, 30, 24, 36), rgb(40, 40, 45))  # prow ram
-        fill_rect(img, (12, 12, 18, 18), rgb(160, 40, 40))  # banner
-        fill_rect(img, (46, 36, 52, 42), rgb(70, 70, 75))  # gunwales
+        fill_rect(img, (82, 22, 90, 28), rgb(160, 40, 40))
+        fill_rect(img, (2, 2, 10, 8), rgb(40, 40, 45))
     elif kind == "ship_landing":
-        fill_rect(img, (48, 40, 58, 48), shade(hull, 1.1))  # ramp
-        fill_rect(img, (50, 42, 60, 46), shade(hull, 0.9))
+        fill_rect(img, (102, 22, 120, 26), shade(hull, 1.1))
     else:
-        fill_rect(img, (24, 14, 40, 16), trim)
-    # waterline darker
-    fill_rect(img, (10, 46, 54, 50), shade(hull, 0.55))
+        fill_rect(img, (60, 42, 84, 46), trim)
     return img
 
 
 def generate_aircraft(kind: str = "aircraft") -> Image.Image:
-    img = new_img()
     body = {
         "aircraft": (170, 175, 180),
         "aircraft_patrol": (70, 95, 80),
@@ -515,31 +616,16 @@ def generate_aircraft(kind: str = "aircraft") -> Image.Image:
     }[kind]
     c = rgb(*body)
     a = rgb(*accent)
-    # fuselage
-    fill_rect_shade(img, (18, 28, 46, 40), c, 0.8)
-    fill_rect(img, (46, 30, 56, 38), shade(c, 0.9))  # nose
-    fill_rect(img, (12, 30, 18, 38), shade(c, 0.85))  # tail boom
-    # wings
-    fill_rect_shade(img, (8, 32, 56, 36), shade(c, 0.95), 0.85)
-    fill_rect(img, (10, 30, 22, 38), shade(c, 0.9))
-    fill_rect(img, (42, 30, 54, 38), shade(c, 0.9))
-    # cockpit
-    fill_rect(img, (40, 28, 48, 34), rgb(40, 70, 100))
-    # markings
-    fill_rect(img, (24, 33, 36, 35), a)
+    img = aircraft_uv_atlas(c, a)
+    # Kind markers on UV islands
     if kind == "aircraft_patrol":
-        fill_rect(img, (14, 26, 20, 30), a)
-        fill_rect(img, (28, 24, 32, 28), shade(a, 0.8))
-    if kind == "aircraft_transport":
-        fill_rect(img, (20, 36, 40, 42), shade(c, 0.75))
-        fill_rect(img, (22, 38, 38, 44), shade(accent + (255,), 0.9) if False else rgb(*accent))
-    if kind == "aircraft_bomber":
-        fill_rect(img, (18, 38, 42, 44), shade(c, 0.7))  # bomb bay
-        fill_rect(img, (22, 40, 26, 44), a)
-        fill_rect(img, (34, 40, 38, 44), a)
-        fill_rect(img, (8, 30, 56, 34), shade(c, 1.05))  # broader wing plane
-    # prop hint
-    fill_rect(img, (54, 32, 60, 36), rgb(40, 40, 45))
+        fill_rect(img, (2, 26, 20, 30), a)
+    elif kind == "aircraft_transport":
+        fill_rect(img, (2, 44, 18, 52), shade(a, 1.05))
+    elif kind == "aircraft_bomber":
+        fill_rect(img, (50, 18, 60, 26), a)
+    else:
+        fill_rect(img, (50, 10, 58, 14), a)
     return img
 
 
@@ -755,60 +841,27 @@ def draw_primate(img: Image.Image, body: RGBA, accent: RGBA) -> None:
 
 
 def draw_wildlife(family: str, body: RGBA, accent: RGBA) -> Image.Image:
-    img = new_img()
-    if family == "bear":
-        draw_bear(img, body, accent)
-    elif family == "bird":
-        draw_bird(img, body, accent, raptor=False)
-    elif family == "raptor":
-        draw_bird(img, body, accent, raptor=True)
-    elif family == "fish":
-        draw_fish(img, body, accent, shark=False)
-    elif family == "cetacean":
-        draw_cetacean(img, body, accent)
+    # Always start from a UV-correct 64×72 model atlas so limbs/wings cannot be transparent.
+    img = wildlife_uv_atlas(body, accent)
+    # Family accent marks on top of the UV islands (detail only; never the sole color source).
+    if family in ("bird", "raptor"):
+        fill_rect(img, (2, 60, 36, 64), shade(accent, 1.05))
+        fill_rect(img, (34, 40, 44, 48), shade(body, 0.9))
+    elif family in ("fish", "cetacean", "pinniped"):
+        fill_rect(img, (50, 38, 60, 52), accent)
+        fill_rect(img, (4, 42, 28, 54), shade(body, 1.05))
+    elif family == "bear":
+        fill_rect(img, (46, 2, 56, 14), shade(body, 0.65))
+        fill_rect(img, (2, 26, 14, 34), shade(accent, 0.9))
+    elif family in ("canid", "predator_quadruped", "ungulate", "large_mammal", "primate", "small_quadruped"):
+        fill_rect(img, (46, 2, 58, 16), shade(body, 0.7))
+        fill_rect(img, (2, 26, 16, 34), shade(body, 0.95))
+        if family == "ungulate":
+            fill_rect(img, (8, 20, 12, 26), accent)
+            fill_rect(img, (14, 20, 18, 26), accent)
     elif family == "crocodilian":
-        draw_croc(img, body, accent)
-    elif family == "primate":
-        draw_primate(img, body, accent)
-    elif family == "canid":
-        draw_quad_body(img, body, accent, snout=True, ears=True, mane=False)
-    elif family == "predator_quadruped":
-        draw_quad_body(img, body, accent, snout=True, ears=True, mane=True)
-    elif family == "ungulate":
-        draw_quad_body(img, body, accent, snout=True, ears=True, horns=True)
-    elif family == "large_mammal":
-        fill_rect_shade(img, (14, 24, 50, 46), body, 0.78)
-        fill_rect_shade(img, (42, 20, 56, 36), body, 0.8)
-        fill_rect(img, (50, 30, 60, 40), shade(body, 0.85))  # trunk/snout
-        for x in (18, 26, 34, 42):
-            fill_rect(img, (x, 46, x + 5, 58), shade(body, 0.65))
-        fill_rect(img, (10, 28, 16, 40), accent)
-        fill_rect(img, (8, 8, 28, 18), shade(body, 0.85))
-        fill_rect(img, (30, 10, 46, 16), accent)
-    elif family == "pinniped":
-        fill_rect_shade(img, (14, 30, 48, 46), body, 0.8)
-        fill_rect(img, (44, 28, 56, 40), shade(body, 0.9))
-        fill_rect(img, (8, 34, 16, 44), accent)
-        fill_rect(img, (20, 44, 28, 52), shade(body, 0.7))
-        fill_rect(img, (32, 44, 40, 52), shade(body, 0.7))
-        draw_pixel(img, 50, 32, rgb(20, 20, 25))
-        fill_rect(img, (8, 8, 28, 18), shade(body, 0.85))
-        fill_rect(img, (30, 10, 46, 16), accent)
-    else:
-        draw_quad_body(img, body, accent)
-    # small_quadruped slightly smaller
-    if family == "small_quadruped":
-        img = new_img()
-        fill_rect_shade(img, (22, 32, 42, 44), body, 0.8)
-        fill_rect_shade(img, (38, 26, 50, 36), body, 0.85)
-        fill_rect(img, (46, 30, 54, 34), shade(body, 0.9))
-        fill_rect(img, (40, 22, 44, 28), shade(body, 0.75))
-        fill_rect(img, (46, 22, 50, 28), shade(body, 0.75))
-        for x in (24, 30, 34, 38):
-            fill_rect(img, (x, 44, x + 3, 54), shade(body, 0.65))
-        fill_rect(img, (16, 34, 22, 40), accent)
-        fill_rect(img, (8, 8, 24, 16), shade(body, 0.85))
-        fill_rect(img, (26, 10, 40, 14), accent)
+        fill_rect(img, (40, 18, 60, 32), shade(body, 0.8))
+        fill_rect(img, (2, 4, 40, 20), shade(body, 0.85))
     return img
 
 
@@ -1026,36 +1079,7 @@ def generate_banner(index: int) -> Image.Image:
 
 
 def generate_siege(kind: str) -> Image.Image:
-    img = new_img()
-    wood = rgb(120, 85, 50)
-    dark = rgb(70, 50, 30)
-    metal = rgb(90, 95, 100)
-    if kind == "siege_ram":
-        fill_rect_shade(img, (10, 24, 54, 40), wood, 0.75)
-        fill_rect(img, (8, 28, 18, 36), metal)  # ram head
-        fill_rect(img, (12, 18, 50, 26), shade(wood, 0.9))  # roof
-        for x in (14, 28, 42):
-            fill_rect(img, (x, 40, x + 4, 54), dark)
-        fill_rect(img, (20, 30, 44, 36), shade(wood, 1.15))
-    elif kind == "siege_ladder":
-        fill_rect(img, (20, 8, 24, 56), wood)
-        fill_rect(img, (40, 8, 44, 56), wood)
-        for y in range(12, 56, 8):
-            fill_rect(img, (20, y, 44, y + 3), shade(wood, 1.1))
-        fill_rect(img, (18, 6, 46, 10), dark)
-    elif kind == "siege_artillery":
-        # frame
-        fill_rect(img, (14, 36, 50, 44), wood)
-        fill_rect(img, (18, 28, 28, 48), wood)
-        fill_rect(img, (36, 28, 46, 48), wood)
-        # barrel
-        fill_rect_shade(img, (22, 20, 52, 30), metal, 0.8)
-        fill_rect(img, (50, 22, 58, 28), shade(metal, 0.7))
-        # wheels
-        fill_rect(img, (16, 42, 26, 54), dark)
-        fill_rect(img, (38, 42, 48, 54), dark)
-        fill_rect(img, (28, 16, 34, 22), rgb(140, 50, 40))
-    return img
+    return siege_uv_atlas(kind)
 
 
 def generate_dashboard_panel() -> Image.Image:
@@ -1193,21 +1217,36 @@ def main() -> None:
     }
     for name, fn in unit_specs.items():
         path = ENTITY / name
-        save_png(fn(), path)
+        img = fn()
+        if name.startswith("ship") and img.size != (128, 128):
+            raise SystemExit(f"{name} must be 128x128, got {img.size}")
+        if name.startswith("aircraft") and img.size != (64, 64):
+            raise SystemExit(f"{name} must be 64x64, got {img.size}")
+        if name == "trade_caravan.png" and img.size != (64, 64):
+            raise SystemExit(f"{name} must be 64x64, got {img.size}")
+        save_png(img, path)
         created.append(path)
 
-    # 4) Wildlife morphology families
+    # 4) Wildlife morphology families — names MUST match SpeciesMorphology enum
+    # (LivingRealmsAnimalRenderer loads wildlife_<enum_lower>.png).
     families = [
-        "bear", "bird", "canid", "cetacean", "crocodilian", "fish",
-        "large_mammal", "primate", "raptor", "ungulate",
-        "pinniped", "predator_quadruped", "small_quadruped",
+        "small_quadruped", "ungulate", "predator_quadruped", "bear", "large_mammal",
+        "crocodilian", "fish", "cetacean", "pinniped", "bird",
     ]
     for fam in families:
         path = ENTITY / f"wildlife_{fam}.png"
-        save_png(generate_wildlife_family(fam), path)
+        img = generate_wildlife_family(fam)
+        if img.size != (64, 72):
+            raise SystemExit(f"{path.name} must be 64x72, got {img.size}")
+        save_png(img, path)
         created.append(path)
     save_png(generate_wildlife_family("ungulate"), ENTITY / "wildlife.png")
     created.append(ENTITY / "wildlife.png")
+    # Remove orphan family files that no longer map to SpeciesMorphology.
+    for orphan in ("wildlife_canid.png", "wildlife_primate.png", "wildlife_raptor.png"):
+        orphan_path = ENTITY / orphan
+        if orphan_path.exists():
+            orphan_path.unlink()
 
     species = load_species()
     for idx, sp in enumerate(species):
@@ -1221,10 +1260,13 @@ def main() -> None:
         save_png(generate_banner(i), path)
         created.append(path)
 
-    # 6) Siege
+    # 6) Siege — 128×128 matching SiegeEquipmentModel
     for kind in ("siege_ram", "siege_ladder", "siege_artillery"):
         path = ENTITY / f"{kind}.png"
-        save_png(generate_siege(kind), path)
+        img = generate_siege(kind)
+        if img.size != (128, 128):
+            raise SystemExit(f"{path.name} must be 128x128, got {img.size}")
+        save_png(img, path)
         created.append(path)
 
     # 7) UI

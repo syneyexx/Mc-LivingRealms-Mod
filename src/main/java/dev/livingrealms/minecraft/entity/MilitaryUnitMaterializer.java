@@ -1,6 +1,7 @@
 package dev.livingrealms.minecraft.entity;
 
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
+import dev.livingrealms.sim.config.RuntimeProjectionPolicy;
 import dev.livingrealms.sim.faction.Army;
 import dev.livingrealms.sim.military.MilitaryMaterializationPlanner;
 import dev.livingrealms.sim.military.MilitaryProjection;
@@ -27,7 +28,7 @@ public final class MilitaryUnitMaterializer {
         List<SimPosition> players = level.players().stream().map(p -> new SimPosition(p.getX(), p.getZ())).toList();
         List<MilitaryProjection> desired = MilitaryMaterializationPlanner.plan(
                 data.state().factions(), players,
-                data.state().config().physicalRadiusBlocks(),
+                RuntimeProjectionPolicy.militaryRadiusBlocks(data.state().config()),
                 data.state().config().maxPhysicalMilitaryEntities());
         Set<String> wanted = new HashSet<>();
         for (MilitaryProjection p : desired) wanted.add(p.projectionKey());
