@@ -9,7 +9,32 @@ import java.util.*;
 /** Strategic naval production, movement, combat, blockades, convoy raiding and port logistics. */
 public final class NavalEngine {
     public void simulateDay(SimulationState state,DeterministicRng rng){
-        Objects.requireNonNull(state);Objects.requireNonNull(rng);maintainPorts(state);produceShips(state);assignMissions(state);moveAndSupply(state);resolveBattles(state,rng);resolveBlockadesAndRaiding(state,rng);state.removeDestroyedFleets();
+        Objects.requireNonNull(state);Objects.requireNonNull(rng);discoverPorts(state);maintainPorts(state);produceShips(state);assignMissions(state);moveAndSupply(state);resolveBattles(state,rng);resolveBlockadesAndRaiding(state,rng);state.removeDestroyedFleets();
+    }
+
+    /**
+     * Creates canonical ports for ship-suitable settlements that do not yet have one.
+     * Geography (discovered or name-heuristic bootstrap) is the authority — inland towns stay portless.
+     */
+    static void discoverPorts(SimulationState state){
+        Set<Long> claimed=new HashSet<>();
+        for(PortState port:state.ports())claimed.add(port.settlementId());
+        for(Faction faction:state.factions())for(Settlement settlement:faction.settlements()){
+            if(claimed.contains(settlement.id()))continue;
+            if(!settlement.geography().shipSuitable())continue;
+            if(settlement.tier().ordinal()<Settlement.Tier.VILLAGE.ordinal())continue;
+            int level=switch(settlement.tier()){
+                case VILLAGE -> 1;
+                case TOWN -> 2;
+                case CITY -> 3;
+                case METROPOLIS -> 4;
+                default -> 1;
+            };
+            PortState port=new PortState(state.nextId(),faction.id(),settlement.id(),settlement.position(),level);
+            state.addPort(port);
+            claimed.add(settlement.id());
+            state.history().add(new WorldEvent(state.clock().day(),"port_discovered","port="+port.id()+", settlement="+settlement.id()+", faction="+faction.id()+", level="+level));
+        }
     }
 
     private static void maintainPorts(SimulationState state){

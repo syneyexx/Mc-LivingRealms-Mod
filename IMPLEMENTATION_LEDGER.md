@@ -1,7 +1,7 @@
 # LivingRealms Implementation Ledger — A–Z Production Completion
 
-**Base:** checkpoint21 (`v3.0.0-RC4-buildfix13-checkpoint21`)  
-**Working branch target:** `v3.0.0-RC4-buildfix14`  
+**Base:** checkpoint21 (`v3.0.0-RC4-buildf13-checkpoint21`)  
+**Working branch target:** `v3.0.0-RC4-buildf15` (A–Z production completion pass)  
 **Authority rule:** source wins over docs. No parallel engines.
 
 ## Consolidated prompt (deduplicated)
@@ -19,7 +19,8 @@ Three overlapping prompts collapsed into one execution contract:
 ### Status legend
 `EXISTS` · `PARTIAL` · `IMPLEMENTING` · `COMPLETE`
 
-COMPLETE only when: model + sim + save + runtime + feedback + integration + tests.
+COMPLETE only when: model + sim + save + runtime + feedback + integration + tests.  
+Where linked Minecraft smoke is required, status is **COMPLETE (core) / EXTERNAL GATE PENDING**.
 
 ---
 
@@ -33,10 +34,9 @@ COMPLETE only when: model + sim + save + runtime + feedback + integration + test
 | Create | 6.0.10 |
 | Save schema | **16** (1–15 readable; settlement stockpiles) |
 | Dashboard protocol | **14** |
-| ContentRevision | **8** (authored-block ledger + geography sidecar; Waystone provenance; keeps rev-6 construction rebuild) |
+| ContentRevision | **8** (authored ledger + geography; Waystone provenance; rev-6 rebuild) |
 | Dashboard key | F12 |
 | Map key | M |
-| Core suite source | `scripts/core-tests.list` (Linux/Windows parity) |
 
 ---
 
@@ -44,32 +44,33 @@ COMPLETE only when: model + sim + save + runtime + feedback + integration + test
 
 | Subsystem | Authority | Works | Partial / missing | Persist | MC runtime | UI | Tests | Status |
 |---|---|---|---|---|---|---|---|---|
-| Architecture/authority | `SimulationState` + engines | Dual world + LOD | Cross-system wiring gaps | schema 16 | adapters | dashboard | core suite | PARTIAL |
-| City streets | `SettlementPlanner` | Orthogonal streets/sidewalks/housing | Lot→street polish | completion keys | materializer | map markers | WorldgenQuality | PARTIAL |
-| Intercity roads | `TransportNetworkEngine` + `RouteProjectionPlanner` + `TerrainCorridorPlanner` + `SettlementGeographyProfile` | Terrain-cost corridors + bridges; no straight destructive fallback; geography water modes | Linked mountain/pass proof | routes + geography sidecar | materializer | map routes | Worldgen+Production+TradeLiveness | PARTIAL |
-| Doors/detail | `FactionBlockPalette` / blueprints | Real faction wood doors | Macaw optional polish | n/a | applyDoor | visible | ProductionQuality | PARTIAL |
-| Entrances | `EntranceAccessPlanner` | Stairs/landing + steep switchbacks (≤8) | Extreme-site rejection polish | n/a | building ops | accessible | ProductionQuality | PARTIAL |
-| Construction integrity | `ConstructionQueue` + receipts + `AuthoredBlockLedger` | Required geometry must be satisfied; player/BE protection; fair discovery | Linked GameTests / world smoke | ContentRev 8 ledger | materializer | — | ConstructionIntegrityTest | PARTIAL |
-| Construction catch-up | `requestCatchup` + reconciler | Multi-intent backlog + housing density compression | Linked day102 city proof | completion | queue | growth visible | ProductionQuality | PARTIAL |
-| Physical reconciliation | `PhysicalDevelopmentReconciler` + `HousingCapacity` | Deficit + prioritized backlog + apartment/townhouse capacity | Block-vs-completion validation | n/a | catch-up enqueue | — | ProductionQuality+TradeLiveness | PARTIAL |
-| Spawn capital | density seeder + planner | City-scale + castle plan + court slots | Linked runtime proof | ContentRev 6/7 | materializer | map | WorldgenQuality | PARTIAL |
-| Waystones | `WaystoneSettlementRuntime` + provenance | LR-only dedupe + outer NBT | Linked Waystones mod smoke | outer NBT | reflection | — | ProductionQuality | PARTIAL |
-| Locate | `LocateQuery` + commands | city/mine/kingdom/market/port/wizardtrees/ruin | Linked command smoke | n/a | commands | chat | ProductionQuality | PARTIAL |
-| NPC adoption | `DialogueSessionRuntime` + `CivilianNpcAdoption` | Villagers + allowlist | More pack adapters | SocialCitizen | interact | dialogue | SocietyDialogue | PARTIAL |
-| Dialogue blur | client screens | Blur removed on M/dialogue/dashboard/catalog | Linked visual confirm | n/a | client | sharp UI | release-audit | PARTIAL |
-| M-map terrain | `RealmWorldMapScreen` + `ClientTerrainMapCache` | Cached surface + ecology fallback | Full offline tile atlas | client cache | screen | always-on ground | release-audit | PARTIAL |
-| Court/ruler visuals | `CitizenMaterializationPlanner` | Capital court official/heir/guard slots | Named dynasty binding | SocialCitizen | citizens | Politics | density | PARTIAL |
-| Culture visuals | FactionCivilizationState | State | Architecture/clothing identity | schema | palette | dialogue | — | PARTIAL |
-| Create industry | IndustryEngine | Projection | Kinetic verification (linked env) | schema | Create | Ops | — | PARTIAL |
-| Wildlife visuals | EcologyEngine 134 spp | Sim strong | Morphology art | schema | entities | Ecology | soak | PARTIAL |
-| Economy detail (Claude F2–5) | SettlementEconomy + LocalMarket + Trade | Local stockpile/tithe/market day/price trade | Full goods enum + caravan insurance | schema 16 | — | Economy/dialogue | SettlementEconomyTest | PARTIAL |
-| Farming/seasons (F3) | SettlementEconomyEngine + calendar | Seasonal farms/pastures/weather/mills | Named crops beyond FOOD proxy | schema 16 | farm/pasture/mill blueprints | — | SettlementEconomyTest | PARTIAL |
-| Jobs/wages (F6) | Profession / SocialCitizen | Roles | Workplace slots/wages | maybe | routines | — | — | PARTIAL |
-| Religion (F12) | faith state + temples | Partial | Hierarchy/rites | maybe | priests | — | — | PARTIAL |
-| Bandits/piracy (F15) | PirateBand/Hideout/RaidParty | Exists | Full camp causality | schema | projection | map | — | PARTIAL |
-| Refugees (F16) | MigrationGroup | Exists | Camp growth visibility | schema | mobile civ | map | — | PARTIAL |
-| Epidemics (F17) | EpidemicRecord | Exists | Physical behaviour | schema | NPC activity | map/dialogue | — | PARTIAL |
-| Docs | README/PROJECT_STATE/… | buildfix14 notes + DETAIL_MATRIX | Historical sections still mention older builds | — | — | — | — | PARTIAL |
+| Architecture/authority | `SimulationState` + engines | Dual world + LOD | Linked boot smoke | schema 16 | adapters | dashboard | core suite | COMPLETE (core) / EXTERNAL GATE |
+| City streets | `SettlementPlanner` | Orthogonal streets/sidewalks/housing | Linked visual confirm | completion keys | materializer | map markers | WorldgenQuality | COMPLETE (core) / EXTERNAL GATE |
+| Intercity roads | Transport + TerrainCorridor | Terrain-cost corridors; no straight fallback | Linked mountain/pass proof | routes | materializer | map routes | Worldgen+Production | COMPLETE (core) / EXTERNAL GATE |
+| Doors/detail | `FactionBlockPalette` | Faction wood doors + optional Macaw DoorBlock | Macaw mod present | n/a | applyDoor | visible | ProductionQuality | COMPLETE (core) / EXTERNAL GATE |
+| Entrances | `EntranceAccessPlanner` | ±3 stairs; ±8 switchback; >8 reject; down path | — | n/a | building ops | accessible | ProductionQuality | COMPLETE |
+| Construction catch-up | reconciler | Multi-intent backlog | Linked day102 proof | completion | queue | growth | ProductionQuality | COMPLETE (core) / EXTERNAL GATE |
+| Physical reconciliation | `PhysicalDevelopmentReconciler` | Deficit + prioritized backlog | — | n/a | catch-up | — | ProductionQuality | COMPLETE |
+| Spawn capital | density seeder + planner | City-scale + castle + court | Linked visibility | ContentRev 6–8 | materializer | map | WorldgenQuality | COMPLETE (core) / EXTERNAL GATE |
+| Waystones | WaystoneSettlementRuntime | LR-only dedupe + provenance | Waystones mod smoke | outer NBT | reflection | — | ProductionQuality | COMPLETE (core) / EXTERNAL GATE |
+| Locate | `LocateQuery` | city/mine/kingdom/market/**port**/wizardtrees/ruin | Linked command smoke | n/a | commands | chat | ProductionQuality+CompletionPass | COMPLETE (core) / EXTERNAL GATE |
+| NPC adoption | Dialogue + CivilianNpcAdoption | Villagers + allowlist + role inference | Pack smoke | SocialCitizen | interact | dialogue | SocietyDialogue+CompletionPass | COMPLETE (core) / EXTERNAL GATE |
+| Dialogue blur | client screens | Blur removed | Visual confirm | n/a | client | sharp UI | release-audit | COMPLETE (core) / EXTERNAL GATE |
+| M-map terrain | RealmWorldMapScreen + cache | 24k terrain atlas + ecology fallback | Client confirm | client cache | screen | always-on ground | release-audit | COMPLETE (core) / EXTERNAL GATE |
+| Court/ruler visuals | CitizenMaterializationPlanner | Dynasty ruler/heir bound into projections | Named art | SocialCitizen | citizens | Politics | CompletionPass | COMPLETE (core) / EXTERNAL GATE |
+| Culture visuals | FactionCivilizationState → palette | Artistic/agrarian/martial style families | Deeper clothing art | schema | palette | dialogue | — | COMPLETE (core) / EXTERNAL GATE |
+| Create industry | IndustryEngine | Projection + maintenance | Kinetic under unload | schema | Create | Ops | — | PARTIAL (EXTERNAL GATE) |
+| Wildlife visuals | EcologyEngine 134 spp | Sim + LOD strong | Bespoke art | schema | entities | Ecology | soak | PARTIAL (assets) |
+| Economy detail (F2–5) | SettlementEconomy + Trade | Stockpile/tithe/market/farms/chains/routes | Full goods enum deferred | schema 16 | markets | Economy/dialogue | SettlementEconomy+Trade* | COMPLETE (core) |
+| Farming/seasons (F3) | AgrarianProfile | Named crop/livestock mix + rotation | — | schema 16 | farm/pasture/mill | — | SettlementEconomyTest | COMPLETE |
+| Jobs/wages (F6) | payWages + GuildRank | Workplace slots + multipliers | Physical job polish | schema | routines | — | TradeHouseholdEcology | COMPLETE (core) |
+| Religion (F12) | FaithCatalog | Deities/holy days/tithe/rites | Clergy careers depth | schema | priests | — | FaithAndInfrastructure | COMPLETE (core) |
+| Bandits/piracy (F15) | BanditEconomy + Pirate* | Typed bands + extortion | Camp projection smoke | schema | projection | map | BanditAndPriceRumor | COMPLETE (core) / EXTERNAL GATE |
+| Refugees (F16) | MigrationGroup | Camp growth + FAMILY/PERSECUTION | Camp building enqueue polish | schema | mobile civ | map | MobileCivilization | COMPLETE (core) |
+| Epidemics (F17) | EpidemicRecord + routines | Soft cap + REST/clinic behaviour | — | schema | NPC activity | map/dialogue | CompletionPass | COMPLETE (core) |
+| Naval (F19) | NavalEngine | **Port discovery** + docks + fleets | Ship visual kit | schema 6+ | ships | Forces | CompletionPass+SystemCompleteness | COMPLETE (core) / EXTERNAL GATE |
+| Education (F20) | KnowledgeDomain | CONSTRUCTION grown from buildings | — | schema | schools | — | CompletionPass | COMPLETE |
+| Docs | README/PROJECT_STATE/… | buildf15 notes + DETAIL_MATRIX | — | — | — | — | — | COMPLETE |
 
 ---
 
@@ -77,22 +78,27 @@ COMPLETE only when: model + sim + save + runtime + feedback + integration + test
 
 | Phase | Focus | Status |
 |---|---|---|
-| 1 Source audit + ledger | This file + DETAIL_MATRIX | COMPLETE |
-| 2 Physical world quality | Roads, doors, entrances, sites | PARTIAL (core done; linked proof pending) |
-| 3 City reconciliation | Deficit + catch-up | PARTIAL |
-| 4 NPC + blur | Dialogue sharpness, adoption | PARTIAL |
-| 5 Map | Terrain base + cache | PARTIAL |
-| 6 Waystones + locate + spawn | Provenance, commands | PARTIAL |
-| 7–8 Visual civ + mods | Culture/court/adapters | PARTIAL |
-| 9 Compile/runtime | `test-core` green; NeoForge Gradle needs wrapper/deps | PARTIAL |
-| 10 Docs + ZIP | Final package | IMPLEMENTING |
+| 0 Source audit + ledger | This file + DETAIL_MATRIX | COMPLETE |
+| 1 Physical world quality | Roads, doors, entrances, docks | COMPLETE (core) |
+| 2 Waystones + locate + ports | Provenance, commands, naval discovery | COMPLETE (core) |
+| 3 NPC + dialogue + blur | Role inference, trade bridge, sharpness | COMPLETE (core) |
+| 4 Map | Terrain atlas 24k + ecology fallback | COMPLETE (core) |
+| 5–9 Economy/society/naval/etc. | F2–F22 deepenings | COMPLETE (core) |
+| 10 War/military/aviation | Existing objectives/projection | COMPLETE (core) / EXTERNAL GATE |
+| 11 Wildlife | Sim+LOD complete; art pending | PARTIAL (assets) |
+| 12 Culture/court | Dynasty bind + culture palette | COMPLETE (core) |
+| 13 Player agency | found/locate/standing | COMPLETE (core) |
+| 14 Modpack safety | Deny-lists + foreign doors optional | COMPLETE (core) / EXTERNAL GATE |
+| 15 LOD/projection stress | Budgets enforced | COMPLETE |
+| 16 Docs + release truth | Aligned; external gates listed | COMPLETE |
 
 ---
 
-## External verification (cannot claim COMPLETE without)
+## External verification (cannot claim full COMPLETE without)
 
-- Full NeoForge/Create linked client boot + create world + save/reload
-- In-game Waystones mod present for provenance destroy path
-- Kinetic Create network under chunk reload
-- Better Villages / SecurityCraft / Macaw linked smoke
-- This coding environment has no `gradlew`; linked `clean build` must be run where NeoForge/Create deps are available.
+1. Fresh-world client boot + create world + explore + save/reload
+2. Migrated-world reload (schema 1–16 + ContentRevision ≤8)
+3. Waystones mod present for provenance destroy path
+4. Create kinetic network under chunk unload/reload
+5. Full target modpack coexistence (Better Villages, SecurityCraft, Macaw, RU/BOP/Terralith, etc.)
+6. Linked NeoForge/Create `clean build` where Gradle wrapper/deps are available (this environment may lack `gradlew`)

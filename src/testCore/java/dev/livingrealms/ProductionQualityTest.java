@@ -61,6 +61,10 @@ public final class ProductionQualityTest {
         check(EntranceAccessPlanner.canRepair(70, 64), "six-block grade must be repairable");
         List<EntranceAccessPlanner.AccessFix> steep = EntranceAccessPlanner.plan(0, -5, 70, 64);
         check(steep.size() >= 6, "steep entrance must produce switchback/retaining fixes");
+        check(EntranceAccessPlanner.isExtremeSite(80, 70), "grades beyond 8 must be extreme");
+        check(EntranceAccessPlanner.plan(0, -5, 80, 70).isEmpty(), "extreme sites must reject rather than invent stairs");
+        check(EntranceAccessPlanner.plan(0, -5, 64, 70).stream().anyMatch(f -> f.slot() == PaletteSlot.PATH),
+                "down-grade steep entrances must include a path landing");
     }
 
     private static void physicalCatchupBacklog() {

@@ -1,6 +1,6 @@
 # Living Realms — Definition of Done matrix
 
-**Checkpoint:** v3.0.0-rc4 production-hardening pass — see `IMPLEMENTATION_LEDGER.md`. Schema **16**, protocol **14**, ContentRevision **8**.
+**Checkpoint:** v3.0.0-rc4 buildf15 A–Z production completion — see `IMPLEMENTATION_LEDGER.md`. Schema **16**, protocol **14**, ContentRevision **8**.
 
 A subsystem is **COMPLETE** only when its authoritative model, simulation rules, persistence/migration, Minecraft runtime projection, player feedback/UI, required content/assets, and regression tests are all complete. `CORE VERIFIED` is deliberately not the same as complete.
 
@@ -24,7 +24,7 @@ A subsystem is **COMPLETE** only when its authoritative model, simulation rules,
 | Animal behaviour | ✅ utility brain + explicit morphology/locomotion | ✅ hunt/flee/defend/migrate/social | ✅ through populations | ✅ ground/water/amphibious/flying navigation | n/a | 🟡 morphology families exist; bespoke animations/textures incomplete | ✅ | PARTIAL |
 | Biomes/habitats | ✅ 25 archetypes + spatial ecology regions | ✅ exploration discovery/classification | ✅ schema 8 centers | ✅ overlay mapping for vanilla/BOP/Terralith/modded biomes; no biome-source replacement by design | ✅ Ecology tab | n/a — existing worldgen stack remains authoritative | ✅ classifier + colonization + 3650-day biodiversity gates | COMPLETE (singleplayer core; linked runtime smoke pending globally) |
 | Aviation | ✅ | ✅ | ✅ | 🟡 aircraft entity projection | ✅ Forces-tab air-wing status/mission/readiness | 🟡 generic aircraft | ✅ | PARTIAL (assets/runtime smoke pending) |
-| Naval systems | ✅ ports/fleets/classes | ✅ production/movement/combat/blockade/raiding/amphibious capacity | ✅ schema 6 | ✅ bounded ship projection + physical loss accounting | ✅ Forces-tab fleet/port/composition/readiness/supply status | 🟡 generic ship visual, no physical port kit | ✅ | PARTIAL (assets/runtime smoke pending) |
+| Naval systems | ✅ ports/fleets/classes | ✅ production/movement/combat/blockade/raiding/amphibious + geography port discovery | ✅ schema 6 | ✅ bounded ship projection + dock intents + physical loss accounting | ✅ Forces-tab fleet/port/composition/readiness/supply status | 🟡 generic ship visual; dock blueprint present | ✅ CompletionPass port/locate gates | PARTIAL (assets/runtime smoke pending) |
 | Player reputation/faction membership | ✅ per-faction reputation/membership/rank/service | ✅ join/leave/promotion/expulsion/crime effects | ✅ schema 6+ | ✅ runtime commands + crime/combat-service hooks | ✅ contextual dashboard Join/Leave + standing feedback | n/a | ✅ authorization/spoof tests | COMPLETE (singleplayer core; boot smoke pending globally) |
 | Bounty hunters | ✅ contract/assignment/capture | ✅ | ✅ | ✅ bounded NPC hunter runtime | ✅ interactive Law-tab bounty board + command fallback | 🟡 generic hunter visual | ✅ | PARTIAL (assets/runtime smoke pending) |
 | Singleplayer client/integrated-server sync | ✅ bounded immutable dashboard snapshot | ✅ authoritative request/response + canonical action service | server save | 🟡 NeoForge custom payloads implemented; linked integrated-server runtime test pending | ✅ dashboard + Law actions | n/a | ✅ codec/bounds/action authorization; integrated-runtime smoke pending | PARTIAL |

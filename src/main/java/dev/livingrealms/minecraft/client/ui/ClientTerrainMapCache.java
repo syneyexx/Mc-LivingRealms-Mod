@@ -14,7 +14,8 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * force-loads. Discovery is not required — any loaded column can paint terrain immediately.
  */
 public final class ClientTerrainMapCache {
-    private static final int MAX_ENTRIES=12_000;
+    /** Bounded offline tile atlas — raised for denser M-map paint without unbounded growth. */
+    private static final int MAX_ENTRIES=24_000;
     private static final Map<Long,Sample> CACHE=new LinkedHashMap<>(256,0.75f,true){
         @Override protected boolean removeEldestEntry(Map.Entry<Long,Sample> eldest){return size()>MAX_ENTRIES;}
     };

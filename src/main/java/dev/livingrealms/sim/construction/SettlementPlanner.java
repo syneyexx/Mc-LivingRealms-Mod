@@ -65,6 +65,10 @@ public final class SettlementPlanner {
             addCityWalls(out,faction,settlement,baseRotation);
         }
         if(tier>=Settlement.Tier.TOWN.ordinal()&&faction.technology()>=.35)addCivic(out,faction,settlement,layout,baseRotation,StructureRole.FACTORY,0,19,15,78);
+        // Coastal / harbour-suitable settlements get a physical dock so naval ports have a visible berth.
+        if(tier>=Settlement.Tier.VILLAGE.ordinal()&&settlement.geography().shipSuitable()){
+            addCivic(out,faction,settlement,layout,baseRotation,StructureRole.DOCK,0,17,11,118);
+        }
         if(tier>=Settlement.Tier.CITY.ordinal()&&faction.technology()>=.75){
             SimPosition edge=local(settlement,baseRotation,132,-96);
             addAt(out,faction,settlement,StructureRole.AIRFIELD,0,edge,25,70,baseRotation,64);
@@ -186,7 +190,7 @@ public final class SettlementPlanner {
     private static SimPosition civicPoint(Settlement settlement,Layout layout,StructureRole role){
         int r=Math.floorMod((int)mix(settlement.id()^0x4F1BBCDCBFA54001L),2);
         double[] p=switch(role){
-            case KEEP->new double[]{-18,-18};case MARKET->new double[]{18,18};case WAREHOUSE->new double[]{-30,28};case BARRACKS->new double[]{30,-30};case WORKSHOP->new double[]{54,18};case FACTORY->new double[]{86,54};case WELL->new double[]{0,18};case IRRIGATION->new double[]{92,44};case AQUEDUCT->new double[]{-126,32};case TAVERN->new double[]{30,28};case TEMPLE->new double[]{-32,-30};case CLINIC->new double[]{54,-18};case SCHOOL->new double[]{-54,18};case COURTHOUSE->new double[]{-18,54};case PRISON->new double[]{54,54};case ORPHANAGE->new double[]{-54,54};case MONUMENT->new double[]{18,0};case OBSERVATORY->new double[]{-96,-78};case MILL->new double[]{72,-28};case BAKERY->new double[]{42,42};case BREWERY->new double[]{-42,42};default->new double[]{0,0};};
+            case KEEP->new double[]{-18,-18};case MARKET->new double[]{18,18};case WAREHOUSE->new double[]{-30,28};case BARRACKS->new double[]{30,-30};case WORKSHOP->new double[]{54,18};case FACTORY->new double[]{86,54};case WELL->new double[]{0,18};case IRRIGATION->new double[]{92,44};case AQUEDUCT->new double[]{-126,32};case TAVERN->new double[]{30,28};case TEMPLE->new double[]{-32,-30};case CLINIC->new double[]{54,-18};case SCHOOL->new double[]{-54,18};case COURTHOUSE->new double[]{-18,54};case PRISON->new double[]{54,54};case ORPHANAGE->new double[]{-54,54};case MONUMENT->new double[]{18,0};case OBSERVATORY->new double[]{-96,-78};case MILL->new double[]{72,-28};case BAKERY->new double[]{42,42};case BREWERY->new double[]{-42,42};case DOCK->new double[]{0,72};default->new double[]{0,0};};
         if(layout==Layout.WARDS){p=new double[]{p[0]+Math.signum(p[0])*8,p[1]};}
         else if(layout==Layout.BOULEVARD){p=new double[]{p[0],p[1]+Math.signum(p[1])*8};}
         return local(settlement,r,p[0],p[1]);

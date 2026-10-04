@@ -1,6 +1,8 @@
 package dev.livingrealms.minecraft.construction;
 
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
+import dev.livingrealms.minecraft.SimulationRuntime;
+import dev.livingrealms.sim.civilization.FactionCivilizationState;
 import dev.livingrealms.sim.construction.AuthoredBlockLedger;
 import dev.livingrealms.sim.construction.BuildApplyResult;
 import dev.livingrealms.sim.construction.BuildOperation;
@@ -318,7 +320,7 @@ public final class SettlementConstructionMaterializer {
             return applyDoor(level,job,pos,current,ledger);
         }
 
-        BlockState target=FactionBlockPalette.state(job.intent().factionId(),operation.slot());
+        BlockState target=paletteState(level,job,operation.slot());
         if(current.equals(target)) {
             ledger.record(pos.getX(),pos.getY(),pos.getZ());
             return BuildApplyResult.ALREADY_CORRECT;
@@ -341,8 +343,14 @@ public final class SettlementConstructionMaterializer {
         return BuildApplyResult.APPLIED;
     }
 
+    private static BlockState paletteState(ServerLevel level,ConstructionJob job,PaletteSlot slot){
+        FactionCivilizationState civ=SimulationRuntime.data(level.getServer()).state().findFactionCivilization(job.intent().factionId()).orElse(null);
+        if(civ==null)return FactionBlockPalette.state(job.intent().factionId(),slot);
+        return FactionBlockPalette.state(job.intent().factionId(),slot,civ.artisticTradition(),civ.agrarianTradition(),civ.martialTradition());
+    }
+
     private static BuildApplyResult applyDoor(ServerLevel level,ConstructionJob job,BlockPos pos,BlockState current,AuthoredBlockLedger ledger){
-        BlockState doorBase=FactionBlockPalette.state(job.intent().factionId(),PaletteSlot.DOOR);
+        BlockState doorBase=paletteState(level,job,PaletteSlot.DOOR);
         if(!(doorBase.getBlock() instanceof DoorBlock)){
             if(current.isAir())return BuildApplyResult.ALREADY_CORRECT;
             if(!safeToClear(current,ledger,pos))return BuildApplyResult.OBSTRUCTED_PROTECTED;

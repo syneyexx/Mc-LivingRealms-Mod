@@ -1,10 +1,12 @@
 # Living Realms project state
 
-**Checkpoint:** v3.0.0-rc4 production-hardening pass (release truth + construction integrity)
+**Checkpoint:** v3.0.0-rc4 A–Z production completion pass (buildf15)
 
 ## Current production state
 - Starter density target is **32** settlements per surface realm (~380+ with Wizard Trees) including fertile rural hamlets; physical entities/blocks remain player-local and budgeted.
 - Local settlement economy (schema **16**): barn/granary/stockpile, seasonal farms/pastures, agrarian crop mix, faith calendars, route upkeep, typed bandits, trader price rumors.
+- Naval ports are discovered from ship-suitable geography; coastal settlements plan docks; locate-port works after discovery.
+- Court projections bind dynasty ruler/heir identities; foreign NPC adoption infers roles; dialogue OPEN_TRADE quotes local/realm markets.
 - See `docs/DETAIL_MATRIX.md` for per-detail masterplan status.
 - Settlement streets are orthogonal/connected and include residential side streets + sidewalks; houses use cottage/longhouse/townhouse/porch variants and towns/cities add multi-storey apartment blocks with density-compressed housing capacity.
 - Construction completion requires physically acceptable required geometry (`StructureMaterializationReceipt`). Decorative skips are allowed; missing foundation/wall/door/path is not.

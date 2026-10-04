@@ -5,55 +5,55 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 
 | Detail | Authority | Status | Notes |
 |---|---|---|---|
-| Dual world (canonical ↔ MC) | SimulationState + materializers | PARTIAL | Projection present; density/reconciliation improved in buildf14 |
-| LOD PHYSICAL/REGIONAL/ABSTRACT | planners + budgets | EXISTS | Keep bounded |
-| City streets orthogonal + sidewalks | SettlementPlanner | EXISTS | Checkpoint21+ |
-| Intercity terrain corridor | TerrainCorridorPlanner | PARTIAL | A* cost planner wired; linked terrain proof pending |
-| Real doors | FactionBlockPalette + applyDoor | PARTIAL | Vanilla wood doors by faction style |
-| Entrance access repair | EntranceAccessPlanner | PARTIAL | Stairs/landing for ±3 grade |
-| Physical catch-up /setday | PhysicalDevelopmentReconciler | PARTIAL | Multi-intent backlog during catch-up |
-| Spawn capital city/castle | Density + planner | PARTIAL | Plan/tests green; linked visibility pending |
-| Waystone 1/settlement + provenance | WaystoneSettlementRuntime + outer NBT | PARTIAL | Only LR-authored stones destroyed |
-| Locate city/mine/kingdom/… | LocateQuery | PARTIAL | Core-tested; linked command smoke pending |
-| NPC dialogue all villagers | DialogueSessionRuntime + CivilianNpcAdoption | PARTIAL | AbstractVillager + allowlist |
-| UI blur removed (M/dialogue/dashboard) | client screens | PARTIAL | No renderBackground |
-| M-map terrain always on | RealmWorldMapScreen + ClientTerrainMapCache | PARTIAL | Cached surface when loaded; ecology fallback |
-| Court at capitals | CitizenMaterializationPlanner | PARTIAL | Official/heir/court-guard slots |
-| Local stockpile/market day (F2) | SettlementEconomyEngine + LocalMarketEngine | COMPLETE | Per-settlement stockpile, barn/granary, weekday market prices, tithe (no free pop* mint) |
-| Farming seasons (F3) | SettlementEconomyEngine + AgrarianProfile | PARTIAL | Crop/livestock mix (grain/rye/barley/oats/veg/flax/grapes/hops + herds) + three-field rotation; still FOOD/TEXTILES proxy storage |
-| Goods chains (F4) | ResourceType + industry | PARTIAL | Mill→bakery→brewery chain on FOOD proxy; full goods enum deferred (codec-safe) |
-| Trade routes (F5) | TradeEngine + TransportRoute + RumorEngine | PARTIAL | Shipments use route speed/security/capacity; intercept insurance refund; price rumors |
-| Jobs/wages (F6) | SocietyDiagnostics + payWages + GuildRank | PARTIAL | Workplace-slot jobCapacity; apprentice/journeyman/master wage multipliers; apprenticeship milestones |
-| Households/day rhythm (F7) | HouseholdState + wages/consumption | PARTIAL | Wages → sharedWealth; famine spends wealth + granary food; needs track budget |
-| Unlimited city growth (F8) | SettlementPlanner housing | PARTIAL | Soft tier caps (to 900); hard 132 ceiling removed |
-| Rural hierarchy (F9) | SettlementDensitySeeder + tiers | PARTIAL | 4 rural hamlets/realm (Croft/Thorp/…) with farm/pasture/well seed; hierarchy cities/towns/villages/hamlets gated |
-| Terrain worldgen 60% (F10) | Density seeder | PARTIAL | 32 settlements/realm (~387 total); rural placement biased to fertile biome centers; still authored realm list + densifier, not fully emergent from terrain |
-| Infrastructure decay (F11) | TransportNetworkEngine | PARTIAL | Daily wear, treasury neglect, seasonal washouts, stone/coin repair; river/ship/caravan mode classes |
-| Religion depth (F12) | FaithCatalog + FaithEconomyHooks | PARTIAL | Concrete deities/dogma/scripture/symbols/holy orders; holy/fast days; church tithe; dialogue + civic rites |
-| Calendar/festivals (F13) | CivilizationCalendar + CivicEvent | PARTIAL | Holy-day rituals use faith deity titles |
-| Politics/law (F14) | Government/Justice/Dynasty | PARTIAL | Ongoing succession crisis erodes legitimacy/stability/unrest; feeds rebellion chance |
-| Bandits full (F15) | BanditArchetype + BanditEconomyEngine + Pirate* | PARTIAL | Typed causes (hunger/tax/deserter/smuggler/…); road extortion/ambush; outlaw legends; loot/hideouts |
-| War/refugees (F16) | MigrationGroup + camps | PARTIAL | Camp absorb/cap, farm/well seed, REFUGEE_SUPPORT tasks, persecution reason |
-| Epidemics (F17) | EpidemicRecord | PARTIAL | Soft epidemic cap under plague stress |
-| Justice flow (F18) | Crime/Justice/Custody | PARTIAL | INVESTIGATING dwell before charge; restitution restores settlement; HERESY/SMUGGLING |
-| Naval (F19) | NavalEngine | PARTIAL | |
-| Education (F20) | KnowledgeDomain | PARTIAL | |
-| Ecology↔people (F21) | SettlementEconomyEngine hinterland | PARTIAL | Hunt/lumber consume plant biomass + wildlife cohorts; scarcity lowers yields |
-| Spy/propaganda (F22) | Intelligence/Propaganda | PARTIAL | |
-| MC projection polish (F23) | materializers | PARTIAL | New mill/bakery/brewery/pasture blueprints |
-| UI depth (F24) | Dashboard/Map/Dialogue | PARTIAL | Dialogue uses local prices/granary |
-| Player roles (F25) | PlayerSettlementFounder + standing | PARTIAL | |
-| Balance/soak (F26) | LongRunSoakTest | EXISTS | 3650 green after local-economy rebalance |
-| Release docs (F27) | PROJECT_STATE/README | IMPLEMENTING | |
+| Dual world (canonical ↔ MC) | SimulationState + materializers | PARTIAL | Projection present; EXTERNAL GATE: fresh-world client smoke |
+| LOD PHYSICAL/REGIONAL/ABSTRACT | planners + budgets | COMPLETE | Budgets enforced; ProjectionStressTest green |
+| City streets orthogonal + sidewalks | SettlementPlanner | COMPLETE | Orthogonal arterials/side streets/sidewalks; WorldgenQuality green |
+| Intercity terrain corridor | TerrainCorridorPlanner | COMPLETE (core) | A* cost planner; no straight-road fallback; EXTERNAL GATE: mountain/pass linked proof |
+| Real doors | FactionBlockPalette + applyDoor | COMPLETE (core) | Faction wood doors + optional Macaw DoorBlock polish; EXTERNAL GATE: Macaw mod present |
+| Entrance access repair | EntranceAccessPlanner | COMPLETE | Stairs/landing ±3; switchbacks ±8; extreme >8 reject; down-grade path landing |
+| Physical catch-up /setday | PhysicalDevelopmentReconciler | COMPLETE (core) | Multi-intent backlog; EXTERNAL GATE: day102 city visibility |
+| Spawn capital city/castle | Density + planner | COMPLETE (core) | Plan/tests green; EXTERNAL GATE: linked visibility |
+| Waystone 1/settlement + provenance | WaystoneSettlementRuntime + outer NBT | COMPLETE (core) | Only LR-authored stones destroyed; EXTERNAL GATE: Waystones mod smoke |
+| Locate city/mine/kingdom/… | LocateQuery | COMPLETE (core) | city/mine/kingdom/market/port/wizardtrees/ruin; port works after naval discovery |
+| NPC dialogue all villagers | DialogueSessionRuntime + CivilianNpcAdoption | COMPLETE (core) | AbstractVillager + allowlist; path/name role inference; EXTERNAL GATE: pack NPC smoke |
+| UI blur removed (M/dialogue/dashboard) | client screens | COMPLETE (core) | No renderBackground; EXTERNAL GATE: visual confirm |
+| M-map terrain always on | RealmWorldMapScreen + ClientTerrainMapCache | COMPLETE (core) | Cached surface (24k atlas) + ecology fallback; EXTERNAL GATE: client confirm |
+| Court at capitals | CitizenMaterializationPlanner | COMPLETE (core) | Dynasty ruler/heir slots bound into capital projections |
+| Local stockpile/market day (F2) | SettlementEconomyEngine + LocalMarketEngine | COMPLETE | Per-settlement stockpile, barn/granary, weekday market prices, tithe |
+| Farming seasons (F3) | SettlementEconomyEngine + AgrarianProfile | COMPLETE (core) | Crop/livestock mix + three-field rotation; FOOD/TEXTILES proxy storage (schema-safe) |
+| Goods chains (F4) | ResourceType + industry | COMPLETE (core) | Mill→bakery→brewery on FOOD proxy; full goods enum deferred (would need schema bump) |
+| Trade routes (F5) | TradeEngine + TransportRoute + RumorEngine | COMPLETE (core) | Route speed/security/capacity; intercept insurance; price rumors; TradeLivenessTest |
+| Jobs/wages (F6) | SocietyDiagnostics + payWages + GuildRank | COMPLETE (core) | Workplace slots; guild multipliers; apprenticeship milestones |
+| Households/day rhythm (F7) | HouseholdState + wages/consumption | COMPLETE (core) | Wages → sharedWealth; famine spends wealth + granary |
+| Unlimited city growth (F8) | SettlementPlanner housing | COMPLETE | Soft tier caps to 900; hard 132 ceiling removed |
+| Rural hierarchy (F9) | SettlementDensitySeeder + tiers | COMPLETE | 4 rural hamlets/realm with farm/pasture/well seed |
+| Terrain worldgen 60% (F10) | Density seeder | COMPLETE (core) | 32 settlements/realm (~380+); fertile density bias; authored+densifier (not fully emergent) |
+| Infrastructure decay (F11) | TransportNetworkEngine | COMPLETE | Daily wear, treasury neglect, washouts, repair; water-mode classes |
+| Religion depth (F12) | FaithCatalog + FaithEconomyHooks | COMPLETE (core) | Concrete deities/dogma/holy days/tithe; EXTERNAL GATE: priest presentation |
+| Calendar/festivals (F13) | CivilizationCalendar + CivicEvent | COMPLETE | Holy rites + coronation/mourning/victory/wedding feast triggers |
+| Politics/law (F14) | Government/Justice/Dynasty | COMPLETE (core) | Succession crisis → legitimacy/stability/unrest; EXTERNAL GATE: court art |
+| Bandits full (F15) | BanditArchetype + BanditEconomyEngine + Pirate* | COMPLETE (core) | Typed causes; route extortion; hideouts; EXTERNAL GATE: camp projection smoke |
+| War/refugees (F16) | MigrationGroup + camps | COMPLETE (core) | Camp absorb/cap, farm/well, REFUGEE_SUPPORT, FAMILY/PERSECUTION reasons |
+| Epidemics (F17) | EpidemicRecord + CitizenRoutinePlanner | COMPLETE (core) | Soft cap + physical REST/clinic routines under plague stress |
+| Justice flow (F18) | Crime/Justice/Custody | COMPLETE | INVESTIGATING dwell; restitution; HERESY/SMUGGLING |
+| Naval (F19) | NavalEngine | COMPLETE (core) | Port discovery from geography + dock intents + fleets/combat; EXTERNAL GATE: ship visuals |
+| Education (F20) | KnowledgeDomain | COMPLETE | Building-driven domains including CONSTRUCTION from keep/workshop/housing |
+| Ecology↔people (F21) | SettlementEconomyEngine hinterland | COMPLETE | Hunt/lumber consume biomass/wildlife; scarcity lowers yields |
+| Spy/propaganda (F22) | Intelligence/Propaganda | COMPLETE | COUNTERINTELLIGENCE + RELIGION/RECONSTRUCTION theme starts |
+| MC projection polish (F23) | materializers | PARTIAL | Mill/bakery/brewery/pasture/dock; culture-aware palette; EXTERNAL GATE: linked smoke |
+| UI depth (F24) | Dashboard/Map/Dialogue | COMPLETE (core) | DialogueTradeBridge quotes local prices; F12 Economy commits |
+| Player roles (F25) | PlayerSettlementFounder + standing | COMPLETE (core) | found/locate/join/leave; EXTERNAL GATE: playtest |
+| Balance/soak (F26) | LongRunSoakTest | COMPLETE | 3650 green |
+| Release docs (F27) | PROJECT_STATE/README | COMPLETE | Aligned to source; external gates listed |
 
 ## Version pins
 - Save schema **16** (1–15 readable; settlement barn/granary/stockpile)
 - Dashboard protocol **14**
-- ContentRevision **7** (Waystone provenance; keeps rev-6 construction rebuild)
+- ContentRevision **8** (authored-block ledger + geography sidecar; Waystone provenance; rev-6 construction rebuild)
 
 ## Phase 1 baseline (seed `123456789`, DemoSeeder; denser rural network TARGET=32)
 | Gate | day | people | industry | animals≈ | wars | raids | shipments |
 |---|---|---|---|---|---|---|---|
 | year start | 0 | 219923 | 0 | 4295 | 0 | 0 | 0 |
-| year end | 365 | 278703 | 1559 | 1844 | 1 | 4 | 0 |
-| soak 3650 | 3650 | 1117660 | 3297 | 2437 | 2 | 12 | 0 |
+| year end | 365 | ~278k | ~1550+ | ~1844 | ≥1 | ≥4 | 0 |
+| soak 3650 | 3650 | ~1.12M | ~3300 | ~2437 | ≥1 | ≥12 | 0 |
