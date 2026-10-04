@@ -171,14 +171,7 @@ public final class FinalProductSystemsTest {
 
     private static SimulationState seeded(long seed) {
         SimulationState state = new SimulationState(seed);
-        if (state.factions().isEmpty()) {
-            Faction f = new Faction(state.nextId(), "TestRealm", "Test Ruler");
-            f.restoreTreasury(500);
-            Settlement s = new Settlement(state.nextId(), "Testburg", new SimPosition(0, 0), 500, 520);
-            f.addSettlement(s);
-            f.addArmy(new Army(state.nextId(), f.id(), s.position(), 60));
-            state.addFaction(f);
-        }
+        DemoSeeder.seed(state);
         return state;
     }
 
