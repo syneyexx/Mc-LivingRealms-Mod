@@ -84,7 +84,7 @@ public final class OrganicMorphologyAndCauseTest {
     }
 
     private static void causeExplainerAndDashboardProtocol15() {
-        check(RealmDashboardSnapshot.PROTOCOL_VERSION == 15, "dashboard protocol must be 15");
+        check(RealmDashboardSnapshot.PROTOCOL_VERSION == 16, "dashboard protocol must be 16");
         SimulationState state = new SimulationState(44L);
         DemoSeeder.seed(state);
         Faction faction = state.factions().getFirst();
@@ -94,13 +94,14 @@ public final class OrganicMorphologyAndCauseTest {
         String cause = WorldCauseExplainer.settlementPressureCause(state, faction, settlement);
         check(cause != null && !cause.isBlank(), "cause explainer must return text");
         var snap = RealmDashboardBuilder.build(state, "player:test", settlement.position());
-        check(snap.protocolVersion() == 15, "builder emits protocol 15");
+        check(snap.protocolVersion() == 16, "builder emits protocol 16");
         check(!snap.settlements().isEmpty(), "snapshot has settlements");
         check(snap.settlements().stream().anyMatch(s -> s.causeSummary() != null && !s.causeSummary().isBlank()),
                 "settlement views must include cause summaries");
+        check(snap.operations().assistanceTasks() != null, "operations must expose assistance task board");
         String json = RealmDashboardCodec.encode(snap);
         var round = RealmDashboardCodec.decode(json);
-        check(round.protocolVersion() == 15, "codec roundtrip keeps protocol 15");
+        check(round.protocolVersion() == 16, "codec roundtrip keeps protocol 16");
         check(round.settlements().getFirst().causeSummary().equals(snap.settlements().getFirst().causeSummary()),
                 "cause summary must survive codec roundtrip");
     }

@@ -28,7 +28,7 @@ public record RealmDashboardSnapshot(
         StrategicMapView map,
         List<HistoryView> history
 ) {
-    public static final int PROTOCOL_VERSION = 15;
+    public static final int PROTOCOL_VERSION = 16;
 
     public RealmDashboardSnapshot {
         if (protocolVersion != PROTOCOL_VERSION) throw new IllegalArgumentException("protocolVersion");
@@ -127,9 +127,12 @@ public record RealmDashboardSnapshot(
     }
 
 
-    public record OperationsView(List<ShipmentView> shipments,List<RouteOpsView> routes,List<IndustryOpsView> industry){
-        public OperationsView{shipments=List.copyOf(shipments==null?List.of():shipments);routes=List.copyOf(routes==null?List.of():routes);industry=List.copyOf(industry==null?List.of():industry);}
-        public static OperationsView empty(){return new OperationsView(List.of(),List.of(),List.of());}
+    public record OperationsView(List<ShipmentView> shipments,List<RouteOpsView> routes,List<IndustryOpsView> industry,List<AssistanceTaskView> assistanceTasks){
+        public OperationsView{shipments=List.copyOf(shipments==null?List.of():shipments);routes=List.copyOf(routes==null?List.of():routes);industry=List.copyOf(industry==null?List.of():industry);assistanceTasks=List.copyOf(assistanceTasks==null?List.of():assistanceTasks);}
+        public static OperationsView empty(){return new OperationsView(List.of(),List.of(),List.of(),List.of());}
+    }
+    public record AssistanceTaskView(long id,String settlement,String type,String cause,double remainingPressure,double progress,long expiresDay){
+        public AssistanceTaskView{if(id<=0)throw new IllegalArgumentException("task id");settlement=safe(settlement);type=safe(type);cause=safe(cause);remainingPressure=bounded(remainingPressure);progress=bounded(progress);expiresDay=Math.max(0,expiresDay);}
     }
     public record ShipmentView(long id,String seller,String buyer,String resource,double amount,double value,double progress,double distanceBlocks){
         public ShipmentView{seller=safe(seller);buyer=safe(buyer);resource=safe(resource);amount=Math.max(0,finite(amount));value=Math.max(0,finite(value));progress=bounded(progress);distanceBlocks=Math.max(0,finite(distanceBlocks));}

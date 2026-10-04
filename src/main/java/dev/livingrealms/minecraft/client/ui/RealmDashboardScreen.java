@@ -484,6 +484,13 @@ public final class RealmDashboardScreen extends Screen {
             lines.add(dim(site.status()+" • condition "+pct(site.condition())+" • utilization "+pct(site.utilization())+" • cycles "+site.cycles()+" • downtime "+site.downtimeDays()+"d",1));
         }
         if(ops.industry().isEmpty())lines.add(dim("No industrial sites for this realm.",0));
+        lines.add(header("Assistance contracts"));
+        for(var t:ops.assistanceTasks()){
+            lines.add(text("#"+t.id()+" "+titleCase(t.type())+" @ "+t.settlement()+" • "+pct(t.progress())+" done"));
+            lines.add(dim("Pressure left "+pct(t.remainingPressure())+" • expires day "+t.expiresDay()+" • "+t.cause(),1));
+            lines.add(dim("Deliver verified goods with /livingrealms assist deliver",2));
+        }
+        if(ops.assistanceTasks().isEmpty())lines.add(dim("No open assistance contracts for this realm.",0));
         return lines;
     }
 

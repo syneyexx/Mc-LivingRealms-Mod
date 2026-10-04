@@ -108,8 +108,8 @@ network_version=str_const(net,'NETWORK_VERSION')
 content_revision=int_const(saved_data_for_rev,'CONTENT_REVISION')
 require(schema_version==16,f'save schema must be 16 (source currently {schema_version})')
 require(min_schema==1,f'min supported schema must remain 1 (source {min_schema})')
-require(dashboard_protocol==15,f'dashboard protocol must be 15 (source {dashboard_protocol})')
-require(network_version=='13',f'network registration version must be 13 (source {network_version!r})')
+require(dashboard_protocol==16,f'dashboard protocol must be 16 (source {dashboard_protocol})')
+require(network_version=='14',f'network registration version must be 14 (source {network_version!r})')
 require(content_revision==10,f'content revision must be 10 (source {content_revision})')
 
 
@@ -216,7 +216,8 @@ require((root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphol
 require('COASTAL_PORT' in (root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').read_text() and 'HILL_TOWN' in (root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').read_text(),'morphology catalog must include coastal/hill patterns')
 cause_explainer=root/'src/main/java/dev/livingrealms/sim/society/WorldCauseExplainer.java'
 require(cause_explainer.exists() and 'settlementPressureCause' in cause_explainer.read_text(),'player-facing WorldCauseExplainer must exist')
-require('causeSummary' in (root/'src/main/java/dev/livingrealms/sim/ui/RealmDashboardSnapshot.java').read_text(),'dashboard protocol 15 must expose settlement cause summaries')
+require('causeSummary' in (root/'src/main/java/dev/livingrealms/sim/ui/RealmDashboardSnapshot.java').read_text(),'dashboard must expose settlement cause summaries')
+require('AssistanceTaskView' in (root/'src/main/java/dev/livingrealms/sim/ui/RealmDashboardSnapshot.java').read_text(),'dashboard protocol 16 must expose assistance task board')
 require('case PLAZA' in (root/'src/main/java/dev/livingrealms/sim/construction/StructureBlueprintFactory.java').read_text() or 'PLAZA ->' in (root/'src/main/java/dev/livingrealms/sim/construction/StructureBlueprintFactory.java').read_text(),'civic plazas must have blueprints')
 require('PaletteSlot.LIGHT' in (root/'src/main/java/dev/livingrealms/sim/construction/StructureBlueprintFactory.java').read_text() and 'road_with_sidewalks' in (root/'src/main/java/dev/livingrealms/sim/construction/StructureBlueprintFactory.java').read_text(),'roads must place street lighting on sidewalks')
 require('AuthoredBlockLedger' in saved_data or 'authoredBlocks' in saved_data,'SavedData must persist authored construction provenance outside schema payload')

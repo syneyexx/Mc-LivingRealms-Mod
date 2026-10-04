@@ -24,19 +24,19 @@
 - Full bundled species-pack audit passes: **134 species** with explicit morphology/locomotion fields and a validated food web.
 - Strategic completeness suite passes.
 - 3650-day deterministic soak now has explicit persistence/invariant gates at day 30, 365 and 3650, plus a biodiversity floor.
-- Save schema is **16**; schemas 1-15 remain readable. Schema 16 persists per-settlement barn/granary capacity and local stockpiles. Dashboard snapshot protocol is **14**. Outer Minecraft `ContentRevision=9` packs typed ownership into the authored-block ledger (legacy type bits=0 ⇒ SETTLEMENT_STRUCTURE) and keeps Waystone provenance + revision-6 layout rebuild.
-- `ConstructionIntegrityTest` and `TradeLivenessTest` are mandatory core gates.
+- Save schema is **16**; schemas 1-15 remain readable. Schema 16 persists per-settlement barn/granary capacity and local stockpiles. Dashboard snapshot protocol is **16** (settlement cause summaries + Ops assistance task board). Network registration is **14**. Outer Minecraft `ContentRevision=10` rebuilds morphology completion keys once and keeps typed authored-block ownership + Waystone provenance.
+- `ConstructionIntegrityTest`, `TradeLivenessTest` and `OrganicMorphologyAndCauseTest` are mandatory core gates.
 
 ## Explicit status claim
 **CODE COMPLETE / EXTERNAL GATE UNVERIFIED**
 
 Proven in this pass:
-- full core suite green (`CivicHolyDayFestivalTest`, `AssistanceContributionTest`, `RefugeeCampConstructionTest` + prior 32)
-- release-audit green (schema16 / protocol14 / content9 + festival/aid authorities)
-- linked NeoForge/Create `clean --no-build-cache build` green for commit `0bf2740` → `livingrealms-3.0.0-rc4.jar`
-- holy-day civic rites fire on actual faith calendar days; festival decorations use `AuthoredOwnerType.CIVIC_FESTIVAL` with cleanup
-- player assistance contributions are inventory-verified (`/livingrealms assist`) and mutate canonical settlement pressure
-- refugee camps enqueue pending house/farm/road intents for physical materialization (well remains seeded)
+- full core suite green (**36** tests including `OrganicMorphologyAndCauseTest` + 3650-day soak)
+- release-audit green (schema16 / protocol16 / net14 / content10 + morphology/cause/task-board authorities)
+- geography-derived `SettlementMorphology` street patterns, plazas, sidewalk lights; `WorldCauseExplainer` on F12 Society + dialogue
+- night curfew / low-order nightlife; ship class visuals; wildlife mass scaling; terrain cliff/pad rejection
+- holy-day civic rites + festival decorations + verified assistance + refugee camp enqueue remain intact
+- linked NeoForge/Create build must be re-run on this tip (prior tip was green)
 
 Still unverified externally:
 - fresh-world / migrated-world client smoke
