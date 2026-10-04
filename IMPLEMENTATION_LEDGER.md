@@ -64,7 +64,9 @@ Where linked Minecraft smoke is required, status is **COMPLETE (core) / EXTERNAL
 | Economy detail (F2–5) | SettlementEconomy + Trade | Stockpile/tithe/market/farms/chains/routes | Full goods enum deferred | schema 16 | markets | Economy/dialogue | SettlementEconomy+Trade* | COMPLETE (core) |
 | Farming/seasons (F3) | AgrarianProfile | Named crop/livestock mix + rotation | — | schema 16 | farm/pasture/mill | — | SettlementEconomyTest | COMPLETE |
 | Jobs/wages (F6) | payWages + GuildRank | Workplace slots + multipliers | Physical job polish | schema | routines | — | TradeHouseholdEcology | COMPLETE (core) |
-| Religion (F12) | FaithCatalog | Deities/holy days/tithe/rites | Clergy careers depth | schema | priests | — | FaithAndInfrastructure | COMPLETE (core) |
+| Religion (F12) | FaithCatalog | Deities/holy days/tithe/rites + holy-order patrol | Clergy careers depth | schema | priests | — | FaithAndInfrastructure+CivicHolyDay | COMPLETE (core) |
+| Festivals (F13) | CivicEvent + CivicFestival* | Exact-day holy rites + temporary decorations | Client visual confirm | ledger sidecar | CivicFestivalMaterializer | dialogue | CivicHolyDayFestivalTest | COMPLETE (core) / EXTERNAL GATE |
+| Assistance aid (F25+) | AssistanceTask + AssistanceContributionEngine | Verified inventory delivery mutates pressure | Dashboard task board UI | schema 16 tasks | `/livingrealms assist` | dialogue OFFER_TASK | AssistanceContributionTest | COMPLETE (core) / EXTERNAL GATE |
 | Bandits/piracy (F15) | BanditEconomy + Pirate* | Typed bands + extortion | Camp projection smoke | schema | projection | map | BanditAndPriceRumor | COMPLETE (core) / EXTERNAL GATE |
 | Refugees (F16) | MigrationGroup | Camp growth + FAMILY/PERSECUTION | Camp building enqueue polish | schema | mobile civ | map | MobileCivilization | COMPLETE (core) |
 | Epidemics (F17) | EpidemicRecord + routines | Soft cap + REST/clinic behaviour | — | schema | NPC activity | map/dialogue | CompletionPass | COMPLETE (core) |

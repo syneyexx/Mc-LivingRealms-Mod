@@ -191,14 +191,16 @@ public final class NaturalLanguageDialogueEngine {
     private static String answerOpinion(SocialCitizen c,String playerKey,long day){CitizenRelationship r=c.relationship(playerKey);double score=r.sentiment();if(score>.45)return compose(c,day,"like",List.of("I trust you","You've treated me well","I think well of you"))+".";if(score<-.35)return compose(c,day,"dislike",List.of("I don't trust you","You've given me reason to be wary","I'd rather keep my distance from you"))+".";return compose(c,day,"neutral",List.of("I haven't made up my mind about you","I don't know you well enough yet","You're still a stranger to me"))+".";}
     private static String answerHelp(SimulationState state,SocialCitizen c,Settlement s,Faction f,long day,List<DialogueAction> actions){
         Optional<AssistanceTask> task=state.assistanceTasks().stream().filter(AssistanceTask::active).filter(t->t.settlementId()==s.id()).max(Comparator.comparingDouble(AssistanceTask::remainingPressure));
-        if(task.isPresent()){AssistanceTask t=task.get();actions.add(new DialogueAction(DialogueActionType.OFFER_TASK,"task:"+t.id(),s.position(),t.remainingPressure()));return switch(t.type()){
-            case MEDICAL_AID -> "There is a real medical shortage here. The sick need medicine, clean water and help for our healers.";
-            case SECURITY_SUPPORT -> "The roads and homes are under real pressure from bandits or disorder. Help the guards make this place safer.";
-            case REFUGEE_SUPPORT -> "Displaced families are arriving faster than we can support them. They need food, safety and shelter.";
-            case FOOD_RELIEF -> "Our food stores are genuinely short. Bringing provisions would help the whole settlement.";
-            case WATER_SUPPLY -> "Clean water is our immediate problem. Wells, water supplies or safer water infrastructure would help.";
-            case HOUSING_SUPPLIES -> "We are short on housing. Builders need timber, stone and room to put roofs over people.";
-            case TRADE_ESCORT -> "Trade is being hurt by unsafe routes. An escort or clearing threats along the road would matter.";
+        if(task.isPresent()){AssistanceTask t=task.get();actions.add(new DialogueAction(DialogueActionType.OFFER_TASK,"task:"+t.id(),s.position(),t.remainingPressure()));
+            String deliver=" Deliver verified goods nearby with /livingrealms assist deliver (task #"+t.id()+"); talk alone cannot complete it.";
+            return switch(t.type()){
+            case MEDICAL_AID -> "There is a real medical shortage here. Cloth and medical supplies would help our healers."+deliver;
+            case SECURITY_SUPPORT -> "The roads and homes are under real pressure from bandits or disorder. Iron for the guard and clearing threats would help."+deliver;
+            case REFUGEE_SUPPORT -> "Displaced families are arriving faster than we can support them. They need food, safety and shelter."+deliver;
+            case FOOD_RELIEF -> "Our food stores are genuinely short. Bring bread or provisions to the settlement."+deliver;
+            case WATER_SUPPLY -> "Clean water is our immediate problem. Cloth, sanitation supplies or safer water infrastructure would help."+deliver;
+            case HOUSING_SUPPLIES -> "We are short on housing. Builders need timber to put roofs over people."+deliver;
+            case TRADE_ESCORT -> "Trade is being hurt by unsafe routes. Iron for escorts or clearing threats along the road would matter."+deliver;
         };}
         SettlementCivilizationState civ=state.ensureSettlementCivilization(s.id(),f.id());String need;double pressure;if(civ.diseasePressure()>.58){need="medical:"+s.id();pressure=civ.diseasePressure();}else if(civ.banditPressure()>.50){need="security:"+s.id();pressure=civ.banditPressure();}else if(civ.refugeePressure()>.50){need="refugees:"+s.id();pressure=civ.refugeePressure();}else{double min=Math.min(c.needs().hunger(),Math.min(c.needs().safety(),c.needs().comfort()));need=(min==c.needs().hunger()?"food":min==c.needs().safety()?"safety":"supplies")+":"+s.id();pressure=1-min;}actions.add(new DialogueAction(DialogueActionType.OFFER_TASK,need,s.position(),pressure));if(need.startsWith("medical"))return "Sickness is putting pressure on people here. Medicine, clean water or help for healers would matter.";if(need.startsWith("security"))return "Banditry and disorder are becoming a problem. The roads and homes need protection.";if(need.startsWith("refugees"))return "Displaced people need food, safety and somewhere to settle.";if(need.startsWith("food"))return "If you want to help, food would matter more than words right now.";if(need.startsWith("safety"))return "The roads and homes need to be safer. Help the guards or deal with nearby threats.";return "Builders and families could use supplies. Ask around the settlement.";
     }

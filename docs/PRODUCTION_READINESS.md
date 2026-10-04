@@ -1,7 +1,7 @@
 # Living Realms v3.0.0-rc4 production readiness
 
 ## Status
-**Production candidate, not yet release-complete.** The dependency-linked build and first real full-modpack boot/world-generation smoke have succeeded externally on Windows. Buildfix7 fixed the first biome-climate crash. Buildfix9 fixed the later flying-wildlife attribute crash. **Buildfix10** adds the fixed target-modpack integration layer, 12-kingdom/216-settlement density, M world map, creative item catalog, physical civilian jobs and foreign village/structure adoption. A fresh full-modpack retest is mandatory.
+**Production candidate, not yet release-complete.** Headless core suite is **34** tests green, including holy-day civic rites, festival decoration planning, and verified assistance contributions. The dependency-linked build and first real full-modpack boot/world-generation smoke have succeeded externally on Windows for prior RC4 tips. A fresh full-modpack retest and a linked rebuild of this exact commit remain mandatory before claiming release-complete.
 
 ## Green automated gates
 - Java 21 core compilation with `--release 21 -Xlint:all -Werror`.

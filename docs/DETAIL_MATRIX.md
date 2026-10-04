@@ -29,8 +29,8 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 | Rural hierarchy (F9) | SettlementDensitySeeder + tiers | COMPLETE | 4 rural hamlets/realm with farm/pasture/well seed |
 | Terrain worldgen 60% (F10) | Density seeder | COMPLETE (core) | 32 settlements/realm (~380+); fertile density bias; authored+densifier (not fully emergent) |
 | Infrastructure decay (F11) | TransportNetworkEngine | COMPLETE | Daily wear, treasury neglect, washouts, repair; water-mode classes |
-| Religion depth (F12) | FaithCatalog + FaithEconomyHooks | COMPLETE (core) | Concrete deities/dogma/holy days/tithe; EXTERNAL GATE: priest presentation |
-| Calendar/festivals (F13) | CivilizationCalendar + CivicEvent | COMPLETE | Holy rites + coronation/mourning/victory/wedding feast triggers |
+| Religion depth (F12) | FaithCatalog + FaithEconomyHooks + holy-order patrol | COMPLETE (core) | Concrete deities/dogma/holy days/tithe; monthly holy-order presence reduces bandit pressure; EXTERNAL GATE: priest presentation |
+| Calendar/festivals (F13) | CivilizationCalendar + CivicEvent + CivicFestivalMaterializer | COMPLETE (core) | Holy rites fire on actual holy days (day/day+1 vs clock); temporary CIVIC_FESTIVAL decorations + cleanup; siege/epidemic suppress festive types; EXTERNAL GATE: client visual confirm |
 | Politics/law (F14) | Government/Justice/Dynasty | COMPLETE (core) | Succession crisis → legitimacy/stability/unrest; EXTERNAL GATE: court art |
 | Bandits full (F15) | BanditArchetype + BanditEconomyEngine + Pirate* | COMPLETE (core) | Typed causes; route extortion; hideouts; EXTERNAL GATE: camp projection smoke |
 | War/refugees (F16) | MigrationGroup + camps | COMPLETE (core) | Camp absorb/cap, farm/well, REFUGEE_SUPPORT, FAMILY/PERSECUTION reasons |

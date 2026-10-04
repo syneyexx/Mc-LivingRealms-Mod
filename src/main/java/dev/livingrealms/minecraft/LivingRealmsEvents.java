@@ -38,6 +38,8 @@ import dev.livingrealms.minecraft.law.FactionContainerTheftRuntime;
 import dev.livingrealms.minecraft.civilization.HiddenCacheRuntime;
 import dev.livingrealms.minecraft.civilization.HistoricalSiteRuntime;
 import dev.livingrealms.minecraft.civilization.PirateHideoutRuntime;
+import dev.livingrealms.minecraft.civilization.PlayerAssistanceRuntime;
+import dev.livingrealms.minecraft.construction.CivicFestivalMaterializer;
 import dev.livingrealms.minecraft.network.DashboardRequestLimiter;
 import dev.livingrealms.minecraft.network.DashboardActionLimiter;
 import dev.livingrealms.minecraft.network.DialogueRequestLimiter;
@@ -113,6 +115,7 @@ public final class LivingRealmsEvents {
             CustodyRuntime.tick(event.getServer(), data);
             CitizenConversationRuntime.tick(event.getServer(), data, tickCounter);
             HistoricalSiteMaterializer.tick(event.getServer().overworld(), data);
+            CivicFestivalMaterializer.tick(event.getServer().overworld(), data);
             SettlementGeographyDiscoveryRuntime.tick(event.getServer().overworld(), data);
         }
         // Construction is budgeted every tick; only loaded chunks near players are touched.
@@ -262,6 +265,7 @@ public final class LivingRealmsEvents {
         SettlementConstructionMaterializer.clear();
         SettlementGeographyDiscoveryRuntime.clear();
         HistoricalSiteMaterializer.clear();
+        CivicFestivalMaterializer.clear();
         ForeignStructureDiscoveryRuntime.clear();
         tickCounter = 0;
         appliedSpeciesRevision = -1;
@@ -427,6 +431,33 @@ public final class LivingRealmsEvents {
                     }))
                     .then(Commands.literal("abandon").executes(ctx -> {
                         ServerPlayer player=ctx.getSource().getPlayerOrException();var data=SimulationRuntime.data(ctx.getSource().getServer());var state=data.state();String actor=CrimeRuntime.actorKey(player);var contract=state.bounties().stream().filter(b->b.status()==dev.livingrealms.sim.law.BountyContract.Status.ASSIGNED&&b.hunterKey().equals(actor)).findFirst().orElse(null);if(contract==null){ctx.getSource().sendFailure(Component.literal("You have no assigned bounty."));return 0;}var result=state.abandonBounty(contract.id(),actor);if(!result.success()){ctx.getSource().sendFailure(Component.literal("Could not abandon bounty: "+result.reason()));return 0;}data.setDirty();ctx.getSource().sendSuccess(()->Component.literal("Bounty #"+contract.id()+" returned to the board."),false);return 1;
+                    })))
+                .then(Commands.literal("assist")
+                    .then(Commands.literal("board").executes(ctx -> {
+                        ServerPlayer player=ctx.getSource().getPlayerOrException();
+                        var state=SimulationRuntime.data(ctx.getSource().getServer()).state();
+                        String board=PlayerAssistanceRuntime.describeNearby(state,new SimPosition(player.getX(),player.getZ()));
+                        ctx.getSource().sendSuccess(()->Component.literal(board),false);
+                        return 1;
+                    }))
+                    .then(Commands.literal("deliver").executes(ctx -> {
+                        ServerPlayer player=ctx.getSource().getPlayerOrException();
+                        var data=SimulationRuntime.data(ctx.getSource().getServer());
+                        var result=PlayerAssistanceRuntime.contributeNearest(data.state(),CrimeRuntime.actorKey(player),player,new SimPosition(player.getX(),player.getZ()));
+                        if(!result.success()){ctx.getSource().sendFailure(Component.literal(result.message()));return 0;}
+                        if(result.dirty())data.setDirty();
+                        ctx.getSource().sendSuccess(()->Component.literal(result.message()),false);
+                        return 1;
+                    }))
+                    .then(Commands.argument("taskId", LongArgumentType.longArg(1L)).executes(ctx -> {
+                        ServerPlayer player=ctx.getSource().getPlayerOrException();
+                        var data=SimulationRuntime.data(ctx.getSource().getServer());
+                        long taskId=LongArgumentType.getLong(ctx,"taskId");
+                        var result=PlayerAssistanceRuntime.contribute(data.state(),CrimeRuntime.actorKey(player),player,new SimPosition(player.getX(),player.getZ()),taskId);
+                        if(!result.success()){ctx.getSource().sendFailure(Component.literal(result.message()));return 0;}
+                        if(result.dirty())data.setDirty();
+                        ctx.getSource().sendSuccess(()->Component.literal(result.message()),false);
+                        return 1;
                     })))
                 .then(Commands.literal("found")
                     .then(Commands.argument("name", StringArgumentType.greedyString()).executes(ctx -> {

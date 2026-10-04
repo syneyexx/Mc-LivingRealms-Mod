@@ -1,6 +1,6 @@
 # Living Realms project state
 
-**Checkpoint:** v3.0.0-rc4 A–Z production completion pass (buildf15)
+**Checkpoint:** v3.0.0-rc4 A–Z autonomous deepen (holy-day rites + festival projection + assistance delivery)
 
 ## Current production state
 - Starter density target is **32** settlements per surface realm (~380+ with Wizard Trees) including fertile rural hamlets; physical entities/blocks remain player-local and budgeted.
@@ -31,14 +31,16 @@
 **CODE COMPLETE / EXTERNAL GATE UNVERIFIED**
 
 Proven in this pass:
-- full core suite (29 tests) green
-- release-audit green
-- linked NeoForge/Create `clean --no-build-cache build` green → `build/libs/livingrealms-3.0.0-rc4.jar` + `RELEASE_MANIFEST.json`
+- full core suite (**34 tests**) green, including `CivicHolyDayFestivalTest` + `AssistanceContributionTest`
+- release-audit green (schema16 / protocol14 / content9 + new festival/aid authorities)
+- holy-day civic rites fire on actual faith calendar days (not only day%30); festival decorations use `AuthoredOwnerType.CIVIC_FESTIVAL` with cleanup
+- player assistance contributions are inventory-verified (`/livingrealms assist`) and mutate canonical settlement pressure
 
 Still unverified externally:
 - fresh-world / migrated-world client smoke
 - full target modpack coexistence
 - Waystones / Create kinetic / chunk-unload stress in a real client session
+- linked NeoForge/Create rebuild on this exact commit (prior tip was green; re-verify required)
 
 ## Ecology/world integration
 - Ecosystem regions now have canonical world centers instead of existing only as abstract biome buckets.

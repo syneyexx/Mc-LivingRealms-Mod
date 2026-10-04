@@ -1,6 +1,6 @@
 # Living Realms — Definition of Done matrix
 
-**Checkpoint:** v3.0.0-rc4 production completion — see `IMPLEMENTATION_LEDGER.md`. Schema **16**, protocol **14**, ContentRevision **9**.
+**Checkpoint:** v3.0.0-rc4 autonomous deepen (holy-day festivals + assistance delivery) — see `IMPLEMENTATION_LEDGER.md`. Schema **16**, protocol **14**, ContentRevision **9**. Core suite **34** tests.
 
 A subsystem is **COMPLETE** only when its authoritative model, simulation rules, persistence/migration, Minecraft runtime projection, player feedback/UI, required content/assets, and regression tests are all complete. `CORE VERIFIED` is deliberately not the same as complete.
 
