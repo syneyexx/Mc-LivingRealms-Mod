@@ -193,7 +193,7 @@ public final class LivingRealmsEvents {
         if(event.getTarget() instanceof AbstractVillager villager&&!player.isShiftKeyDown()){DialogueSessionRuntime.open(player,villager);event.setCanceled(true);return;}
         // Broader allowlisted civilian adapters (Better Villages / village-derived humanoids). Never hostiles.
         if(!player.isShiftKeyDown()&&dev.livingrealms.minecraft.compat.CivilianNpcAdoption.isAdoptableCivilian(event.getTarget())){
-            DialogueSessionRuntime.openAdopted(player,event.getTarget(),dev.livingrealms.sim.civilian.CitizenRole.TRADER);
+            DialogueSessionRuntime.openAdopted(player,event.getTarget(),dev.livingrealms.minecraft.compat.CivilianNpcAdoption.inferRole(event.getTarget()));
             event.setCanceled(true);
         }
     }

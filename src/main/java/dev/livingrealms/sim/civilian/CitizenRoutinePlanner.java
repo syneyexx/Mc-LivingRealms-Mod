@@ -16,6 +16,7 @@ public final class CitizenRoutinePlanner {
         List<ConstructionIntent> all=new ArrayList<>(SettlementPlanner.plan(faction,settlement));all.addAll(PrimaryEconomyPlanner.plan(state,faction,settlement));
         List<ConstructionIntent> completed=all.stream().filter(i->settlement.isConstructionCompleted(i.key())).toList();
         int time=Math.floorMod(dayTimeTicks,24000);if(time>=12500||time<1000)return nightRoutine(state,settlement,role,slot,completed);
+        CitizenRoutine epidemic=epidemicRoutine(state,settlement,role,slot,completed);if(epidemic!=null)return epidemic;
         CitizenRoutine civic=civicRoutine(state,settlement,role,slot,completed);if(civic!=null)return civic;
         CitizenRoutine commute=commuteViaStreet(state,settlement,role,slot,completed);
         if(commute!=null)return commute;
@@ -40,6 +41,21 @@ public final class CitizenRoutinePlanner {
             case SPY -> at(selectAny(completed,slot,List.of(StructureRole.TAVERN,StructureRole.MARKET,StructureRole.KEEP)),CitizenActivity.INFILTRATE,settlement,.92);
             case BUILDER -> builder(state,faction,settlement,slot);
         };
+    }
+
+    /** Under plague stress, non-essential roles stay home or seek the clinic instead of commuting freely. */
+    private static CitizenRoutine epidemicRoutine(SimulationState state,Settlement settlement,CitizenRole role,int slot,List<ConstructionIntent> completed){
+        if(role==CitizenRole.HEALER||role==CitizenRole.GUARD)return null;
+        boolean outbreak=state.epidemics().stream().anyMatch(e->e.active()&&e.settlementId()==settlement.id());
+        SettlementCivilizationState civ=state.findSettlementCivilization(settlement.id()).orElse(null);
+        double pressure=civ==null?0:civ.diseasePressure();
+        if(!outbreak&&pressure<.55)return null;
+        long mix=state.seed()^settlement.id()*0x9E3779B97F4A7C15L^slot*31L^state.clock().day();
+        if(((mix>>>11)&3L)==0L){
+            ConstructionIntent clinic=select(completed,slot,StructureRole.CLINIC);
+            if(clinic!=null)return at(clinic,CitizenActivity.HEAL,settlement,.72);
+        }
+        return at(select(completed,slot,StructureRole.HOUSE),CitizenActivity.REST,settlement,.70);
     }
 
     private static CitizenRoutine civicRoutine(SimulationState state,Settlement settlement,CitizenRole role,int slot,List<ConstructionIntent> completed){

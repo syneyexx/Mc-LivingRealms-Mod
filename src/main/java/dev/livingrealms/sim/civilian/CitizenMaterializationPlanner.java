@@ -1,7 +1,10 @@
 package dev.livingrealms.sim.civilian;
 
+import dev.livingrealms.sim.civilization.DynastyState;
 import dev.livingrealms.sim.faction.*;
+import dev.livingrealms.sim.social.SocialCitizen;
 import dev.livingrealms.sim.world.SimPosition;
+import dev.livingrealms.sim.world.SimulationState;
 import java.util.*;
 
 /**
@@ -12,6 +15,11 @@ public final class CitizenMaterializationPlanner {
     private CitizenMaterializationPlanner(){}
 
     public static List<CitizenProjection> plan(Collection<Faction> factions,Collection<SimPosition> players,double radius,int globalBudget){
+        return plan(null,factions,players,radius,globalBudget);
+    }
+
+    /** State-aware plan binds capital court slots to dynasty ruler/heir projection identities when present. */
+    public static List<CitizenProjection> plan(SimulationState state,Collection<Faction> factions,Collection<SimPosition> players,double radius,int globalBudget){
         Objects.requireNonNull(factions,"factions");Objects.requireNonNull(players,"players");
         if(radius<=0||!Double.isFinite(radius)||globalBudget<0)throw new IllegalArgumentException("planner config");
         if(players.isEmpty()||globalBudget==0)return List.of();
@@ -27,7 +35,35 @@ public final class CitizenMaterializationPlanner {
         }
         candidates.sort(Comparator.comparingDouble(Candidate::distance).thenComparingLong(c->c.settlement().id()));
         List<CitizenProjection> out=new ArrayList<>();int remaining=globalBudget;
-        for(Candidate candidate:candidates){int allowed=Math.min(candidate.desired(),remaining);for(int slot=0;slot<allowed;slot++)out.add(new CitizenProjection(candidate.faction().id(),candidate.settlement().id(),slot,roleFor(candidate.faction(),candidate.settlement(),slot,allowed),candidate.settlement().position()));remaining-=allowed;if(remaining<=0)break;}
+        for(Candidate candidate:candidates){
+            int allowed=Math.min(candidate.desired(),remaining);
+            if(allowed<=0)break;
+            Set<Integer> usedSlots=new HashSet<>();
+            int emitted=0;
+            // Bind dynasty court identities first so capitals project the real ruler/heir, not proxies.
+            if(state!=null&&isCapital(candidate.faction(),candidate.settlement())&&candidate.settlement().tier().ordinal()>=Settlement.Tier.TOWN.ordinal()){
+                DynastyState dynasty=state.dynasties().get(candidate.faction().id());
+                if(dynasty!=null){
+                    SocialCitizen ruler=dynasty.rulerCitizenId()>0?state.findSocialCitizen(dynasty.rulerCitizenId()).filter(SocialCitizen::alive).orElse(null):null;
+                    SocialCitizen heir=dynasty.heirCitizenId()>0?state.findSocialCitizen(dynasty.heirCitizenId()).filter(SocialCitizen::alive).orElse(null):null;
+                    if(emitted<allowed&&ruler!=null&&ruler.settlementId()==candidate.settlement().id()&&usedSlots.add(ruler.projectionSlot())){
+                        out.add(new CitizenProjection(candidate.faction().id(),candidate.settlement().id(),ruler.projectionSlot(),ruler.role()==CitizenRole.PRIEST?CitizenRole.PRIEST:CitizenRole.OFFICIAL,candidate.settlement().position()));
+                        emitted++;
+                    }
+                    if(emitted<allowed&&heir!=null&&heir.settlementId()==candidate.settlement().id()&&heir.id()!=(ruler==null?0:ruler.id())&&usedSlots.add(heir.projectionSlot())){
+                        out.add(new CitizenProjection(candidate.faction().id(),candidate.settlement().id(),heir.projectionSlot(),CitizenRole.OFFICIAL,candidate.settlement().position()));
+                        emitted++;
+                    }
+                }
+            }
+            for(int slot=0;emitted<allowed&&slot<allowed+128;slot++){
+                if(!usedSlots.add(slot))continue;
+                out.add(new CitizenProjection(candidate.faction().id(),candidate.settlement().id(),slot,roleFor(candidate.faction(),candidate.settlement(),slot,allowed),candidate.settlement().position()));
+                emitted++;
+            }
+            remaining-=emitted;
+            if(remaining<=0)break;
+        }
         return List.copyOf(out);
     }
 
@@ -41,12 +77,14 @@ public final class CitizenMaterializationPlanner {
             if(courtIndex==0)return CitizenRole.OFFICIAL; // ruler / regent representative
             if(courtIndex==1)return CitizenRole.OFFICIAL; // heir / consort representative
             if(courtIndex==2)return CitizenRole.GUARD;    // court guard
-            if(courtIndex==3)return CitizenRole.PRIEST;   // court chaplain when temples exist, else falls through
+            // Court chaplain only when a temple actually exists.
+            if(courtIndex==3&&settlement.completedConstruction().stream().anyMatch(k->k.startsWith("temple:")))return CitizenRole.PRIEST;
         }
         List<CitizenRole> roles=new ArrayList<>(List.of(CitizenRole.FARMER,CitizenRole.HUNTER,CitizenRole.ARTISAN,CitizenRole.TRADER,CitizenRole.BUILDER,CitizenRole.OFFICIAL));
         if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("mine:")))roles.add(CitizenRole.MINER);
         if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("lumber_camp:"))){roles.add(CitizenRole.LUMBERJACK);roles.add(CitizenRole.CARPENTER);}
         if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("fishery:"))){roles.add(CitizenRole.FISHER);roles.add(CitizenRole.SAILOR);}
+        if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("dock:"))){roles.add(CitizenRole.DOCKWORKER);roles.add(CitizenRole.SAILOR);}
         if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("clinic:")))roles.add(CitizenRole.HEALER);
         if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("market:")||k.startsWith("warehouse:")))roles.add(CitizenRole.BUTCHER);
         if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("temple:")))roles.add(CitizenRole.PRIEST);

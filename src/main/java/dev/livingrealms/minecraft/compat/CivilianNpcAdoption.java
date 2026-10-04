@@ -1,5 +1,7 @@
 package dev.livingrealms.minecraft.compat;
 
+import dev.livingrealms.sim.civilian.CitizenRole;
+import dev.livingrealms.sim.civilian.CivilianRoleInference;
 import java.util.Locale;
 import java.util.Set;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -24,7 +26,8 @@ public final class CivilianNpcAdoption {
             "medieval_buildings"
     );
     private static final Set<String> ALLOWED_PATH_HINTS=Set.of(
-            "villager","villager_", "nitwit","wanderer","civilian","townsperson","townsfolk","peasant","merchant","trader","citizen"
+            "villager","villager_", "nitwit","wanderer","civilian","townsperson","townsfolk","peasant","merchant","trader","citizen",
+            "farmer","guard","priest","cleric","blacksmith","miner","fisher","baker","brewer","scholar","librarian"
     );
     private static final Set<String> DENIED_PATH_HINTS=Set.of(
             "zombie","skeleton","pillager","vindicator","evoker","ravager","witch","illusioner","piglin","hoglin","warden","raider"
@@ -46,5 +49,14 @@ public final class CivilianNpcAdoption {
         for(String hint:ALLOWED_PATH_HINTS)if(path.contains(hint))return true;
         // Namespace allowlisted villagers/civilians with generic names still need a humanoid-ish path.
         return ALLOWED_NAMESPACES.contains(ns)&&(path.contains("npc")||path.contains("person")||path.contains("human"));
+    }
+
+    /** Infer a Living Realms role from entity registry path / custom name. */
+    public static CitizenRole inferRole(Entity entity){
+        if(entity==null)return CitizenRole.TRADER;
+        ResourceLocation id=BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+        String path=id==null?"":id.getPath();
+        String name=entity.hasCustomName()?entity.getCustomName().getString():"";
+        return CivilianRoleInference.fromSignals(path,name);
     }
 }

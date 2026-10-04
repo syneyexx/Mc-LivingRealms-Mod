@@ -13,6 +13,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -107,7 +108,7 @@ public final class CompatibleContentRuntime {
             ResourceLocation id=BuiltInRegistries.BLOCK.getKey(block);if(id==null||!usableBuildingNamespace(id.getNamespace()))continue;
             BlockState state=block.defaultBlockState();if(state.hasBlockEntity())continue;
             String path=id.getPath().toLowerCase(Locale.ROOT);
-            for(PaletteSlot slot:List.of(PaletteSlot.FOUNDATION,PaletteSlot.FLOOR,PaletteSlot.WALL,PaletteSlot.BEAM,PaletteSlot.ROOF,PaletteSlot.GLASS,PaletteSlot.FENCE,PaletteSlot.PATH,PaletteSlot.LIGHT))
+            for(PaletteSlot slot:List.of(PaletteSlot.FOUNDATION,PaletteSlot.FLOOR,PaletteSlot.WALL,PaletteSlot.BEAM,PaletteSlot.ROOF,PaletteSlot.GLASS,PaletteSlot.FENCE,PaletteSlot.PATH,PaletteSlot.LIGHT,PaletteSlot.DOOR))
                 if(matchesBlock(slot,path,state))out.get(slot).add(block);
         }
         for(var list:out.values())list.sort(Comparator.comparing(b->String.valueOf(BuiltInRegistries.BLOCK.getKey(b))));
@@ -142,7 +143,7 @@ public final class CompatibleContentRuntime {
         return ModCompatibilityPolicy.find(namespace).map(e->e.usableByLivingWorld()&&(e.category()==ModCompatibilityPolicy.Category.COMBAT||e.category()==ModCompatibilityPolicy.Category.MAGIC||e.category()==ModCompatibilityPolicy.Category.CONTENT)).orElse(true);
     }
     private static boolean supportsForeignPalette(PaletteSlot slot){return switch(slot){
-        case FOUNDATION,FLOOR,WALL,BEAM,ROOF,GLASS,FENCE,PATH,LIGHT -> true;
+        case FOUNDATION,FLOOR,WALL,BEAM,ROOF,GLASS,FENCE,PATH,LIGHT,DOOR -> true;
         default -> false;
     };}
     private static boolean matchesBlock(PaletteSlot slot,String path,BlockState state){
@@ -156,6 +157,8 @@ public final class CompatibleContentRuntime {
             case ROOF -> path.contains("roof")||path.contains("shingle")||path.contains("thatch");
             case PATH -> path.contains("path")||path.contains("paving")||path.contains("pavement")||path.contains("road");
             case LIGHT -> (path.contains("lamp")||path.contains("light")||path.contains("lantern"))&&state.getLightEmission()>0;
+            // Optional Macaw/mod doors: only real DoorBlock types, never trapdoors or gates.
+            case DOOR -> state.getBlock() instanceof DoorBlock && path.contains("door") && !path.contains("trap") && !path.contains("gate");
             default -> false;
         };
     }

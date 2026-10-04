@@ -14,6 +14,7 @@ dev.livingrealms.ProductionHardeningTest
 dev.livingrealms.LivingWorldDensityTest
 dev.livingrealms.WorldgenQualityTest
 dev.livingrealms.ProductionQualityTest
+dev.livingrealms.ProductionCompletionPassTest
 dev.livingrealms.SocietyDialogueTest
 dev.livingrealms.RumorNetworkTest
 dev.livingrealms.SocietyInfrastructureTest

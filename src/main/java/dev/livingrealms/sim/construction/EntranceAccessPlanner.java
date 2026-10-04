@@ -65,7 +65,10 @@ public final class EntranceAccessPlanner {
                 int xOff = (i % 3 == 0) ? 1 : 0;
                 out.add(new AccessFix(doorLocalX + xOff, doorFloorY + (depth - i), doorLocalZ - i, PaletteSlot.FOUNDATION));
             }
+            // Symmetric landing path so down-grade doors also meet a walkable sidewalk slot.
+            out.add(new AccessFix(doorLocalX, doorFloorY, doorLocalZ - 1, PaletteSlot.PATH));
         }
+        // |delta| > 8: extreme site — intentionally empty so callers can reject / re-site.
         return List.copyOf(out);
     }
 
@@ -76,5 +79,10 @@ public final class EntranceAccessPlanner {
     /** True when the planner can produce a walkable repair for the grade difference. */
     public static boolean canRepair(int doorFloorY, int approachY) {
         return Math.abs(doorFloorY - approachY) <= 8;
+    }
+
+    /** True when grade is beyond switchback repair and the site should be rejected or re-sited. */
+    public static boolean isExtremeSite(int doorFloorY, int approachY) {
+        return Math.abs(doorFloorY - approachY) > 8;
     }
 }

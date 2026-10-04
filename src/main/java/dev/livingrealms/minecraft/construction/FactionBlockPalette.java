@@ -14,14 +14,35 @@ public final class FactionBlockPalette {
     private FactionBlockPalette() {}
 
     public static BlockState state(long factionId, PaletteSlot slot) {
+        return state(factionId, slot, cultureStyle(factionId, 0, 0, 0));
+    }
+
+    /**
+     * Culture-aware palette: artistic/agrarian/martial tradition nudges the deterministic wood/stone
+     * family so realms read differently without a second city system.
+     */
+    public static BlockState state(long factionId, PaletteSlot slot, double artistic, double agrarian, double martial) {
+        return state(factionId, slot, cultureStyle(factionId, artistic, agrarian, martial));
+    }
+
+    private static int cultureStyle(long factionId, double artistic, double agrarian, double martial) {
+        int base = Math.floorMod(Long.hashCode(factionId), 4);
+        if (artistic <= 0 && agrarian <= 0 && martial <= 0) return base;
+        if (martial >= artistic && martial >= agrarian) return 1; // deepslate/spruce martial look
+        if (agrarian >= artistic) return 2; // sandstone/birch agrarian look
+        if (artistic > .55) return 3; // dark oak / tuff artistic look
+        return base;
+    }
+
+    private static BlockState state(long factionId, PaletteSlot slot, int style) {
         // Foreign registry blocks are intentionally restricted to decorative/non-structural slots.
         // Earlier RC4 builds allowed arbitrary mod blocks to become walls/beams/roofs, which could
         // produce visually broken towers or context-sensitive blocks repeated hundreds of times.
-        if(slot==PaletteSlot.GLASS||slot==PaletteSlot.FENCE||slot==PaletteSlot.PATH||slot==PaletteSlot.LIGHT){
+        if(slot==PaletteSlot.GLASS||slot==PaletteSlot.FENCE||slot==PaletteSlot.PATH||slot==PaletteSlot.LIGHT||slot==PaletteSlot.DOOR){
             var compatible=CompatibleContentRuntime.decorativeBlock(factionId,slot);
             if(compatible.isPresent())return compatible.get();
         }
-        int style=Math.floorMod(Long.hashCode(factionId),4);
+        style=Math.floorMod(style,4);
         return switch(slot) {
             case AIR -> Blocks.AIR.defaultBlockState();
             case FOUNDATION -> switch(style) {
