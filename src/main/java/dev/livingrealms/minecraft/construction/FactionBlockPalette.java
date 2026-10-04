@@ -55,7 +55,13 @@ public final class FactionBlockPalette {
                 default -> Blocks.BRICKS.defaultBlockState();
             };
             case GLASS -> Blocks.GLASS.defaultBlockState();
-            case DOOR -> Blocks.AIR.defaultBlockState(); // stable two-block doorway; doors come in detail pass later
+            // Real door blocks; facing/half are finalized in SettlementConstructionMaterializer.apply.
+            case DOOR -> switch(style) {
+                case 1 -> Blocks.SPRUCE_DOOR.defaultBlockState();
+                case 2 -> Blocks.BIRCH_DOOR.defaultBlockState();
+                case 3 -> Blocks.DARK_OAK_DOOR.defaultBlockState();
+                default -> Blocks.OAK_DOOR.defaultBlockState();
+            };
             case FENCE -> switch(style) {
                 case 1 -> Blocks.SPRUCE_FENCE.defaultBlockState();
                 case 2 -> Blocks.BIRCH_FENCE.defaultBlockState();

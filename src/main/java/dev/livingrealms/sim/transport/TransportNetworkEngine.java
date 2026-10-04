@@ -7,13 +7,45 @@ import java.util.*;
 /** Plans and maintains faction infrastructure. Physical road/rail blocks are projections of these routes. */
 public final class TransportNetworkEngine {
     public void simulateDay(SimulationState state){
-        discoverRoutes(state);
+        // Route discovery is O(settlements × neighbours); run weekly so soak stays bounded as camps grow.
+        if(state.clock().day()%7==0)discoverRoutes(state);
+        maintainRoutes(state);
+    }
+
+    /** Wear, washouts and bridge failure without treasury/stone upkeep; repair when the realm can pay. */
+    private static void maintainRoutes(SimulationState state){
+        long day=state.clock().day();
         for(TransportRoute route:state.routes()){
             Faction owner=state.findFaction(route.ownerFactionId()).orElse(null);if(owner==null){route.setOperational(false);continue;}
-            route.improve(owner.technology()*.000025);
+            // Natural wear + bandit/security pressure; technology slows decay slightly.
+            double wear=.00035+(1.0-route.security())*.00022-Math.min(.00008,owner.technology()*.00003);
+            if(owner.treasury()<120)wear+=.00080; // neglected roads / empty coffers
+            if(day%90==0&&Math.floorMod(route.id()+day,11)==0)wear+=.05; // seasonal washout / bridge crack
+            route.improve(-Math.max(0,wear));
             route.adjustSecurity((owner.government().lawEnforcement()-.5)*.0002);
+            if(route.quality()<.12){
+                if(route.operational()){
+                    route.setOperational(false);
+                    if(Math.floorMod(route.id()+day,23)==0)
+                        state.history().add(new WorldEvent(day,"route_collapsed",owner.name()+" "+route.mode()+" route failed (quality depleted)"));
+                }
+            }else if(!route.operational()&&route.quality()>=.22){
+                route.setOperational(true);
+            }
+            // Paid maintenance only when the realm is solvent — weekly, not every tithe scrap.
+            boolean solvent=owner.treasury()>=200&&owner.stockpile().get(ResourceType.STONE)>=40;
+            if(solvent&&day%7==0&&route.quality()<.70){
+                double spend=Math.min(40,20+(1.0-route.quality())*35);
+                owner.stockpile().take(ResourceType.STONE,spend*.40);
+                owner.addTreasury(-Math.min(owner.treasury(),spend));
+                route.improve(.025+.015*owner.technology());
+                if(!route.operational()&&route.quality()>=.20)route.setOperational(true);
+            }
+            // Tech trickle still helps well-funded roads.
+            if(owner.treasury()>=400)route.improve(owner.technology()*.00002);
         }
     }
+
     private static void discoverRoutes(SimulationState state){
         // Build a legible regional graph rather than connecting every settlement to every other
         // settlement. Each settlement seeks its four nearest same-realm neighbours. This produces
@@ -27,19 +59,42 @@ public final class TransportNetworkEngine {
                         .sorted(Comparator.comparingDouble(b->a.position().distanceTo(b.position())))
                         .limit(4).toList();
                 for(Settlement b:nearest){
-                    double d=a.position().distanceTo(b.position());if(d>2_600)continue;
-                    TransportMode mode=faction.technology()>=1.2&&a.tier().ordinal()>=Settlement.Tier.TOWN.ordinal()&&b.tier().ordinal()>=Settlement.Tier.TOWN.ordinal()?TransportMode.RAIL:TransportMode.ROAD;
+                    double d=a.position().distanceTo(b.position());if(!(d>1)||d>2_600)continue;
+                    TransportMode mode=chooseMode(faction,a,b);
                     RouteKey key=RouteKey.of(a.id(),b.id(),mode);
                     if(existing.contains(key))continue;
-                    double cost=d*(mode==TransportMode.RAIL?.08:.018);ResourceType material=mode==TransportMode.RAIL?ResourceType.IRON:ResourceType.STONE;
+                    double cost=d*(mode==TransportMode.RAIL?.08:mode==TransportMode.SHIP?.04:mode==TransportMode.RIVER?.022:.018);
+                    ResourceType material=mode==TransportMode.RAIL?ResourceType.IRON:ResourceType.STONE;
                     if(faction.stockpile().get(material)<cost)continue;
                     faction.stockpile().take(material,cost);
-                    state.addRoute(new TransportRoute(state.nextId(),faction.id(),a.id(),b.id(),mode,d,.38,.48,mode==TransportMode.RAIL?900:320));
+                    double capacity=switch(mode){case RAIL->900;case SHIP->700;case RIVER->480;case CARAVAN->280;default->320;};
+                    state.addRoute(new TransportRoute(state.nextId(),faction.id(),a.id(),b.id(),mode,d,.38,.48,capacity));
                     existing.add(key);
                     state.history().add(new WorldEvent(state.clock().day(),"route_built",faction.name()+" "+mode+" "+a.name()+"-"+b.name()));
                 }
             }
         }
+    }
+
+    /** Road by default; river/coast names get water modes; advanced towns may rail. */
+    private static TransportMode chooseMode(Faction faction,Settlement a,Settlement b){
+        if(watery(a)&&watery(b))return coastal(a)&&coastal(b)?TransportMode.SHIP:TransportMode.RIVER;
+        if(faction.technology()>=1.2&&a.tier().ordinal()>=Settlement.Tier.TOWN.ordinal()&&b.tier().ordinal()>=Settlement.Tier.TOWN.ordinal())
+            return TransportMode.RAIL;
+        if(a.tier().ordinal()<=Settlement.Tier.HAMLET.ordinal()||b.tier().ordinal()<=Settlement.Tier.HAMLET.ordinal())
+            return TransportMode.CARAVAN; // rural lanes / pack routes
+        return TransportMode.ROAD;
+    }
+    private static boolean watery(Settlement s){
+        String n=s.name().toLowerCase(java.util.Locale.ROOT);
+        return n.contains("ford")||n.contains("bridge")||n.contains("water")||n.contains("river")||n.contains("brook")
+                ||n.contains("mere")||n.contains("fen")||n.contains("port")||n.contains("bay")||n.contains("harbor")
+                ||n.contains("harbour")||n.contains("sea")||n.contains("tide")||n.contains("ferry");
+    }
+    private static boolean coastal(Settlement s){
+        String n=s.name().toLowerCase(java.util.Locale.ROOT);
+        return n.contains("port")||n.contains("bay")||n.contains("sea")||n.contains("harbor")||n.contains("harbour")
+                ||n.contains("tide")||n.contains("coast")||n.contains("haven");
     }
     private record RouteKey(long low,long high,TransportMode mode){
         static RouteKey of(long a,long b,TransportMode mode){return a<b?new RouteKey(a,b,mode):new RouteKey(b,a,mode);}

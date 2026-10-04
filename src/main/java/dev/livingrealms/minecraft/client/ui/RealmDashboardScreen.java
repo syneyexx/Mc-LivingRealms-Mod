@@ -146,7 +146,8 @@ public final class RealmDashboardScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics, mouseX, mouseY, partialTick);
+        // Avoid Screen#renderBackground: vanilla applies a world blur that makes the dashboard unreadable.
+        graphics.fill(0, 0, width, height, 0xC805080B);
         int panelWidth = Math.min(PANEL_WIDTH, width - 20);
         int panelHeight = Math.min(PANEL_HEIGHT, height - 20);
         int left = (width - panelWidth) / 2;

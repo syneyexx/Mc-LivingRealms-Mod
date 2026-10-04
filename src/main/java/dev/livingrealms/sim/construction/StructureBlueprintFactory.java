@@ -44,7 +44,57 @@ public final class StructureBlueprintFactory {
             case WIZARD_TUNNEL -> wizardTunnel(intent.width(), intent.depth());
             case IRRIGATION -> irrigation(intent.width(), intent.depth());
             case AQUEDUCT -> aqueduct(intent.width(), intent.depth());
+            case MILL -> mill(intent.width(), intent.depth());
+            case BAKERY -> bakery(intent.width(), intent.depth());
+            case BREWERY -> brewery(intent.width(), intent.depth());
+            case PASTURE -> pasture(intent.width(), intent.depth());
         };
+    }
+
+    private static StructureBlueprint mill(int w,int d){
+        List<BlockPlacement> p=new ArrayList<>();int hx=w/2,hz=d/2;
+        for(int z=-hz;z<=hz;z++)for(int x=-hx;x<=hx;x++)add(p,x,0,z,PaletteSlot.FOUNDATION,ConstructionPhase.FOUNDATION);
+        for(int y=1;y<=4;y++)for(int z=-hz+1;z<=hz-1;z++)for(int x=-hx+1;x<=hx-1;x++){
+            boolean edge=x==-hx+1||x==hx-1||z==-hz+1||z==hz-1;
+            if(edge)add(p,x,y,z,PaletteSlot.WALL,y==4?ConstructionPhase.SHELL:ConstructionPhase.FRAME);
+        }
+        add(p,0,5,0,PaletteSlot.ROOF,ConstructionPhase.SHELL);
+        add(p,0,6,0,PaletteSlot.ROOF,ConstructionPhase.DETAIL);
+        add(p,1,5,0,PaletteSlot.ROOF,ConstructionPhase.DETAIL);add(p,-1,5,0,PaletteSlot.ROOF,ConstructionPhase.DETAIL);
+        add(p,0,5,1,PaletteSlot.ROOF,ConstructionPhase.DETAIL);add(p,0,5,-1,PaletteSlot.ROOF,ConstructionPhase.DETAIL);
+        return bp("mill",w,d,7,p);
+    }
+    private static StructureBlueprint bakery(int w,int d){
+        List<BlockPlacement> p=new ArrayList<>();int hx=w/2,hz=d/2;
+        for(int z=-hz;z<=hz;z++)for(int x=-hx;x<=hx;x++)add(p,x,0,z,PaletteSlot.FOUNDATION,ConstructionPhase.FOUNDATION);
+        for(int y=1;y<=3;y++)for(int z=-hz+1;z<=hz-1;z++)for(int x=-hx+1;x<=hx-1;x++){
+            boolean edge=x==-hx+1||x==hx-1||z==-hz+1||z==hz-1;
+            if(edge)add(p,x,y,z,PaletteSlot.WALL,ConstructionPhase.FRAME);
+            else if(y==1&&x==0&&z==0)add(p,x,y,z,PaletteSlot.MACHINE,ConstructionPhase.DETAIL);
+        }
+        for(int z=-hz;z<=hz;z++)for(int x=-hx;x<=hx;x++)add(p,x,4,z,PaletteSlot.ROOF,ConstructionPhase.SHELL);
+        return bp("bakery",w,d,5,p);
+    }
+    private static StructureBlueprint brewery(int w,int d){
+        List<BlockPlacement> p=new ArrayList<>();int hx=w/2,hz=d/2;
+        for(int z=-hz;z<=hz;z++)for(int x=-hx;x<=hx;x++)add(p,x,0,z,PaletteSlot.FOUNDATION,ConstructionPhase.FOUNDATION);
+        for(int y=1;y<=3;y++)for(int z=-hz+1;z<=hz-1;z++)for(int x=-hx+1;x<=hx-1;x++){
+            boolean edge=x==-hx+1||x==hx-1||z==-hz+1||z==hz-1;
+            if(edge)add(p,x,y,z,PaletteSlot.WALL,ConstructionPhase.FRAME);
+            else if(y==1&&Math.abs(x)+Math.abs(z)==1)add(p,x,y,z,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
+        }
+        for(int z=-hz;z<=hz;z++)for(int x=-hx;x<=hx;x++)add(p,x,4,z,PaletteSlot.ROOF,ConstructionPhase.SHELL);
+        return bp("brewery",w,d,5,p);
+    }
+    private static StructureBlueprint pasture(int w,int d){
+        List<BlockPlacement> p=new ArrayList<>();int hx=w/2,hz=d/2;
+        for(int z=-hz;z<=hz;z++)for(int x=-hx;x<=hx;x++){
+            boolean edge=Math.abs(x)==hx||Math.abs(z)==hz;
+            if(edge)add(p,x,1,z,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
+            else add(p,x,0,z,PaletteSlot.FARMLAND,ConstructionPhase.FOUNDATION);
+        }
+        add(p,0,0,0,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
+        return bp("pasture",w,d,2,p);
     }
 
     private static StructureBlueprint irrigation(int w,int d) {

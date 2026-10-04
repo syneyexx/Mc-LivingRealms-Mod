@@ -6,6 +6,8 @@ The goal is not to make Minecraft feel like a map with a few extra NPCs. The goa
 
 Living Realms is designed primarily for **offline singleplayer**. The integrated Minecraft server remains authoritative for simulation state, while the client renders and interacts with bounded physical projections of that world.
 
+Current development checkpoint: **v3.0.0-rc4** (A–Z production completion pass; save schema **16**). See `IMPLEMENTATION_LEDGER.md` and `docs/DETAIL_MATRIX.md` for consolidated A–Z / correction / Claude-masterplan status.
+
 > **End-product vision:** a persistent living world where kingdoms, settlements, people, wildlife, economy, politics, law, culture and history continue to evolve as one connected system instead of as isolated features.
 
 ---
@@ -574,7 +576,7 @@ The current RC4 line includes:
 - canonical ID high-watermark repair;
 - long deterministic soak testing.
 
-The attached/current development line uses **save schema 15** with older schemas retained through migration support.
+The attached/current development line uses **save schema 16** (schemas 1–15 remain readable; settlement barn/granary/local stockpiles) with older schemas retained through migration support.
 
 ---
 
@@ -586,7 +588,7 @@ The latest local checkpoint represented by this README direction is based on the
 
 - dense starter civilization;
 - 12 surface kingdoms plus Wizard Trees;
-- 219+ starter settlements/colonies in the current density gate;
+- 380+ starter settlements/colonies in the current density gate (32/realm + rural hamlets);
 - settlement streets, sidewalks and denser housing;
 - capital/spawn city and castle planning;
 - terrain-aware route correction;
@@ -654,6 +656,8 @@ For deeper technical and design detail:
 - [Release Gates](docs/RELEASE_GATES.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Definition of Done Matrix](COMPLETION_MATRIX.md)
+- [Detail Matrix](docs/DETAIL_MATRIX.md)
+- [Implementation Ledger](IMPLEMENTATION_LEDGER.md)
 - [Project State](PROJECT_STATE.md)
 
 ---

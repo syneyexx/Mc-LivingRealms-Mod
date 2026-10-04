@@ -57,7 +57,7 @@ public final class SpeciesPackAuditTest {
         if(!rejectedMissingCatalog)throw new AssertionError("save with live datapack species must reject a catalog that no longer defines them");
         EcosystemRegion restoredOcean=restored.regions().stream().filter(r->r.id()==ocean.id()).findFirst().orElseThrow();
         if(restoredOcean.center().distanceTo(ocean.center())>1e-9)throw new AssertionError("schema8 ecosystem center round-trip");
-        if(SimulationStateCodec.SCHEMA_VERSION!=15)throw new AssertionError("unexpected schema version");
+        if(SimulationStateCodec.SCHEMA_VERSION!=16)throw new AssertionError("unexpected schema version");
         if(!BiomeClassifier.classifyId(BiomeSignalNormalizer.observation("minecraft:deep_frozen_ocean",List.of("minecraft:is_ocean"),.05,.5)).equals("deep_ocean"))throw new AssertionError("deep ocean mapping");
         if(!BiomeClassifier.classifyId(BiomeSignalNormalizer.observation("minecraft:mangrove_swamp",List.of("c:is_wetland"),.8,.9)).equals("mangrove"))throw new AssertionError("mangrove mapping");
         if(!BiomeClassifier.classifyId(BiomeSignalNormalizer.observation("modded:ancient_mountain_forest",List.of("c:is_mountain","c:is_forest"),.35,.7)).equals("montane_forest"))throw new AssertionError("modded tagged biome mapping");

@@ -1,12 +1,16 @@
 package dev.livingrealms.minecraft;
 
+import dev.livingrealms.minecraft.compat.WaystoneSettlementRuntime;
 import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.SettlementDensitySeeder;
 import dev.livingrealms.sim.world.WizardTreesSeeder;
 import dev.livingrealms.sim.ecology.SpeciesDefinition;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -18,9 +22,12 @@ public final class LivingRealmsSavedData extends SavedData {
     private static final String KEY_PAYLOAD = "Payload";
     private static final String KEY_PAYLOAD_INTEGRITY = "PayloadCrc32Plus1";
     private static final String KEY_CONTENT_REVISION = "ContentRevision";
-    private static final int CONTENT_REVISION = 6;
+    /** Revision 7 adds Living Realms Waystone provenance without binary schema change. */
+    private static final int CONTENT_REVISION = 7;
 
     private final SimulationState state;
+    /** settlementId -> packed BlockPos of Living Realms-authored Waystone only. */
+    private final Map<Long, Long> waystonesBySettlement = new LinkedHashMap<>();
 
     private LivingRealmsSavedData(SimulationState state) {
         this.state = state;
@@ -58,6 +65,7 @@ public final class LivingRealmsSavedData extends SavedData {
         int contentRevision = tag.getInt(KEY_CONTENT_REVISION);
         if (contentRevision > CONTENT_REVISION) throw new IllegalStateException("Unsupported Living Realms content revision " + contentRevision);
         LivingRealmsSavedData loaded = new LivingRealmsSavedData(SimulationStateCodec.decode(payload, SpeciesDataRegistry.current()));
+        loaded.waystonesBySettlement.putAll(WaystoneSettlementRuntime.readProvenance(tag));
         // Revision 3 rebuilt unsafe early-RC structures. Revision 4 expands the canonical world
         // to the twelve-kingdom target while preserving already-migrated physical construction.
         int densityChanges = contentRevision < 6 ? SettlementDensitySeeder.ensureStarterDensity(loaded.state()) : 0;
@@ -80,6 +88,22 @@ public final class LivingRealmsSavedData extends SavedData {
         return state;
     }
 
+    public Long waystoneForSettlement(long settlementId){return waystonesBySettlement.get(settlementId);}
+    public Set<Long> livingRealmsWaystonePositions(){return Set.copyOf(waystonesBySettlement.values());}
+    public Map<Long,Long> waystonesBySettlement(){return Collections.unmodifiableMap(waystonesBySettlement);}
+    public void recordWaystone(long settlementId,long packedPos){
+        if(settlementId<=0)return;
+        Long prev=waystonesBySettlement.put(settlementId,packedPos);
+        if(prev==null||prev.longValue()!=packedPos)setDirty();
+    }
+    public void clearWaystone(long settlementId){
+        if(waystonesBySettlement.remove(settlementId)!=null)setDirty();
+    }
+    public void clearWaystoneAt(long packedPos){
+        boolean changed=waystonesBySettlement.entrySet().removeIf(e->e.getValue()==packedPos);
+        if(changed)setDirty();
+    }
+
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         byte[] payload = SimulationStateCodec.encode(state);
@@ -87,6 +111,7 @@ public final class LivingRealmsSavedData extends SavedData {
         tag.putByteArray(KEY_PAYLOAD, payload);
         tag.putLong(KEY_PAYLOAD_INTEGRITY, SimulationStateCodec.integrityToken(payload));
         tag.putInt(KEY_CONTENT_REVISION, CONTENT_REVISION);
+        WaystoneSettlementRuntime.writeProvenance(tag, waystonesBySettlement);
         return tag;
     }
 }
