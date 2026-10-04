@@ -33,9 +33,9 @@ public final class CivilizationLifecycleEngine {
         simulateRuins(state,rng);
         simulateAssistanceTasks(state);
         long day=state.clock().day();
-        if(day%7==0){diffuseKnowledge(state);spreadDiseaseAlongTrade(state,rng);}
-        if(day%30==0){simulateHouseholdLifecycle(state,rng);trainApprentices(state);payWages(state);simulateNpcCrimeAndJustice(state,rng);simulateHiddenCaches(state);simulatePoliticalMarriages(state,rng);}
-        if(day%90==0){refreshDynasties(state);evolveCultureAndLaw(state);}
+        if(day%7==0){diffuseKnowledge(state);spreadDiseaseAlongTrade(state,rng);advanceJusticeCases(state);}
+        if(day%30==0){simulateHouseholdLifecycle(state,rng);trainApprentices(state);payWages(state);spawnNpcCrime(state,rng);simulateHiddenCaches(state);simulatePoliticalMarriages(state,rng);refreshDynasties(state);}
+        if(day%90==0)evolveCultureAndLaw(state);
     }
 
     /** Called by CivilizationEngine instead of instantaneous source->target population teleportation. */
@@ -149,7 +149,22 @@ public final class CivilizationLifecycleEngine {
             }
             for(DependentChild child:household.takeAdultChildren(day))if(state.socialCitizens().size()<MAX_NAMED_CITIZENS&&household.memberIds().size()<HouseholdState.MAX_NAMED_MEMBERS)materializeAdultChild(state,household,faction,settlement,child,rng);
             if(adults.isEmpty()&&!household.children().isEmpty())adoptOrphans(state,household,settlement);
-            household.adjustWealth((settlement.prosperity()-.45)*.6-household.representedPeople()*(1-settlement.foodSecurity())*.08);
+            // Living household budget: wages already top up sharedWealth; spend on food/comfort, then needs follow.
+            double mouths=Math.max(1,household.representedPeople());
+            double scarcity=1.0-settlement.foodSecurity();
+            double foodBill=mouths*(.08+.22*scarcity);
+            double spent=Math.min(household.sharedWealth(),foodBill);
+            if(spent>0){
+                household.adjustWealth(-spent);
+                settlement.stockpile().take(ResourceType.FOOD,spent*.55); // market purchase from local granary
+            }
+            double fed=spent/Math.max(.01,foodBill);
+            for(SocialCitizen adult:adults){
+                adult.needs().approach(.35+.55*fed,settlement.publicOrder(),.55+.2*settlement.prosperity(),
+                        Mathx.clamp(.3+household.sharedWealth()/120.0,0,1),.4+.35*fed+(household.homeKey().isBlank()?0:.1),.18);
+                if(fed<.45)adult.addMoney(-Math.min(adult.money(),.4)); // personal purse covers shortfall
+            }
+            household.adjustWealth((settlement.prosperity()-.45)*.35-mouths*scarcity*.05);
         }
     }
 
@@ -384,13 +399,22 @@ public final class CivilizationLifecycleEngine {
         }
     }
 
-    private static void simulateNpcCrimeAndJustice(SimulationState state,DeterministicRng rng){
+    private static void spawnNpcCrime(SimulationState state,DeterministicRng rng){
         long day=state.clock().day();
-        for(SocialCitizen c:state.socialCitizens())if(c.alive()&&c.ageYears(day)>=16){Settlement s=state.findSettlement(c.settlementId()).orElse(null);Faction f=state.findFaction(c.factionId()).orElse(null);if(s==null||f==null)continue;boolean pending=state.justiceCases().stream().anyMatch(j->j.active()&&j.accusedKey().equals("citizen:"+c.id()));if(pending)continue;FactionCivilizationState civ=state.ensureFactionCivilization(f.id());FaithCatalog.FaithProfile faith=FaithCatalog.of(civ.faithName());double pressure=(1-c.needs().hunger())*.25+(1-c.needs().status())*.12+c.personality().greed()*.16+c.personality().treachery()*.12+c.personality().aggression()*.08+(1-s.publicOrder())*.18;if(!rng.chance(Mathx.clamp(pressure*.018,0,.06)))continue;CrimeType type;if(has(s,"temple:")&&faith.heresySeverity()>.5&&c.personality().treachery()>.55&&c.personality().loyalty()<.45&&rng.chance(faith.heresySeverity()*.25))type=CrimeType.HERESY;else if(c.role()==CitizenRole.TRADER&&f.government().corruption()>.4&&c.personality().greed()>.6&&rng.chance(.3))type=CrimeType.SMUGGLING;else if(c.personality().aggression()>.72&&rng.chance(.35))type=CrimeType.ASSAULT;else if(c.personality().greed()>.65)type=CrimeType.THEFT;else type=CrimeType.TRESPASS;boolean witnessed=rng.chance(.45+.4*f.government().lawEnforcement());CrimeResult result=state.reportCrime("citizen:"+c.id(),f.id(),type,type==CrimeType.THEFT||type==CrimeType.SMUGGLING?rng.between(4,25):0,s.position(),witnessed,witnessed?1+rng.nextInt(3):0,"settlement:"+s.id(),"npc_simulation");if(result.registered()){JusticeCase jc=new JusticeCase(state.nextId(),f.id(),s.id(),day,"citizen:"+c.id(),type);jc.charge();state.addJusticeCase(jc);}}
+        for(SocialCitizen c:state.socialCitizens())if(c.alive()&&c.ageYears(day)>=16){Settlement s=state.findSettlement(c.settlementId()).orElse(null);Faction f=state.findFaction(c.factionId()).orElse(null);if(s==null||f==null)continue;boolean pending=state.justiceCases().stream().anyMatch(j->j.active()&&j.accusedKey().equals("citizen:"+c.id()));if(pending)continue;FactionCivilizationState civ=state.ensureFactionCivilization(f.id());FaithCatalog.FaithProfile faith=FaithCatalog.of(civ.faithName());double pressure=(1-c.needs().hunger())*.25+(1-c.needs().status())*.12+c.personality().greed()*.16+c.personality().treachery()*.12+c.personality().aggression()*.08+(1-s.publicOrder())*.18;if(!rng.chance(Mathx.clamp(pressure*.018,0,.06)))continue;CrimeType type;if(has(s,"temple:")&&faith.heresySeverity()>.5&&c.personality().treachery()>.55&&c.personality().loyalty()<.45&&rng.chance(faith.heresySeverity()*.25))type=CrimeType.HERESY;else if(c.role()==CitizenRole.TRADER&&f.government().corruption()>.4&&c.personality().greed()>.6&&rng.chance(.3))type=CrimeType.SMUGGLING;else if(c.personality().aggression()>.72&&rng.chance(.35))type=CrimeType.ASSAULT;else if(c.personality().greed()>.65)type=CrimeType.THEFT;else type=CrimeType.TRESPASS;boolean witnessed=rng.chance(.45+.4*f.government().lawEnforcement());CrimeResult result=state.reportCrime("citizen:"+c.id(),f.id(),type,type==CrimeType.THEFT||type==CrimeType.SMUGGLING?rng.between(4,25):0,s.position(),witnessed,witnessed?1+rng.nextInt(3):0,"settlement:"+s.id(),"npc_simulation");if(result.registered()){JusticeCase jc=new JusticeCase(state.nextId(),f.id(),s.id(),day,"citizen:"+c.id(),type);state.addJusticeCase(jc);}}
+    }
+
+    private static void advanceJusticeCases(SimulationState state){
+        long day=state.clock().day();
         for(JusticeCase jc:state.justiceCases())if(jc.active()){
             SocialCitizen accused=state.findSocialCitizen(parseCitizenKey(jc.accusedKey())).orElse(null);Faction faction=state.findFaction(jc.factionId()).orElse(null);Settlement settlement=state.findSettlement(jc.settlementId()).orElse(null);if(faction==null||settlement==null){jc.dismiss();continue;}FactionCivilizationState policy=state.ensureFactionCivilization(faction.id());
+            if(jc.status()==JusticeStatus.INVESTIGATING){
+                long investigateDays=2+Math.round(policy.dueProcess()*2)-(has(settlement,"courthouse:")?1:0);
+                if(day-jc.openedDay()>=Math.max(1,investigateDays)){jc.charge();state.history().add(new WorldEvent(day,"court_case_charged","case="+jc.id()+", accused="+jc.accusedKey()+", settlement="+settlement.id()));}
+                continue;
+            }
             if(jc.status()==JusticeStatus.CHARGED){
-                long processDays=1+Math.round(policy.dueProcess()*3);if(day-jc.openedDay()<processDays)continue;
+                long processDays=1+Math.round(policy.dueProcess()*3)-(has(settlement,"courthouse:")?1:0);if(day-jc.openedDay()<processDays)continue;
                 double evidence=evidenceStrength(state,jc);double convictionThreshold=.28+policy.dueProcess()*.30;
                 if(evidence<convictionThreshold){jc.dismiss();state.history().add(new WorldEvent(day,"court_case_dismissed","case="+jc.id()+", accused="+jc.accusedKey()+", evidence="+String.format(java.util.Locale.ROOT,"%.2f",evidence)));continue;}
                 SentenceType sentence=sentenceFor(jc.crimeType(),policy,settlement);double fine=jc.crimeType().baseBounty()*(.35+.8*policy.lawSeverity());long release=day+(sentence==SentenceType.IMPRISONMENT?Math.max(2,(long)Math.ceil(fine/25.0)):0);jc.sentence(sentence,sentence==SentenceType.FINE||sentence==SentenceType.RESTITUTION?fine:0,release);applySentence(state,jc,accused,faction,settlement);
@@ -405,7 +429,7 @@ public final class CivilizationLifecycleEngine {
     }
 
     private static SentenceType sentenceFor(CrimeType crime,FactionCivilizationState policy,Settlement settlement){double severity=policy.lawSeverity();return switch(crime){case TRESPASS,POACHING->severity>.75?SentenceType.FINE:SentenceType.WARNING;case THEFT,BURGLARY,SMUGGLING->severity>.72&&has(settlement,"prison:")?SentenceType.IMPRISONMENT:SentenceType.RESTITUTION;case ASSAULT,ROBBERY,SABOTAGE,ARSON->severity>.5&&has(settlement,"prison:")?SentenceType.IMPRISONMENT:SentenceType.FINE;case HERESY->{FaithCatalog.FaithProfile faith=FaithCatalog.of(policy.faithName());double heresy=faith.heresySeverity();if(heresy>.6&&severity>.55)yield has(settlement,"prison:")?SentenceType.IMPRISONMENT:SentenceType.EXILE;if(heresy>.35)yield SentenceType.FINE;yield SentenceType.WARNING;}case MURDER,REGICIDE,WAR_CRIME->severity>.86?SentenceType.EXECUTION:severity>.45?SentenceType.EXILE:SentenceType.IMPRISONMENT;};}
-    private static void applySentence(SimulationState state,JusticeCase jc,SocialCitizen accused,Faction faction,Settlement settlement){long day=state.clock().day();switch(jc.sentence()){case WARNING->{}case FINE,RESTITUTION->{if(accused!=null){double paid=Math.min(accused.money(),jc.fine());accused.addMoney(-paid);faction.addTreasury(paid);}}case IMPRISONMENT->{if(has(settlement,"prison:"))state.addCustody(new CustodyRecord(state.nextId(),jc.accusedKey(),faction.id(),day,jc.releaseDay(),jc.crimeType().baseBounty(),"court_case:"+jc.id()));}case EXILE->{if(accused!=null)exileCitizen(state,accused,faction,settlement);}case EXECUTION->{if(accused!=null&&accused.alive())state.recordPhysicalCitizenDeath(settlement.id(),accused.id(),"lawful_execution");}}state.history().add(new WorldEvent(day,"court_sentence","case="+jc.id()+", accused="+jc.accusedKey()+", sentence="+jc.sentence()+", faction="+faction.id()));}
+    private static void applySentence(SimulationState state,JusticeCase jc,SocialCitizen accused,Faction faction,Settlement settlement){long day=state.clock().day();switch(jc.sentence()){case WARNING->{}case FINE->{if(accused!=null){double paid=Math.min(accused.money(),jc.fine());accused.addMoney(-paid);faction.addTreasury(paid);}}case RESTITUTION->{if(accused!=null){double paid=Math.min(accused.money(),jc.fine());accused.addMoney(-paid);settlement.stockpile().add(ResourceType.GOLD,paid*.55);settlement.setPublicOrder(settlement.publicOrder()+.01);faction.addTreasury(paid*.45);}}case IMPRISONMENT->{if(has(settlement,"prison:"))state.addCustody(new CustodyRecord(state.nextId(),jc.accusedKey(),faction.id(),day,jc.releaseDay(),jc.crimeType().baseBounty(),"court_case:"+jc.id()));}case EXILE->{if(accused!=null)exileCitizen(state,accused,faction,settlement);}case EXECUTION->{if(accused!=null&&accused.alive())state.recordPhysicalCitizenDeath(settlement.id(),accused.id(),"lawful_execution");}}state.history().add(new WorldEvent(day,"court_sentence","case="+jc.id()+", accused="+jc.accusedKey()+", sentence="+jc.sentence()+", faction="+faction.id()));}
     private static void exileCitizen(SimulationState state,SocialCitizen accused,Faction faction,Settlement settlement){
         Settlement target=state.factions().stream().filter(f->f.id()!=faction.id()).filter(f->f.relations().get(faction.id())==null||f.relations().get(faction.id()).status()!=RelationStatus.WAR).flatMap(f->f.settlements().stream()).min(Comparator.comparingDouble(s->s.position().distanceTo(settlement.position()))).orElse(null);
         if(target==null){state.ensureSettlementCivilization(settlement.id(),faction.id()).adjustBanditPressure(.08);return;}
@@ -518,7 +542,16 @@ public final class CivilizationLifecycleEngine {
 
     private static void refreshDynasties(SimulationState state){
         long day=state.clock().day();for(Faction faction:state.factions()){
-            DynastyState dynasty=state.dynasties().get(faction.id());if(dynasty==null)continue;SocialCitizen ruler=state.findSocialCitizen(dynasty.rulerCitizenId()).orElse(null);if(ruler==null||!ruler.alive()){dynasty.startCrisis(day);continue;}long heir=findHeir(state,ruler);dynasty.setHeirCitizenId(heir);if(heir>0)dynasty.endCrisis();else if(faction.government().successionLaw()==SuccessionLaw.HEREDITARY)dynasty.startCrisis(day);double prestigeDelta=(faction.government().legitimacy()-.5)*.02-faction.settlements().stream().mapToDouble(Settlement::unrest).average().orElse(0)*.01;dynasty.adjustPrestige(prestigeDelta);
+            DynastyState dynasty=state.dynasties().get(faction.id());if(dynasty==null)continue;SocialCitizen ruler=state.findSocialCitizen(dynasty.rulerCitizenId()).orElse(null);if(ruler==null||!ruler.alive()){dynasty.startCrisis(day);}else{long heir=findHeir(state,ruler);dynasty.setHeirCitizenId(heir);if(heir>0)dynasty.endCrisis();else if(faction.government().successionLaw()==SuccessionLaw.HEREDITARY)dynasty.startCrisis(day);}
+            if(dynasty.successionCrisis()){
+                long duration=Math.max(0,day-dynasty.crisisSinceDay());
+                faction.government().adjustLegitimacy(-.0025-Math.min(.004,duration/4000.0));
+                faction.government().adjustStability(-.0018);
+                dynasty.adjustPrestige(-.004);
+                for(Settlement s:faction.settlements())s.adjustUnrest(.002+(duration>90?.003:0));
+                if(duration>0&&duration%30==0)state.history().add(new WorldEvent(day,"succession_crisis_ongoing","faction="+faction.id()+", house="+dynasty.houseName()+", days="+duration));
+            }
+            double prestigeDelta=(faction.government().legitimacy()-.5)*.02-faction.settlements().stream().mapToDouble(Settlement::unrest).average().orElse(0)*.01;dynasty.adjustPrestige(prestigeDelta);
         }
     }
     private static long findHeir(SimulationState state,SocialCitizen ruler){
@@ -579,6 +612,8 @@ public final class CivilizationLifecycleEngine {
                     double need=wage-fromLocal;
                     if(need>0)faction.addTreasury(-Math.min(faction.treasury(),need));
                     c.addMoney(wage);c.practiceProfession(.01);paid+=wage;
+                    // Household purse receives a share so family consumption is not only prosperity drift.
+                    if(c.householdId()>0)state.findHousehold(c.householdId()).ifPresent(h->h.adjustWealth(wage*.45));
                 }
                 if(paid>0)state.history().add(new WorldEvent(state.clock().day(),"wages_paid","settlement="+settlement.id()+", workers="+workers.size()+", paid="+Math.round(paid)));
             }

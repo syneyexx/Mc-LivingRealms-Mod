@@ -7,6 +7,7 @@ import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.util.Mathx;
 import dev.livingrealms.sim.world.SimulationState;
+import java.util.Comparator;
 
 /**
  * Local settlement production, consumption and tithe. Replaces free {@code pop * constant}
@@ -30,7 +31,7 @@ public final class SettlementEconomyEngine {
                 double rotation = AgrarianProfile.rotationMultiplier(day);
                 produceFarms(settlement, season, faction.technology(), weatherMul, agronomy, rotation);
                 produceLivestock(settlement, season, faction.technology(), weatherMul, agronomy);
-                produceHinterland(settlement, faction.technology());
+                produceHinterland(state, settlement, faction.technology());
                 produceWorkshops(settlement, faction.technology());
                 consumeLocalNeeds(state, faction, settlement, day);
                 applyMarketDayPressure(settlement, weekday);
@@ -99,14 +100,43 @@ public final class SettlementEconomyEngine {
         settlement.stockpile().add(ResourceType.TEXTILES, wool);
     }
 
-    /** Hunting/forestry hinterland supplements wood (and a little food) without free faction minting. */
-    private static void produceHinterland(Settlement settlement, double technology) {
+    /** Hunting/forestry hinterland supplements wood/food; extractive camps lightly deplete nearby ecology. */
+    private static void produceHinterland(SimulationState state, Settlement settlement, double technology) {
         int lumber = count(settlement, "lumber_camp:");
         double forest = .55 + .45 * Math.min(1.0, lumber / 2.0) + .15 * Math.min(1.0, technology);
-        settlement.stockpile().add(ResourceType.WOOD, settlement.population() * .006 * forest);
+        double woodWanted = settlement.population() * .006 * forest;
+        double huntWanted = settlement.population() * .028 * forest;
+        double woodMul = 1.0, huntMul = 1.0;
+        // Only completed lumber camps (not every village's implied foraging) draw down ecology.
+        // Shared regions + dense realms would otherwise strip the biodiversity floor.
+        if (lumber > 0) {
+            var nearest = state.regions().stream()
+                    .min(Comparator.comparingDouble(r -> r.center().distanceTo(settlement.position())))
+                    .filter(r -> r.center().distanceTo(settlement.position()) <= 1_800)
+                    .orElse(null);
+            if (nearest != null) {
+                long competitors = state.factions().stream().flatMap(f -> f.settlements().stream())
+                        .filter(s -> s.completedConstruction().stream().anyMatch(k -> k.startsWith("lumber_camp:")))
+                        .filter(s -> nearest.center().distanceTo(s.position()) <= 1_800).count();
+                double share = 1.0 / Math.max(1, competitors);
+                double plantTaken = nearest.consumePlants((woodWanted * .25 + lumber * .15) * share);
+                double plantNeed = Math.max(0.01, (woodWanted * .25 + lumber * .15) * share);
+                woodMul = Mathx.clamp(.75 + .25 * (plantTaken / plantNeed), .75, 1.08);
+                double gameTaken = 0, gameWanted = Math.max(0.02, settlement.population() * .00008 * share);
+                for (var group : nearest.populations()) {
+                    if (group.extinct() || group.population() < 12) continue;
+                    double take = Math.min(group.population() * .0015, gameWanted - gameTaken);
+                    if (take <= 0) break;
+                    group.addPopulation(-take);
+                    gameTaken += take;
+                }
+                huntMul = Mathx.clamp(.85 + .15 * (gameTaken / Math.max(0.02, gameWanted)), .85, 1.08);
+                if (woodMul < .82) settlement.adjustUnrest(.0002);
+            }
+        }
+        settlement.stockpile().add(ResourceType.WOOD, woodWanted * woodMul);
         settlement.stockpile().add(ResourceType.STONE, settlement.population() * .0022 * (.7 + .3 * technology));
-        // Hunting/foraging year-round; critical winter buffer when fields are fallow.
-        settlement.stockpile().add(ResourceType.FOOD, settlement.population() * .028 * forest);
+        settlement.stockpile().add(ResourceType.FOOD, huntWanted * huntMul);
     }
 
     /** Deterministic weather stress: drought/flood/frost/hail reduce yields on bad years. */

@@ -14,7 +14,8 @@ public final class RebellionEngine {
             if(parent.settlements().size()<2) continue;
             Settlement rebel=parent.settlements().stream().filter(s->s.unrest()>=threshold).max(Comparator.comparingDouble(Settlement::unrest)).orElse(null);
             if(rebel==null) continue;
-            double chance=Math.max(0,(rebel.unrest()-threshold)*.012)*(1-parent.government().stability());
+            boolean successionCrisis=state.dynasties().get(parent.id())!=null&&state.dynasties().get(parent.id()).successionCrisis();
+            double chance=Math.max(0,(rebel.unrest()-threshold)*.012)*(1-parent.government().stability())*(successionCrisis?1.55:1.0);
             if(!rng.chance(chance)) continue;
             Settlement moved=parent.removeSettlement(rebel.id()); if(moved==null) continue;
             long id=state.nextId();

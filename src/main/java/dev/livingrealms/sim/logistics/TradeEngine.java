@@ -1,10 +1,12 @@
 package dev.livingrealms.sim.logistics;
 
-import dev.livingrealms.sim.economy.MarketEngine;
+import dev.livingrealms.sim.economy.LocalMarketEngine;
 import dev.livingrealms.sim.economy.ResourceDominanceEngine;
 import dev.livingrealms.sim.faction.*;
 import dev.livingrealms.sim.territory.Jurisdiction;
 import dev.livingrealms.sim.territory.TerritoryEngine;
+import dev.livingrealms.sim.transport.TransportNetworkEngine;
+import dev.livingrealms.sim.transport.TransportRoute;
 import dev.livingrealms.sim.util.DeterministicRng;
 import dev.livingrealms.sim.world.*;
 import java.util.*;
@@ -12,6 +14,8 @@ import java.util.*;
 /** Persistent strategic logistics: contracts dispatch cargo, cargo travels, can be intercepted, then delivers. */
 public final class TradeEngine {
     private static final double CARAVAN_SPEED_PER_DAY=180.0;
+    /** Fraction of paid value the seller refunds the buyer when a caravan is lost (guild/insurance bond). */
+    private static final double INTERCEPT_INSURANCE_RATE=.55;
     private static final List<ResourceType> TRADED=List.of(ResourceType.FOOD,ResourceType.IRON,ResourceType.FUEL,ResourceType.TOOLS,ResourceType.TEXTILES,ResourceType.MACHINERY);
 
     public void simulateDay(SimulationState state, DeterministicRng rng) {
@@ -21,18 +25,24 @@ public final class TradeEngine {
     private static void advanceShipments(SimulationState state,DeterministicRng rng) {
         List<Long> remove=new ArrayList<>();
         for(TradeShipment shipment:new ArrayList<>(state.shipments())) {
-            shipment.advanceDistance(CARAVAN_SPEED_PER_DAY);
-            if(intercepted(state,shipment,rng)) {state.history().add(new WorldEvent(state.clock().day(),"trade_intercepted",describe(shipment)));remove.add(shipment.id());continue;}
+            TransportRoute route=routeFor(state,shipment).orElse(null);
+            double speed=route==null?CARAVAN_SPEED_PER_DAY:route.speedBlocksPerDay();
+            if(route!=null&&!route.operational())speed*=.35; // detour on collapsed road
+            shipment.advanceDistance(speed);
+            if(intercepted(state,shipment,route,rng)) {
+                settleInsurance(state,shipment);
+                state.history().add(new WorldEvent(state.clock().day(),"trade_intercepted",describe(shipment)+(route==null?"":", route="+route.id())));
+                remove.add(shipment.id());continue;
+            }
             if(shipment.arrived()) {
                 Faction buyer=state.findFaction(shipment.buyerFactionId()).orElse(null);
                 if(buyer!=null){
                     Settlement dest=buyer.settlements().stream().min(Comparator.comparingDouble(s->s.position().distanceTo(shipment.destination()))).orElse(null);
-                    // Split delivery: local market barn + faction strategic reserve.
                     double localShare=shipment.amount()*.65,strategic=shipment.amount()-localShare;
                     if(dest!=null){dest.stockpile().add(shipment.resource(),localShare);dest.enforceStorageCaps();}
                     else strategic=shipment.amount();
                     buyer.stockpile().add(shipment.resource(),strategic);
-                    state.history().add(new WorldEvent(state.clock().day(),"trade_delivered",describe(shipment)));
+                    state.history().add(new WorldEvent(state.clock().day(),"trade_delivered",describe(shipment)+(route==null?"":", route="+route.id())));
                 }
                 remove.add(shipment.id());
             }
@@ -40,8 +50,34 @@ public final class TradeEngine {
         for(long id:remove)state.removeShipment(id);
     }
 
-    private static boolean intercepted(SimulationState state,TradeShipment shipment,DeterministicRng rng) {
+    /** Prefer an operational same-realm road between the nearest seller/buyer settlements; else any matching ends. */
+    private static Optional<TransportRoute> routeFor(SimulationState state,TradeShipment shipment){
+        Settlement from=nearestSettlement(state,shipment.origin(),shipment.sellerFactionId());
+        Settlement to=nearestSettlement(state,shipment.destination(),shipment.buyerFactionId());
+        if(from==null||to==null)return Optional.empty();
+        Optional<TransportRoute> owned=TransportNetworkEngine.bestRoute(state,shipment.sellerFactionId(),from.id(),to.id());
+        if(owned.isPresent())return owned;
+        return state.routes().stream().filter(TransportRoute::operational)
+                .filter(r->(r.fromSettlementId()==from.id()&&r.toSettlementId()==to.id())||(r.fromSettlementId()==to.id()&&r.toSettlementId()==from.id()))
+                .max(Comparator.comparingDouble(TransportRoute::speedBlocksPerDay));
+    }
+
+    private static Settlement nearestSettlement(SimulationState state,SimPosition pos,long preferFactionId){
+        Settlement best=null;double bestD=Double.POSITIVE_INFINITY;
+        for(Faction f:state.factions())for(Settlement s:f.settlements()){
+            double d=s.position().distanceTo(pos);if(f.id()==preferFactionId)d*=.85;
+            if(d<bestD){bestD=d;best=s;}
+        }
+        return best;
+    }
+
+    private static boolean intercepted(SimulationState state,TradeShipment shipment,TransportRoute route,DeterministicRng rng) {
         SimPosition p=shipment.position();double risk=.0006;
+        if(route!=null){
+            risk+= (1.0-route.security())*.045;
+            risk+= (1.0-route.quality())*.02;
+            if(!route.operational())risk+=.08;
+        }
         Jurisdiction jurisdiction=TerritoryEngine.resolve(state.factions(),p,state.config().borderDisputeThreshold());
         if(jurisdiction.claimed()&&jurisdiction.primaryFactionId()!=shipment.sellerFactionId()&&jurisdiction.primaryFactionId()!=shipment.buyerFactionId()){
             Faction controller=state.findFaction(jurisdiction.primaryFactionId()).orElse(null);if(controller!=null){boolean hostile=isAtWar(controller,shipment.sellerFactionId())||isAtWar(controller,shipment.buyerFactionId());risk+=hostile?.11:.004*(1-controller.government().lawEnforcement());}
@@ -51,7 +87,28 @@ public final class TradeEngine {
             if(faction.id()==shipment.sellerFactionId()||faction.id()==shipment.buyerFactionId())continue;if(!isAtWar(faction,shipment.sellerFactionId())&&!isAtWar(faction,shipment.buyerFactionId()))continue;
             double nearest=faction.settlements().stream().mapToDouble(s->s.position().distanceTo(p)).min().orElse(Double.POSITIVE_INFINITY);if(nearest<300)risk+=.08*(1.0-nearest/300.0);
         }
-        return rng.chance(Math.min(.35,risk));
+        // Land bandit hideouts near the caravan raise intercept risk.
+        long nearbyBands=state.pirateHideouts().stream().filter(h->h.active()&&h.position().distanceTo(p)<420).count();
+        risk+=Math.min(.12,nearbyBands*.035);
+        return rng.chance(Math.min(.38,risk));
+    }
+
+    /** Buyer already paid; seller refunds an insured share when cargo is lost. */
+    private static void settleInsurance(SimulationState state,TradeShipment shipment){
+        Faction seller=state.findFaction(shipment.sellerFactionId()).orElse(null);
+        Faction buyer=state.findFaction(shipment.buyerFactionId()).orElse(null);
+        if(seller==null||buyer==null)return;
+        double refund=shipment.value()*INTERCEPT_INSURANCE_RATE;
+        double paid=Math.min(seller.treasury(),refund);
+        if(paid<=0){
+            state.history().add(new WorldEvent(state.clock().day(),"trade_insurance_default",
+                    describe(shipment)+", owed="+Math.round(refund)));
+            return;
+        }
+        seller.addTreasury(-paid);
+        buyer.addTreasury(paid);
+        state.history().add(new WorldEvent(state.clock().day(),"trade_insurance_paid",
+                describe(shipment)+", refund="+Math.round(paid)));
     }
 
     private static boolean isAtWar(Faction faction,long other){DiplomaticRelation rel=faction.relations().get(other);return rel!=null&&rel.status()==RelationStatus.WAR;}
@@ -66,7 +123,6 @@ public final class TradeEngine {
 
     private static void dispatchOne(SimulationState state,Faction seller,Faction buyer,ResourceType resource) {
         if(state.shipments().stream().anyMatch(s->s.sellerFactionId()==seller.id()&&s.buyerFactionId()==buyer.id()&&s.resource()==resource))return;
-        // Strategic need looks at faction treasury stores; surplus can be drawn from local barns too.
         double desired=desiredReserve(buyer,resource);
         double need=Math.max(0,desired-buyer.stockpile().get(resource));
         double sellerHeld=seller.stockpile().get(resource)+localHeld(seller,resource);
@@ -74,15 +130,23 @@ public final class TradeEngine {
         double surplus=Math.max(0,sellerHeld-sellerReserve);
         Settlement origin=closestPairOrigin(seller,buyer),destination=closestTo(buyer,origin.position());
         long day=state.clock().day();
-        double sellerAsk=dev.livingrealms.sim.economy.LocalMarketEngine.quote(seller,origin,resource,day).unitPrice();
-        double buyerBid=dev.livingrealms.sim.economy.LocalMarketEngine.quote(buyer,destination,resource,day).unitPrice();
+        double sellerAsk=LocalMarketEngine.quote(seller,origin,resource,day).unitPrice();
+        double buyerBid=LocalMarketEngine.quote(buyer,destination,resource,day).unitPrice();
         boolean arbitrage=buyerBid>=sellerAsk*1.05;
-        if(!arbitrage&&need<desired*.35)return; // no price gap and buyer not short on treasury stores
-        if(need<=0&&arbitrage)need=Math.min(64,surplus*.15); // speculative shipment on clear price gap
+        if(!arbitrage&&need<desired*.35)return;
+        if(need<=0&&arbitrage)need=Math.min(64,surplus*.15);
         double leverage=ResourceDominanceEngine.sellerLeverageMultiplier(state,seller.id(),resource);double price=Math.max(.01,(sellerAsk+buyerBid)*.5*leverage);
         double amount=Math.min(Math.min(need,surplus),buyer.treasury()/Math.max(.01,price));amount=Math.min(amount,256.0);if(amount<1.0||seller.settlements().isEmpty()||buyer.settlements().isEmpty())return;
+        // Capacity: skip dispatch if the best route is already overloaded with active shipments.
+        Optional<TransportRoute> route=TransportNetworkEngine.bestRoute(state,seller.id(),origin.id(),destination.id());
+        if(route.isPresent()){
+            long onRoute=state.shipments().stream().filter(s->{
+                Optional<TransportRoute> r=routeFor(state,s);return r.isPresent()&&r.get().id()==route.get().id();
+            }).count();
+            if(onRoute>=Math.max(1,(long)(route.get().capacityPerDay()/180.0)))return;
+        }
         drawForTrade(seller,origin,resource,amount);double value=amount*price;buyer.addTreasury(-value);seller.addTreasury(value);
-        TradeShipment shipment=new TradeShipment(state.nextId(),seller.id(),buyer.id(),resource,amount,value,origin.position(),destination.position());state.addShipment(shipment);state.history().add(new WorldEvent(state.clock().day(),"trade_dispatched",describe(shipment)+", price="+String.format(java.util.Locale.ROOT,"%.2f",price)));
+        TradeShipment shipment=new TradeShipment(state.nextId(),seller.id(),buyer.id(),resource,amount,value,origin.position(),destination.position());state.addShipment(shipment);state.history().add(new WorldEvent(state.clock().day(),"trade_dispatched",describe(shipment)+", price="+String.format(java.util.Locale.ROOT,"%.2f",price)+(route.map(r->", route="+r.id()).orElse(""))));
     }
 
     private static double localHeld(Faction f,ResourceType r){double t=0;for(Settlement s:f.settlements())t+=s.stockpile().get(r);return t;}
