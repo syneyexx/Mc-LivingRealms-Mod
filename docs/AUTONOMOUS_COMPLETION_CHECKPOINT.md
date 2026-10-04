@@ -23,22 +23,30 @@
 
 ### Worldgen / streets / condition / UI
 - Growth-layer encoded road keys
-- Plaza wells/fountains/notice clutter
+- Plaza wells/fountains/notice clutter + street trees/banners
 - BuildingCondition derived repair demand
 - F12 panel texture + influence/career/debt lines
 - Localized onboarding + first-settlement discovery
+- 8 culture architecture material families (mercantile/coastal/highland/scholarly)
+
+### Influence unlocks (Wave 135)
+- PlayerInfluenceActions: audience, propose project, military support, trade petition, clergy petition
+- Dashboard overview buttons + DashboardActionCommand wiring
+
+### Presentation polish
+- Caravan wagon vs pack-train mode from cargo/value/escort
+- Wildlife intent-driven animation profiles (walk/run/idle/eat/flee/rest/swim/fly)
 
 ## Tests
-- FinalProductSystemsTest + OrganicMorphology green on latest polish
-- Full `./scripts/test-core.sh` re-run after mid-build classpath corruption (in progress / re-run)
+- FinalProductSystemsTest green (incl. influence unlocks)
+- Full `./scripts/test-core.sh` + `./build-production.sh` re-run after CaravanEscortMaterializer import fix
 
 ## Unresolved / next exact actions
 1. Finish clean core suite + NeoForge `build-production.sh` + RELEASE_MANIFEST
-2. Caravan escort NPC projections (optional physical guards)
-3. Architecture culture families / residential vocabulary expansion
-4. Wildlife animation profiles QA
-5. COMPLETION_MATRIX / PROJECT_STATE / RELEASE_MANIFEST reconciliation (Wave 226–227)
-6. Continue presentation waves + audio/VFX where practical
+2. Further architecture roof/facade grammar per culture
+3. Ambient audio/VFX where practical
+4. COMPLETION_MATRIX / docs rebuild (Wave 226–227) toward final gates
+5. Continue presentation waves for military formations / court clothing depth
 
 ## Exact next action
-Await clean core suite green, then resume production build and documentation rebuild.
+Run clean production build; commit RELEASE_MANIFEST; continue presentation polish.

@@ -71,7 +71,10 @@ public final class RealmDashboardScreen extends Screen {
         int contentY=contentTop(top,panelWidth);
         if (tab == Tab.LAW) rebuildLawButtons(left, contentY, panelWidth);
         if (tab == Tab.SETTINGS) rebuildSettingsButtons(left,contentY,panelWidth);
-        if (tab == Tab.OVERVIEW) rebuildFactionButton(left,contentY,panelWidth);
+        if (tab == Tab.OVERVIEW) {
+            rebuildFactionButton(left,contentY,panelWidth);
+            rebuildInfluenceButtons(left,contentY,panelWidth);
+        }
         if (tab == Tab.ECONOMY) rebuildEconomyButtons(left,contentY,panelWidth);
         if (tab == Tab.SETTLEMENTS) rebuildSettlementButtons(left,contentY,panelWidth);
     }
@@ -94,6 +97,26 @@ public final class RealmDashboardScreen extends Screen {
             addRenderableWidget(Button.builder(Component.literal("Leave "+player.memberFactionName()),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_LEAVE,1))).bounds(left+panelWidth-150,contentY+146,136,18).build());
         }else if(jurisdiction.claimed()&&!jurisdiction.contested()&&jurisdiction.primaryFactionId()>0){
             addRenderableWidget(Button.builder(Component.literal("Join "+jurisdiction.primaryName()),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_JOIN_LOCAL,jurisdiction.primaryFactionId()))).bounds(left+panelWidth-150,contentY+146,136,18).build());
+        }
+    }
+
+    private void rebuildInfluenceButtons(int left,int contentY,int panelWidth){
+        long factionId=snapshot.player().memberFactionId()>0?snapshot.player().memberFactionId():snapshot.jurisdiction().primaryFactionId();
+        if(factionId<=0)return;
+        DashboardActionCommand.Action[] actions={
+                DashboardActionCommand.Action.REQUEST_AUDIENCE,
+                DashboardActionCommand.Action.PROPOSE_PROJECT,
+                DashboardActionCommand.Action.REQUEST_MILITARY_SUPPORT,
+                DashboardActionCommand.Action.PETITION_TRADE,
+                DashboardActionCommand.Action.PETITION_CLERGY
+        };
+        String[] labels={"Audience","Propose","Military","Trade","Clergy"};
+        int bw=Math.max(58,(panelWidth-28)/5);
+        for(int i=0;i<actions.length;i++){
+            final DashboardActionCommand.Action action=actions[i];
+            addRenderableWidget(Button.builder(Component.literal(labels[i]),
+                    b->DashboardClientState.sendAction(new DashboardActionCommand(action,factionId)))
+                    .bounds(left+10+i*bw,contentY+166,bw-3,16).build());
         }
     }
 

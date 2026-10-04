@@ -12,6 +12,7 @@ import dev.livingrealms.minecraft.entity.WildlifeProjectionIndex;
 import dev.livingrealms.minecraft.entity.TradeCaravanEntity;
 import dev.livingrealms.minecraft.entity.TradeCaravanIndex;
 import dev.livingrealms.minecraft.entity.TradeCaravanMaterializer;
+import dev.livingrealms.minecraft.entity.CaravanEscortMaterializer;
 import dev.livingrealms.minecraft.entity.FactionCitizenEntity;
 import dev.livingrealms.minecraft.entity.FactionCitizenIndex;
 import dev.livingrealms.minecraft.entity.FactionCitizenMaterializer;

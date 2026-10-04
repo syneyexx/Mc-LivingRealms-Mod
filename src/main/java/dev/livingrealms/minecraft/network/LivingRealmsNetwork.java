@@ -91,6 +91,11 @@ public final class LivingRealmsNetwork {
             case SETTLEMENT_DEFENSE -> "Settlement priority: Defense.";
             case MARKET_BUY -> "Market purchase completed.";
             case MARKET_SELL -> "Market sale completed.";
+            case REQUEST_AUDIENCE -> "Audience granted.";
+            case PROPOSE_PROJECT -> "Grand project proposed.";
+            case REQUEST_MILITARY_SUPPORT -> "Military support secured.";
+            case PETITION_TRADE -> "Trade petition heard.";
+            case PETITION_CLERGY -> "Clergy petition heard.";
         };
     }
 

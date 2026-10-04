@@ -25,7 +25,7 @@
 - Full bundled species-pack audit passes: **134 species** with explicit morphology/locomotion fields and a validated food web.
 - Strategic completeness suite passes.
 - 3650-day deterministic soak now has explicit persistence/invariant gates at day 30, 365 and 3650, plus a biodiversity floor.
-- Save schema is **17**; schemas 1-16 remain readable. Schema 16 persists per-settlement barn/granary capacity and local stockpiles; schema 17 adds final-product systems. Dashboard snapshot protocol is **17**. Network registration is **14**. Outer Minecraft `ContentRevision=10`.
+- Save schema is **17**; schemas 1-16 remain readable. Schema 16 persists per-settlement barn/granary capacity and local stockpiles; schema 17 adds final-product systems. Dashboard snapshot protocol is **17**. Network registration is **14**. Outer Minecraft `ContentRevision=11` (presentation/social; morphology rebuild gate retained from revision 10).
 - `ConstructionIntegrityTest`, `TradeLivenessTest`, `OrganicMorphologyAndCauseTest` and `FinalProductSystemsTest` are mandatory core gates.
 
 ## Explicit status claim

@@ -18,6 +18,8 @@ import dev.livingrealms.sim.military.SiegeState;
 import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.player.*;
 import dev.livingrealms.sim.social.*;
+import dev.livingrealms.sim.ui.DashboardActionCommand;
+import dev.livingrealms.sim.ui.DashboardActionService;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
@@ -41,7 +43,8 @@ public final class FinalProductSystemsTest {
         testSiegeEquipmentProjection();
         testProductionContracts();
         testBuildingCondition();
-        System.out.println("PASS final product systems: appearance48 + influence + debt + projects + campaigns + schema17 logistics + heroes + mobility + siege + contracts + building condition");
+        testInfluenceUnlockActions();
+        System.out.println("PASS final product systems: appearance48 + influence + debt + projects + campaigns + schema17 logistics + heroes + mobility + siege + contracts + building condition + influence unlocks");
     }
 
     private static void testAppearanceRange() {
@@ -250,6 +253,34 @@ public final class FinalProductSystemsTest {
         var stressed = BuildingCondition.of(s);
         check(stressed.ordinal() >= BuildingCondition.WORN.ordinal(), "stressed settlement worsens condition");
         check(stressed.repairDemand() >= healthy.repairDemand(), "worse condition demands more repair");
+    }
+
+    private static void testInfluenceUnlockActions() {
+        SimulationState state = seeded(912L);
+        Faction f = state.factions().getFirst();
+        String actor = "player:influence_unlock";
+        PlayerStanding ps = state.playerStanding(actor);
+        ps.join(f.id(), 0);
+        check(!PlayerInfluenceActions.can(ps, f.id(), PlayerInfluenceActions.Unlock.REQUEST_AUDIENCE), "audience locked without crown influence");
+        ps.adjustInfluence(f.id(), InfluenceInstitution.CROWN, 22);
+        check(PlayerInfluenceActions.can(ps, f.id(), PlayerInfluenceActions.Unlock.REQUEST_AUDIENCE), "audience unlocks at crown 20");
+        var audience = PlayerInfluenceActions.apply(state, actor, f.id(), PlayerInfluenceActions.Unlock.REQUEST_AUDIENCE);
+        check(audience.success(), "audience apply succeeds");
+        ps.adjustInfluence(f.id(), InfluenceInstitution.CROWN, 40);
+        f.addTreasury(400);
+        for (Settlement s : f.settlements()) s.addPopulation(Math.max(0, 120 - s.population()));
+        int beforeProjects = state.grandProjects().size();
+        var propose = PlayerInfluenceActions.apply(state, actor, f.id(), PlayerInfluenceActions.Unlock.PROPOSE_PROJECT);
+        check(propose.success(), "propose project succeeds: " + propose.reason());
+        check(state.grandProjects().size() > beforeProjects, "project created");
+        var reject = DashboardActionService.apply(state, actor, new SimPosition(0, 0),
+                new DashboardActionCommand(DashboardActionCommand.Action.REQUEST_MILITARY_SUPPORT, f.id()));
+        check(!reject.success(), "military support rejected without influence");
+        ps.adjustInfluence(f.id(), InfluenceInstitution.MILITARY, 45);
+        if (f.armies().isEmpty()) f.addArmy(new Army(state.nextId(), f.id(), f.settlements().getFirst().position(), 40));
+        var mil = DashboardActionService.apply(state, actor, new SimPosition(0, 0),
+                new DashboardActionCommand(DashboardActionCommand.Action.REQUEST_MILITARY_SUPPORT, f.id()));
+        check(mil.success(), "military support via dashboard action");
     }
 
     private static SimulationState seeded(long seed) {

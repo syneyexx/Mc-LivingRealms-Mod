@@ -389,6 +389,16 @@ public final class StructureBlueprintFactory {
                     add(p,-hx,1,z+5,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
                     if(w>=9) add(p,hx,1,z+5,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
                 }
+                // Tree wells / shrine posts on boulevard+ arterial edges (decoration, not carriageway).
+                if(w>=8 && z+7<=hz-2 && ((z/lampStep)&1)==1){
+                    add(p,-hx,1,z+7,PaletteSlot.DECORATION,ConstructionPhase.DETAIL);
+                    add(p,hx,1,z+7,PaletteSlot.DECORATION,ConstructionPhase.DETAIL);
+                }
+                // Faction banner posts on royal/arterial widths.
+                if(w>=9 && z+2<=hz-2 && z%lampStep==0){
+                    add(p,-hx,2,z,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
+                    add(p,hx,2,z,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
+                }
             }
         }
         return bp("road_"+street.name().toLowerCase(java.util.Locale.ROOT),w,d,2,p);
@@ -414,6 +424,11 @@ public final class StructureBlueprintFactory {
             add(p,hx,1,0,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
             add(p,0,1,-hz,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
             add(p,0,1,hz,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
+            // Shrine / notice corners and edge seating trees.
+            add(p,-hx+2,1,-hz+2,PaletteSlot.DECORATION,ConstructionPhase.DETAIL);
+            add(p,hx-2,1,hz-2,PaletteSlot.DECORATION,ConstructionPhase.DETAIL);
+            add(p,-hx+1,1,hz/2,PaletteSlot.TABLE,ConstructionPhase.DETAIL);
+            add(p,hx-1,1,-hz/2,PaletteSlot.TABLE,ConstructionPhase.DETAIL);
         }
         return bp("civic_plaza",w,d,3,p);
     }
