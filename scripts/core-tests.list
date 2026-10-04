@@ -1,0 +1,32 @@
+# Canonical ordered core-suite mains. Both Linux (test-core.sh) and Windows
+# (build-production.ps1) must execute exactly this list. Lines starting with #
+# and blank lines are ignored.
+dev.livingrealms.CoreSimulationTest
+dev.livingrealms.ConstructionIntegrityTest
+dev.livingrealms.SpeciesPackAuditTest
+dev.livingrealms.SystemCompletenessTest
+dev.livingrealms.SettlementEconomyTest
+dev.livingrealms.ProjectionStressTest
+dev.livingrealms.SaveMigrationMatrixTest
+dev.livingrealms.SaveIntegrityTest
+dev.livingrealms.SaveMutationFuzzTest
+dev.livingrealms.ProductionHardeningTest
+dev.livingrealms.LivingWorldDensityTest
+dev.livingrealms.WorldgenQualityTest
+dev.livingrealms.ProductionQualityTest
+dev.livingrealms.SocietyDialogueTest
+dev.livingrealms.RumorNetworkTest
+dev.livingrealms.SocietyInfrastructureTest
+dev.livingrealms.CivilizationLayerTest
+dev.livingrealms.FaithAndInfrastructureTest
+dev.livingrealms.BanditAndPriceRumorTest
+dev.livingrealms.TradeHouseholdEcologyTest
+dev.livingrealms.TradeLivenessTest
+dev.livingrealms.HumanityLifecycleTest
+dev.livingrealms.CitizenConversationTest
+dev.livingrealms.ResourceDominanceTest
+dev.livingrealms.CartographicKnowledgeTest
+dev.livingrealms.PlayerRulershipTest
+dev.livingrealms.MobileCivilizationProjectionTest
+dev.livingrealms.WizardTreesTest
+dev.livingrealms.LongRunSoakTest

@@ -32,7 +32,7 @@ public final class ProductionQualityTest {
             @Override public boolean blocked(int x, int z) { return false; }
         };
         List<TerrainCorridorPlanner.Cell> path = TerrainCorridorPlanner.plan(0, 0, 240, 0, 16, 4_000, mountain);
-        check(!path.isEmpty(), "corridor must return a path");
+        check(!path.isEmpty(), "corridor must return a path around the ridge");
         int maxGrade = 0;
         for (int i = 1; i < path.size(); i++) {
             int h0 = mountain.height(path.get(i - 1).x(), path.get(i - 1).z());
@@ -42,6 +42,13 @@ public final class ProductionQualityTest {
         check(maxGrade <= 12, "corridor must reject extreme cell grades");
         check(TerrainCorridorPlanner.transitionCost(64, 80, false, 16, false) == Double.POSITIVE_INFINITY, "grade>12 must be infinite cost");
         check(TerrainCorridorPlanner.transitionCost(64, 70, false, 16, false) < Double.POSITIVE_INFINITY, "moderate grade must be finite");
+        TerrainCorridorPlanner.TerrainSample sealed = new TerrainCorridorPlanner.TerrainSample() {
+            @Override public int height(int x, int z) { return 64; }
+            @Override public boolean water(int x, int z) { return false; }
+            @Override public boolean blocked(int x, int z) { return x >= 16 && x <= 224; }
+        };
+        check(TerrainCorridorPlanner.plan(0, 0, 240, 0, 16, 400, sealed).isEmpty(),
+                "node-budget/blocked failure must not invent a straight destructive road");
     }
 
     private static void entranceAccessStairs() {
@@ -51,6 +58,9 @@ public final class ProductionQualityTest {
         check(!fixes.isEmpty(), "door above street must produce stair/landing fixes");
         check(fixes.stream().anyMatch(f -> f.slot() == PaletteSlot.FOUNDATION), "access fix must include foundation steps");
         check(EntranceAccessPlanner.plan(0, -5, 70, 70).isEmpty(), "level entrance needs no fix");
+        check(EntranceAccessPlanner.canRepair(70, 64), "six-block grade must be repairable");
+        List<EntranceAccessPlanner.AccessFix> steep = EntranceAccessPlanner.plan(0, -5, 70, 64);
+        check(steep.size() >= 6, "steep entrance must produce switchback/retaining fixes");
     }
 
     private static void physicalCatchupBacklog() {

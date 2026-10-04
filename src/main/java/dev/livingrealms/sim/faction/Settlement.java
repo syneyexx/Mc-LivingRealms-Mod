@@ -25,17 +25,23 @@ public final class Settlement {
     private final Stockpile stockpile=new Stockpile();
     private double barnCapacity=400;
     private double granaryCapacity=600;
+    /** Geography is sidecar/runtime state; name heuristic bootstraps until world discovery authors it. */
+    private SettlementGeographyProfile geography=SettlementGeographyProfile.unknown();
 
     public Settlement(long id,String name,SimPosition pos,int pop,int housing){
         if(id<=0)throw new IllegalArgumentException("id");
         if(name==null||name.isBlank())throw new IllegalArgumentException("name");
         if(pos==null)throw new IllegalArgumentException("position");
-        this.id=id;this.name=name;this.position=pos;this.population=Math.max(0,pop);this.housing=Math.max(0,housing);recalc();refreshStorageCapacity();seedStarterStores();
+        this.id=id;this.name=name;this.position=pos;this.population=Math.max(0,pop);this.housing=Math.max(0,housing);
+        this.geography=SettlementGeographyProfile.fromNameHeuristic(name);
+        recalc();refreshStorageCapacity();seedStarterStores();
     }
     public long id(){return id;} public String name(){return name;} public SimPosition position(){return position;} public int population(){return population;} public int housing(){return housing;} public double infrastructure(){return infrastructure;} public Tier tier(){return tier;}
     public double prosperity(){return prosperity;} public double unrest(){return unrest;} public double foodSecurity(){return foodSecurity;} public double publicOrder(){return publicOrder;} public double employment(){return employment;} public DevelopmentPriority developmentPriority(){return developmentPriority;}
     public Stockpile stockpile(){return stockpile;} public double barnCapacity(){return barnCapacity;} public double granaryCapacity(){return granaryCapacity;}
-    public void rename(String value){if(value==null||value.isBlank())throw new IllegalArgumentException("name");name=value;} public void addPopulation(int n){population=Math.max(0,population+n);recalc();refreshStorageCapacity();} public void addHousing(int n){housing=Math.max(0,housing+n);recalc();refreshStorageCapacity();} public void improveInfrastructure(double v){infrastructure=Math.max(0,infrastructure+v);refreshStorageCapacity();}
+    public SettlementGeographyProfile geography(){return geography;}
+    public void setGeography(SettlementGeographyProfile value){geography=java.util.Objects.requireNonNull(value,"geography");}
+    public void rename(String value){if(value==null||value.isBlank())throw new IllegalArgumentException("name");name=value;if(!geography.worldDiscovered())geography=SettlementGeographyProfile.fromNameHeuristic(name);} public void addPopulation(int n){population=Math.max(0,population+n);recalc();refreshStorageCapacity();} public void addHousing(int n){housing=Math.max(0,housing+n);recalc();refreshStorageCapacity();} public void improveInfrastructure(double v){infrastructure=Math.max(0,infrastructure+v);refreshStorageCapacity();}
     public int housingShortage(){return Math.max(0,population-housing);}
     public Set<String> completedConstruction(){return Collections.unmodifiableSet(completedConstruction);}
     public boolean isConstructionCompleted(String key){return completedConstruction.contains(key);}

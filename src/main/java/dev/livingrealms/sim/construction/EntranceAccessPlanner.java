@@ -39,11 +39,42 @@ public final class EntranceAccessPlanner {
             for (int i = 1; i <= depth; i++) {
                 out.add(new AccessFix(doorLocalX, doorFloorY + (depth - i), doorLocalZ - i, PaletteSlot.FOUNDATION));
             }
+        } else if (delta > 3 && delta <= 8) {
+            // Short switchback / porch for steeper lots: zig-zag steps so grade per tread stays ≤1.
+            int z = doorLocalZ;
+            int y = approachY;
+            int dir = -1;
+            int xOff = 0;
+            while (y < doorFloorY) {
+                y++;
+                z += dir;
+                if ((doorFloorY - y) % 3 == 0) {
+                    xOff = xOff == 0 ? 1 : 0;
+                    dir = -dir;
+                }
+                out.add(new AccessFix(doorLocalX + xOff, y, z, PaletteSlot.FOUNDATION));
+            }
+            out.add(new AccessFix(doorLocalX, doorFloorY, doorLocalZ - 1, PaletteSlot.PATH));
+            // Retaining wall beside the stair run.
+            for (int yy = approachY; yy <= doorFloorY; yy++) {
+                out.add(new AccessFix(doorLocalX + 2, yy, doorLocalZ - 2, PaletteSlot.FOUNDATION));
+            }
+        } else if (delta < -3 && delta >= -8) {
+            int depth = -delta;
+            for (int i = 1; i <= depth; i++) {
+                int xOff = (i % 3 == 0) ? 1 : 0;
+                out.add(new AccessFix(doorLocalX + xOff, doorFloorY + (depth - i), doorLocalZ - i, PaletteSlot.FOUNDATION));
+            }
         }
         return List.copyOf(out);
     }
 
     public static boolean isAccessible(int doorFloorY, int approachY) {
         return Math.abs(doorFloorY - approachY) <= 1;
+    }
+
+    /** True when the planner can produce a walkable repair for the grade difference. */
+    public static boolean canRepair(int doorFloorY, int approachY) {
+        return Math.abs(doorFloorY - approachY) <= 8;
     }
 }

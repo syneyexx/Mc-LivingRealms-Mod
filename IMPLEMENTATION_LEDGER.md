@@ -33,9 +33,10 @@ COMPLETE only when: model + sim + save + runtime + feedback + integration + test
 | Create | 6.0.10 |
 | Save schema | **16** (1–15 readable; settlement stockpiles) |
 | Dashboard protocol | **14** |
-| ContentRevision | **7** (Waystone provenance; keeps rev-6 construction rebuild) |
+| ContentRevision | **8** (authored-block ledger + geography sidecar; Waystone provenance; keeps rev-6 construction rebuild) |
 | Dashboard key | F12 |
 | Map key | M |
+| Core suite source | `scripts/core-tests.list` (Linux/Windows parity) |
 
 ---
 
@@ -45,11 +46,12 @@ COMPLETE only when: model + sim + save + runtime + feedback + integration + test
 |---|---|---|---|---|---|---|---|---|
 | Architecture/authority | `SimulationState` + engines | Dual world + LOD | Cross-system wiring gaps | schema 16 | adapters | dashboard | core suite | PARTIAL |
 | City streets | `SettlementPlanner` | Orthogonal streets/sidewalks/housing | Lot→street polish | completion keys | materializer | map markers | WorldgenQuality | PARTIAL |
-| Intercity roads | `TransportNetworkEngine` + `RouteProjectionPlanner` + `TerrainCorridorPlanner` | Terrain-cost corridors + bridges | Linked mountain/pass proof | routes | materializer | map routes | Worldgen+Production | PARTIAL |
+| Intercity roads | `TransportNetworkEngine` + `RouteProjectionPlanner` + `TerrainCorridorPlanner` + `SettlementGeographyProfile` | Terrain-cost corridors + bridges; no straight destructive fallback; geography water modes | Linked mountain/pass proof | routes + geography sidecar | materializer | map routes | Worldgen+Production+TradeLiveness | PARTIAL |
 | Doors/detail | `FactionBlockPalette` / blueprints | Real faction wood doors | Macaw optional polish | n/a | applyDoor | visible | ProductionQuality | PARTIAL |
-| Entrances | `EntranceAccessPlanner` | ±3 grade stairs/landing | Extreme-site rejection polish | n/a | building ops | accessible | ProductionQuality | PARTIAL |
-| Construction catch-up | `requestCatchup` + reconciler | Multi-intent backlog | Linked day102 city proof | completion | queue | growth visible | ProductionQuality | PARTIAL |
-| Physical reconciliation | `PhysicalDevelopmentReconciler` | Deficit + prioritized backlog | Block-vs-completion validation | n/a | catch-up enqueue | — | ProductionQuality | PARTIAL |
+| Entrances | `EntranceAccessPlanner` | Stairs/landing + steep switchbacks (≤8) | Extreme-site rejection polish | n/a | building ops | accessible | ProductionQuality | PARTIAL |
+| Construction integrity | `ConstructionQueue` + receipts + `AuthoredBlockLedger` | Required geometry must be satisfied; player/BE protection; fair discovery | Linked GameTests / world smoke | ContentRev 8 ledger | materializer | — | ConstructionIntegrityTest | PARTIAL |
+| Construction catch-up | `requestCatchup` + reconciler | Multi-intent backlog + housing density compression | Linked day102 city proof | completion | queue | growth visible | ProductionQuality | PARTIAL |
+| Physical reconciliation | `PhysicalDevelopmentReconciler` + `HousingCapacity` | Deficit + prioritized backlog + apartment/townhouse capacity | Block-vs-completion validation | n/a | catch-up enqueue | — | ProductionQuality+TradeLiveness | PARTIAL |
 | Spawn capital | density seeder + planner | City-scale + castle plan + court slots | Linked runtime proof | ContentRev 6/7 | materializer | map | WorldgenQuality | PARTIAL |
 | Waystones | `WaystoneSettlementRuntime` + provenance | LR-only dedupe + outer NBT | Linked Waystones mod smoke | outer NBT | reflection | — | ProductionQuality | PARTIAL |
 | Locate | `LocateQuery` + commands | city/mine/kingdom/market/port/wizardtrees/ruin | Linked command smoke | n/a | commands | chat | ProductionQuality | PARTIAL |

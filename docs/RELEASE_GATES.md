@@ -36,7 +36,7 @@ Use a fresh test world plus one existing migrated world.
 
 1. **Boot** — client reaches title screen, fresh singleplayer world starts, no Living Realms classloading/registry/datapack errors.
 2. **Save lifecycle** — create world, advance simulation, save/quit, reopen, reload datapacks, save/quit again; canonical day, factions, ecology, policies and player standing remain consistent.
-3. **Dashboard** — open with `J`; every tab renders; server snapshot protocol is accepted; no mutable canonical object is exposed to client code.
+3. **Dashboard** — open with `F12`; every tab renders; server snapshot protocol is accepted; no mutable canonical object is exposed to client code.
 4. **Actions** — exercise faction join/leave, bounty accept/abandon, tax change, settlement policy, settings preset and physical market buy/sell. Verify server-side rejection for spoofed/remote/invalid actions.
 5. **Projection lifecycle** — move/teleport across LOD boundaries and unload/reload chunks containing wildlife, citizens, caravans, armies, aircraft and fleets. No duplicate projection IDs, orphan entities or canonical loss.
 6. **Property crime** — open authored foreign faction storage, remove goods with/without witness, verify only net removed authored storage is treated as theft; own-faction storage and Traveler's Backpack remain excluded.
@@ -48,8 +48,8 @@ Use a fresh test world plus one existing migrated world.
 ## Promotion rule
 Do not label v3.0 release-complete or promote to v4.0 while any linked/runtime gate above remains unverified. Headless success is necessary but not sufficient.
 
-## Buildfix10 integrated-world smoke additions
-- Load a buildfix9 save and verify the one-shot `ContentRevision=4` expansion reaches the 12-kingdom/216-settlement baseline without repeating on later reloads. The older revision-3 construction repair must not be re-triggered by revision 4.
+## Current content-revision smoke additions
+- Load an older RC4 save and verify one-shot migrations up through `ContentRevision=8` (schema **16** payload, Waystone provenance, authored-block ledger). Revision-6 construction rebuild and revision-4/6 density expansion must not re-trigger after the world has been rewritten.
 - Press **M** and verify the dedicated world map renders discovered biome/ecology cells, kingdoms/claims, settlements, roads/routes, armies and war fronts. Pan/scale polish may be iterative, but snapshot bounds and server authority must hold.
 - Press **K** in creative, search for items from several target mods, spawn 1/16/64 items, and verify non-creative/invalid-id packets are rejected server-side.
 - Verify actual world spawn lies within a Living Realms kingdom/city or receives the bounded Crownspawn fallback.

@@ -34,10 +34,16 @@ $sources += Get-ChildItem -Path (Join-Path $root 'src\main\java\dev\livingrealms
 $sources += Get-ChildItem -Path (Join-Path $root 'src\testCore\java') -Recurse -Filter *.java | ForEach-Object FullName
 & javac --release 21 -Xlint:all -Werror -d $coreOut @sources
 if ($LASTEXITCODE -ne 0) { throw 'Core compilation failed.' }
-foreach ($main in @('dev.livingrealms.CoreSimulationTest','dev.livingrealms.SpeciesPackAuditTest','dev.livingrealms.SystemCompletenessTest','dev.livingrealms.ProjectionStressTest','dev.livingrealms.SaveMigrationMatrixTest','dev.livingrealms.SaveIntegrityTest','dev.livingrealms.SaveMutationFuzzTest','dev.livingrealms.ProductionHardeningTest','dev.livingrealms.LivingWorldDensityTest','dev.livingrealms.WorldgenQualityTest','dev.livingrealms.SocietyDialogueTest','dev.livingrealms.RumorNetworkTest','dev.livingrealms.SocietyInfrastructureTest','dev.livingrealms.CivilizationLayerTest','dev.livingrealms.CitizenConversationTest','dev.livingrealms.WizardTreesTest','dev.livingrealms.LongRunSoakTest')) {
+
+$testListPath = Join-Path $root 'scripts\core-tests.list'
+if (!(Test-Path -LiteralPath $testListPath)) { throw 'Missing scripts/core-tests.list (canonical core suite).' }
+$mains = Get-Content -LiteralPath $testListPath | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') }
+if ($mains.Count -lt 1) { throw 'scripts/core-tests.list produced an empty core suite.' }
+foreach ($main in $mains) {
     & java -cp $coreOut $main
     if ($LASTEXITCODE -ne 0) { throw "Core test failed: $main" }
 }
+$coreSuiteResult = 'pass'
 
 Write-Host 'Running Living Realms release source audit...'
 $python = Get-Command python -ErrorAction SilentlyContinue
@@ -72,4 +78,20 @@ if (!(Test-Path $gradleHome)) {
 Write-Host 'Running full NeoForge/Create build...'
 & (Join-Path $gradleHome 'bin\gradle.bat') --no-daemon clean build
 if ($LASTEXITCODE -ne 0) { throw 'Gradle build failed.' }
-Write-Host 'Build completed. Check build\libs for the mod jar.'
+$linkedBuildResult = 'pass'
+
+$jar = Get-ChildItem -Path (Join-Path $root 'build\libs') -Filter '*.jar' -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -notmatch '(-sources|-javadoc)\.jar$' } |
+    Sort-Object Length -Descending |
+    Select-Object -First 1
+if (!$jar -or $jar.Length -lt 1024) { throw 'Linked build produced no valid mod JAR under build/libs.' }
+
+if ($python) {
+    & $python.Source (Join-Path $root 'scripts\write-release-manifest.py') --core-suite $coreSuiteResult --linked-build $linkedBuildResult --runtime-smoke unverified --jar $jar.FullName
+} else {
+    & $py.Source -3 (Join-Path $root 'scripts\write-release-manifest.py') --core-suite $coreSuiteResult --linked-build $linkedBuildResult --runtime-smoke unverified --jar $jar.FullName
+}
+if ($LASTEXITCODE -ne 0) { throw 'Release manifest write failed.' }
+
+Write-Host "Build completed. JAR: $($jar.FullName)"
+Write-Host 'CODE COMPLETE / EXTERNAL GATE UNVERIFIED until runtime smoke is proven.'
