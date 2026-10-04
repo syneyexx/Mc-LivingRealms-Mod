@@ -9,6 +9,7 @@ dev.livingrealms.SpeciesPackAuditTest
 dev.livingrealms.SystemCompletenessTest
 dev.livingrealms.SettlementEconomyTest
 dev.livingrealms.FinalProductSystemsTest
+dev.livingrealms.EmergentStoryChainsTest
 dev.livingrealms.ProjectionStressTest
 dev.livingrealms.SaveMigrationMatrixTest
 dev.livingrealms.SaveIntegrityTest

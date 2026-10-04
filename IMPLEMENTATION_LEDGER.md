@@ -32,9 +32,9 @@ Where linked Minecraft smoke is required, status is **COMPLETE (core) / EXTERNAL
 | NeoForge | 21.1.x |
 | Java | 21 |
 | Create | 6.0.10 |
-| Save schema | **16** (1–15 readable; settlement stockpiles) |
-| Dashboard protocol | **16** (cause summaries + Ops assistance task board) |
-| ContentRevision | **10** (morphology completion rebuild; typed authored ownership; Waystone provenance) |
+| Save schema | **17** (1–16 readable; influence/careers/debt/projects/campaigns/appearance/logistics) |
+| Dashboard protocol | **17** (influence/career/debt/project lines + cause summaries + Ops board) |
+| ContentRevision | **11** (presentation/social; morphology rebuild retained from 10) |
 | Dashboard key | F12 |
 | Map key | M |
 

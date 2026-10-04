@@ -6,7 +6,7 @@ The goal is not to make Minecraft feel like a map with a few extra NPCs. The goa
 
 Living Realms is designed primarily for **offline singleplayer**. The integrated Minecraft server remains authoritative for simulation state, while the client renders and interacts with bounded physical projections of that world.
 
-Current development checkpoint: **v3.0.0-rc4** (A–Z production completion pass; save schema **16**). See `IMPLEMENTATION_LEDGER.md` and `docs/DETAIL_MATRIX.md` for consolidated A–Z / correction / Claude-masterplan status.
+Current development checkpoint: **v3.0.0-rc4** (A–Z production completion pass; save schema **17**, dashboard protocol **17**, ContentRevision **11**). See `IMPLEMENTATION_LEDGER.md` and `docs/DETAIL_MATRIX.md` for consolidated A–Z / correction / Claude-masterplan status.
 
 > **End-product vision:** a persistent living world where kingdoms, settlements, people, wildlife, economy, politics, law, culture and history continue to evolve as one connected system instead of as isolated features.
 
@@ -576,7 +576,7 @@ The current RC4 line includes:
 - canonical ID high-watermark repair;
 - long deterministic soak testing.
 
-The attached/current development line uses **save schema 16** (schemas 1–15 remain readable; settlement barn/granary/local stockpiles) with older schemas retained through migration support.
+The attached/current development line uses **save schema 17** (schemas 1–16 remain readable; schema 17 adds influence/careers/debt/projects/campaigns/appearance/logistics) with older schemas retained through migration support.
 
 ---
 

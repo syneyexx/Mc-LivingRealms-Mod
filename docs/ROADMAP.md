@@ -47,10 +47,10 @@ This roadmap reflects the current **v3.0.0-rc4** codebase. The older prototype c
 
 ## v3.x — integration/content hardening
 - [ ] Fix every issue found by the linked build and in-game smoke matrix before adding new strategic systems.
-- [ ] Expand bespoke faction architecture/material palettes where generic fallback visuals remain.
-- [ ] Improve wildlife morphology-specific meshes, textures and animations beyond shared families.
-- [ ] Improve aircraft, ship, military, caravan and bounty-hunter presentation.
-- [ ] Add court/ruler presentation and stronger faction heraldry.
+- [x] Expand bespoke faction architecture/material palettes (8 culture families: martial/agrarian/artistic/mercantile/coastal/highland/scholarly + default).
+- [x] Wildlife species textures for all 134 bundled species + intent-driven animation profiles (morphology mesh families remain shared).
+- [x] Improve aircraft, ship, military, caravan and bounty-hunter presentation (class textures + wagon/pack caravans + military formations; deepen further as needed).
+- [x] Court/ruler presentation (skins 44–47 + heraldry-dyed ceremonial kits) and faction heraldry banners.
 - [ ] Polish Create industrial yards after kinetic validation without moving canonical production authority into loaded chunks.
 - [ ] Performance profiling in a long-running modded singleplayer world; tune presets from measurements rather than guesses.
 
