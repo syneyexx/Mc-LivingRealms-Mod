@@ -3,6 +3,7 @@ package dev.livingrealms.minecraft;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.livingrealms.LivingRealms;
+import dev.livingrealms.minecraft.ambience.SettlementAmbienceRuntime;
 import dev.livingrealms.minecraft.entity.LivingRealmsAnimalEntity;
 import dev.livingrealms.minecraft.compat.WaystoneSettlementRuntime;
 import dev.livingrealms.sim.player.PlayerSettlementFounder;
@@ -124,6 +125,7 @@ public final class LivingRealmsEvents {
             CivicFestivalMaterializer.tick(event.getServer().overworld(), data);
             SettlementGeographyDiscoveryRuntime.tick(event.getServer().overworld(), data);
             if (tickCounter % 100L == 0) dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.tick(event.getServer(), data);
+            SettlementAmbienceRuntime.tick(event.getServer().overworld(), data, tickCounter);
         }
         // Construction is budgeted every tick; only loaded chunks near players are touched.
         SettlementConstructionMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));

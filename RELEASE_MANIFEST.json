@@ -1,18 +1,18 @@
 {
-  "generatedAtUtc": "2026-10-04T14:21:41Z",
-  "gitCommit": "3ccb8161716d0bf2a68e7f2e7e2a0e2a8ab6583f",
-  "gitWorktreeClean": true,
+  "generatedAtUtc": "2026-10-04T18:38:48Z",
+  "gitCommit": "71934fff0dc09687024acebd46b316278f76da87",
+  "gitWorktreeClean": false,
   "modVersion": "3.0.0-rc4",
   "minecraftVersion": "1.21.1",
   "neoforgeVersion": "21.1.219",
   "createVersion": "6.0.10-280",
   "javaVersion": "openjdk version \"21.0.10\" 2026-01-20",
   "gradleVersion": "unknown",
-  "saveSchema": 16,
+  "saveSchema": 17,
   "minSupportedSchema": 1,
-  "dashboardProtocol": 16,
+  "dashboardProtocol": 17,
   "networkProtocol": "14",
-  "contentRevision": 10,
+  "contentRevision": 11,
   "gates": {
     "coreSuite": "pass",
     "linkedBuild": "pass",
@@ -22,14 +22,13 @@
   "artifact": {
     "jar": "/workspace/build/libs/livingrealms-3.0.0-rc4.jar",
     "jarPresent": true,
-    "jarBytes": 1543593,
-    "jarSha256": "7349ef5017747679000f439b1b46af746df1f4e88656217edd6d4a6b64718db3"
+    "jarBytes": 1910906,
+    "jarSha256": "2a82dc1294da4c71d0ef66c0c89bccaa73424a645a60480f5e50472f6f625752"
   },
   "releaseCompleteClaimAllowed": false,
   "notes": [
     "SOURCE WINS OVER DOCS.",
     "Manifest gitCommit must equal the exact commit being certified.",
-    "Do not claim production-ready while runtimeSmoke is unverified/fail/skipped.",
-    "Linked build produced this JAR on tip e0e06e3; checkpoint 3ccb816 is docs-only and does not change compiled sources."
+    "Do not claim production-ready while runtimeSmoke is unverified/fail/skipped."
   ]
 }
