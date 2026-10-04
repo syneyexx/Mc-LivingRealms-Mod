@@ -49,10 +49,12 @@ public final class LivingRealmsAnimalModel extends EntityModel<LivingRealmsAnima
         r.addOrReplaceChild("fish_tail", CubeListBuilder.create().texOffs(48, 34).addBox(-1, -5, 0, 2, 10, 8), PartPose.offset(0, 15, 8));
         r.addOrReplaceChild("fin_left", CubeListBuilder.create().texOffs(38, 52).addBox(-8, 0, -2, 8, 1, 5), PartPose.offset(-2, 16, -1));
         r.addOrReplaceChild("fin_right", CubeListBuilder.create().texOffs(38, 52).mirror().addBox(0, 0, -2, 8, 1, 5), PartPose.offset(2, 16, -1));
-        r.addOrReplaceChild("bird_body", CubeListBuilder.create().texOffs(0, 38).addBox(-3, -4, -5, 6, 8, 10), PartPose.offset(0, 15, 0));
-        r.addOrReplaceChild("bird_head", CubeListBuilder.create().texOffs(32, 38).addBox(-2, -2, -4, 4, 4, 5), PartPose.offset(0, 12, -5));
-        r.addOrReplaceChild("wing_left", CubeListBuilder.create().texOffs(0, 58).addBox(-12, 0, -3, 12, 1, 7), PartPose.offset(-2, 14, 0));
-        r.addOrReplaceChild("wing_right", CubeListBuilder.create().texOffs(0, 58).mirror().addBox(0, 0, -3, 12, 1, 7), PartPose.offset(2, 14, 0));
+        // Compact bird: body + head + wings share a tight silhouette so flying ducks don't look like loose cubes.
+        r.addOrReplaceChild("bird_body", CubeListBuilder.create().texOffs(0, 38).addBox(-2.5F, -3.0F, -4.0F, 5, 6, 8), PartPose.offset(0, 17, 0));
+        r.addOrReplaceChild("bird_head", CubeListBuilder.create().texOffs(32, 38).addBox(-1.5F, -1.5F, -3.5F, 3, 3, 4)
+                .texOffs(46, 38).addBox(-0.5F, 0.0F, -5.0F, 1, 1, 2), PartPose.offset(0, 14.5F, -4.0F));
+        r.addOrReplaceChild("wing_left", CubeListBuilder.create().texOffs(0, 58).addBox(-8, -0.5F, -2.5F, 8, 1, 5), PartPose.offset(-2.5F, 16, 0));
+        r.addOrReplaceChild("wing_right", CubeListBuilder.create().texOffs(0, 58).mirror().addBox(0, -0.5F, -2.5F, 8, 1, 5), PartPose.offset(2.5F, 16, 0));
         r.addOrReplaceChild("reptile_body", CubeListBuilder.create().texOffs(0, 0).addBox(-5, -3, -9, 10, 6, 18), PartPose.offset(0, 19, 0));
         r.addOrReplaceChild("reptile_tail", CubeListBuilder.create().texOffs(38, 0).addBox(-3, -2, 0, 6, 4, 15), PartPose.offset(0, 19, 8));
         return LayerDefinition.create(mesh, 64, 72);

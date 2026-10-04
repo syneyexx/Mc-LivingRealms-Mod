@@ -36,8 +36,11 @@ public final class WorldgenQualityTest {
         check(houses.size()>=60,"city must materially expand housing stock");
         ConstructionIntent apartment=houses.stream().filter(i->i.width()>=11||i.depth()>=11).findFirst().orElseThrow();
         check(StructureBlueprintFactory.create(apartment).id().startsWith("apartment_block_"),"city housing must include multi-storey blocks");
-        StructureBlueprint smallHouse=StructureBlueprintFactory.create(houses.stream().filter(i->i.width()<11&&i.depth()<11).findFirst().orElseThrow());
-        check(smallHouse.placements().stream().anyMatch(p->p.slot()==PaletteSlot.FLOOR&&p.dy()==0),"house walkable floor must be at foundation/door level, not one block too high");
+        // CultureArchitecture raises minimum footprints; validate floors on a non-apartment home.
+        StructureBlueprint sampleHouse=StructureBlueprintFactory.create(houses.stream()
+                .filter(i->!StructureBlueprintFactory.create(i).id().startsWith("apartment_block_"))
+                .findFirst().orElse(houses.getFirst()));
+        check(sampleHouse.placements().stream().anyMatch(p->p.slot()==PaletteSlot.FLOOR&&p.dy()==0),"house walkable floor must be at foundation/door level, not one block too high");
 
         Settlement growth=new Settlement(state.nextId(),"Growth Test",new SimPosition(500,500),420,500);
         Faction growthFaction=new Faction(state.nextId(),"Growth Realm","Builder");growthFaction.addSettlement(growth);state.addFaction(growthFaction);

@@ -11,18 +11,22 @@ import java.util.Objects;
 /**
  * Idempotent starter-world/kingdom migration.
  *
- * <p>Twelve persistent kingdoms remain, but countryside density targets ~35% developed land: each
- * realm keeps a capital, authored satellites and a light rural fringe. Far-world continuity beyond
- * the authored belt is handled by {@link FrontierExplorationSeeder}. Physical construction remains
- * chunk-local, so canonical density does not imply every settlement is materialized at once.</p>
+ * <p>Twelve persistent kingdoms remain on a sparse 2000-block settlement lattice: each realm keeps
+ * a capital plus a few distant satellites. Far-world continuity beyond the authored belt is handled
+ * by {@link FrontierExplorationSeeder}. Physical construction remains chunk-local.</p>
  */
 public final class SettlementDensitySeeder {
     private SettlementDensitySeeder() {}
-    /** Capitals + satellites + light frontier + rural hamlets ≈ ~35% populated countryside. */
-    private static final int TARGET_SETTLEMENTS_PER_REALM = 14;
+    /**
+     * Capital + 1 distant satellite + 1 rural. At 2000m clearance the authored belt cannot hold the
+     * old ~14/realm pack without collisions; far-world growth stays with FrontierExplorationSeeder.
+     */
+    private static final int TARGET_SETTLEMENTS_PER_REALM = 3;
     /** Authored near-capital satellites only — remaining slots come from farther frontier rings. */
-    private static final int MAX_AUTHORED_SATELLITES = 4;
-    private static final int RURAL_HAMLETS_PER_REALM = 2;
+    private static final int MAX_AUTHORED_SATELLITES = 1;
+    private static final int RURAL_HAMLETS_PER_REALM = 1;
+    /** Product floor shared with {@link dev.livingrealms.sim.player.PlayerSettlementFounder}. */
+    private static final double MIN_SETTLEMENT_SPACING = 2000.0;
     private static final String[] RURAL_SUFFIXES = {"Croft","End","Green","Thorp","Wick","Fold","Ley","Combe"};
     private static final String[] FRONTIER_SUFFIXES = {"Millbrook","Pinecross","Ridgeham","Littlemere","Eastwick","Westfield","Northstead","Southmere","Foxbridge","Riverwatch","Greenhollow","Stonefield","Ashbrook","Kingsford","Meadowgate","Oakfield","Rosemere","Hillcross","Brighton","Westwick","Eastmere","Northfield","Southwatch","Brookstead","Pineford","Stoneham","Rivergate","Greenmere","Foxfield","Willowcross"};
 
@@ -94,13 +98,82 @@ public final class SettlementDensitySeeder {
         Objects.requireNonNull(state, "state");
         int changes = 0;
         for (RealmSpec spec : REALMS) changes += ensureRealm(state, spec);
+        changes += repairGlobalSpacing(state);
         changes += initializeRelations(state);
         if (changes > 0) {
             state.history().add(new WorldEvent(state.clock().day(), "living_world_network_expanded",
-                    "Sparse twelve-realm network ensured (~35% countryside); realms=" + state.factions().size() + ", settlements="
+                    "Sparse twelve-realm network ensured (2000-block settlement spacing); realms=" + state.factions().size() + ", settlements="
                             + state.factions().stream().mapToInt(f -> f.settlements().size()).sum()));
         }
         return changes;
+    }
+
+    /** Public spacing pass for post-wizard / migration hooks. Returns 0 when already legal. */
+    public static int enforceSpacing(SimulationState state) {
+        Objects.requireNonNull(state, "state");
+        return repairGlobalSpacing(state);
+    }
+
+    /**
+     * Capitals are authored in parallel rings; a later capital can land inside an earlier satellite's
+     * clearance. Snap the smaller settlement onto a clearance ring around the larger one.
+     * Idempotent once the lattice is already legal.
+     */
+    private static int repairGlobalSpacing(SimulationState state) {
+        List<Settlement> all = new ArrayList<>();
+        for (Faction f : state.factions()) all.addAll(f.settlements());
+        int changes = 0;
+        final double target = MIN_SETTLEMENT_SPACING + 80.0;
+        for (int pass = 0; pass < 48; pass++) {
+            Settlement move = null, keep = null;
+            double worst = 0;
+            for (int i = 0; i < all.size(); i++) {
+                for (int j = i + 1; j < all.size(); j++) {
+                    Settlement a = all.get(i), b = all.get(j);
+                    double dist = a.position().distanceTo(b.position());
+                    if (dist >= MIN_SETTLEMENT_SPACING) continue;
+                    double slack = MIN_SETTLEMENT_SPACING - dist;
+                    if (slack <= worst) continue;
+                    worst = slack;
+                    // Prefer moving non-capitals (smaller population); tie-break on higher id.
+                    if (a.population() < b.population() || (a.population() == b.population() && a.id() > b.id())) {
+                        move = a; keep = b;
+                    } else {
+                        move = b; keep = a;
+                    }
+                }
+            }
+            if (move == null) break;
+            long m = mix(state.seed() ^ move.id() ^ keep.id() ^ (pass * 0x9E3779B97F4A7C15L));
+            double ang = ((m >>> 11) & 0xFFFFL) / 65535.0 * Math.PI * 2.0;
+            // Try a few ring angles that clear every existing settlement.
+            boolean placed = false;
+            for (int attempt = 0; attempt < 12; attempt++) {
+                double a = ang + attempt * (Math.PI * 2.0 / 12.0);
+                SimPosition candidate = new SimPosition(keep.position().x() + Math.cos(a) * target,
+                        keep.position().z() + Math.sin(a) * target);
+                if (!tooCloseExcept(all, candidate, move.id(), MIN_SETTLEMENT_SPACING)) {
+                    move.relocate(candidate);
+                    placed = true;
+                    break;
+                }
+            }
+            if (!placed) {
+                // Fall back to the first ring angle even if another conflict remains for a later pass.
+                move.relocate(new SimPosition(keep.position().x() + Math.cos(ang) * target,
+                        keep.position().z() + Math.sin(ang) * target));
+            }
+            changes++;
+        }
+        return changes > 0 ? 1 : 0;
+    }
+
+    private static boolean tooCloseExcept(List<Settlement> all, SimPosition p, long ignoreId, double spacing) {
+        for (Settlement s : all) {
+            if (s.id() == ignoreId) continue;
+            if (p.distanceTo(s.position()) < spacing) return true;
+        }
+        return false;
     }
 
     private static int ensureRealm(SimulationState state, RealmSpec spec) {
@@ -126,7 +199,7 @@ public final class SettlementDensitySeeder {
             changes += ensureCapital(capital, spec.capitalPopulation(), spec.capitalHousing());
         }
         int added = addSatellites(state, faction, capital.position(), spec.satellites());
-        added += addFrontierSettlements(state,faction,capital.position(),spec.capitalName());
+        // No dense frontier ring in the starter belt — keeps the 2000m lattice solvable.
         added += addRuralHamlets(state,faction,capital.position(),spec.capitalName());
         if (added > 0) { provision(faction, added); changes += added; }
         return changes;
@@ -165,8 +238,8 @@ public final class SettlementDensitySeeder {
             if(attempt>=FRONTIER_SUFFIXES.length)name=(prefix+" "+FRONTIER_SUFFIXES[Math.floorMod(attempt,FRONTIER_SUFFIXES.length)]+" "+(attempt/FRONTIER_SUFFIXES.length+1)).trim();
             if(settlement(faction,name)!=null)continue;
             double angle=(baseIndex+attempt)*2.399963229728653;
-            // Push frontier farther out so near-capital belts stay greener / less road-choked.
-            double radius=1_860.0+(attempt%5)*340.0+(attempt/5)*220.0;
+            // Keep frontier ≥2000m from the capital so wilderness belts stay founding-viable.
+            double radius=2_200.0+(attempt%5)*480.0+(attempt/5)*360.0;
             SimPosition position=new SimPosition(origin.x()+Math.cos(angle)*radius,origin.z()+Math.sin(angle)*radius);
             position=avoidCrowding(state,position,faction.id(),100+attempt);
             int pop=populations[Math.floorMod(attempt,populations.length)],housing=(int)Math.ceil(pop*1.13);
@@ -201,10 +274,10 @@ public final class SettlementDensitySeeder {
             if(settlement(faction,name)!=null)continue;
             SimPosition anchor=fertile.isEmpty()?origin:fertile.get(Math.floorMod(attempt+(int)faction.id(),fertile.size()));
             double angle=(attempt+3)*2.399963229728653;
-            double radius=780.0+(attempt%3)*220.0;
+            double radius=2_050.0+(attempt%3)*420.0;
             SimPosition position=new SimPosition(anchor.x()+Math.cos(angle)*radius,anchor.z()+Math.sin(angle)*radius);
-            // Pull lightly toward capital so hamlets remain in the realm's countryside belt.
-            position=new SimPosition(position.x()*.72+origin.x()*.28,position.z()*.72+origin.z()*.28);
+            // Soft pull toward capital while preserving ≥2000m clearance via avoidCrowding.
+            position=new SimPosition(position.x()*.85+origin.x()*.15,position.z()*.85+origin.z()*.15);
             position=avoidCrowding(state,position,faction.id(),400+attempt);
             int pop=48+Math.floorMod((int)mix(state.seed()^faction.id()^(attempt*17L)),40); // 48–87 hamlet
             Settlement hamlet=new Settlement(state.nextId(),name,position,pop,(int)Math.ceil(pop*1.2));
@@ -231,15 +304,14 @@ public final class SettlementDensitySeeder {
     }
 
     private static SimPosition avoidCrowding(SimulationState state,SimPosition initial,long factionId,int index){
-        // Wider spacing leaves continuous wild belts between towns (~35% developed feel).
-        final double spacing=540.0;SimPosition p=initial;
-        for(int attempt=0;attempt<10;attempt++){
+        final double spacing=MIN_SETTLEMENT_SPACING;SimPosition p=initial;
+        for(int attempt=0;attempt<16;attempt++){
             Settlement nearest=null;double best=Double.POSITIVE_INFINITY;
             for(Faction f:state.factions())for(Settlement s:f.settlements()){double d=p.distanceTo(s.position());if(d<best){best=d;nearest=s;}}
             if(nearest==null||best>=spacing)return p;
             double dx=p.x()-nearest.position().x(),dz=p.z()-nearest.position().z();
             if(dx*dx+dz*dz<1.0){long m=mix(state.seed()^factionId^(index*31L+attempt));double a=((m>>>11)&0xFFFFL)/65535.0*Math.PI*2;dx=Math.cos(a);dz=Math.sin(a);}
-            double len=Math.max(1.0,Math.hypot(dx,dz)),push=spacing-best+110.0;
+            double len=Math.max(1.0,Math.hypot(dx,dz)),push=spacing-best+180.0;
             p=new SimPosition(p.x()+dx/len*push,p.z()+dz/len*push);
         }
         return p;
@@ -264,10 +336,13 @@ public final class SettlementDensitySeeder {
     }
 
     private static SimPosition jittered(long seed, long factionId, int index, SimPosition origin, double dx, double dz) {
+        // Scale authored offsets out so even the first satellite ring clears 2000m.
+        double scale = Math.max(1.0, MIN_SETTLEMENT_SPACING / Math.max(1.0, Math.hypot(dx, dz)));
+        if (scale < 1.15) scale = 1.15;
         long mixed = mix(seed ^ factionId * 0x9E3779B97F4A7C15L ^ (long)(index + 1) * 0xD1B54A32D192ED03L);
-        double xJitter = (((mixed >>> 11) & 0x3FFL) / 1023.0 - .5) * 120.0;
-        double zJitter = (((mixed >>> 31) & 0x3FFL) / 1023.0 - .5) * 120.0;
-        return new SimPosition(origin.x() + dx + xJitter, origin.z() + dz + zJitter);
+        double xJitter = (((mixed >>> 11) & 0x3FFL) / 1023.0 - .5) * 160.0;
+        double zJitter = (((mixed >>> 31) & 0x3FFL) / 1023.0 - .5) * 160.0;
+        return new SimPosition(origin.x() + dx * scale + xJitter, origin.z() + dz * scale + zJitter);
     }
 
     private static void provision(Faction faction, int scale) {

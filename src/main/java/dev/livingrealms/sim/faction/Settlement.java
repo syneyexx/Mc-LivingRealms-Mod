@@ -10,7 +10,7 @@ public final class Settlement {
     public enum Tier { CAMP, HAMLET, VILLAGE, TOWN, CITY, METROPOLIS }
     private final long id;
     private String name;
-    private final SimPosition position;
+    private SimPosition position;
     private int population;
     private int housing;
     private double infrastructure;
@@ -37,6 +37,8 @@ public final class Settlement {
         recalc();refreshStorageCapacity();seedStarterStores();
     }
     public long id(){return id;} public String name(){return name;} public SimPosition position(){return position;} public int population(){return population;} public int housing(){return housing;} public double infrastructure(){return infrastructure;} public Tier tier(){return tier;}
+    /** Density/spacing repair only — never teleport a live settlement during ordinary sim ticks. */
+    public void relocate(SimPosition value){position=java.util.Objects.requireNonNull(value,"position");}
     public double prosperity(){return prosperity;} public double unrest(){return unrest;} public double foodSecurity(){return foodSecurity;} public double publicOrder(){return publicOrder;} public double employment(){return employment;} public DevelopmentPriority developmentPriority(){return developmentPriority;}
     public Stockpile stockpile(){return stockpile;} public double barnCapacity(){return barnCapacity;} public double granaryCapacity(){return granaryCapacity;}
     public SettlementGeographyProfile geography(){return geography;}

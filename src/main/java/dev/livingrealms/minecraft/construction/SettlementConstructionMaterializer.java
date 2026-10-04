@@ -33,10 +33,12 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.levelgen.Heightmap;
 
@@ -174,7 +176,7 @@ public final class SettlementConstructionMaterializer {
             RoadPlan plan=roadOperations(level,original);
             return plan.operations().isEmpty()?null:new ConstructionJob(original,plan.operations(),0,plan.omittedRequired());
         }
-        if(original.role()==StructureRole.WALL) {
+        if(original.role()==StructureRole.WALL || original.role()==StructureRole.GATE) {
             java.util.List<BuildOperation> ops=terrainFollowingOperations(level,original);
             return ops.isEmpty()?null:new ConstructionJob(original,ops,0);
         }
@@ -275,6 +277,7 @@ public final class SettlementConstructionMaterializer {
     private static RoadPlan roadOperations(ServerLevel level,ConstructionIntent intent){
         int cx=(int)Math.round(intent.center().x()),cz=(int)Math.round(intent.center().z()),turns=Math.floorMod(intent.rotationQuarterTurns(),4);
         int hx=intent.width()/2,hz=intent.depth()/2;
+        boolean rural=intent.width()<=3; // countryside dirt paths: floor only, no curb/fence
         java.util.List<BuildOperation> out=new java.util.ArrayList<>(intent.width()*intent.depth()*3);
         int omittedRequired=0;
         Integer previous=null;
@@ -285,11 +288,24 @@ public final class SettlementConstructionMaterializer {
             if(!level.hasChunkAt(new BlockPos(centerX,level.getSeaLevel(),centerZ))){rowUsable=false;}
             int raw=rowUsable?naturalSurfaceY(level,centerX,centerZ):-1;
             if(rowUsable&&raw<=level.getMinBuildHeight()+1)rowUsable=false;
-            int target=previous==null?raw:Math.max(previous-1,Math.min(previous+1,raw));
-            // Do not staircase over cliffs/mountains. Count omitted required geometry explicitly.
-            if(rowUsable&&Math.abs(raw-target)>4){previous=null;rowUsable=false;}
+            boolean flooded=false;
+            if(rowUsable){
+                BlockState ground=level.getBlockState(new BlockPos(centerX,raw,centerZ));
+                flooded=!ground.getFluidState().isEmpty()||!level.getFluidState(new BlockPos(centerX,raw+1,centerZ)).isEmpty();
+            }
+            int target;
+            if(flooded){
+                // Bridge deck: keep at sea level / previous deck so paths never trench underwater.
+                int deck=Math.max(level.getSeaLevel(),previous==null?raw:previous);
+                target=deck;
+            }else{
+                target=previous==null?raw:Math.max(previous-1,Math.min(previous+1,raw));
+                // Bridge over cliffs/gaps instead of omitting the row.
+                if(rowUsable&&Math.abs(raw-target)>4){
+                    target=Math.max(raw,previous==null?raw:previous);
+                }
+            }
             if(!rowUsable){
-                // Centerline PATH cells that never entered the job still matter for continuity.
                 omittedRequired+=Math.max(1,intent.width());
                 continue;
             }
@@ -298,8 +314,7 @@ public final class SettlementConstructionMaterializer {
                 int rx=lx,rz=lz;for(int i=0;i<turns;i++){int t=rx;rx=-rz;rz=t;}int wx=cx+rx,wz=cz+rz;
                 if(!level.hasChunkAt(new BlockPos(wx,level.getSeaLevel(),wz))){omittedRequired++;continue;}
                 int surface=naturalSurfaceY(level,wx,wz);
-                if(surface<=level.getMinBuildHeight()+1||Math.abs(surface-target)>4){omittedRequired++;continue;}
-                // Clear leaves/replaceable vegetation AND natural trees blocking the street.
+                if(surface<=level.getMinBuildHeight()+1){omittedRequired++;continue;}
                 for(int y=target+1;y<=Math.min(surface+8,target+10);y++){
                     BlockPos clearPos=new BlockPos(wx,y,wz);
                     BlockState st=level.getBlockState(clearPos);if(st.isAir())continue;
@@ -308,23 +323,18 @@ public final class SettlementConstructionMaterializer {
                         out.add(new BuildOperation(wx,y,wz,PaletteSlot.AIR,dev.livingrealms.sim.construction.ConstructionPhase.CLEAR));
                     else break;
                 }
-                // Never leave a grass block sitting on top of the carriageway elevation.
-                BlockPos roadPos=new BlockPos(wx,target,wz);
-                BlockState roadHere=level.getBlockState(roadPos);
-                if(roadHere.is(Blocks.GRASS_BLOCK)||roadHere.is(Blocks.DIRT)||roadHere.is(Blocks.PODZOL)||roadHere.is(Blocks.MYCELIUM)){
-                    // PATH/FOUNDATION overwrite handles this; still clear any snow/plant on top.
-                    out.add(new BuildOperation(wx,target+1,wz,PaletteSlot.AIR,dev.livingrealms.sim.construction.ConstructionPhase.CLEAR));
-                }
-                PaletteSlot slot=Math.abs(lx)==hx?PaletteSlot.FOUNDATION:PaletteSlot.PATH;
+                out.add(new BuildOperation(wx,target+1,wz,PaletteSlot.AIR,dev.livingrealms.sim.construction.ConstructionPhase.CLEAR));
+                // Rural: entire carriageway is PATH. Urban edges keep FOUNDATION sidewalks.
+                PaletteSlot slot=(!rural && Math.abs(lx)==hx)?PaletteSlot.FOUNDATION:PaletteSlot.PATH;
                 out.add(new BuildOperation(wx,target,wz,slot,dev.livingrealms.sim.construction.ConstructionPhase.FOUNDATION));
-                // Decorative curb lights every so often on arterial edges.
-                if(Math.abs(lx)==hx&&Math.floorMod(lz+wx,11)==0)
+                if(!rural && Math.abs(lx)==hx&&Math.floorMod(lz+wx,11)==0)
                     out.add(new BuildOperation(wx,target+1,wz,PaletteSlot.LIGHT,dev.livingrealms.sim.construction.ConstructionPhase.DETAIL));
-                // Short retaining support keeps sidewalks from floating over small dips.
-                for(int y=target-1;y>surface&&y>=target-4;y--)out.add(new BuildOperation(wx,y,wz,PaletteSlot.FOUNDATION,dev.livingrealms.sim.construction.ConstructionPhase.FOUNDATION));
-                // If the natural ground drops away, fill pillars so the street stays level (bridge feel).
-                if(surface<target-1){
-                    for(int y=surface+1;y<target;y++)
+                // Bridge pillars / retaining when deck is above natural ground or water.
+                if(surface<target){
+                    for(int y=Math.max(surface+1,target-16);y<target;y++)
+                        out.add(new BuildOperation(wx,y,wz,PaletteSlot.FOUNDATION,dev.livingrealms.sim.construction.ConstructionPhase.FOUNDATION));
+                }else{
+                    for(int y=target-1;y>surface&&y>=target-4;y--)
                         out.add(new BuildOperation(wx,y,wz,PaletteSlot.FOUNDATION,dev.livingrealms.sim.construction.ConstructionPhase.FOUNDATION));
                 }
             }
@@ -369,6 +379,9 @@ public final class SettlementConstructionMaterializer {
 
         if(operation.slot()==PaletteSlot.DOOR){
             return applyDoor(level,job,pos,current,ledger,owner);
+        }
+        if(operation.slot()==PaletteSlot.BED){
+            return applyBed(level,job,pos,current,ledger,owner);
         }
 
         BlockState target=paletteState(level,job,operation.slot());
@@ -468,6 +481,46 @@ public final class SettlementConstructionMaterializer {
     private static Direction doorFacing(int quarterTurns){
         Direction[] order={Direction.SOUTH,Direction.WEST,Direction.NORTH,Direction.EAST};
         return order[Math.floorMod(quarterTurns,4)];
+    }
+
+    /**
+     * Places a complete two-block Minecraft bed. Blueprint emits foot then head along local +Z;
+     * after house rotation that becomes {@link #doorFacing}'s axis. Foot placement also writes HEAD.
+     */
+    private static BuildApplyResult applyBed(ServerLevel level,ConstructionJob job,BlockPos pos,BlockState current,AuthoredBlockLedger ledger,AuthoredOwnerType owner){
+        BlockState bedBase=paletteState(level,job,PaletteSlot.BED);
+        if(!(bedBase.getBlock() instanceof BedBlock))return BuildApplyResult.SAFELY_IGNORED;
+        Direction facing=doorFacing(job.intent().rotationQuarterTurns());
+        BlockPos behind=pos.relative(facing.getOpposite());
+        BlockState behindState=level.getBlockState(behind);
+        boolean weAreHead=behindState.getBlock() instanceof BedBlock && behindState.hasProperty(BedBlock.PART)
+                && behindState.getValue(BedBlock.PART)==BedPart.FOOT;
+        BlockState target=bedBase.setValue(BedBlock.FACING,facing).setValue(BedBlock.PART,weAreHead?BedPart.HEAD:BedPart.FOOT);
+        if(current.equals(target))return BuildApplyResult.ALREADY_CORRECT;
+        WorldMutationGuard.Decision replace=WorldMutationGuard.evaluateReplace(level,pos,current,ledger,owner,false,false);
+        boolean authoredBed=current.getBlock() instanceof BedBlock
+                && AuthoredOwnerType.allowsOverwrite(ledger.ownerType(pos.getX(),pos.getY(),pos.getZ()),owner);
+        if(!replace.mayMutate()&&!authoredBed&&!current.isAir()&&!current.canBeReplaced())
+            return BuildApplyResult.SAFELY_IGNORED;
+        if(!ledger.canRecord(pos.getX(),pos.getY(),pos.getZ()))return BuildApplyResult.RETRYABLE;
+        BlockState previous=current;
+        if(!level.setBlock(pos,target,Block.UPDATE_ALL|Block.UPDATE_SUPPRESS_DROPS))return BuildApplyResult.FAILED;
+        if(!ledger.record(pos.getX(),pos.getY(),pos.getZ(),owner)){
+            level.setBlock(pos,previous,Block.UPDATE_ALL|Block.UPDATE_SUPPRESS_DROPS);
+            return BuildApplyResult.FAILED;
+        }
+        if(!weAreHead){
+            BlockPos headPos=pos.relative(facing);
+            BlockState headCur=level.getBlockState(headPos);
+            WorldMutationGuard.Decision headClear=WorldMutationGuard.evaluateClear(level,headPos,headCur,ledger,owner,false);
+            boolean headOk=headCur.isAir()||headCur.canBeReplaced()||headClear.mayMutate()
+                    ||(headCur.getBlock() instanceof BedBlock && AuthoredOwnerType.allowsOverwrite(ledger.ownerType(headPos.getX(),headPos.getY(),headPos.getZ()),owner));
+            if(headOk){
+                BlockState head=bedBase.setValue(BedBlock.FACING,facing).setValue(BedBlock.PART,BedPart.HEAD);
+                WorldMutationGuard.trySetAuthored(level,headPos,head,ledger,owner,false,false);
+            }
+        }
+        return BuildApplyResult.APPLIED;
     }
 
     private static boolean safeWizardExcavate(BlockState state){Block b=state.getBlock();return state.is(BlockTags.BASE_STONE_OVERWORLD)||b==Blocks.DIRT||b==Blocks.COARSE_DIRT||b==Blocks.ROOTED_DIRT||b==Blocks.GRAVEL||b==Blocks.CLAY||b==Blocks.MUD||b==Blocks.SAND||b==Blocks.RED_SAND;}
