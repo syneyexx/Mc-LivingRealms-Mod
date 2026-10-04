@@ -116,6 +116,7 @@ public final class LivingRealmsEvents {
             NavalMaterializer.tick(event.getServer(), data);
             BountyHunterMaterializer.tick(event.getServer(), data);
             SiegeEquipmentMaterializer.tick(event.getServer(), data);
+            CaravanEscortMaterializer.tick(event.getServer(), data);
             CustodyRuntime.tick(event.getServer(), data);
             CitizenConversationRuntime.tick(event.getServer(), data, tickCounter);
             HistoricalSiteMaterializer.tick(event.getServer().overworld(), data);

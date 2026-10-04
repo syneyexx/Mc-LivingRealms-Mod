@@ -25,7 +25,7 @@
 - Full bundled species-pack audit passes: **134 species** with explicit morphology/locomotion fields and a validated food web.
 - Strategic completeness suite passes.
 - 3650-day deterministic soak now has explicit persistence/invariant gates at day 30, 365 and 3650, plus a biodiversity floor.
-- Save schema is **17**; schemas 1-16 remain readable. Schema 17 persists final-product systems (appearance/influence/debt/projects/campaigns/shipment logistics). Dashboard snapshot protocol is **17**. Network registration is **14**. Outer Minecraft `ContentRevision=10` rebuilds morphology completion keys once and keeps typed authored-block ownership + Waystone provenance.
+- Save schema is **17**; schemas 1-16 remain readable. Schema 16 persists per-settlement barn/granary capacity and local stockpiles; schema 17 adds final-product systems. Dashboard snapshot protocol is **17**. Network registration is **14**. Outer Minecraft `ContentRevision=10`.
 - `ConstructionIntegrityTest`, `TradeLivenessTest`, `OrganicMorphologyAndCauseTest` and `FinalProductSystemsTest` are mandatory core gates.
 
 ## Explicit status claim
@@ -40,7 +40,7 @@ Proven in this pass:
 - night curfew / low-order nightlife; ship class visuals; wildlife mass scaling; terrain cliff/pad rejection
 - `INFRASTRUCTURE_REPAIR` and expanded contract types from canonical pressures
 - holy-day civic rites + festival decorations + verified assistance + refugee camp enqueue remain intact
-- linked NeoForge/Create `build-production.sh` **PASS** on this tip (JAR `livingrealms-3.0.0-rc4.jar`)
+- NeoForge linked `build-production.sh` + RELEASE_MANIFEST regeneration **in progress / pending** on this tip
 
 Still unverified externally:
 - fresh-world / migrated-world client smoke
