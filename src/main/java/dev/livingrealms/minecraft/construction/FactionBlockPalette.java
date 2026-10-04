@@ -99,6 +99,9 @@ public final class FactionBlockPalette {
             case STORAGE -> Blocks.BARREL.defaultBlockState();
             case RUNWAY -> Blocks.GRAY_CONCRETE.defaultBlockState();
             case REDSTONE_LIGHT -> Blocks.REDSTONE_TORCH.defaultBlockState();
+            case BED -> Blocks.RED_BED.defaultBlockState();
+            case TABLE -> Blocks.CRAFTING_TABLE.defaultBlockState();
+            case DECORATION -> Blocks.FLOWER_POT.defaultBlockState();
         };
     }
 }

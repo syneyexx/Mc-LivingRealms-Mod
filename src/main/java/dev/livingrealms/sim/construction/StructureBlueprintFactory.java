@@ -123,12 +123,16 @@ public final class StructureBlueprintFactory {
 
     private static StructureBlueprint house(ConstructionIntent intent) {
         int w=intent.width(),d=intent.depth();
+        if(w>=13||d>=13)return mansion(w,d);
         if(w>=11||d>=11)return apartmentBlock(w,d,variant(intent,3));
-        int variant=variant(intent,4);
+        int variant=variant(intent,7);
         return switch(variant){
-            case 0 -> cottage(w,d);
-            case 1 -> longhouse(w,d);
-            case 2 -> townhouse(w,d);
+            case 0 -> hut(w,d);
+            case 1 -> cottage(w,d);
+            case 2 -> farmhouse(w,d);
+            case 3 -> longhouse(w,d);
+            case 4 -> terrace(w,d);
+            case 5 -> townhouse(w,d);
             default -> porchHouse(w,d);
         };
     }
@@ -142,10 +146,19 @@ public final class StructureBlueprintFactory {
             int floorY=level*3;if(level>0){int hx=w/2-1,hz=d/2-1;for(int z=-hz;z<=hz;z++)for(int x=-hx;x<=hx;x++)add(p,x,floorY,z,PaletteSlot.FLOOR,ConstructionPhase.FRAME);}
             windows(p,w,d,floorY+2);
             add(p,Math.max(-w/2+1,-2),floorY+1,Math.max(-d/2+1,1),PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
+            furnishHome(p,floorY+1,level);
         }
         flatRoof(p,w,d,wallTop+1,PaletteSlot.ROOF);
         int hx=w/2,hz=d/2;for(int x=-hx;x<=hx;x+=2){add(p,x,wallTop+2,-hz,PaletteSlot.FENCE,ConstructionPhase.DETAIL);add(p,x,wallTop+2,hz,PaletteSlot.FENCE,ConstructionPhase.DETAIL);}
         return bp("apartment_block_"+floors,w,d,wallTop+3,p);
+    }
+
+    private static StructureBlueprint hut(int w,int d) {
+        List<BlockPlacement> p = new ArrayList<>();
+        clear(p,w,d,4); foundation(p,w,d); floor(p,w,d,PaletteSlot.FLOOR);
+        shell(p,w,d,1,2,PaletteSlot.WALL); doorway(p,w,d); pitchedRoof(p,w,d,3);
+        furnishHome(p,1,0);
+        return bp("hut",w,d,4,p);
     }
 
     private static StructureBlueprint cottage(int w,int d) {
@@ -153,8 +166,21 @@ public final class StructureBlueprintFactory {
         clear(p,w,d,6); foundation(p,w,d); floor(p,w,d,PaletteSlot.FLOOR);
         shell(p,w,d,1,3,PaletteSlot.WALL); beamsAtCorners(p,w,d,1,4);
         doorway(p,w,d); windows(p,w,d,2); pitchedRoof(p,w,d,4);
+        furnishHome(p,1,0);
         add(p,0,2,0,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
         return bp("cottage",w,d,6,p);
+    }
+
+    private static StructureBlueprint farmhouse(int w,int d) {
+        List<BlockPlacement> p = new ArrayList<>();
+        clear(p,w,d,7); foundation(p,w,d); floor(p,w,d,PaletteSlot.FLOOR);
+        shell(p,w,d,1,4,PaletteSlot.WALL); beamsAtCorners(p,w,d,1,5);
+        doorway(p,w,d); windows(p,w,d,2); pitchedRoof(p,w,d,5);
+        int hz=d/2;for(int x=-Math.min(2,w/2);x<=Math.min(2,w/2);x++)add(p,x,0,hz+1,PaletteSlot.FARMLAND,ConstructionPhase.DETAIL);
+        add(p,Math.max(-w/2+1,w/2-2),1,Math.max(-d/2+1,d/2-2),PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
+        furnishHome(p,1,0);
+        add(p,0,2,0,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
+        return bp("farmhouse",w,d,7,p);
     }
 
     private static StructureBlueprint longhouse(int w,int d) {
@@ -164,8 +190,19 @@ public final class StructureBlueprintFactory {
         int hx=w/2,hz=d/2;
         for(int x=-Math.max(1,hx-2);x<=Math.max(1,hx-2);x+=2)add(p,x,1,-hz-1,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
         add(p,Math.max(-hx+1,hx-1),2,Math.max(-hz+1,hz-1),PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
+        furnishHome(p,1,0);
         add(p,0,2,0,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
         return bp("longhouse",w,d,7,p);
+    }
+
+    private static StructureBlueprint terrace(int w,int d) {
+        List<BlockPlacement> p=new ArrayList<>();
+        clear(p,w,d,8);foundation(p,w,d);floor(p,w,d,PaletteSlot.FLOOR);
+        shell(p,w,d,1,5,PaletteSlot.WALL);beamsAtCorners(p,w,d,1,6);doorway(p,w,d);windows(p,w,d,2);windows(p,w,d,4);
+        flatRoof(p,w,d,6,PaletteSlot.ROOF);
+        furnishHome(p,1,0);
+        add(p,0,2,0,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
+        return bp("terrace",w,d,8,p);
     }
 
     private static StructureBlueprint townhouse(int w,int d) {
@@ -174,6 +211,7 @@ public final class StructureBlueprintFactory {
         shell(p,w,d,1,6,PaletteSlot.WALL);beamsAtCorners(p,w,d,1,7);doorway(p,w,d);windows(p,w,d,2);windows(p,w,d,5);
         flatRoof(p,w,d,7,PaletteSlot.ROOF);
         int hx=w/2,hz=d/2;for(int x=-hx;x<=hx;x+=2){add(p,x,8,-hz,PaletteSlot.FENCE,ConstructionPhase.DETAIL);add(p,x,8,hz,PaletteSlot.FENCE,ConstructionPhase.DETAIL);}
+        furnishHome(p,1,0);furnishHome(p,4,1);
         add(p,0,2,0,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
         return bp("townhouse",w,d,9,p);
     }
@@ -185,8 +223,33 @@ public final class StructureBlueprintFactory {
         int hz=d/2;for(int x=-Math.min(2,w/2);x<=Math.min(2,w/2);x++)add(p,x,0,-hz-1,PaletteSlot.FLOOR,ConstructionPhase.DETAIL);
         add(p,-2,1,-hz-1,PaletteSlot.BEAM,ConstructionPhase.DETAIL);add(p,2,1,-hz-1,PaletteSlot.BEAM,ConstructionPhase.DETAIL);
         add(p,-2,2,-hz-1,PaletteSlot.BEAM,ConstructionPhase.DETAIL);add(p,2,2,-hz-1,PaletteSlot.BEAM,ConstructionPhase.DETAIL);
+        furnishHome(p,1,0);
         add(p,0,2,0,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
         return bp("porch_house",w,d,7,p);
+    }
+
+    private static StructureBlueprint mansion(int w,int d) {
+        List<BlockPlacement> p=new ArrayList<>();
+        clear(p,w,d,12);foundation(p,w,d);floor(p,w,d,PaletteSlot.FLOOR);
+        shell(p,w,d,1,8,PaletteSlot.WALL);beamsAtCorners(p,w,d,1,9);doorway(p,w,d);
+        windows(p,w,d,2);windows(p,w,d,5);windows(p,w,d,7);
+        flatRoof(p,w,d,9,PaletteSlot.ROOF);
+        int hx=w/2,hz=d/2;
+        for(int x=-hx+2;x<=hx-2;x++)add(p,x,1,0,PaletteSlot.FLOOR,ConstructionPhase.DETAIL);
+        furnishHome(p,1,0);furnishHome(p,4,1);furnishHome(p,7,2);
+        add(p,0,3,0,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
+        add(p,-hx+2,1,-hz+2,PaletteSlot.DECORATION,ConstructionPhase.DETAIL);
+        add(p,hx-2,1,hz-2,PaletteSlot.DECORATION,ConstructionPhase.DETAIL);
+        return bp("mansion",w,d,12,p);
+    }
+
+    /** Beds/table/storage cooking area — functional interior grammar for homes. */
+    private static void furnishHome(List<BlockPlacement> p,int y,int suite){
+        int ox=suite%2==0?-1:1,oz=suite%3==0?-1:1;
+        add(p,ox,y,oz,PaletteSlot.BED,ConstructionPhase.DETAIL);
+        add(p,-ox,y,oz,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
+        add(p,0,y,-oz,PaletteSlot.TABLE,ConstructionPhase.DETAIL);
+        if(suite==0)add(p,ox,y,-oz,PaletteSlot.MACHINE,ConstructionPhase.DETAIL); // cooking/work
     }
 
     private static StructureBlueprint keep(int w, int d) {
