@@ -110,7 +110,7 @@ require(schema_version==16,f'save schema must be 16 (source currently {schema_ve
 require(min_schema==1,f'min supported schema must remain 1 (source {min_schema})')
 require(dashboard_protocol==14,f'dashboard protocol must be 14 (source {dashboard_protocol})')
 require(network_version=='12',f'network registration version must be 12 (source {network_version!r})')
-require(content_revision==7,f'content revision must be 7 (source {content_revision})')
+require(content_revision==8,f'content revision must be 8 (source {content_revision})')
 
 
 
@@ -140,6 +140,7 @@ for main in canonical_tests:
     require(path.exists(),f'core suite entry missing source: {main}')
 required_suite={
     'dev.livingrealms.CoreSimulationTest',
+    'dev.livingrealms.ConstructionIntegrityTest',
     'dev.livingrealms.SpeciesPackAuditTest',
     'dev.livingrealms.SystemCompletenessTest',
     'dev.livingrealms.SettlementEconomyTest',
@@ -209,7 +210,13 @@ founder=(root/'src/main/java/dev/livingrealms/sim/player/PlayerSettlementFounder
 require('Realm of ' in founder and 'assumeRule' in founder and 'relationWith' in founder,'player-founded settlements must enter canonical government/membership/diplomacy as the actual ruler')
 saved_data=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java').read_text()
 require('ContentRevision' in saved_data and 'contentRevision < CONTENT_REVISION' in saved_data,'density content migration must remain one-shot and persisted')
-require('resetConstructionCompletion' in saved_data and 'contentRevision < 6' in saved_data and 'CONTENT_REVISION = 7' in saved_data,'content revision 7 keeps revision-6 construction rebuild and adds Waystone provenance without schema bump')
+require('resetConstructionCompletion' in saved_data and 'contentRevision < 6' in saved_data and 'CONTENT_REVISION = 8' in saved_data,'content revision 8 keeps revision-6 construction rebuild, Waystone provenance, and authored-block ledger without schema bump')
+require('AuthoredBlockLedger' in saved_data or 'authoredBlocks' in saved_data,'SavedData must persist authored construction provenance outside schema payload')
+construction_runtime_text=(root/'src/main/java/dev/livingrealms/minecraft/construction/SettlementConstructionMaterializer.java').read_text()
+require('OBSTRUCTED_PROTECTED' in construction_runtime_text and 'AuthoredBlockLedger' in construction_runtime_text,'construction materializer must use provenance-aware obstruction results')
+require('hasChunkAt(center)) continue' in construction_runtime_text or 'hasChunkAt(center))continue' in construction_runtime_text.replace(' ',''),'unloaded construction intents must continue to later loaded work, not break the settlement scan')
+require('physicallyComplete' in (root/'src/main/java/dev/livingrealms/sim/construction/ConstructionJob.java').read_text(),'construction jobs must expose physical completion distinct from cursor completion')
+require('return List.of()' in (root/'src/main/java/dev/livingrealms/sim/transport/TerrainCorridorPlanner.java').read_text() and 'straight(' not in (root/'src/main/java/dev/livingrealms/sim/transport/TerrainCorridorPlanner.java').read_text(),'terrain corridor must not fall back to destructive straight roads')
 events_text=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsEvents.java').read_text()
 require('Commands.literal("setday")' in events_text and 'advanceToDay(target)' in events_text,'absolute setday command must run canonical simulation progression')
 require('Commands.literal("locate")' in events_text and 'Commands.literal("city")' in events_text,'Living Realms locate commands must remain registered')

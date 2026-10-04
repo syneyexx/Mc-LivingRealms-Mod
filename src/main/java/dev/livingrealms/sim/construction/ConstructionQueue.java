@@ -10,6 +10,10 @@ import java.util.Objects;
 /**
  * Fair, resumable construction scheduler. The budget counts attempts, not just changed blocks, so
  * already-correct terrain cannot create an unbounded server-tick scan.
+ *
+ * <p>A job only enters {@link BuildTickResult#completedJobKeys()} when its
+ * {@link StructureMaterializationReceipt} reports physically acceptable required geometry.
+ * Cursor-finished but obstructed jobs are rejected instead of being marked canonically complete.
  */
 public final class ConstructionQueue {
     @FunctionalInterface public interface Executor { BuildApplyResult apply(ConstructionJob job, BuildOperation operation); }
@@ -32,6 +36,7 @@ public final class ConstructionQueue {
         Objects.requireNonNull(executor,"executor");
         int attempted=0,applied=0,skipped=0,blocked=0;
         List<String> completed=new ArrayList<>();
+        List<String> rejected=new ArrayList<>();
         List<ConstructionJob> ordered=new ArrayList<>(jobs.values());
         ordered.sort(Comparator.comparingInt((ConstructionJob j)->j.intent().priority()).reversed().thenComparing(ConstructionJob::key));
 
@@ -43,15 +48,23 @@ public final class ConstructionQueue {
                 if(job.complete()) continue;
                 attempted++;
                 BuildApplyResult result=Objects.requireNonNull(executor.apply(job,job.current()),"executor result");
-                switch(result) {
-                    case APPLIED -> { applied++; job.advance(); progress=true; }
-                    case SKIPPED -> { skipped++; job.advance(); progress=true; }
-                    case BLOCKED -> blocked++;
+                boolean beforeComplete=job.complete();
+                job.recordResult(result);
+                if(result.countsAsAppliedWrite()) applied++;
+                else if(result.satisfiesRequired() || result==BuildApplyResult.SAFELY_IGNORED || result==BuildApplyResult.SKIPPED) skipped++;
+                else if(result.isDeferral()) blocked++;
+                if(result.advancesCursor()) progress=true;
+                if(!beforeComplete && job.complete()) {
+                    if(job.physicallyComplete()) {
+                        if(!completed.contains(job.key())) completed.add(job.key());
+                    } else if(!rejected.contains(job.key())) {
+                        rejected.add(job.key());
+                    }
                 }
-                if(job.complete() && !completed.contains(job.key())) completed.add(job.key());
             }
         }
         for(String key:completed) jobs.remove(key);
-        return new BuildTickResult(attempted,applied,skipped,blocked,completed);
+        for(String key:rejected) jobs.remove(key);
+        return new BuildTickResult(attempted,applied,skipped,blocked,completed,rejected);
     }
 }

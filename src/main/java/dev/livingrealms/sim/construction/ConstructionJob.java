@@ -4,10 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/** Resumable physical construction job. */
+/** Resumable physical construction job with required-geometry accounting. */
 public final class ConstructionJob {
     private final ConstructionIntent intent;
     private final List<BuildOperation> operations;
+    private final StructureMaterializationReceipt receipt;
     private int cursor;
 
     public ConstructionJob(ConstructionIntent intent, int groundY) {
@@ -19,6 +20,7 @@ public final class ConstructionJob {
         this.operations = List.copyOf(Objects.requireNonNull(operations, "operations"));
         if (cursor < 0 || cursor > operations.size()) throw new IllegalArgumentException("cursor");
         this.cursor = cursor;
+        this.receipt = StructureMaterializationReceipt.forJob(this);
     }
 
     public String key() { return intent.settlementId()+":"+intent.key(); }
@@ -30,6 +32,20 @@ public final class ConstructionJob {
     public BuildOperation current() { if(complete()) throw new IllegalStateException("job complete"); return operations.get(cursor); }
     public void advance() { if(!complete()) cursor++; }
     public List<BuildOperation> operations() { return operations; }
+    public StructureMaterializationReceipt receipt() { return receipt; }
+
+    public void recordResult(BuildApplyResult result) {
+        Objects.requireNonNull(result, "result");
+        if (complete()) throw new IllegalStateException("job complete");
+        receipt.record(current(), result);
+        if (result.advancesCursor()) advance();
+        if (complete()) receipt.markFinished();
+    }
+
+    /** True when the cursor finished and required geometry is sufficiently realized. */
+    public boolean physicallyComplete() {
+        return complete() && receipt.physicallyAcceptable();
+    }
 
     private static List<BuildOperation> resolve(ConstructionIntent intent,int groundY) {
         StructureBlueprint blueprint=StructureBlueprintFactory.create(intent);

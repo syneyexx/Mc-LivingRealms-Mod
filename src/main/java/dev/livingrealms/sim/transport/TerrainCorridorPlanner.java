@@ -14,6 +14,10 @@ import java.util.PriorityQueue;
  *
  * <p>Pure simulation logic: callers supply height/water/blocker samples. Search is deliberately
  * coarse (cell size) and node-capped so Minecraft adapters never run unbounded pathfinding.
+ *
+ * <p>Production rule: exhausting the node budget must <em>not</em> fall back to a destructive
+ * straight corridor through impossible terrain. Prefer expanded search / pass / waypoint attempts,
+ * then return an empty path so the route stays awaiting terrain realization.
  */
 public final class TerrainCorridorPlanner {
     public interface TerrainSample {
@@ -33,21 +37,78 @@ public final class TerrainCorridorPlanner {
      * Plans a polyline from {@code from} to {@code to} on a downsampled grid.
      *
      * @param cellSize world blocks per search cell (8–32 recommended)
-     * @param maxNodes hard expansion cap; returns empty when exceeded without a path
+     * @param maxNodes hard expansion cap for the primary attempt
+     * @return path cells, or empty when no acceptable corridor exists within the fallback hierarchy
      */
     public static List<Cell> plan(int fromX, int fromZ, int toX, int toZ, int cellSize, int maxNodes, TerrainSample sample) {
         Objects.requireNonNull(sample, "sample");
         if (cellSize < 4 || maxNodes < 16) throw new IllegalArgumentException("budget");
+
+        // 1) Primary terrain-cost path
+        List<Cell> primary = search(fromX, fromZ, toX, toZ, cellSize, maxNodes, sample);
+        if (!primary.isEmpty()) return primary;
+
+        // 2) Bounded expanded search (more nodes, slightly finer cells)
+        int fine = Math.max(4, cellSize / 2);
+        List<Cell> expanded = search(fromX, fromZ, toX, toZ, fine, Math.min(maxNodes * 3, 20_000), sample);
+        if (!expanded.isEmpty()) return expanded;
+
+        // 3) Nearby pass search: shift endpoints laterally looking for a valley corridor
+        int[] offsets = {cellSize, -cellSize, cellSize * 2, -cellSize * 2, cellSize * 3, -cellSize * 3};
+        for (int ox : offsets) {
+            for (int oz : offsets) {
+                if (ox == 0 && oz == 0) continue;
+                List<Cell> pass = search(fromX + ox, fromZ + oz, toX + ox, toZ + oz, cellSize, maxNodes, sample);
+                if (!pass.isEmpty()) {
+                    ArrayList<Cell> linked = new ArrayList<>();
+                    linked.add(new Cell(fromX, fromZ));
+                    linked.addAll(pass);
+                    linked.add(new Cell(toX, toZ));
+                    return List.copyOf(simplify(linked));
+                }
+            }
+        }
+
+        // 4) Intermediate safe waypoint near the midpoint with lowest sampled cost
+        int midX = (fromX + toX) / 2;
+        int midZ = (fromZ + toZ) / 2;
+        int bestX = midX, bestZ = midZ;
+        double bestScore = Double.POSITIVE_INFINITY;
+        for (int dx = -cellSize * 4; dx <= cellSize * 4; dx += cellSize) {
+            for (int dz = -cellSize * 4; dz <= cellSize * 4; dz += cellSize) {
+                int x = midX + dx, z = midZ + dz;
+                int h = sample.height(x, z);
+                if (h == Integer.MIN_VALUE || sample.blocked(x, z)) continue;
+                double score = Math.abs(h - 64) + (sample.water(x, z) ? 40 : 0) + Math.hypot(dx, dz) * 0.25;
+                if (score < bestScore) { bestScore = score; bestX = x; bestZ = z; }
+            }
+        }
+        if (bestScore < Double.POSITIVE_INFINITY) {
+            List<Cell> a = search(fromX, fromZ, bestX, bestZ, cellSize, maxNodes, sample);
+            List<Cell> b = search(bestX, bestZ, toX, toZ, cellSize, maxNodes, sample);
+            if (!a.isEmpty() && !b.isEmpty()) {
+                ArrayList<Cell> joined = new ArrayList<>(a.size() + b.size());
+                joined.addAll(a);
+                joined.addAll(b.subList(1, b.size()));
+                return List.copyOf(simplify(joined));
+            }
+        }
+
+        // 5–7) No destructive straight fallback. Bridge/tunnel are adapter concerns when a path exists.
+        return List.of();
+    }
+
+    private static List<Cell> search(int fromX, int fromZ, int toX, int toZ, int cellSize, int maxNodes, TerrainSample sample) {
         int sx = quantize(fromX, cellSize), sz = quantize(fromZ, cellSize);
         int gx = quantize(toX, cellSize), gz = quantize(toZ, cellSize);
         if (sx == gx && sz == gz) return List.of(new Cell(fromX, fromZ), new Cell(toX, toZ));
 
-        record Node(int x, int z, double g, double f, long parent) {}
+        record Node(int x, int z, double g, double f) {}
         PriorityQueue<Node> open = new PriorityQueue<>(Comparator.comparingDouble(n -> n.f));
         HashMap<Long, Double> bestG = new HashMap<>();
         HashMap<Long, Long> cameFrom = new HashMap<>();
         long startKey = key(sx, sz);
-        open.add(new Node(sx, sz, 0, heuristic(sx, sz, gx, gz), -1L));
+        open.add(new Node(sx, sz, 0, heuristic(sx, sz, gx, gz)));
         bestG.put(startKey, 0.0);
         int expanded = 0;
         long goalKey = -1L;
@@ -83,13 +144,10 @@ public final class TerrainCorridorPlanner {
                 if (prev != null && ng >= prev) continue;
                 bestG.put(nk, ng);
                 cameFrom.put(nk, ck);
-                open.add(new Node(nx, nz, ng, ng + heuristic(nx, nz, gx, gz), ck));
+                open.add(new Node(nx, nz, ng, ng + heuristic(nx, nz, gx, gz)));
             }
         }
-        if (goalKey < 0) {
-            // Fallback: straight corridor so materialization still has something bounded to try.
-            return straight(fromX, fromZ, toX, toZ, cellSize);
-        }
+        if (goalKey < 0) return List.of();
         ArrayList<Cell> rev = new ArrayList<>();
         long walk = goalKey;
         while (walk >= 0) {
@@ -114,19 +172,6 @@ public final class TerrainCorridorPlanner {
         if (water) cost += cellSize * 6.0;
         if (grade > 4) cost += (grade - 4) * cellSize * 2.0;
         return cost;
-    }
-
-    private static List<Cell> straight(int fromX, int fromZ, int toX, int toZ, int cellSize) {
-        ArrayList<Cell> out = new ArrayList<>();
-        out.add(new Cell(fromX, fromZ));
-        double dist = Math.hypot(toX - fromX, toZ - fromZ);
-        int steps = Math.max(1, (int) Math.ceil(dist / cellSize));
-        for (int i = 1; i < steps; i++) {
-            double t = i / (double) steps;
-            out.add(new Cell((int) Math.round(fromX + (toX - fromX) * t), (int) Math.round(fromZ + (toZ - fromZ) * t)));
-        }
-        out.add(new Cell(toX, toZ));
-        return List.copyOf(out);
     }
 
     private static List<Cell> simplify(List<Cell> path) {

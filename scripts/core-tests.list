@@ -2,6 +2,7 @@
 # (build-production.ps1) must execute exactly this list. Lines starting with #
 # and blank lines are ignored.
 dev.livingrealms.CoreSimulationTest
+dev.livingrealms.ConstructionIntegrityTest
 dev.livingrealms.SpeciesPackAuditTest
 dev.livingrealms.SystemCompletenessTest
 dev.livingrealms.SettlementEconomyTest

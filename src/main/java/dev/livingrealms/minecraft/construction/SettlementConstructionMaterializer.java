@@ -1,6 +1,7 @@
 package dev.livingrealms.minecraft.construction;
 
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
+import dev.livingrealms.sim.construction.AuthoredBlockLedger;
 import dev.livingrealms.sim.construction.BuildApplyResult;
 import dev.livingrealms.sim.construction.BuildOperation;
 import dev.livingrealms.sim.construction.BlockPlacement;
@@ -10,8 +11,8 @@ import dev.livingrealms.sim.construction.ConstructionQueue;
 import dev.livingrealms.sim.construction.EntranceAccessPlanner;
 import dev.livingrealms.sim.construction.PaletteSlot;
 import dev.livingrealms.sim.construction.PhysicalDevelopmentReconciler;
-import dev.livingrealms.sim.construction.SettlementPlanner;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
+import dev.livingrealms.sim.construction.StructureGeometryRules;
 import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.construction.WizardTreesPlanner;
 import dev.livingrealms.sim.compat.ModCompatibilityPolicy;
@@ -20,7 +21,9 @@ import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.economy.primary.PrimaryEconomyPlanner;
 import dev.livingrealms.sim.world.WizardTreesSeeder;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -41,11 +44,15 @@ public final class SettlementConstructionMaterializer {
     private static final double ACTIVATION_RADIUS=640.0D;
     private static final double ACTIVATION_RADIUS_SQR=ACTIVATION_RADIUS*ACTIVATION_RADIUS;
     private static final int MAX_QUEUED_JOBS=48;
+    private static final int MAX_SETTLEMENTS_PER_DISCOVERY=12;
     private static final ConstructionQueue QUEUE=new ConstructionQueue();
     private static final Map<String,Settlement> JOB_OWNERS=new HashMap<>();
+    /** intentKey -> earliest game day when rediscovery is allowed after a failed physical realization. */
+    private static final Map<String,Long> RETRY_AFTER_DAY=new HashMap<>();
     private static int catchupTicks;
     private static long catchupSimulatedDays;
     private static int catchupIntentsPerSettlement=1;
+    private static int settlementScanCursor;
 
     private SettlementConstructionMaterializer() {}
 
@@ -53,13 +60,25 @@ public final class SettlementConstructionMaterializer {
         discoverLoadedWork(level,data);
         int operationBudget=Math.max(320,data.state().config().constructionBlockOpsPerTick());
         if(catchupTicks>0){operationBudget=Math.max(operationBudget,960);catchupTicks--;}
-        var result=QUEUE.tick(operationBudget,(job,operation)->apply(level,job,operation));
+        AuthoredBlockLedger ledger=data.authoredBlocks();
+        var result=QUEUE.tick(operationBudget,(job,operation)->apply(level,job,operation,ledger));
         boolean dirty=result.applied()>0;
+        long day=data.state().clock().day();
         for(String completed:result.completedJobKeys()) {
             Settlement owner=JOB_OWNERS.remove(completed);
             int split=completed.indexOf(':');
             String constructionKey=split<0?completed:completed.substring(split+1);
+            RETRY_AFTER_DAY.remove(constructionKey);
             if(owner!=null && owner.markConstructionCompleted(constructionKey)) dirty=true;
+        }
+        for(String rejected:result.rejectedJobKeys()) {
+            Settlement owner=JOB_OWNERS.remove(rejected);
+            int split=rejected.indexOf(':');
+            String constructionKey=split<0?rejected:rejected.substring(split+1);
+            // Back off so an impossible/obstructed building cannot replan every tick.
+            long backoff=owner!=null && owner.isConstructionCompleted(constructionKey)?day+1:day+3;
+            RETRY_AFTER_DAY.put(constructionKey,backoff);
+            dirty=true;
         }
         if(dirty) data.setDirty();
     }
@@ -73,40 +92,71 @@ public final class SettlementConstructionMaterializer {
         catchupIntentsPerSettlement=Math.max(2,Math.min(12,1+(int)Math.min(8L,simulatedDays/12L)));
     }
 
-    public static void clear() { QUEUE.clear(); JOB_OWNERS.clear(); catchupTicks=0; catchupSimulatedDays=0; catchupIntentsPerSettlement=1; }
+    public static void clear() {
+        QUEUE.clear(); JOB_OWNERS.clear(); RETRY_AFTER_DAY.clear();
+        catchupTicks=0; catchupSimulatedDays=0; catchupIntentsPerSettlement=1; settlementScanCursor=0;
+    }
 
     private static void discoverLoadedWork(ServerLevel level, LivingRealmsSavedData data) {
         if(QUEUE.size()>=MAX_QUEUED_JOBS || level.players().isEmpty()) return;
         boolean catchingUp=catchupTicks>0;
-        for(Faction faction:data.state().factions()) {
-            for(Settlement settlement:faction.settlements()) {
-                if(QUEUE.size()>=MAX_QUEUED_JOBS) return;
-                if(!nearPlayer(level,settlement)) continue;
-                boolean wizardTrees=WizardTreesSeeder.isWizardTrees(faction);
-                java.util.List<dev.livingrealms.sim.construction.ConstructionIntent> pending;
-                int allow;
-                if(wizardTrees){
-                    pending=new java.util.ArrayList<>(WizardTreesPlanner.pending(faction,settlement));
-                    allow=catchingUp?Math.min(4,catchupIntentsPerSettlement):1;
-                }else{
-                    PhysicalDevelopmentReconciler.Deficit deficit=PhysicalDevelopmentReconciler.analyze(faction,settlement);
-                    pending=new java.util.ArrayList<>(deficit.backlog());
-                    pending.addAll(PrimaryEconomyPlanner.pending(data.state(),faction,settlement));
-                    allow=catchingUp?PhysicalDevelopmentReconciler.catchupIntentsPerSettlement(catchupSimulatedDays,deficit):1;
+        long day=data.state().clock().day();
+        java.util.List<Faction> factions=new java.util.ArrayList<>(data.state().factions());
+        java.util.List<Settlement> near=new java.util.ArrayList<>();
+        java.util.Map<Long,Faction> owners=new HashMap<>();
+        for(Faction faction:factions) for(Settlement settlement:faction.settlements()) {
+            if(!nearPlayer(level,settlement)) continue;
+            near.add(settlement);
+            owners.put(settlement.id(),faction);
+        }
+        if(near.isEmpty()) return;
+        // Fair rotation: do not let one early settlement monopolize discovery forever.
+        settlementScanCursor=Math.floorMod(settlementScanCursor,near.size());
+        Set<Long> queuedSettlements=new HashSet<>();
+        for(ConstructionJob job:QUEUE.jobs()) queuedSettlements.add(job.intent().settlementId());
+        int scanned=0;
+        for(int n=0;n<near.size()&&scanned<MAX_SETTLEMENTS_PER_DISCOVERY&&QUEUE.size()<MAX_QUEUED_JOBS;n++){
+            Settlement settlement=near.get(Math.floorMod(settlementScanCursor+n,near.size()));
+            scanned++;
+            // One active job per settlement keeps budgets fair across the realm.
+            if(queuedSettlements.contains(settlement.id()) && !catchingUp) continue;
+            Faction faction=owners.get(settlement.id());
+            if(faction==null) continue;
+            boolean wizardTrees=WizardTreesSeeder.isWizardTrees(faction);
+            java.util.List<ConstructionIntent> pending;
+            int allow;
+            if(wizardTrees){
+                pending=new java.util.ArrayList<>(WizardTreesPlanner.pending(faction,settlement));
+                allow=catchingUp?Math.min(4,catchupIntentsPerSettlement):1;
+            }else{
+                PhysicalDevelopmentReconciler.Deficit deficit=PhysicalDevelopmentReconciler.analyze(faction,settlement);
+                pending=new java.util.ArrayList<>(deficit.backlog());
+                pending.addAll(PrimaryEconomyPlanner.pending(data.state(),faction,settlement));
+                allow=catchingUp?PhysicalDevelopmentReconciler.catchupIntentsPerSettlement(catchupSimulatedDays,deficit):1;
+            }
+            pending.sort(java.util.Comparator.comparingInt(ConstructionIntent::priority).reversed().thenComparing(ConstructionIntent::key));
+            int enqueued=0;
+            for(ConstructionIntent intent:pending) {
+                if(QUEUE.size()>=MAX_QUEUED_JOBS) break;
+                Long retryAfter=RETRY_AFTER_DAY.get(intent.key());
+                if(retryAfter!=null && day<retryAfter) continue;
+                BlockPos center=new BlockPos((int)Math.round(intent.center().x()),level.getSeaLevel(),(int)Math.round(intent.center().z()));
+                // Unloaded high-priority intents must not starve later loaded work.
+                if(!level.hasChunkAt(center)) continue;
+                ConstructionJob job=createTerrainAwareJob(level,intent);
+                if(job==null) {
+                    RETRY_AFTER_DAY.put(intent.key(),day+2);
+                    continue;
                 }
-                pending.sort(java.util.Comparator.comparingInt(ConstructionIntent::priority).reversed().thenComparing(ConstructionIntent::key));
-                int enqueued=0;
-                for(ConstructionIntent intent:pending) {
-                    if(QUEUE.size()>=MAX_QUEUED_JOBS) return;
-                    BlockPos center=new BlockPos((int)Math.round(intent.center().x()),level.getSeaLevel(),(int)Math.round(intent.center().z()));
-                    if(!level.hasChunkAt(center)) break;
-                    ConstructionJob job=createTerrainAwareJob(level,intent);
-                    if(job==null) continue;
-                    if(QUEUE.enqueue(job)){JOB_OWNERS.put(job.key(),settlement);enqueued++;}
-                    if(enqueued>=allow) break;
+                if(QUEUE.enqueue(job)){
+                    JOB_OWNERS.put(job.key(),settlement);
+                    queuedSettlements.add(settlement.id());
+                    enqueued++;
                 }
+                if(enqueued>=allow) break;
             }
         }
+        settlementScanCursor=Math.floorMod(settlementScanCursor+Math.max(1,scanned),Math.max(1,near.size()));
     }
 
 
@@ -249,39 +299,56 @@ public final class SettlementConstructionMaterializer {
         return level.players().stream().anyMatch(player->{double dx=player.getX()-x,dz=player.getZ()-z;return dx*dx+dz*dz<=ACTIVATION_RADIUS_SQR;});
     }
 
-    private static BuildApplyResult apply(ServerLevel level,ConstructionJob job,BuildOperation operation) {
+    private static BuildApplyResult apply(ServerLevel level,ConstructionJob job,BuildOperation operation,AuthoredBlockLedger ledger) {
         BlockPos pos=new BlockPos(operation.x(),operation.y(),operation.z());
-        if(pos.getY()<=level.getMinBuildHeight() || pos.getY()>=level.getMaxBuildHeight()-1) return BuildApplyResult.SKIPPED;
-        if(!level.hasChunkAt(pos)) return BuildApplyResult.BLOCKED;
+        if(pos.getY()<=level.getMinBuildHeight() || pos.getY()>=level.getMaxBuildHeight()-1) {
+            return StructureGeometryRules.isRequiredGeometry(operation.slot(),operation.phase())
+                    ? BuildApplyResult.TERMINALLY_IMPOSSIBLE : BuildApplyResult.SAFELY_IGNORED;
+        }
+        if(!level.hasChunkAt(pos)) return BuildApplyResult.DEFERRED_UNLOADED;
 
         BlockState current=level.getBlockState(pos);
-        if(current.hasBlockEntity()) return BuildApplyResult.SKIPPED;
+        // Hard stop: unknown block entities / machines / containers are never overwritten.
+        if(current.hasBlockEntity() && !ledger.isAuthored(pos.getX(),pos.getY(),pos.getZ())) {
+            return StructureGeometryRules.isRequiredGeometry(operation.slot(),operation.phase())
+                    ? BuildApplyResult.OBSTRUCTED_PROTECTED : BuildApplyResult.SAFELY_IGNORED;
+        }
 
         if(operation.slot()==PaletteSlot.DOOR){
-            return applyDoor(level,job,pos,current);
+            return applyDoor(level,job,pos,current,ledger);
         }
 
         BlockState target=FactionBlockPalette.state(job.intent().factionId(),operation.slot());
-        if(current.equals(target)) return BuildApplyResult.SKIPPED;
+        if(current.equals(target)) {
+            ledger.record(pos.getX(),pos.getY(),pos.getZ());
+            return BuildApplyResult.ALREADY_CORRECT;
+        }
 
         if(operation.slot()==PaletteSlot.AIR) {
-            if(current.isAir()) return BuildApplyResult.SKIPPED;
-            if(!safeToClear(current)&&!(isWizardRole(job.intent().role())&&safeWizardExcavate(current))) return BuildApplyResult.SKIPPED;
-        } else if(!safeToReplace(current,target,operation.slot())) {
-            return BuildApplyResult.SKIPPED;
+            if(current.isAir()) return BuildApplyResult.ALREADY_CORRECT;
+            if(!safeToClear(current,ledger,pos)&&!(isWizardRole(job.intent().role())&&safeWizardExcavate(current))) {
+                return StructureGeometryRules.isRequiredGeometry(operation.slot(),operation.phase())
+                        ? BuildApplyResult.OBSTRUCTED_PROTECTED : BuildApplyResult.SAFELY_IGNORED;
+            }
+        } else if(!safeToReplace(current,target,operation.slot(),ledger,pos,job)) {
+            return StructureGeometryRules.isRequiredGeometry(operation.slot(),operation.phase())
+                    ? BuildApplyResult.OBSTRUCTED_PROTECTED : BuildApplyResult.SAFELY_IGNORED;
         }
 
         int flags=Block.UPDATE_ALL | Block.UPDATE_SUPPRESS_DROPS;
-        return level.setBlock(pos,target,flags)?BuildApplyResult.APPLIED:BuildApplyResult.SKIPPED;
+        if(!level.setBlock(pos,target,flags)) return BuildApplyResult.FAILED;
+        ledger.record(pos.getX(),pos.getY(),pos.getZ());
+        return BuildApplyResult.APPLIED;
     }
 
-    private static BuildApplyResult applyDoor(ServerLevel level,ConstructionJob job,BlockPos pos,BlockState current){
+    private static BuildApplyResult applyDoor(ServerLevel level,ConstructionJob job,BlockPos pos,BlockState current,AuthoredBlockLedger ledger){
         BlockState doorBase=FactionBlockPalette.state(job.intent().factionId(),PaletteSlot.DOOR);
         if(!(doorBase.getBlock() instanceof DoorBlock)){
-            // Fallback: keep a walkable opening.
-            if(current.isAir())return BuildApplyResult.SKIPPED;
-            if(!safeToClear(current))return BuildApplyResult.SKIPPED;
-            return level.setBlock(pos,Blocks.AIR.defaultBlockState(),Block.UPDATE_ALL|Block.UPDATE_SUPPRESS_DROPS)?BuildApplyResult.APPLIED:BuildApplyResult.SKIPPED;
+            if(current.isAir())return BuildApplyResult.ALREADY_CORRECT;
+            if(!safeToClear(current,ledger,pos))return BuildApplyResult.OBSTRUCTED_PROTECTED;
+            if(!level.setBlock(pos,Blocks.AIR.defaultBlockState(),Block.UPDATE_ALL|Block.UPDATE_SUPPRESS_DROPS))return BuildApplyResult.FAILED;
+            ledger.record(pos.getX(),pos.getY(),pos.getZ());
+            return BuildApplyResult.APPLIED;
         }
         Direction facing=doorFacing(job.intent().rotationQuarterTurns());
         BlockState below=level.getBlockState(pos.below());
@@ -292,18 +359,24 @@ public final class SettlementConstructionMaterializer {
                 .setValue(DoorBlock.HALF,upper?DoubleBlockHalf.UPPER:DoubleBlockHalf.LOWER)
                 .setValue(DoorBlock.OPEN,false)
                 .setValue(DoorBlock.POWERED,false);
-        if(current.equals(target))return BuildApplyResult.SKIPPED;
-        if(!current.isAir()&&!current.canBeReplaced()&&!safeToClear(current)&&!(current.getBlock() instanceof DoorBlock))return BuildApplyResult.SKIPPED;
+        if(current.equals(target)){
+            ledger.record(pos.getX(),pos.getY(),pos.getZ());
+            return BuildApplyResult.ALREADY_CORRECT;
+        }
+        boolean authoredDoor=current.getBlock() instanceof DoorBlock && ledger.isAuthored(pos.getX(),pos.getY(),pos.getZ());
+        if(!current.isAir()&&!current.canBeReplaced()&&!safeToClear(current,ledger,pos)&&!authoredDoor)return BuildApplyResult.OBSTRUCTED_PROTECTED;
         boolean ok=level.setBlock(pos,target,Block.UPDATE_ALL|Block.UPDATE_SUPPRESS_DROPS);
-        if(ok&&!upper){
+        if(!ok)return BuildApplyResult.FAILED;
+        ledger.record(pos.getX(),pos.getY(),pos.getZ());
+        if(!upper){
             BlockPos up=pos.above();
             BlockState upCur=level.getBlockState(up);
-            if(upCur.isAir()||upCur.canBeReplaced()||safeToClear(upCur)||upCur.getBlock() instanceof DoorBlock){
+            if(upCur.isAir()||upCur.canBeReplaced()||safeToClear(upCur,ledger,up)||(upCur.getBlock() instanceof DoorBlock && ledger.isAuthored(up.getX(),up.getY(),up.getZ()))){
                 BlockState upperState=doorBase.setValue(DoorBlock.FACING,facing).setValue(DoorBlock.HALF,DoubleBlockHalf.UPPER).setValue(DoorBlock.OPEN,false).setValue(DoorBlock.POWERED,false);
-                level.setBlock(up,upperState,Block.UPDATE_ALL|Block.UPDATE_SUPPRESS_DROPS);
+                if(level.setBlock(up,upperState,Block.UPDATE_ALL|Block.UPDATE_SUPPRESS_DROPS))ledger.record(up.getX(),up.getY(),up.getZ());
             }
         }
-        return ok?BuildApplyResult.APPLIED:BuildApplyResult.SKIPPED;
+        return BuildApplyResult.APPLIED;
     }
 
     /** Player approaches the front (-Z local) looking toward +Z before rotation → SOUTH at rot 0. */
@@ -312,14 +385,16 @@ public final class SettlementConstructionMaterializer {
         return order[Math.floorMod(quarterTurns,4)];
     }
 
-    private static boolean safeToClear(BlockState state) {
-        return state.canBeReplaced() || isConstructionMaterial(state) || oldForeignConstructionMaterial(state) || state.is(BlockTags.LEAVES) || state.is(BlockTags.LOGS)
+    private static boolean safeToClear(BlockState state,AuthoredBlockLedger ledger,BlockPos pos) {
+        if(state.canBeReplaced()) return true;
+        if(ledger.isAuthored(pos.getX(),pos.getY(),pos.getZ())) return true;
+        return state.is(BlockTags.LEAVES) || state.is(BlockTags.LOGS)
                 || state.is(Blocks.SNOW) || state.is(Blocks.VINE) || state.is(Blocks.CACTUS)
-                || state.is(Blocks.BAMBOO) || state.is(Blocks.BAMBOO_SAPLING)
-                || state.getBlock() instanceof DoorBlock;
+                || state.is(Blocks.BAMBOO) || state.is(Blocks.BAMBOO_SAPLING);
     }
 
-    private static boolean isConstructionMaterial(BlockState state) {
+    /** True for materials Living Realms itself places — used only with provenance or active job footprint rebuild. */
+    private static boolean isLivingRealmsPaletteMaterial(BlockState state) {
         Block block=state.getBlock();
         return block==Blocks.STONE_BRICKS || block==Blocks.COBBLED_DEEPSLATE || block==Blocks.SANDSTONE
                 || block==Blocks.TUFF_BRICKS || block==Blocks.OAK_PLANKS || block==Blocks.SPRUCE_PLANKS
@@ -336,7 +411,6 @@ public final class SettlementConstructionMaterializer {
                 || block==CreateBlockLookup.orElse("andesite_casing",Blocks.COPPER_BLOCK);
     }
 
-
     private static boolean safeWizardExcavate(BlockState state){Block b=state.getBlock();return state.is(BlockTags.BASE_STONE_OVERWORLD)||b==Blocks.DIRT||b==Blocks.COARSE_DIRT||b==Blocks.ROOTED_DIRT||b==Blocks.GRAVEL||b==Blocks.CLAY||b==Blocks.MUD||b==Blocks.SAND||b==Blocks.RED_SAND;}
 
     private static boolean oldForeignConstructionMaterial(BlockState state){
@@ -345,15 +419,36 @@ public final class SettlementConstructionMaterializer {
         return ModCompatibilityPolicy.find(id.getNamespace()).map(e->e.usableByLivingWorld()&&(e.category()==ModCompatibilityPolicy.Category.BUILDING||e.category()==ModCompatibilityPolicy.Category.CONTENT)).orElse(false);
     }
 
-    private static boolean safeToReplace(BlockState state,BlockState target,PaletteSlot slot) {
+    private static boolean insideActiveJobFootprint(ConstructionJob job,BlockPos pos){
+        ConstructionIntent intent=job.intent();
+        int turns=Math.floorMod(intent.rotationQuarterTurns(),4);
+        int w=(turns&1)==0?intent.width():intent.depth();
+        int d=(turns&1)==0?intent.depth():intent.width();
+        int cx=(int)Math.round(intent.center().x()),cz=(int)Math.round(intent.center().z());
+        int margin=2;
+        return Math.abs(pos.getX()-cx)<=w/2+margin && Math.abs(pos.getZ()-cz)<=d/2+margin;
+    }
+
+    private static boolean naturalTerrain(BlockState state){
+        return state.is(Blocks.GRASS_BLOCK) || state.is(Blocks.DIRT) || state.is(Blocks.COARSE_DIRT)
+                || state.is(Blocks.PODZOL) || state.is(Blocks.MYCELIUM) || state.is(Blocks.SAND)
+                || state.is(Blocks.RED_SAND) || state.is(Blocks.GRAVEL) || state.is(Blocks.STONE)
+                || state.is(Blocks.DEEPSLATE) || state.is(Blocks.ANDESITE) || state.is(Blocks.DIORITE)
+                || state.is(Blocks.GRANITE) || state.is(Blocks.TERRACOTTA) || state.is(Blocks.CLAY)
+                || state.is(Blocks.MUD) || state.is(Blocks.SNOW_BLOCK);
+    }
+
+    private static boolean safeToReplace(BlockState state,BlockState target,PaletteSlot slot,AuthoredBlockLedger ledger,BlockPos pos,ConstructionJob job) {
         if(state.isAir() || state.canBeReplaced()) return true;
-        if(state.equals(target) || isConstructionMaterial(state) || oldForeignConstructionMaterial(state)) return true;
+        if(state.equals(target)) return true;
+        if(ledger.isAuthored(pos.getX(),pos.getY(),pos.getZ())) return true;
+        if(state.is(BlockTags.LEAVES) || state.is(BlockTags.LOGS)) return true;
+        // Rebuild of Living Realms/legacy LR materials is allowed only inside the active job footprint.
+        if(insideActiveJobFootprint(job,pos) && (isLivingRealmsPaletteMaterial(state) || oldForeignConstructionMaterial(state))) return true;
         if(slot==PaletteSlot.FOUNDATION || slot==PaletteSlot.PATH || slot==PaletteSlot.FARMLAND || slot==PaletteSlot.RUNWAY) {
-            return state.is(Blocks.GRASS_BLOCK) || state.is(Blocks.DIRT) || state.is(Blocks.COARSE_DIRT)
-                    || state.is(Blocks.PODZOL) || state.is(Blocks.MYCELIUM) || state.is(Blocks.SAND)
-                    || state.is(Blocks.RED_SAND) || state.is(Blocks.GRAVEL) || state.is(Blocks.STONE)
-                    || state.is(Blocks.DEEPSLATE);
+            return naturalTerrain(state);
         }
-        return state.is(BlockTags.LEAVES) || state.is(BlockTags.LOGS);
+        // Player/foreign structures made of the same vanilla blocks are never treated as free real estate.
+        return false;
     }
 }

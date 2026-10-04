@@ -1,6 +1,8 @@
 package dev.livingrealms.minecraft;
 
 import dev.livingrealms.minecraft.compat.WaystoneSettlementRuntime;
+import dev.livingrealms.minecraft.construction.AuthoredBlockLedgerNbt;
+import dev.livingrealms.sim.construction.AuthoredBlockLedger;
 import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SimulationState;
@@ -22,12 +24,17 @@ public final class LivingRealmsSavedData extends SavedData {
     private static final String KEY_PAYLOAD = "Payload";
     private static final String KEY_PAYLOAD_INTEGRITY = "PayloadCrc32Plus1";
     private static final String KEY_CONTENT_REVISION = "ContentRevision";
-    /** Revision 7 adds Living Realms Waystone provenance without binary schema change. */
-    private static final int CONTENT_REVISION = 7;
+    /**
+     * Revision 8 keeps revision-7 Waystone provenance and adds a bounded authored-block ledger for
+     * construction safety without changing SimulationStateCodec schema 16 bytes.
+     */
+    private static final int CONTENT_REVISION = 8;
 
     private final SimulationState state;
     /** settlementId -> packed BlockPos of Living Realms-authored Waystone only. */
     private final Map<Long, Long> waystonesBySettlement = new LinkedHashMap<>();
+    /** Chunk-local Living Realms-authored block provenance (not part of binary schema payload). */
+    private final AuthoredBlockLedger authoredBlocks = new AuthoredBlockLedger();
 
     private LivingRealmsSavedData(SimulationState state) {
         this.state = state;
@@ -66,6 +73,7 @@ public final class LivingRealmsSavedData extends SavedData {
         if (contentRevision > CONTENT_REVISION) throw new IllegalStateException("Unsupported Living Realms content revision " + contentRevision);
         LivingRealmsSavedData loaded = new LivingRealmsSavedData(SimulationStateCodec.decode(payload, SpeciesDataRegistry.current()));
         loaded.waystonesBySettlement.putAll(WaystoneSettlementRuntime.readProvenance(tag));
+        AuthoredBlockLedgerNbt.read(tag, loaded.authoredBlocks);
         // Revision 3 rebuilt unsafe early-RC structures. Revision 4 expands the canonical world
         // to the twelve-kingdom target while preserving already-migrated physical construction.
         int densityChanges = contentRevision < 6 ? SettlementDensitySeeder.ensureStarterDensity(loaded.state()) : 0;
@@ -77,6 +85,8 @@ public final class LivingRealmsSavedData extends SavedData {
         if(contentRevision < 6){
             for(var faction:loaded.state().factions())for(var settlement:faction.settlements())constructionResets+=settlement.resetConstructionCompletion();
         }
+        // Revision 8 introduces authored-block provenance. Do not reset construction completion:
+        // existing completed keys stay; future overwrite protection uses the ledger + natural terrain.
         // Legacy payloads, pre-checksum RC saves and older RC4 content are rewritten in the
         // current validated form on the next normal Minecraft save. The content revision makes each
         // world-content migration one-shot so later conquest/destruction is never resurrected.
@@ -86,6 +96,10 @@ public final class LivingRealmsSavedData extends SavedData {
 
     public SimulationState state() {
         return state;
+    }
+
+    public AuthoredBlockLedger authoredBlocks() {
+        return authoredBlocks;
     }
 
     public Long waystoneForSettlement(long settlementId){return waystonesBySettlement.get(settlementId);}
@@ -112,6 +126,7 @@ public final class LivingRealmsSavedData extends SavedData {
         tag.putLong(KEY_PAYLOAD_INTEGRITY, SimulationStateCodec.integrityToken(payload));
         tag.putInt(KEY_CONTENT_REVISION, CONTENT_REVISION);
         WaystoneSettlementRuntime.writeProvenance(tag, waystonesBySettlement);
+        AuthoredBlockLedgerNbt.write(tag, authoredBlocks);
         return tag;
     }
 }
