@@ -20,7 +20,7 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 | M-map terrain always on | RealmWorldMapScreen + ClientTerrainMapCache | PARTIAL | Cached surface when loaded; ecology fallback |
 | Court at capitals | CitizenMaterializationPlanner | PARTIAL | Official/heir/court-guard slots |
 | Local stockpile/market day (F2) | SettlementEconomyEngine + LocalMarketEngine | COMPLETE | Per-settlement stockpile, barn/granary, weekday market prices, tithe (no free pop* mint) |
-| Farming seasons (F3) | SettlementEconomyEngine + calendar | PARTIAL | Seasonal farms, pastures, weather stress, mills/bakeries/breweries; crop enum still FOOD proxy |
+| Farming seasons (F3) | SettlementEconomyEngine + AgrarianProfile | PARTIAL | Crop/livestock mix (grain/rye/barley/oats/veg/flax/grapes/hops + herds) + three-field rotation; still FOOD/TEXTILES proxy storage |
 | Goods chains (F4) | ResourceType + industry | PARTIAL | Mill→bakery→brewery chain on FOOD proxy; full goods enum deferred (codec-safe) |
 | Trade routes (F5) | TradeEngine + TransportRoute | PARTIAL | Price-differential dispatch; local+faction draw; split delivery |
 | Jobs/wages (F6) | SocietyDiagnostics + payWages | PARTIAL | Workplace-slot jobCapacity + monthly skill-scaled wages |
@@ -28,9 +28,9 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 | Unlimited city growth (F8) | SettlementPlanner housing | PARTIAL | Soft tier caps (to 900); hard 132 ceiling removed |
 | Rural hierarchy (F9) | SettlementDensitySeeder + tiers | PARTIAL | 4 rural hamlets/realm (Croft/Thorp/…) with farm/pasture/well seed; hierarchy cities/towns/villages/hamlets gated |
 | Terrain worldgen 60% (F10) | Density seeder | PARTIAL | 32 settlements/realm (~387 total); rural placement biased to fertile biome centers; still authored realm list + densifier, not fully emergent from terrain |
-| Infrastructure decay (F11) | Transport quality | PARTIAL | |
-| Religion depth (F12) | faith + temples | PARTIAL | |
-| Calendar/festivals (F13) | CivilizationCalendar + CivicEvent | PARTIAL | |
+| Infrastructure decay (F11) | TransportNetworkEngine | PARTIAL | Daily wear, treasury neglect, seasonal washouts, stone/coin repair; river/ship/caravan mode classes |
+| Religion depth (F12) | FaithCatalog + FaithEconomyHooks | PARTIAL | Concrete deities/dogma/scripture/symbols/holy orders; holy/fast days; church tithe; dialogue + civic rites |
+| Calendar/festivals (F13) | CivilizationCalendar + CivicEvent | PARTIAL | Holy-day rituals use faith deity titles |
 | Politics/law (F14) | Government/Justice | PARTIAL | |
 | Bandits full (F15) | RaidParty/Pirate* | PARTIAL | Deserter→band+hideout; loot to hideout/origin; soft raid cap |
 | War/refugees (F16) | MigrationGroup + camps | PARTIAL | Camp absorb/cap, farm/well seed, REFUGEE_SUPPORT tasks, persecution reason |
@@ -51,9 +51,9 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 - Dashboard protocol **14**
 - ContentRevision **7** (Waystone provenance; keeps rev-6 construction rebuild)
 
-## Phase 1 baseline (seed `123456789`, DemoSeeder, after local-economy wiring)
+## Phase 1 baseline (seed `123456789`, DemoSeeder; denser rural network TARGET=32)
 | Gate | day | people | industry | animals≈ | wars | raids | shipments |
 |---|---|---|---|---|---|---|---|
-| year start | 0 | 256667 | 0 | 4295 | 0 | 0 | 0 |
-| year end | 365 | 312390 | 1471 | 1844 | 0 | 2 | 0 |
-| soak 3650 | 3650 | 1105350 | 2868 | 2437 | 1 | 8 | 0 |
+| year start | 0 | 219923 | 0 | 4295 | 0 | 0 | 0 |
+| year end | 365 | 278703 | 1559 | 1844 | 1 | 4 | 0 |
+| soak 3650 | 3650 | 1128919 | 3306 | 2437 | 4 | 10 | 0 |

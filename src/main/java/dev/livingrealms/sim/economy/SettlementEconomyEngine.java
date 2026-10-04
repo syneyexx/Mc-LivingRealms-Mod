@@ -1,6 +1,7 @@
 package dev.livingrealms.sim.economy;
 
 import dev.livingrealms.sim.civilization.CivilizationCalendar;
+import dev.livingrealms.sim.civilization.FaithEconomyHooks;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
@@ -25,22 +26,25 @@ public final class SettlementEconomyEngine {
             for (Settlement settlement : faction.settlements()) {
                 settlement.refreshStorageCapacity();
                 double weatherMul = weatherMultiplier(day, settlement.id(), season);
-                produceFarms(settlement, season, faction.technology(), weatherMul);
-                produceLivestock(settlement, season, faction.technology(), weatherMul);
+                AgrarianProfile.Mix agronomy = AgrarianProfile.of(settlement, season);
+                double rotation = AgrarianProfile.rotationMultiplier(day);
+                produceFarms(settlement, season, faction.technology(), weatherMul, agronomy, rotation);
+                produceLivestock(settlement, season, faction.technology(), weatherMul, agronomy);
                 produceHinterland(settlement, faction.technology());
                 produceWorkshops(settlement, faction.technology());
-                consumeLocalNeeds(settlement);
+                consumeLocalNeeds(state, faction, settlement, day);
                 applyMarketDayPressure(settlement, weekday);
+                FaithEconomyHooks.applyHolyDayAndTithe(state, faction, settlement, day);
                 titheToFaction(faction, settlement);
                 updateFoodSecurity(settlement);
             }
         }
     }
 
-    private static void produceFarms(Settlement settlement, CivilizationCalendar.Season season, double technology, double weatherMul) {
+    private static void produceFarms(Settlement settlement, CivilizationCalendar.Season season, double technology,
+                                     double weatherMul, AgrarianProfile.Mix cropMix, double rotation) {
         int completedFarms = count(settlement, "farm:");
         int impliedFarms = Math.max(1, (int) Math.ceil(settlement.population() / 160.0));
-        int farms = Math.max(completedFarms, impliedFarms);
         int irrigation = count(settlement, "irrigation:") + count(settlement, "aqueduct:");
         // Winter has no harvest; autumn is peak; spring/summer grow stores more slowly.
         double seasonMul = switch (season) {
@@ -54,19 +58,20 @@ public final class SettlementEconomyEngine {
         double irrig = 1.0 + Math.min(.40, irrigation * .14);
         // Completed fields above the subsistence floor raise yield; missing physical farms stay near floor.
         double intensification = .72 + .28 * Mathx.clamp(completedFarms / (double) Math.max(1, impliedFarms), 0, 1.6);
-        // Three-field / plow / collar innovation proxies.
+        // Three-field / plow / collar innovation proxies + regional crop mix + braak rotation.
         double agronomy = 1.0 + Math.min(.28, technology * .14) + (count(settlement, "workshop:") > 0 ? .06 : 0);
-        // Scale with population so spring is near break-even and autumn stocks winter.
-        double food = settlement.population() * .48 * seasonMul * tech * irrig * weatherMul * intensification * agronomy;
-        // Mill/bakery chain bonuses applied later; granary-first storage stays local until tithe.
+        double food = settlement.population() * .48 * seasonMul * tech * irrig * weatherMul * intensification
+                * agronomy * cropMix.yieldMul() * rotation;
         settlement.stockpile().add(ResourceType.FOOD, food);
-        if (season == CivilizationCalendar.Season.AUTUMN) {
-            settlement.stockpile().add(ResourceType.TEXTILES, settlement.population() * .0012 * tech * weatherMul * intensification); // flax proxy
+        if (season == CivilizationCalendar.Season.AUTUMN || cropMix.primaryCrop() == AgrarianProfile.Crop.FLAX) {
+            settlement.stockpile().add(ResourceType.TEXTILES,
+                    settlement.population() * .0012 * tech * weatherMul * intensification * cropMix.textileMul());
         }
         if (weatherMul < .55) settlement.adjustUnrest(.0015);
     }
 
-    private static void produceLivestock(Settlement settlement, CivilizationCalendar.Season season, double technology, double weatherMul) {
+    private static void produceLivestock(Settlement settlement, CivilizationCalendar.Season season, double technology,
+                                         double weatherMul, AgrarianProfile.Mix cropMix) {
         int completedPastures = count(settlement, "pasture:");
         int impliedPastures = Math.max(1, (int) Math.ceil(settlement.population() / 280.0));
         int pastures = Math.max(completedPastures, impliedPastures);
@@ -78,9 +83,17 @@ public final class SettlementEconomyEngine {
             case AUTUMN -> 1.40;
         };
         double intensity = .70 + .30 * Mathx.clamp(completedPastures / (double) Math.max(1, impliedPastures), 0, 1.5);
-        double meat = settlement.population() * .055 * seasonMul * tech * weatherMul * intensity
+        double herdMul = switch (cropMix.primaryStock()) {
+            case CATTLE -> 1.10;
+            case SHEEP -> 0.92;
+            case PIGS -> 1.15;
+            case CHICKENS -> 0.85;
+            case HORSES -> 0.80;
+            case OXEN -> 0.95;
+        };
+        double meat = settlement.population() * .055 * seasonMul * tech * weatherMul * intensity * herdMul
                 * Math.min(1.4, pastures / (double) Math.max(1, impliedPastures));
-        double wool = settlement.population() * .0020 * tech * intensity
+        double wool = settlement.population() * .0020 * tech * intensity * cropMix.textileMul()
                 * (season == CivilizationCalendar.Season.SPRING ? 1.25 : 1.0);
         settlement.stockpile().add(ResourceType.FOOD, meat);
         settlement.stockpile().add(ResourceType.TEXTILES, wool);
@@ -137,8 +150,8 @@ public final class SettlementEconomyEngine {
         }
     }
 
-    private static void consumeLocalNeeds(Settlement settlement) {
-        double foodNeed = settlement.population() * .20;
+    private static void consumeLocalNeeds(SimulationState state, Faction faction, Settlement settlement, long day) {
+        double foodNeed = settlement.population() * .20 * FaithEconomyHooks.foodNeedMultiplier(state, faction, settlement, day);
         double fed = settlement.stockpile().take(ResourceType.FOOD, foodNeed);
         double ratio = Mathx.clamp(Mathx.safeDiv(fed, Math.max(1, foodNeed)), 0, 1);
         settlement.setFoodSecurity(settlement.foodSecurity() * .7 + ratio * .3);

@@ -20,6 +20,7 @@ java -cp "$OUT" dev.livingrealms.SocietyDialogueTest
 java -cp "$OUT" dev.livingrealms.RumorNetworkTest
 java -cp "$OUT" dev.livingrealms.SocietyInfrastructureTest
 java -cp "$OUT" dev.livingrealms.CivilizationLayerTest
+java -cp "$OUT" dev.livingrealms.FaithAndInfrastructureTest
 java -cp "$OUT" dev.livingrealms.HumanityLifecycleTest
 java -cp "$OUT" dev.livingrealms.CitizenConversationTest
 java -cp "$OUT" dev.livingrealms.ResourceDominanceTest
