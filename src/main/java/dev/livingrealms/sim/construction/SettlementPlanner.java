@@ -427,9 +427,11 @@ public final class SettlementPlanner {
                 ? SettlementGrowthLayer.forRing(ring, morph, s.tier().ordinal())
                 : SettlementGrowthLayer.HISTORIC_CORE;
         StreetType preferred = layer.preferredStreet();
-        StreetType street = StreetType.forWidth(Math.max(w, preferred.width()), false, preferred == StreetType.MARKET_STREET || preferred == StreetType.COMMERCIAL_STREET, preferred == StreetType.REGIONAL_ROAD || preferred == StreetType.ROYAL_ROAD);
-        // Prefer growth-layer hierarchy when planner width underspecifies district age/role.
-        if (preferred.trafficImportance() > street.trafficImportance()) street = preferred;
+        boolean market = preferred == StreetType.MARKET_STREET || preferred == StreetType.COMMERCIAL_STREET;
+        boolean regional = preferred == StreetType.REGIONAL_ROAD || preferred == StreetType.ROYAL_ROAD;
+        StreetType street = StreetType.forWidth(w, false, market, regional);
+        // Growth-layer preference may refine the label when it does not inflate the planner's budgeted width.
+        if (preferred.width() <= w && preferred.trafficImportance() >= street.trafficImportance()) street = preferred;
         String key = "road:" + street.name().toLowerCase(java.util.Locale.ROOT) + ":" + layer.name().toLowerCase(java.util.Locale.ROOT) + ":" + i;
         out.add(new ConstructionIntent(key, f.id(), s.id(), StructureRole.ROAD, c, Math.max(street.width(), w), d, rot, p));
     }
