@@ -1,6 +1,8 @@
 package dev.livingrealms.sim.civilization;
 
 import dev.livingrealms.sim.civilian.*;
+import dev.livingrealms.sim.construction.SettlementPlanner;
+import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.faction.*;
 import dev.livingrealms.sim.government.*;
 import dev.livingrealms.sim.law.*;
@@ -279,14 +281,23 @@ public final class CivilizationLifecycleEngine {
         if(campCount>=6){group.turnBack();state.history().add(new WorldEvent(state.clock().day(),"refugee_camp_refused","group="+group.id()+", reason=camp_cap"));return;}
         double angle=Math.toRadians(Math.floorMod(Long.hashCode(group.id()*73),360));double radius=180+Math.floorMod(group.id(),160);
         SimPosition p=new SimPosition(source.position().x()+Math.cos(angle)*radius,source.position().z()+Math.sin(angle)*radius);
-        Settlement camp=new Settlement(state.nextId(),"Refugee Camp "+group.id(),p,group.people(),Math.max(group.people()/2,12));
-        camp.setDevelopmentPriority(DevelopmentPriority.FOOD);
-        // Seed improvised camp structures so agrarian/employment loops and projection planners see real workplaces.
-        camp.markConstructionCompleted("farm:0");camp.markConstructionCompleted("well:0");camp.markConstructionCompleted("pasture:0");
+        // Housing slightly below population so SettlementPlanner enqueues visible shelters for materialization.
+        int shelter=Math.max(8,group.people()/3);
+        Settlement camp=new Settlement(state.nextId(),"Refugee Camp "+group.id(),p,group.people(),shelter);
+        camp.setDevelopmentPriority(DevelopmentPriority.HOUSING);
+        // Seed only a completed well so water security exists; farms/pastures/houses remain pending
+        // construction so camps physically appear near players instead of staying abstract markers.
+        camp.markConstructionCompleted("well:0");
         camp.stockpile().add(ResourceType.FOOD,Math.max(20,group.people()*3.0));
-        camp.stockpile().add(ResourceType.WOOD,Math.max(10,group.people()*1.2));
+        camp.stockpile().add(ResourceType.WOOD,Math.max(24,group.people()*2.0));
+        camp.stockpile().add(ResourceType.STONE,Math.max(8,group.people()*.5));
         camp.setFoodSecurity(Mathx.clamp(group.food(),.15,.7));
         origin.addSettlement(camp);
+        // Ensure planner exposes pending shelters/farms/roads for physical materialization near players.
+        long pendingShelter=SettlementPlanner.pending(origin,camp).stream()
+                .filter(i->i.role()==StructureRole.HOUSE||i.role()==StructureRole.FARM||i.role()==StructureRole.ROAD)
+                .count();
+        if(pendingShelter==0)camp.addHousing(Math.max(4,group.people()/4));
         state.ensureSettlementCivilization(camp.id(),origin.id()).adjustRefugeePressure(.75);
         moveAttachedHouseholds(state,group,origin.id(),camp.id());
         group.campAt(camp.id());

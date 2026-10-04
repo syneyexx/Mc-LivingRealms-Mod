@@ -1,7 +1,7 @@
 # Living Realms v3.0.0-rc4 production readiness
 
 ## Status
-**Production candidate, not yet release-complete.** Headless core suite is **34** tests green, including holy-day civic rites, festival decoration planning, and verified assistance contributions. The dependency-linked build and first real full-modpack boot/world-generation smoke have succeeded externally on Windows for prior RC4 tips. A fresh full-modpack retest and a linked rebuild of this exact commit remain mandatory before claiming release-complete.
+**Production candidate, not yet release-complete.** Headless core suite is **35** tests green, including holy-day civic rites, festival decoration planning, verified assistance contributions, and refugee-camp construction enqueue. Linked NeoForge/Create build passed for the festival/aid commit; runtimeSmoke remains unverified. A fresh full-modpack client retest remains mandatory before claiming release-complete.
 
 ## Green automated gates
 - Java 21 core compilation with `--release 21 -Xlint:all -Werror`.

@@ -31,16 +31,17 @@
 **CODE COMPLETE / EXTERNAL GATE UNVERIFIED**
 
 Proven in this pass:
-- full core suite (**34 tests**) green, including `CivicHolyDayFestivalTest` + `AssistanceContributionTest`
-- release-audit green (schema16 / protocol14 / content9 + new festival/aid authorities)
-- holy-day civic rites fire on actual faith calendar days (not only day%30); festival decorations use `AuthoredOwnerType.CIVIC_FESTIVAL` with cleanup
+- full core suite green (`CivicHolyDayFestivalTest`, `AssistanceContributionTest`, `RefugeeCampConstructionTest` + prior 32)
+- release-audit green (schema16 / protocol14 / content9 + festival/aid authorities)
+- linked NeoForge/Create `clean --no-build-cache build` green for commit `0bf2740` → `livingrealms-3.0.0-rc4.jar`
+- holy-day civic rites fire on actual faith calendar days; festival decorations use `AuthoredOwnerType.CIVIC_FESTIVAL` with cleanup
 - player assistance contributions are inventory-verified (`/livingrealms assist`) and mutate canonical settlement pressure
+- refugee camps enqueue pending house/farm/road intents for physical materialization (well remains seeded)
 
 Still unverified externally:
 - fresh-world / migrated-world client smoke
 - full target modpack coexistence
 - Waystones / Create kinetic / chunk-unload stress in a real client session
-- linked NeoForge/Create rebuild on this exact commit (prior tip was green; re-verify required)
 
 ## Ecology/world integration
 - Ecosystem regions now have canonical world centers instead of existing only as abstract biome buckets.

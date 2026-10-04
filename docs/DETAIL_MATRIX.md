@@ -33,7 +33,7 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 | Calendar/festivals (F13) | CivilizationCalendar + CivicEvent + CivicFestivalMaterializer | COMPLETE (core) | Holy rites fire on actual holy days (day/day+1 vs clock); temporary CIVIC_FESTIVAL decorations + cleanup; siege/epidemic suppress festive types; EXTERNAL GATE: client visual confirm |
 | Politics/law (F14) | Government/Justice/Dynasty | COMPLETE (core) | Succession crisis → legitimacy/stability/unrest; EXTERNAL GATE: court art |
 | Bandits full (F15) | BanditArchetype + BanditEconomyEngine + Pirate* | COMPLETE (core) | Typed causes; route extortion; hideouts; EXTERNAL GATE: camp projection smoke |
-| War/refugees (F16) | MigrationGroup + camps | COMPLETE (core) | Camp absorb/cap, farm/well, REFUGEE_SUPPORT, FAMILY/PERSECUTION reasons |
+| War/refugees (F16) | MigrationGroup + camps | COMPLETE (core) | Camp absorb/cap; well seed + pending house/farm/road materialization; REFUGEE_SUPPORT; FAMILY/PERSECUTION; EXTERNAL GATE: camp visual smoke |
 | Epidemics (F17) | EpidemicRecord + CitizenRoutinePlanner | COMPLETE (core) | Soft cap + physical REST/clinic routines under plague stress |
 | Justice flow (F18) | Crime/Justice/Custody | COMPLETE | INVESTIGATING dwell; restitution; HERESY/SMUGGLING |
 | Naval (F19) | NavalEngine | COMPLETE (core) | Port discovery from geography + dock intents + fleets/combat; EXTERNAL GATE: ship visuals |

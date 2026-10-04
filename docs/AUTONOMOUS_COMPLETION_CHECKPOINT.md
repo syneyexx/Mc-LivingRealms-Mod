@@ -1,8 +1,8 @@
 # Living Realms Autonomous Completion Checkpoint
 
-Current wave: 42 / 100 (festival physicalization) + Wave 60 (assistance contribution) deepen complete  
-Current subwave: post-test documentation / linked-build attempt  
-Current objective: Close remaining P1 visibility/integration gaps; keep external runtime gates truthful  
+Current wave: 49 (refugee camp physical enqueue) after Waves 41/42/37/60  
+Current subwave: linked-build verified; follow-up commit for camp construction  
+Current objective: Keep external runtime gates truthful; continue physicality polish  
 
 ## Completed waves (this session)
 
@@ -81,9 +81,9 @@ None known internally after this pass.
 
 ## Last clean build
 
-- Headless core: PASS (this session)
-- Linked NeoForge: pending re-run for this commit
+- Headless core: PASS (34 tests at `0bf2740`; RefugeeCampConstructionTest added after)
+- Linked NeoForge: PASS at `0bf2740` → `build/libs/livingrealms-3.0.0-rc4.jar` (runtimeSmoke still unverified)
 
 ## Last commit/checkpoint
 
-Pending commit on `cursor/az-living-world-completion-80fd`
+`0bf2740` on `cursor/az-living-world-completion-80fd`; follow-up camp enqueue commit pending
