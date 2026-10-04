@@ -13,10 +13,10 @@
 - Wave 249 plan: `docs/MANUAL_RUNTIME_TEST_PLAN.md`.
 
 ## Gates
-- Core suite + 3650-day soak: PASS (prior full run; re-run with production build)
-- Release audit: pending re-run with this batch
-- Linked NeoForge build: pending re-run with this batch
-- Runtime smoke: unverified (external)
+- Core suite + 3650-day soak: **PASS** (38 tests; this batch)
+- Release audit: **PASS**
+- Linked NeoForge build: **PASS** (`livingrealms-3.0.0-rc4.jar`, schema 17 / protocol 17)
+- Runtime smoke: **unverified** (external — Wave 249)
 
 ## Exact next action
-Run `./build-production.sh` to refresh `RELEASE_MANIFEST.json` for this HEAD. Execute Wave 249 manual plan before any COMPLETE claim.
+Execute `docs/MANUAL_RUNTIME_TEST_PLAN.md` in a live 1.21.1 NeoForge + Create client before any COMPLETE claim.

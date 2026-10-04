@@ -1,7 +1,7 @@
 {
-  "generatedAtUtc": "2026-10-04T19:15:47Z",
-  "gitCommit": "278abd67ae4246c3fc86d7677ee54faf1df3f6e7",
-  "gitWorktreeClean": false,
+  "generatedAtUtc": "2026-10-04T19:15:33Z",
+  "gitCommit": "eee14a2cb06ee10533e034aeebda5a848aa04444",
+  "gitWorktreeClean": true,
   "modVersion": "3.0.0-rc4",
   "minecraftVersion": "1.21.1",
   "neoforgeVersion": "21.1.219",
