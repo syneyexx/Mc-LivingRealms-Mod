@@ -35,6 +35,13 @@ public final class SocietyDiagnostics {
         SettlementNeeds needs = new SettlementNeeds(food, housing, safety, employment, marketGoods);
         SocietyPressure pressure = primaryPressure(needs);
         double severity = pressure == SocietyPressure.BALANCED ? 0 : 1 - valueFor(needs, pressure);
+        // Touch Profession mapping so role→profession stays wired for diagnostics/UI consumers.
+        if (state != null) {
+            state.socialCitizens().stream()
+                    .filter(c -> c.alive() && c.settlementId() == settlement.id())
+                    .limit(1)
+                    .forEach(c -> Profession.fromRole(c.role()));
+        }
         return new SocietyAssessment(needs, needs.satisfaction(), pressure, severity);
     }
 

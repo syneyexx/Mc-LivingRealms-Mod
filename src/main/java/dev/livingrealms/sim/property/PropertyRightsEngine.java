@@ -14,7 +14,7 @@ public final class PropertyRightsEngine {
         Objects.requireNonNull(factions,"factions");Objects.requireNonNull(position,"position");
         if(!Double.isFinite(margin)||margin<0)throw new IllegalArgumentException("margin");
         PropertyClaim best=null;
-        for(Faction faction:factions) for(var settlement:faction.settlements()) for(var intent:SettlementPlanner.plan(faction,settlement)){
+        for(Faction faction:factions) for(var settlement:faction.settlements()) for(var intent:SettlementPlanCache.plan(faction,settlement)){
             if(!settlement.isConstructionCompleted(intent.key()))continue;
             PropertyClaim claim=new PropertyClaim(faction.id(),settlement.id(),intent.key(),intent.role(),intent.center(),intent.width(),intent.depth());
             if(!claim.contains(position,margin))continue;
@@ -27,7 +27,7 @@ public final class PropertyRightsEngine {
     public static Optional<PropertyClaim> resolveStorage(Collection<Faction> factions,SimPosition position){
         Objects.requireNonNull(factions,"factions");Objects.requireNonNull(position,"position");
         PropertyClaim best=null;
-        for(Faction faction:factions) for(var settlement:faction.settlements()) for(var intent:SettlementPlanner.plan(faction,settlement)){
+        for(Faction faction:factions) for(var settlement:faction.settlements()) for(var intent:SettlementPlanCache.plan(faction,settlement)){
             if(!settlement.isConstructionCompleted(intent.key()))continue;
             StructureBlueprint blueprint=StructureBlueprintFactory.create(intent);
             boolean matches=blueprint.placements().stream().filter(p->p.slot()==PaletteSlot.STORAGE).anyMatch(p->{

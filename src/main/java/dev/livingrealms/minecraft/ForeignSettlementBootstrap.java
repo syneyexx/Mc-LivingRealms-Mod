@@ -20,6 +20,7 @@ public final class ForeignSettlementBootstrap {
         int marked = 0;
         // Explicit adoption marker — not a fake mine/road/fishery.
         if (settlement.markConstructionCompleted("foreign:adopted_footprint")) marked++;
+        if (settlement.markConstructionCompleted("foreign:protectorate")) marked++;
         for (var intent : SettlementPlanner.plan(faction, settlement)) {
             if (!isAdoptedFootprintRole(intent.role())) continue;
             // Cap housing credits to a modest existing footprint; later population growth stays pending.

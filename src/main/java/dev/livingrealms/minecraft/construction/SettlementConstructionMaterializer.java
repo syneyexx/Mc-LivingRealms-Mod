@@ -58,6 +58,7 @@ public final class SettlementConstructionMaterializer {
     private static int catchupTicks;
     private static long catchupSimulatedDays;
     private static int catchupIntentsPerSettlement=1;
+    private static int catchupOpsBoost;
     private static int settlementScanCursor;
 
     private SettlementConstructionMaterializer() {}
@@ -68,7 +69,16 @@ public final class SettlementConstructionMaterializer {
         refreshPresentationScope(level,data);
         discoverLoadedWork(level,data);
         int operationBudget=Math.max(320,data.state().config().constructionBlockOpsPerTick());
-        if(catchupTicks>0){operationBudget=Math.max(operationBudget,960);catchupTicks--;}
+        if(catchupTicks>0){
+            // Soft-ramp catch-up ops to avoid a 960 ops/tick hitch with many nearby settlements/players.
+            int players=Math.max(1,level.players().size());
+            int peak=Math.max(480,960/Math.min(4,players));
+            if(catchupOpsBoost<=0)catchupOpsBoost=Math.min(peak,operationBudget+80);
+            else catchupOpsBoost=Math.min(peak,catchupOpsBoost+48);
+            operationBudget=Math.max(operationBudget,catchupOpsBoost);
+            catchupTicks--;
+            if(catchupTicks<=0)catchupOpsBoost=0;
+        }
         AuthoredBlockLedger ledger=data.authoredBlocks();
         var result=QUEUE.tick(operationBudget,(job,operation)->apply(level,job,operation,ledger));
         boolean dirty=result.applied()>0;
@@ -97,17 +107,19 @@ public final class SettlementConstructionMaterializer {
     public static void requestCatchup(long simulatedDays){
         if(simulatedDays<=0)return;
         int requested=(int)Math.min(400L,40L+Math.min(120L,simulatedDays)*3L);
+        boolean fresh=catchupTicks<=0;
         catchupTicks=Math.max(catchupTicks,requested);
         catchupSimulatedDays=Math.max(catchupSimulatedDays,simulatedDays);
         // Per-settlement refinement uses PhysicalDevelopmentReconciler inside discoverLoadedWork.
         catchupIntentsPerSettlement=Math.max(2,Math.min(12,1+(int)Math.min(8L,simulatedDays/12L)));
+        if(fresh)catchupOpsBoost=0; // restart soft ramp for a new catch-up wave
     }
 
     public static boolean catchupActive(){return catchupTicks>0;}
 
     public static void clear() {
         QUEUE.clear(); JOB_OWNERS.clear(); RETRY_AFTER_DAY.clear();
-        catchupTicks=0; catchupSimulatedDays=0; catchupIntentsPerSettlement=1; settlementScanCursor=0;
+        catchupTicks=0; catchupSimulatedDays=0; catchupIntentsPerSettlement=1; catchupOpsBoost=0; settlementScanCursor=0;
     }
 
     private static void discoverLoadedWork(ServerLevel level, LivingRealmsSavedData data) {

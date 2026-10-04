@@ -38,8 +38,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Generic terrestrial physical projection. Species biology remains data-driven; this class translates
- * AnimalBrain intents into vanilla navigation/targeting. Aquatic and flying adapters are separate roadmap slices.
+ * Physical wildlife projection. Species biology remains data-driven; this class translates
+ * AnimalBrain intents into vanilla navigation/targeting, with morphology-selected terrestrial,
+ * aquatic, and flying model/physics adapters.
  */
 public final class LivingRealmsAnimalEntity extends PathfinderMob {
     private static final EntityDataAccessor<String> SPECIES_ID = SynchedEntityData.defineId(LivingRealmsAnimalEntity.class, EntityDataSerializers.STRING);
