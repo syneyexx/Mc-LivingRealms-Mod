@@ -367,6 +367,15 @@ historical_text=(root/'src/main/java/dev/livingrealms/minecraft/construction/His
 require('WorldMutationGuard' in transport_text and 'AuthoredOwnerType.INTERCITY_ROUTE' in transport_text,'transport projection must use typed provenance mutation guard')
 require('WorldMutationGuard' in industry_text and 'AuthoredOwnerType.INDUSTRIAL_SITE' in industry_text,'industrial projection must use typed provenance mutation guard')
 require('AuthoredOwnerType.HIDDEN_CACHE' in historical_text and 'AuthoredOwnerType.HISTORICAL_RUIN' in historical_text,'historical sites must persist typed provenance')
+festival_mat = root/'src/main/java/dev/livingrealms/minecraft/construction/CivicFestivalMaterializer.java'
+festival_plan = root/'src/main/java/dev/livingrealms/sim/civilization/CivicFestivalDecorationPlanner.java'
+assist_engine = root/'src/main/java/dev/livingrealms/sim/civilization/AssistanceContributionEngine.java'
+require(festival_mat.exists(),'civic festival materializer must exist')
+require(festival_plan.exists(),'civic festival decoration planner must exist')
+require(assist_engine.exists(),'assistance contribution engine must exist')
+require('CIVIC_FESTIVAL' in festival_mat.read_text(encoding='utf-8'),'festival materializer must use CIVIC_FESTIVAL provenance')
+require('CIVIC_FESTIVAL' in (root/'src/main/java/dev/livingrealms/sim/construction/AuthoredOwnerType.java').read_text(encoding='utf-8'),'AuthoredOwnerType must define CIVIC_FESTIVAL')
+require('contributeVerified' in assist_engine.read_text(encoding='utf-8'),'assistance contributions must be server-verified')
 require('HumanoidArmorLayer' in citizen_renderer and 'ItemInHandLayer' in citizen_renderer,'citizen renderer must visibly render compatible armor and held tools/weapons')
 world_map=root/'src/main/java/dev/livingrealms/minecraft/client/ui/RealmWorldMapScreen.java'
 creative_catalog=root/'src/main/java/dev/livingrealms/minecraft/client/ui/CreativeItemCatalogScreen.java'

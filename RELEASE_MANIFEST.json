@@ -1,7 +1,7 @@
 {
-  "generatedAtUtc": "2026-10-04T11:28:26Z",
-  "gitCommit": "2dfc77d9b48fe0575dd55df2fc7235bab812406e",
-  "gitWorktreeClean": false,
+  "generatedAtUtc": "2026-10-04T13:00:58Z",
+  "gitCommit": "3ddec751b3505c650fde47d947e78df9623b9017",
+  "gitWorktreeClean": true,
   "modVersion": "3.0.0-rc4",
   "minecraftVersion": "1.21.1",
   "neoforgeVersion": "21.1.219",
@@ -22,14 +22,13 @@
   "artifact": {
     "jar": "/workspace/build/libs/livingrealms-3.0.0-rc4.jar",
     "jarPresent": true,
-    "jarBytes": 1485264,
-    "jarSha256": "d47196a0ec575aa03d708e1142b7546a293368ec37f6571240257a02b849c842"
+    "jarBytes": 1513978,
+    "jarSha256": "585e603883758659f46e4f81fa40cb2dd952bfe10b25ff90bb18ee3e1b119db5"
   },
   "releaseCompleteClaimAllowed": false,
   "notes": [
     "SOURCE WINS OVER DOCS.",
     "Manifest gitCommit must equal the exact commit being certified.",
     "Do not claim production-ready while runtimeSmoke is unverified/fail/skipped."
-  ],
-  "evidenceTipNote": "Manifest certifies code/build commit 2dfc77d; tip may include evidence-only follow-ups."
+  ]
 }

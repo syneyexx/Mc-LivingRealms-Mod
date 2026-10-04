@@ -1,6 +1,6 @@
 # Living Realms project state
 
-**Checkpoint:** v3.0.0-rc4 A–Z production completion pass (buildf15)
+**Checkpoint:** v3.0.0-rc4 A–Z autonomous deepen (holy-day rites + festival projection + assistance delivery)
 
 ## Current production state
 - Starter density target is **32** settlements per surface realm (~380+ with Wizard Trees) including fertile rural hamlets; physical entities/blocks remain player-local and budgeted.
@@ -31,9 +31,12 @@
 **CODE COMPLETE / EXTERNAL GATE UNVERIFIED**
 
 Proven in this pass:
-- full core suite (29 tests) green
-- release-audit green
-- linked NeoForge/Create `clean --no-build-cache build` green → `build/libs/livingrealms-3.0.0-rc4.jar` + `RELEASE_MANIFEST.json`
+- full core suite green (`CivicHolyDayFestivalTest`, `AssistanceContributionTest`, `RefugeeCampConstructionTest` + prior 32)
+- release-audit green (schema16 / protocol14 / content9 + festival/aid authorities)
+- linked NeoForge/Create `clean --no-build-cache build` green for commit `0bf2740` → `livingrealms-3.0.0-rc4.jar`
+- holy-day civic rites fire on actual faith calendar days; festival decorations use `AuthoredOwnerType.CIVIC_FESTIVAL` with cleanup
+- player assistance contributions are inventory-verified (`/livingrealms assist`) and mutate canonical settlement pressure
+- refugee camps enqueue pending house/farm/road intents for physical materialization (well remains seeded)
 
 Still unverified externally:
 - fresh-world / migrated-world client smoke

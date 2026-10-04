@@ -16,7 +16,9 @@ public enum AuthoredOwnerType {
     PIRATE_HIDEOUT(6),
     INFRASTRUCTURE(7),
     WIZARD_TREES(8),
-    OTHER_LR(9);
+    OTHER_LR(9),
+    /** Temporary festival banners/stalls/torches; must clean up when the civic event ends. */
+    CIVIC_FESTIVAL(10);
 
     private final int id;
 

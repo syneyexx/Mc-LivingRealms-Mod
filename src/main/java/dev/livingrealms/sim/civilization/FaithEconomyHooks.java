@@ -31,7 +31,8 @@ public final class FaithEconomyHooks {
             settlement.adjustUnrest(-.002);
             if (temple && Math.floorMod(settlement.id() + day, 17) == 0) {
                 state.history().add(new WorldEvent(day, "holy_day",
-                        settlement.name() + " observes " + faith.name() + " (" + faith.primaryDeity() + ")"));
+                        settlement.name() + " observes " + faith.name() + " (" + faith.primaryDeity()
+                                + ") • order=" + faith.holyOrder()));
             }
         }
         if (!temple) return;
