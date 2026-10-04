@@ -30,6 +30,7 @@ public final class StructureGeometryRules {
 
     /** Door ops are hard-required when present: a building without its entrance is incomplete. */
     public static boolean requiresAllDoors(StructureRole role) {
-        return role != StructureRole.ROAD && role != StructureRole.WALL && role != StructureRole.FARM;
+        return role != StructureRole.ROAD && role != StructureRole.WALL && role != StructureRole.FARM
+                && role != StructureRole.PLAZA && role != StructureRole.PASTURE;
     }
 }

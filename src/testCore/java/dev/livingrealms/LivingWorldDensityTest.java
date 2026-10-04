@@ -83,7 +83,7 @@ public final class LivingWorldDensityTest {
         Set<String> marketBlueprints = new HashSet<>();
         int roadRichSettlements = 0;
         for (Faction faction : state.factions()) for (Settlement settlement : faction.settlements()) {
-            layouts.add(SettlementPlanner.layoutArchetype(settlement));
+            layouts.add(SettlementPlanner.layoutArchetype(faction, settlement));
             var plan = SettlementPlanner.plan(faction, settlement);
             long roads = plan.stream().filter(i -> i.role() == StructureRole.ROAD).count();
             if (roads >= 5) roadRichSettlements++;

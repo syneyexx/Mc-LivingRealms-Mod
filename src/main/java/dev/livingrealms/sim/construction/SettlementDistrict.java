@@ -22,7 +22,7 @@ public enum SettlementDistrict {
         if (role == null) return RESIDENTIAL;
         return switch (role) {
             case KEEP, COURTHOUSE, MONUMENT, OBSERVATORY -> GOVERNMENT;
-            case MARKET, WAREHOUSE, TAVERN -> MARKET;
+            case MARKET, PLAZA, WAREHOUSE, TAVERN -> MARKET;
             case WORKSHOP, BAKERY, BREWERY, MILL -> CRAFTS;
             case FACTORY, MINE, LUMBER_CAMP -> INDUSTRIAL;
             case BARRACKS, WALL, GATE, AIRFIELD, PRISON -> MILITARY;

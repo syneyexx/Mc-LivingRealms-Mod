@@ -20,6 +20,7 @@ public final class AssistanceContributionTest {
         verifiedFoodAidRelievesPressureAndCanResolve();
         distantContributionRejected();
         closedTaskRejected();
+        infrastructureRepairRelievesRouteAndIndustryWear();
         System.out.println("PASS assistance contribution: verified delivery + radius/auth checks + persistence");
     }
 
@@ -80,6 +81,38 @@ public final class AssistanceContributionTest {
         task.cancel();
         var result = AssistanceContributionEngine.contributeVerified(state, "player:x", town.position(), task.id(), 8);
         check(!result.success(), "closed task rejected");
+    }
+
+    private static void infrastructureRepairRelievesRouteAndIndustryWear() {
+        SimulationState state = new SimulationState(0xA5515AL);
+        Faction faction = new Faction(state.nextId(), "Stone Realm", "Mayor");
+        Settlement town = new Settlement(state.nextId(), "Wearford", new SimPosition(0, 0), 220, 200);
+        Settlement peer = new Settlement(state.nextId(), "Peerwick", new SimPosition(400, 0), 120, 120);
+        faction.addSettlement(town);
+        faction.addSettlement(peer);
+        state.addFaction(faction);
+        var route = new dev.livingrealms.sim.transport.TransportRoute(
+                state.nextId(), faction.id(), town.id(), peer.id(),
+                dev.livingrealms.sim.transport.TransportMode.ROAD, 400, .2, .7, 40);
+        route.setOperational(false);
+        state.addRoute(route);
+        double infraBefore = town.infrastructure();
+        double pressure = AssistanceContributionEngine.infrastructurePressure(state, town);
+        check(pressure > .3, "worn route must create infrastructure pressure");
+        AssistanceTask task = new AssistanceTask(state.nextId(), faction.id(), town.id(), 0, 45,
+                AssistanceTaskType.INFRASTRUCTURE_REPAIR, "pressure:infrastructure_repair", pressure);
+        state.addAssistanceTask(task);
+        check(AssistanceContributionEngine.requiredResource(AssistanceTaskType.INFRASTRUCTURE_REPAIR) == ResourceType.STONE,
+                "infrastructure repair consumes stone");
+        var ok = AssistanceContributionEngine.contributeVerified(state, "player:mason", town.position(), task.id(), 8);
+        check(ok.success(), "stone contribution must succeed: " + ok.reason());
+        check(town.infrastructure() > infraBefore, "settlement infrastructure must improve");
+        check(route.quality() > .2, "route quality must improve");
+        for (int i = 0; i < 4 && !route.operational(); i++) {
+            AssistanceContributionEngine.contributeVerified(state, "player:mason", town.position(), task.id(), 8);
+        }
+        check(route.operational(), "sustained repair must reopen a worn route");
+        SimulationValidator.validate(state).throwIfInvalid();
     }
 
     private static void check(boolean v, String m) {

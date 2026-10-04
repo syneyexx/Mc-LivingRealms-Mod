@@ -7,6 +7,7 @@ public enum StructureRole {
     FARM,
     ROAD,
     MARKET,
+    PLAZA,
     WAREHOUSE,
     WORKSHOP,
     BARRACKS,

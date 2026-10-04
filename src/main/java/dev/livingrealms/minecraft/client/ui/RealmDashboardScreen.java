@@ -292,6 +292,7 @@ public final class RealmDashboardScreen extends Screen {
         lines.add(dim("Food " + pct(s.foodSecurity()) + " • order " + pct(s.publicOrder()) + " • employment " + pct(s.employment()), 1));
         lines.add(dim("Housing satisfaction " + pct(s.housingSatisfaction()) + " • goods " + pct(s.goodsAccess()), 1));
         lines.add(dim("Society satisfaction " + pct(s.societySatisfaction()) + " • pressure " + titleCase(s.primaryPressure()) + " " + pct(s.pressureSeverity()), 1));
+        if(s.causeSummary()!=null&&!s.causeSummary().isBlank()) lines.add(dim("Why: "+s.causeSummary(),1));
         if(snapshot.player().memberFactionId()==snapshot.realm().factionId()) lines.add(dim("Use the policy buttons below; changes affect real construction order.",0));
         return lines;
     }
@@ -314,8 +315,14 @@ public final class RealmDashboardScreen extends Screen {
             lines.add(dim("Employment " + pct(s.employment()) + " • goods " + pct(s.goodsAccess()), 1));
             if (!s.primaryPressure().equals("BALANCED")) {
                 lines.add(warn("  Main pressure: " + titleCase(s.primaryPressure()) + " (" + pct(s.pressureSeverity()) + " deficit)"));
+                if (s.causeSummary() != null && !s.causeSummary().isBlank()) {
+                    lines.add(dim("  Why: " + s.causeSummary(), 1));
+                }
             } else {
                 lines.add(dim("Needs are broadly balanced.", 1));
+                if (s.causeSummary() != null && !s.causeSummary().isBlank()) {
+                    lines.add(dim("  " + s.causeSummary(), 1));
+                }
             }
         }
         return lines;
@@ -477,6 +484,13 @@ public final class RealmDashboardScreen extends Screen {
             lines.add(dim(site.status()+" • condition "+pct(site.condition())+" • utilization "+pct(site.utilization())+" • cycles "+site.cycles()+" • downtime "+site.downtimeDays()+"d",1));
         }
         if(ops.industry().isEmpty())lines.add(dim("No industrial sites for this realm.",0));
+        lines.add(header("Assistance contracts"));
+        for(var t:ops.assistanceTasks()){
+            lines.add(text("#"+t.id()+" "+titleCase(t.type())+" @ "+t.settlement()+" • "+pct(t.progress())+" done"));
+            lines.add(dim("Pressure left "+pct(t.remainingPressure())+" • expires day "+t.expiresDay()+" • "+t.cause(),1));
+            lines.add(dim("Deliver verified goods with /livingrealms assist deliver",2));
+        }
+        if(ops.assistanceTasks().isEmpty())lines.add(dim("No open assistance contracts for this realm.",0));
         return lines;
     }
 

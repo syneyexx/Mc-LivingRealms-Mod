@@ -137,6 +137,7 @@ public final class CivilizationLifecycleEngine {
             pressure.put(AssistanceTaskType.HOUSING_SUPPLIES,Mathx.clamp(housingRatio-.84,0,1));
             double insecureTrade=state.routes().stream().filter(TransportRoute::operational).filter(r->r.fromSettlementId()==settlement.id()||r.toSettlementId()==settlement.id()).mapToDouble(r->Math.max(0,.55-r.security())).max().orElse(0);
             pressure.put(AssistanceTaskType.TRADE_ESCORT,Mathx.clamp(insecureTrade*1.7,0,1));
+            pressure.put(AssistanceTaskType.INFRASTRUCTURE_REPAIR,AssistanceContributionEngine.infrastructurePressure(state,settlement));
             for(var entry:pressure.entrySet()){
                 AssistanceTaskType type=entry.getKey();double p=entry.getValue();Optional<AssistanceTask> active=state.activeAssistanceTask(settlement.id(),type);
                 if(active.isPresent()){active.get().updatePressure(day,p);if(!active.get().active())state.history().add(new WorldEvent(day,"assistance_task_"+active.get().status().name().toLowerCase(Locale.ROOT),"task="+active.get().id()+", settlement="+settlement.id()+", type="+type));continue;}

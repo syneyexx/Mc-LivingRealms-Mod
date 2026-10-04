@@ -3,6 +3,7 @@ package dev.livingrealms.sim.civilization;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.industry.IndustrialSiteStatus;
 import dev.livingrealms.sim.player.PlayerStanding;
 import dev.livingrealms.sim.util.Mathx;
 import dev.livingrealms.sim.world.SimPosition;
@@ -35,6 +36,7 @@ public final class AssistanceContributionEngine {
             case MEDICAL_AID, WATER_SUPPLY -> ResourceType.TEXTILES;
             case HOUSING_SUPPLIES -> ResourceType.WOOD;
             case SECURITY_SUPPORT, TRADE_ESCORT -> ResourceType.IRON;
+            case INFRASTRUCTURE_REPAIR -> ResourceType.STONE;
         };
     }
 
@@ -59,7 +61,7 @@ public final class AssistanceContributionEngine {
 
         SettlementCivilizationState civ = state.ensureSettlementCivilization(settlement.id(), faction.id());
         double relief = Mathx.clamp(delivered / (PACKAGE_UNITS * 4.0), .04, .28);
-        applyRelief(task.type(), settlement, civ, relief);
+        applyRelief(task.type(), settlement, civ, state, relief);
         double pressure = currentPressure(task.type(), settlement, civ, state);
         task.updatePressure(state.clock().day(), pressure);
 
@@ -77,7 +79,8 @@ public final class AssistanceContributionEngine {
         return new Result(true, true, "contributed", task.id(), task.status(), relief);
     }
 
-    private static void applyRelief(AssistanceTaskType type, Settlement settlement, SettlementCivilizationState civ, double relief) {
+    private static void applyRelief(AssistanceTaskType type, Settlement settlement, SettlementCivilizationState civ,
+                                    SimulationState state, double relief) {
         switch (type) {
             case FOOD_RELIEF -> {
                 settlement.setFoodSecurity(Math.min(1, settlement.foodSecurity() + relief));
@@ -104,6 +107,19 @@ public final class AssistanceContributionEngine {
                 settlement.addHousing(Math.max(1, (int) Math.round(relief * 6)));
                 settlement.adjustProsperity(relief * .08);
             }
+            case INFRASTRUCTURE_REPAIR -> {
+                settlement.improveInfrastructure(relief * 2.5);
+                settlement.adjustProsperity(relief * .1);
+                state.routes().stream()
+                        .filter(r -> r.fromSettlementId() == settlement.id() || r.toSettlementId() == settlement.id())
+                        .forEach(r -> {
+                            r.improve(relief * .35);
+                            if (!r.operational() && r.quality() > .35) r.setOperational(true);
+                        });
+                state.industrialSites().stream()
+                        .filter(i -> i.settlementId() == settlement.id())
+                        .forEach(i -> i.repair(relief * .45));
+            }
         }
     }
 
@@ -126,7 +142,24 @@ public final class AssistanceContributionEngine {
                         .max().orElse(0);
                 yield Mathx.clamp(insecure * 1.7, 0, 1);
             }
+            case INFRASTRUCTURE_REPAIR -> infrastructurePressure(state, settlement);
         };
+    }
+
+    public static double infrastructurePressure(SimulationState state, Settlement settlement) {
+        double routeWear = state.routes().stream()
+                .filter(r -> r.fromSettlementId() == settlement.id() || r.toSettlementId() == settlement.id())
+                .mapToDouble(r -> Math.max(0, .55 - r.quality()) + (r.operational() ? 0 : .35))
+                .max().orElse(0);
+        double industryWear = state.industrialSites().stream()
+                .filter(i -> i.settlementId() == settlement.id())
+                .mapToDouble(i -> Math.max(0, .55 - i.condition())
+                        + (i.status() == IndustrialSiteStatus.OFFLINE
+                        || i.status() == IndustrialSiteStatus.DAMAGED
+                        || i.status() == IndustrialSiteStatus.REPAIRING ? .4 : 0))
+                .max().orElse(0);
+        double infra = Math.max(0, .55 - settlement.infrastructure() / Math.max(1, settlement.population() * .02));
+        return Mathx.clamp(Math.max(routeWear, Math.max(industryWear, infra)), 0, 1);
     }
 
     private static Result fail(long taskId, String reason) {

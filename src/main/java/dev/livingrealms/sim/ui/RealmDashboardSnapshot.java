@@ -28,7 +28,7 @@ public record RealmDashboardSnapshot(
         StrategicMapView map,
         List<HistoryView> history
 ) {
-    public static final int PROTOCOL_VERSION = 14;
+    public static final int PROTOCOL_VERSION = 16;
 
     public RealmDashboardSnapshot {
         if (protocolVersion != PROTOCOL_VERSION) throw new IllegalArgumentException("protocolVersion");
@@ -97,8 +97,12 @@ public record RealmDashboardSnapshot(
         public FactionSummary{name=safe(name);ruler=safe(ruler);population=Math.max(0,population);settlements=Math.max(0,settlements);treasury=Math.max(0,finite(treasury));technology=Math.max(0,finite(technology));}
     }
 
-    public record SettlementView(long id,String name,String tier,String developmentPriority,int population,int housing,double prosperity,double unrest,double foodSecurity,double publicOrder,double employment,double housingSatisfaction,double goodsAccess,double societySatisfaction,String primaryPressure,double pressureSeverity,double distanceBlocks){
-        public SettlementView{name=safe(name);tier=safe(tier);developmentPriority=safe(developmentPriority);population=Math.max(0,population);housing=Math.max(0,housing);prosperity=bounded(prosperity);unrest=bounded(unrest);foodSecurity=bounded(foodSecurity);publicOrder=bounded(publicOrder);employment=bounded(employment);housingSatisfaction=bounded(housingSatisfaction);goodsAccess=bounded(goodsAccess);societySatisfaction=bounded(societySatisfaction);primaryPressure=safe(primaryPressure);pressureSeverity=bounded(pressureSeverity);distanceBlocks=Math.max(0,finite(distanceBlocks));}
+    public record SettlementView(long id,String name,String tier,String developmentPriority,int population,int housing,double prosperity,double unrest,double foodSecurity,double publicOrder,double employment,double housingSatisfaction,double goodsAccess,double societySatisfaction,String primaryPressure,double pressureSeverity,String causeSummary,double distanceBlocks){
+        public SettlementView{name=safe(name);tier=safe(tier);developmentPriority=safe(developmentPriority);population=Math.max(0,population);housing=Math.max(0,housing);prosperity=bounded(prosperity);unrest=bounded(unrest);foodSecurity=bounded(foodSecurity);publicOrder=bounded(publicOrder);employment=bounded(employment);housingSatisfaction=bounded(housingSatisfaction);goodsAccess=bounded(goodsAccess);societySatisfaction=bounded(societySatisfaction);primaryPressure=safe(primaryPressure);pressureSeverity=bounded(pressureSeverity);causeSummary=trimCause(causeSummary);distanceBlocks=Math.max(0,finite(distanceBlocks));}
+        private static String trimCause(String value){
+            String s=safe(value);
+            return s.length()<=160?s:s.substring(0,157)+"...";
+        }
     }
 
     public record WarView(long id,long attackerFactionId,String attackerName,long defenderFactionId,String defenderName,String goal,long startDay,double attackerScore,double attackerExhaustion,double defenderExhaustion){
@@ -123,9 +127,12 @@ public record RealmDashboardSnapshot(
     }
 
 
-    public record OperationsView(List<ShipmentView> shipments,List<RouteOpsView> routes,List<IndustryOpsView> industry){
-        public OperationsView{shipments=List.copyOf(shipments==null?List.of():shipments);routes=List.copyOf(routes==null?List.of():routes);industry=List.copyOf(industry==null?List.of():industry);}
-        public static OperationsView empty(){return new OperationsView(List.of(),List.of(),List.of());}
+    public record OperationsView(List<ShipmentView> shipments,List<RouteOpsView> routes,List<IndustryOpsView> industry,List<AssistanceTaskView> assistanceTasks){
+        public OperationsView{shipments=List.copyOf(shipments==null?List.of():shipments);routes=List.copyOf(routes==null?List.of():routes);industry=List.copyOf(industry==null?List.of():industry);assistanceTasks=List.copyOf(assistanceTasks==null?List.of():assistanceTasks);}
+        public static OperationsView empty(){return new OperationsView(List.of(),List.of(),List.of(),List.of());}
+    }
+    public record AssistanceTaskView(long id,String settlement,String type,String cause,double remainingPressure,double progress,long expiresDay){
+        public AssistanceTaskView{if(id<=0)throw new IllegalArgumentException("task id");settlement=safe(settlement);type=safe(type);cause=safe(cause);remainingPressure=bounded(remainingPressure);progress=bounded(progress);expiresDay=Math.max(0,expiresDay);}
     }
     public record ShipmentView(long id,String seller,String buyer,String resource,double amount,double value,double progress,double distanceBlocks){
         public ShipmentView{seller=safe(seller);buyer=safe(buyer);resource=safe(resource);amount=Math.max(0,finite(amount));value=Math.max(0,finite(value));progress=bounded(progress);distanceBlocks=Math.max(0,finite(distanceBlocks));}

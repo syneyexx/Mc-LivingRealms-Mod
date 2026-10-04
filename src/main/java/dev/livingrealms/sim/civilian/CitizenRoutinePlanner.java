@@ -81,9 +81,24 @@ public final class CitizenRoutinePlanner {
     private static CitizenRoutine nightRoutine(SimulationState state,Faction faction,Settlement settlement,CitizenRole role,int slot,List<ConstructionIntent> completed){
         if(role==CitizenRole.GUARD)return at(selectAny(completed,slot,List.of(StructureRole.GATE,StructureRole.WALL,StructureRole.ROAD,StructureRole.PRISON,StructureRole.KEEP)),CitizenActivity.PATROL,settlement,.92);
         long phase=state.clock().day()*31L+slot*17L+settlement.id();
-        if((role==CitizenRole.TRADER||role==CitizenRole.ARTISAN||role==CitizenRole.BUILDER||role==CitizenRole.CARPENTER||role==CitizenRole.DOCKWORKER||role==CitizenRole.SAILOR)&&Math.floorMod(phase,4L)==0L){ConstructionIntent tavern=select(completed,slot,StructureRole.TAVERN);if(tavern!=null)return at(tavern,CitizenActivity.SOCIALIZE,settlement,.82);}
+        double law=faction.government().lawEnforcement();
+        double order=settlement.publicOrder();
+        boolean curfew=law>=.62&&order>=.55;
+        // Strict curfew: non-guards/spies/priests stay home when law and order are strong.
+        if(curfew&&role!=CitizenRole.SPY&&role!=CitizenRole.PRIEST&&role!=CitizenRole.OFFICIAL){
+            ConstructionIntent home=resolveHouseholdHome(state,faction,settlement,slot,completed);
+            return at(home,CitizenActivity.REST,settlement,.78);
+        }
+        // Low-order nights: spies and a few non-guards move for secret meetings / tavern nightlife.
+        if(!curfew&&role==CitizenRole.SPY){
+            ConstructionIntent meet=selectAny(completed,slot,List.of(StructureRole.TAVERN,StructureRole.KEEP,StructureRole.WAREHOUSE));
+            if(meet!=null)return at(meet,CitizenActivity.INFILTRATE,settlement,.90);
+        }
+        if(!curfew&&(role==CitizenRole.TRADER||role==CitizenRole.ARTISAN||role==CitizenRole.BUILDER||role==CitizenRole.CARPENTER||role==CitizenRole.DOCKWORKER||role==CitizenRole.SAILOR)&&Math.floorMod(phase,4L)==0L){
+            ConstructionIntent tavern=select(completed,slot,StructureRole.TAVERN);if(tavern!=null)return at(tavern,CitizenActivity.SOCIALIZE,settlement,.82);
+        }
         if(role==CitizenRole.PRIEST&&Math.floorMod(phase,5L)==0L){ConstructionIntent temple=select(completed,slot,StructureRole.TEMPLE);if(temple!=null)return at(temple,CitizenActivity.WORSHIP,settlement,.8);}
-        if((role==CitizenRole.OFFICIAL||role==CitizenRole.SPY)&&Math.floorMod(phase,7L)==0L){ConstructionIntent keep=select(completed,slot,StructureRole.KEEP);if(keep!=null)return at(keep,CitizenActivity.ADMINISTER,settlement,.8);}
+        if((role==CitizenRole.OFFICIAL||role==CitizenRole.SPY)&&Math.floorMod(phase,7L)==0L){ConstructionIntent keep=select(completed,slot,StructureRole.KEEP);if(keep!=null)return at(keep,role==CitizenRole.SPY?CitizenActivity.INFILTRATE:CitizenActivity.ADMINISTER,settlement,.8);}
         ConstructionIntent home=resolveHouseholdHome(state,faction,settlement,slot,completed);
         return at(home,CitizenActivity.REST,settlement,.78);
     }

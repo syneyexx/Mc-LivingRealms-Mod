@@ -209,14 +209,23 @@ public final class SettlementConstructionMaterializer {
     private static TerrainStats terrainStats(ServerLevel level,ConstructionIntent intent){
         int turns=Math.floorMod(intent.rotationQuarterTurns(),4);int w=(turns&1)==0?intent.width():intent.depth(),d=(turns&1)==0?intent.depth():intent.width();
         int cx=(int)Math.round(intent.center().x()),cz=(int)Math.round(intent.center().z()),hx=w/2,hz=d/2;
-        int min=Integer.MAX_VALUE,max=Integer.MIN_VALUE;
+        int min=Integer.MAX_VALUE,max=Integer.MIN_VALUE,samples=0,steepNeighbors=0;
+        Integer prevY=null;
         for(int z=-hz;z<=hz;z+=Math.max(2,d/6))for(int x=-hx;x<=hx;x+=Math.max(2,w/6)){
             int wx=cx+x,wz=cz+z;BlockPos probe=new BlockPos(wx,level.getSeaLevel(),wz);if(!level.hasChunkAt(probe))return null;
             int y=naturalSurfaceY(level,wx,wz);if(y<=level.getMinBuildHeight()+1||y>=level.getMaxBuildHeight()-18)return null;
             BlockState ground=level.getBlockState(new BlockPos(wx,y,wz));if(!ground.getFluidState().isEmpty())return null;
-            min=Math.min(min,y);max=Math.max(max,y);
+            // Reject cave mouths / unsupported pads: the block under the surface sample must exist.
+            BlockState below=level.getBlockState(new BlockPos(wx,y-1,wz));
+            if(below.isAir()||!below.getFluidState().isEmpty())return null;
+            if(prevY!=null&&Math.abs(y-prevY)>4)steepNeighbors++;
+            prevY=y;min=Math.min(min,y);max=Math.max(max,y);samples++;
         }
-        if(min==Integer.MAX_VALUE)return null;return new TerrainStats(min,max);
+        if(min==Integer.MAX_VALUE)return null;
+        // Too many cliff steps across the footprint → reject rather than build pillar towers.
+        if(samples>0&&steepNeighbors>Math.max(1,samples/4))return null;
+        if(max-min>6)return null;
+        return new TerrainStats(min,max);
     }
 
     private static java.util.List<BuildOperation> buildingOperations(ServerLevel level,ConstructionIntent intent,int baseY){

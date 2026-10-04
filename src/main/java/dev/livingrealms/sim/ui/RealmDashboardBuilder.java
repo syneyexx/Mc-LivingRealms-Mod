@@ -1,6 +1,7 @@
 package dev.livingrealms.sim.ui;
 
 import dev.livingrealms.sim.faction.*;
+import dev.livingrealms.sim.civilization.AssistanceTask;
 import dev.livingrealms.sim.civilization.*;
 import dev.livingrealms.sim.economy.MarketEngine;
 import dev.livingrealms.sim.economy.MarketTransactionEngine;
@@ -12,6 +13,7 @@ import dev.livingrealms.sim.military.*;
 import dev.livingrealms.sim.law.*;
 import dev.livingrealms.sim.player.PlayerStanding;
 import dev.livingrealms.sim.society.SocietyDiagnostics;
+import dev.livingrealms.sim.society.WorldCauseExplainer;
 import dev.livingrealms.sim.territory.*;
 import dev.livingrealms.sim.world.*;
 import java.util.*;
@@ -44,6 +46,7 @@ public final class RealmDashboardBuilder {
     public static final int MAX_OPERATION_SHIPMENTS=24;
     public static final int MAX_OPERATION_ROUTES=24;
     public static final int MAX_OPERATION_INDUSTRY=24;
+    public static final int MAX_ASSISTANCE_TASKS=16;
     public static final int MAX_ECOLOGY_REGIONS=48;
     public static final int MAX_ECOLOGY_SPECIES_PER_REGION=6;
     public static final int MAX_FORCE_AIR_WINGS=24;
@@ -81,7 +84,7 @@ public final class RealmDashboardBuilder {
         List<RealmDashboardSnapshot.SettlementView> settlements=realm==null?List.of():realm.settlements().stream()
                 .sorted(Comparator.comparingDouble(s->s.position().distanceTo(position)))
                 .limit(MAX_SETTLEMENTS)
-                .map(s->{var assessment=SocietyDiagnostics.assess(realm,s);var needs=assessment.needs();return new RealmDashboardSnapshot.SettlementView(s.id(),s.name(),s.tier().name(),s.developmentPriority().name(),s.population(),s.housing(),s.prosperity(),s.unrest(),s.foodSecurity(),s.publicOrder(),s.employment(),needs.housing(),needs.goods(),assessment.satisfaction(),assessment.primaryPressure().name(),assessment.pressureSeverity(),s.position().distanceTo(position));})
+                .map(s->{var assessment=SocietyDiagnostics.assess(realm,s);var needs=assessment.needs();String cause=WorldCauseExplainer.compact(WorldCauseExplainer.settlementPressureCause(state,realm,s));return new RealmDashboardSnapshot.SettlementView(s.id(),s.name(),s.tier().name(),s.developmentPriority().name(),s.population(),s.housing(),s.prosperity(),s.unrest(),s.foodSecurity(),s.publicOrder(),s.employment(),needs.housing(),needs.goods(),assessment.satisfaction(),assessment.primaryPressure().name(),assessment.pressureSeverity(),cause,s.position().distanceTo(position));})
                 .toList();
 
         List<RealmDashboardSnapshot.WarView> wars=state.wars().stream().filter(w->w.active()&&(realmId<=0||w.involves(realmId)))
@@ -146,7 +149,16 @@ public final class RealmDashboardBuilder {
         List<RealmDashboardSnapshot.IndustryOpsView> industry=state.industrialSites().stream().filter(i->i.factionId()==realmId)
                 .sorted(Comparator.comparingLong(dev.livingrealms.sim.industry.IndustrialSite::id)).limit(MAX_OPERATION_INDUSTRY)
                 .map(i->new RealmDashboardSnapshot.IndustryOpsView(i.id(),settlementName(state,i.settlementId()),i.kind().name(),i.level(),i.status().name(),i.condition(),i.starvedDays(),i.downtimeDays(),i.lastCycles(),i.lastUtilization())).toList();
-        return new RealmDashboardSnapshot.OperationsView(shipments,routes,industry);
+        List<RealmDashboardSnapshot.AssistanceTaskView> tasks=state.assistanceTasks().stream()
+                .filter(AssistanceTask::active)
+                .filter(t->t.factionId()==realmId)
+                .sorted(Comparator.comparingDouble(AssistanceTask::remainingPressure).reversed().thenComparingLong(AssistanceTask::id))
+                .limit(MAX_ASSISTANCE_TASKS)
+                .map(t->new RealmDashboardSnapshot.AssistanceTaskView(
+                        t.id(),settlementName(state,t.settlementId()),t.type().name(),t.causeKey(),
+                        t.remainingPressure(),t.progress(),t.expiresDay()))
+                .toList();
+        return new RealmDashboardSnapshot.OperationsView(shipments,routes,industry,tasks);
     }
 
     private static String settlementName(SimulationState state,long id){return state.findSettlement(id).map(Settlement::name).orElse("Settlement #"+id);}

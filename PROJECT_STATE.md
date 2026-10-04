@@ -1,6 +1,6 @@
 # Living Realms project state
 
-**Checkpoint:** v3.0.0-rc4 A–Z autonomous deepen (holy-day rites + festival projection + assistance delivery)
+**Checkpoint:** v3.0.0-rc4 A–Z deepen (geography morphologies + plazas + cause summaries + ContentRevision 10)
 
 ## Current production state
 - Starter density target is **32** settlements per surface realm (~380+ with Wizard Trees) including fertile rural hamlets; physical entities/blocks remain player-local and budgeted.
@@ -8,9 +8,9 @@
 - Naval ports are discovered from ship-suitable geography; coastal settlements plan docks; locate-port works after discovery.
 - Court projections bind dynasty ruler/heir identities; foreign NPC adoption infers roles; dialogue OPEN_TRADE quotes local/realm markets.
 - See `docs/DETAIL_MATRIX.md` for per-detail masterplan status.
-- Settlement streets are orthogonal/connected and include residential side streets + sidewalks; houses use cottage/longhouse/townhouse/porch variants and towns/cities add multi-storey apartment blocks with density-compressed housing capacity.
+- Settlement streets use geography-derived morphologies (`SettlementMorphology`: coastal port, river/valley, hill town, radial capital, organic medieval, market-cross, boulevard, industrial edge) with connected arterials, residential side streets, sidewalk lights/benches and civic plazas; houses use cottage/longhouse/townhouse/porch variants and towns/cities add multi-storey apartment blocks with density-compressed housing capacity.
 - Construction completion requires physically acceptable required geometry (`StructureMaterializationReceipt`). Decorative skips are allowed; missing foundation/wall/door/path is not.
-- Typed authored-block provenance (`AuthoredOwnerType` + `AuthoredBlockLedger` + `WorldMutationGuard`, ContentRevision **9**) protects player/foreign builds; block entities remain a hard stop; ALREADY_CORRECT never claims unknown identical blocks.
+- Typed authored-block provenance (`AuthoredOwnerType` + `AuthoredBlockLedger` + `WorldMutationGuard`, ContentRevision **10**) protects player/foreign builds; block entities remain a hard stop; ALREADY_CORRECT never claims unknown identical blocks. ContentRevision 10 also rebuilds settlement morphology completion keys once for geography-derived streets/plazas.
 - Building floors are walkable; real faction wood doors are placed; EntranceAccessPlanner repairs door↔street grades including steeper switchbacks. Tier-specific road/keep/wall/gate keys ensure settlements physically expand after tier upgrades.
 - Intercity routes use bounded terrain-cost corridor planning **without** destructive straight-road fallback. SettlementGeographyProfile drives water modes (name heuristic is bootstrap/fallback only).
 - `/setday`/`advance` catch-up uses PhysicalDevelopmentReconciler. Dashboard key is **F12**; world map **M**; creative catalog **K**.
@@ -24,19 +24,21 @@
 - Full bundled species-pack audit passes: **134 species** with explicit morphology/locomotion fields and a validated food web.
 - Strategic completeness suite passes.
 - 3650-day deterministic soak now has explicit persistence/invariant gates at day 30, 365 and 3650, plus a biodiversity floor.
-- Save schema is **16**; schemas 1-15 remain readable. Schema 16 persists per-settlement barn/granary capacity and local stockpiles. Dashboard snapshot protocol is **14**. Outer Minecraft `ContentRevision=9` packs typed ownership into the authored-block ledger (legacy type bits=0 ⇒ SETTLEMENT_STRUCTURE) and keeps Waystone provenance + revision-6 layout rebuild.
-- `ConstructionIntegrityTest` and `TradeLivenessTest` are mandatory core gates.
+- Save schema is **16**; schemas 1-15 remain readable. Schema 16 persists per-settlement barn/granary capacity and local stockpiles. Dashboard snapshot protocol is **16** (settlement cause summaries + Ops assistance task board). Network registration is **14**. Outer Minecraft `ContentRevision=10` rebuilds morphology completion keys once and keeps typed authored-block ownership + Waystone provenance.
+- `ConstructionIntegrityTest`, `TradeLivenessTest` and `OrganicMorphologyAndCauseTest` are mandatory core gates.
 
 ## Explicit status claim
 **CODE COMPLETE / EXTERNAL GATE UNVERIFIED**
 
 Proven in this pass:
-- full core suite green (`CivicHolyDayFestivalTest`, `AssistanceContributionTest`, `RefugeeCampConstructionTest` + prior 32)
-- release-audit green (schema16 / protocol14 / content9 + festival/aid authorities)
-- linked NeoForge/Create `clean --no-build-cache build` green for commit `0bf2740` → `livingrealms-3.0.0-rc4.jar`
-- holy-day civic rites fire on actual faith calendar days; festival decorations use `AuthoredOwnerType.CIVIC_FESTIVAL` with cleanup
-- player assistance contributions are inventory-verified (`/livingrealms assist`) and mutate canonical settlement pressure
-- refugee camps enqueue pending house/farm/road intents for physical materialization (well remains seeded)
+- full core suite green (**36** tests including `OrganicMorphologyAndCauseTest` + 3650-day soak)
+- release-audit green (schema16 / protocol16 / net14 / content10 + morphology/cause/task-board authorities)
+- geography-derived `SettlementMorphology` street patterns, plazas, sidewalk lights; `WorldCauseExplainer` on F12 Society + dialogue
+- night curfew / low-order nightlife; ship class visuals; wildlife mass scaling; terrain cliff/pad rejection
+- court/ruler presentation: keep-centered spawn, government titles, distinct skins, dialogue self/ruler awareness
+- `INFRASTRUCTURE_REPAIR` assistance tasks from route/industry wear; stone contributions reopen routes and repair sites
+- holy-day civic rites + festival decorations + verified assistance + refugee camp enqueue remain intact
+- linked NeoForge/Create `build-production.sh` **PASS** on this tip (JAR `livingrealms-3.0.0-rc4.jar`)
 
 Still unverified externally:
 - fresh-world / migrated-world client smoke
