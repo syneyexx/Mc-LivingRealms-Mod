@@ -38,6 +38,7 @@ public final class DemoSeeder {
         // Wizard colonies are authored after the surface lattice — re-enforce 2000m clearance.
         SettlementDensitySeeder.enforceSpacing(s);
         s.history().add(new WorldEvent(0,"world_created","Living Realms simulation initialized."));
+        s.ensureNamedRosters();
     }
 
     private static void addIfPresent(SimulationState state,EcosystemRegion region,String speciesId,SimPosition position,double population){

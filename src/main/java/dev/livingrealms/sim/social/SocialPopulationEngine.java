@@ -10,6 +10,69 @@ import java.util.*;
 /** Maintains bounded persistent people without replacing aggregate population simulation. */
 public final class SocialPopulationEngine {
     private final RumorEngine rumorEngine=new RumorEngine();
+
+    public void seedSettlementRosters(SimulationState state){
+        Objects.requireNonNull(state);
+        for(Faction faction:state.factions())for(Settlement settlement:faction.settlements())seedSettlementRoster(state,faction,settlement);
+    }
+
+    /** Fills bounded named slots 0..cap-1 for a settlement without duplicating dynasty ruler identities. */
+    public void seedSettlementRoster(SimulationState state,Faction faction,Settlement settlement){
+        Objects.requireNonNull(state);Objects.requireNonNull(faction);Objects.requireNonNull(settlement);
+        int cap=namedRosterCap(settlement.tier());if(cap<=0)return;
+        Set<Integer> occupied=new HashSet<>();
+        for(SocialCitizen citizen:state.socialCitizens())if(citizen.alive()&&citizen.settlementId()==settlement.id())occupied.add(citizen.projectionSlot());
+        for(int slot=0;slot<cap;slot++){
+            if(occupied.contains(slot))continue;
+            CitizenRole role=rosterRole(faction,settlement,slot,cap);
+            ensureProjectionCitizen(state,faction.id(),settlement.id(),slot,role);
+        }
+    }
+
+    public static int namedRosterCap(Settlement.Tier tier){
+        return switch(tier){case CAMP,HAMLET->6;case VILLAGE->12;case TOWN->24;case CITY->40;case METROPOLIS->64;};
+    }
+
+    /** Court/dynasty/family identities stay above the named roster band (slots 0..cap-1). */
+    public static void rebindAfterMigration(SimulationState state,SocialCitizen citizen){
+        Objects.requireNonNull(state);Objects.requireNonNull(citizen);
+        citizen.rebindProjectionSlot(allocateVirtualProjectionSlot(state,citizen.settlementId(),citizen.id()));
+    }
+
+    public static int allocateVirtualProjectionSlot(SimulationState state,long settlementId,long agentId){
+        Settlement settlement=state.findSettlement(settlementId).orElseThrow(()->new IllegalArgumentException("unknown settlement"));
+        int floor=namedRosterCap(settlement.tier());
+        int slot=60_000+Math.floorMod(Long.hashCode(agentId),39_000);
+        Set<Integer> used=new HashSet<>();
+        for(SocialCitizen c:state.socialCitizens())if(c.settlementId()==settlementId)used.add(c.projectionSlot());
+        while(used.contains(slot)&&slot<99_999)slot++;
+        if(used.contains(slot)){slot=99_999;while(slot>floor&&used.contains(slot))slot--;}
+        if(used.contains(slot))throw new IllegalStateException("no virtual projection slot for settlement "+settlementId);
+        return slot;
+    }
+
+    private static CitizenRole rosterRole(Faction faction,Settlement settlement,int slot,int cap){
+        int guards=Math.max(1,(int)Math.ceil(cap*(.10+faction.government().lawEnforcement()*.22)));
+        if(slot<guards)return CitizenRole.GUARD;
+        boolean capital=faction.settlements().stream().max(Comparator.comparingInt(Settlement::population).thenComparingLong(Settlement::id)).map(s->s.id()==settlement.id()).orElse(false);
+        if(capital&&settlement.tier().ordinal()>=Settlement.Tier.TOWN.ordinal()){
+            int courtIndex=slot-guards;
+            if(courtIndex==0||courtIndex==1)return CitizenRole.OFFICIAL;
+            if(courtIndex==2)return CitizenRole.GUARD;
+            if(courtIndex==3&&settlement.completedConstruction().stream().anyMatch(k->k.startsWith("temple:")))return CitizenRole.PRIEST;
+        }
+        List<CitizenRole> roles=new ArrayList<>(List.of(CitizenRole.FARMER,CitizenRole.HUNTER,CitizenRole.ARTISAN,CitizenRole.TRADER,CitizenRole.BUILDER,CitizenRole.OFFICIAL));
+        if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("mine:")))roles.add(CitizenRole.MINER);
+        if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("lumber_camp:"))){roles.add(CitizenRole.LUMBERJACK);roles.add(CitizenRole.CARPENTER);}
+        if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("fishery:"))){roles.add(CitizenRole.FISHER);roles.add(CitizenRole.SAILOR);}
+        if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("dock:"))){roles.add(CitizenRole.DOCKWORKER);roles.add(CitizenRole.SAILOR);}
+        if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("clinic:")))roles.add(CitizenRole.HEALER);
+        if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("market:")||k.startsWith("warehouse:")))roles.add(CitizenRole.BUTCHER);
+        if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("temple:")))roles.add(CitizenRole.PRIEST);
+        if(settlement.completedConstruction().stream().anyMatch(k->k.startsWith("school:")||k.startsWith("observatory:"))){roles.add(CitizenRole.SCHOLAR);roles.add(CitizenRole.TEACHER);}
+        return roles.get(Math.floorMod((int)(faction.id()*31+settlement.id()*13+slot*17),roles.size()));
+    }
+
     public SocialCitizen ensureProjectionCitizen(SimulationState state,long factionId,long settlementId,int slot,CitizenRole role){
         Objects.requireNonNull(state);Objects.requireNonNull(role);
         SocialCitizen existing=state.socialCitizens().stream().filter(SocialCitizen::alive).filter(c->c.settlementId()==settlementId&&c.projectionSlot()==slot).findFirst().orElse(null);

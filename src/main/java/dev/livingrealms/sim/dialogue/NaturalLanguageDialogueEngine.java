@@ -79,61 +79,16 @@ public final class NaturalLanguageDialogueEngine {
 
     public Parsed parse(String raw,DialogueContext context){
         Objects.requireNonNull(context);String s=normalize(raw);Set<String> tokens=new LinkedHashSet<>(s.isBlank()?List.of():Arrays.asList(s.split(" ")));
-        if(any(s,"doei","tot ziens","goodbye","bye","see you","later"))return p(DialogueIntent.GOODBYE,DialogueTopic.NONE,"");
-        if(any(s,"bedreig","ik maak je af","ik vermoord","threat","kill you","hurt you"))return p(DialogueIntent.THREATEN,DialogueTopic.PLAYER,"player");
-        if(any(s,"idioot","stom","sukkel","haat je","idiot","stupid","moron"))return p(DialogueIntent.INSULT,DialogueTopic.PLAYER,"player");
-        if(any(s,"cadeau","geschenk","gift","voor jou","present for you"))return p(DialogueIntent.GIVE_GIFT,DialogueTopic.PLAYER,"player");
-        if(any(s,"sorry","het spijt me","mijn excuses","i apologize","apologies"))return p(DialogueIntent.APOLOGIZE,DialogueTopic.PLAYER,"player");
-        if(any(s,"goed gedaan","je bent aardig","je bent geweldig","bedankt voor je werk","nice work","you are kind","you're kind","you are great"))return p(DialogueIntent.COMPLIMENT,DialogueTopic.PLAYER,"player");
-        if(any(s,"ik wil een misdaad melden","ik meld een misdaad","ik zag een diefstal","ik zag een moord","report a crime","i saw a theft","i saw a murder"))return p(DialogueIntent.REPORT_CRIME,DialogueTopic.CRIME,"reported-crime");
-        if(any(s,"ik wil gevaar melden","ik zag bandieten","ik zag vijanden","er is gevaar","report danger","i saw bandits","i saw enemies"))return p(DialogueIntent.REPORT_DANGER,DialogueTopic.DANGER,"reported-danger");
-        if(any(s,"ik hoorde dat","ik weet dat","ik zag dat","i heard that","i know that","i saw that"))return p(DialogueIntent.PROVIDE_INFORMATION,DialogueTopic.RUMOR,"player-information");
-        if(any(s,"kan ik helpen","hulp nodig","wat kan ik doen","can i help","need help","anything i can do"))return p(DialogueIntent.ASK_HELP,DialogueTopic.EVENT,"help");
-        if(any(s,"wat vind je van mij","mening over mij","denk je van mij","what do you think of me","opinion of me"))return p(DialogueIntent.ASK_OPINION,DialogueTopic.PLAYER,"player");
-        if(any(s,"wie vertelde","van wie hoorde","wat is je bron","who told","source","where did you hear"))return p(DialogueIntent.ASK_SOURCE,context.lastTopic(),context.lastSubject());
-        if(any(s,"waar gingen ze","waar zijn ze","waarheen gingen","where did they","where are they","which way did they"))return p(DialogueIntent.ASK_DIRECTION,context.lastTopic()==DialogueTopic.NONE?DialogueTopic.LOCATION:context.lastTopic(),context.lastSubject());
-
-        if(any(s,"hoe oud ben je","wat is je leeftijd","how old are you","your age"))return p(DialogueIntent.ASK_AGE,DialogueTopic.AGE,"age");
-        if(any(s,"wie ben je","hoe heet je","jouw naam","vertel over jezelf","who are you","your name","tell me about yourself"))return p(DialogueIntent.ASK_SELF,DialogueTopic.SELF,"self");
-        if(any(s,"wat doe je","beroep","werk je","jouw werk","your job","what do you do","occupation","profession"))return p(DialogueIntent.ASK_JOB,DialogueTopic.JOB,"job");
-        if(any(s,"familie","gezin","partner","kinderen","ouders","broer","zus","family","husband","wife","partner","children","parents","sibling"))return p(DialogueIntent.ASK_FAMILY,DialogueTopic.FAMILY,"family");
-        if(any(s,"hoe gaat het met je","gezondheid","ziek","ziekte","dokter","genezer","health","are you ill","disease","sick","healer"))return p(DialogueIntent.ASK_HEALTH,DialogueTopic.HEALTH,"health");
-
-        if(any(s,"ben ik gezocht","ben ik wanted","staat er een premie op mij","am i wanted","bounty on me"))return p(DialogueIntent.ASK_CRIME,DialogueTopic.CRIME,"wanted");
-        if(any(s,"misdaad hier","criminaliteit","zijn er criminelen","crime here","crime rate","criminals here"))return p(DialogueIntent.ASK_CRIME,DialogueTopic.CRIME,"crime");
-        if(any(s,"belasting","belastingen","tax","taxes","tribute","tribut"))return p(DialogueIntent.ASK_TAX,DialogueTopic.TAX,"tax");
-        if(any(s,"wet","wetten","straf","gevangenis","rechtbank","misdaad","law","laws","punishment","prison","court","crime"))return p(DialogueIntent.ASK_LAW,DialogueTopic.LAW,"law");
-        if(any(s,"erfgenaam","opvolger","dynastie","koningshuis","regent","wie volgt de koning","heir","successor","dynasty","royal house","regent"))return p(DialogueIntent.ASK_DYNASTY,DialogueTopic.DYNASTY,"dynasty");
-        if(any(s,"politiek","bestuur","regering","democr","tirann","theocr","politics","government","rule here"))return p(DialogueIntent.ASK_POLITICS,DialogueTopic.POLITICS,"politics");
-        if(any(s,"koning","koningin","heerser","leider","king","queen","ruler","mayor"))return p(DialogueIntent.ASK_RULER,DialogueTopic.RULER,"ruler");
-        if(any(s,"welk rijk","welk koninkrijk","welke factie","jouw rijk","kingdom","realm","faction","which kingdom"))return p(DialogueIntent.ASK_FACTION,DialogueTopic.FACTION,"faction");
-        if(any(s,"dit dorp","deze stad","waar woon je","hoe is het hier","de nederzetting","this village","this town","this city","where do you live","settlement"))return p(DialogueIntent.ASK_SETTLEMENT,DialogueTopic.SETTLEMENT,"settlement");
-
-        if(any(s,"hoe sterk is het leger","hoe groot is het leger","legersterkte","army strength","how big is the army","how strong is the army"))return p(DialogueIntent.ASK_ARMY,DialogueTopic.ARMY,"army");
-        if(any(s,"wachters","guards","guard patrol","patrouille"))return p(DialogueIntent.ASK_GUARDS,DialogueTopic.GUARDS,"guards");
-        if(any(s,"oorlog","leger","soldaten","vijand","beleger","war","army","soldiers","enemy","siege"))return p(DialogueIntent.ASK_WAR,DialogueTopic.WAR,"war");
-        if(any(s,"vluchteling","migratie","migreren","vertrekken mensen","refugee","migration","people leaving","people arriving"))return p(DialogueIntent.ASK_MIGRATION,DialogueTopic.MIGRATION,"migration");
-        if(any(s,"cultuur","traditie","gewoonte","dialect","taal hier","culture","tradition","custom","dialect","language here"))return p(DialogueIntent.ASK_CULTURE,DialogueTopic.CULTURE,"culture");
-        if(any(s,"religie","geloof","god","tempel","priester","religion","faith","temple","priest","worship"))return p(DialogueIntent.ASK_RELIGION,DialogueTopic.RELIGION,"religion");
-        if(any(s,"geschiedenis","vroeger","legende","held","monument","history","legend","hero","monument","long ago"))return p(DialogueIntent.ASK_HISTORY,DialogueTopic.HISTORY,"history");
-        if(any(s,"gerucht","roddel","heb je iets gehoord","rumor","rumour","gossip","heard anything"))return p(DialogueIntent.ASK_RUMOR,DialogueTopic.RUMOR,"rumor");
-
-        if(any(s,"schoon water","drinkwater","watertekort","waar is de put","water supply","clean water","water shortage","where is the well"))return p(DialogueIntent.ASK_WATER,DialogueTopic.WATER,"water");
-        if(any(s,"wat kost","hoe duur","prijs van","price of","how much is"))return p(DialogueIntent.ASK_PRICE,DialogueTopic.PRICE,resourceSubject(s));
-        if(any(s,"grondstof","grondstoffen","hout","ijzer","mijn","waterbron","resources","resource","wood","iron","mine","water source"))return p(DialogueIntent.ASK_RESOURCES,DialogueTopic.RESOURCES,"resources");
-        if(any(s,"school","leraar","onderwijs","opleiding","school here","teacher","education here"))return p(DialogueIntent.ASK_SCHOOL,DialogueTopic.SCHOOL,"school");
-        if(any(s,"technologie","kennis","uitvinding","technology","knowledge","invention"))return p(DialogueIntent.ASK_TECHNOLOGY,DialogueTopic.TECHNOLOGY,"technology");
-        if(any(s,"hoe gaat de handel","markt hier","prijzen hier","economie","trade here","market here","prices","economy"))return p(DialogueIntent.ASK_TRADE,DialogueTopic.TRADE,"market");
-        if(any(s,"ik wil handelen","wil kopen","wil verkopen","handel met mij","open handel","trade with me","i want to buy","i want to sell","open trade"))return p(DialogueIntent.TRADE,DialogueTopic.TRADE,"market");
-        if(any(s,"eten kopen","voedsel kopen","waar kan ik eten","food","buy food","where can i eat"))return p(DialogueIntent.ASK_FOOD,DialogueTopic.FOOD,"food");
-
-        if(any(s,"welk seizoen","welke dag","welk jaar","wat is de datum","season is it","what day is it","what year is it","date today"))return p(DialogueIntent.ASK_CALENDAR,DialogueTopic.CALENDAR,"calendar");
-        if(any(s,"welke route","welke weg","weg naar","handelsroute","route to","road to","trade route"))return p(DialogueIntent.ASK_ROUTE,DialogueTopic.ROUTE,"route");
-        if(any(s,"gisteren","vandaag","recent","wat is er gebeurd","nieuws","yesterday","today","recently","what happened","news"))return p(DialogueIntent.ASK_RECENT_EVENT,DialogueTopic.EVENT,"recent");
-        if(any(s,"bandiet","rovers","raiders","bandit","brigand"))return p(DialogueIntent.ASK_DANGER,DialogueTopic.BANDITS,"bandits");
-        if(any(s,"gevaar","veilig","aanval","danger","safe","attack","threat nearby"))return p(DialogueIntent.ASK_DANGER,DialogueTopic.DANGER,"danger");
+        if(any(s,"wie vertelde","van wie hoorde","wat is je bron","who told","where did you hear")||s.equals("source"))return p(DialogueIntent.ASK_SOURCE,context.lastTopic(),context.lastSubject());
+        if(any(s,"waar gingen ze heen","where did they go","waar gingen ze","waar zijn ze","waarheen gingen","where did they","where are they","which way did they"))
+            return p(DialogueIntent.ASK_DIRECTION,context.lastTopic()==DialogueTopic.NONE?DialogueTopic.LOCATION:context.lastTopic(),context.lastSubject());
         String where=afterAny(s,"waar is ","waar ligt ","waar vind ik ","where is ","where can i find ");if(!where.isBlank())return p(DialogueIntent.ASK_DIRECTION,DialogueTopic.LOCATION,where);
-        if(any(s,"hallo","hoi","hey","hello","greetings","goedendag")||tokens.size()<=2&&tokens.contains("hi"))return p(DialogueIntent.GREET,DialogueTopic.NONE,"");
+        DialoguePhraseTable.Match match=DialoguePhraseTable.longest(s);
+        if(match!=null){
+            String subject=match.dynamicResource()?resourceSubject(s):match.subject();
+            return p(match.intent(),match.topic(),subject);
+        }
+        if(tokens.size()<=2&&tokens.contains("hi"))return p(DialogueIntent.GREET,DialogueTopic.NONE,"");
         return p(DialogueIntent.UNKNOWN,DialogueTopic.NONE,"");
     }
 

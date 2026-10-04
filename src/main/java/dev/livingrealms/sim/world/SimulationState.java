@@ -197,6 +197,8 @@ public final class SimulationState {
     public Optional<IndustrialSite> findIndustrialSite(long id){return industrialSites.stream().filter(s->s.id()==id).findFirst();}
     public Optional<SocialCitizen> findSocialCitizen(long id){return socialCitizens.stream().filter(c->c.id()==id).findFirst();}
     public SocialCitizen ensureSocialCitizen(long factionId,long settlementId,int slot,dev.livingrealms.sim.civilian.CitizenRole role){return socialPopulationEngine.ensureProjectionCitizen(this,factionId,settlementId,slot,role);}
+    /** Ensures each settlement has a bounded named roster (slots 0..tierCap-1) for dialogue and court binding. */
+    public void ensureNamedRosters(){socialPopulationEngine.seedSettlementRosters(this);}
     public TradeShipment removeShipment(long id){for(var it=shipments.iterator();it.hasNext();){TradeShipment s=it.next();if(s.id()==id){it.remove();return s;}}return null;}
     public void removeDestroyedAirWings(){airWings.removeIf(AirWing::destroyed);}
     public void removeDestroyedFleets(){fleets.removeIf(Fleet::destroyed);}

@@ -21,6 +21,8 @@ dev.livingrealms.WorldgenQualityTest
 dev.livingrealms.ProductionQualityTest
 dev.livingrealms.ProductionCompletionPassTest
 dev.livingrealms.SocietyDialogueTest
+dev.livingrealms.DialogueTokenTest
+dev.livingrealms.RosterWithoutProjectionTest
 dev.livingrealms.RumorNetworkTest
 dev.livingrealms.SocietyInfrastructureTest
 dev.livingrealms.CivilizationLayerTest

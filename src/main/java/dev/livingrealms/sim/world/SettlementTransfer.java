@@ -10,6 +10,7 @@ import dev.livingrealms.sim.military.MilitaryCommandEngine;
 import dev.livingrealms.sim.naval.PortState;
 import dev.livingrealms.sim.social.HouseholdState;
 import dev.livingrealms.sim.social.SocialCitizen;
+import dev.livingrealms.sim.social.SocialPopulationEngine;
 import java.util.Comparator;
 import java.util.Objects;
 
@@ -31,7 +32,10 @@ public final class SettlementTransfer {
         long fromFactionId = from.id();
 
         for (SocialCitizen citizen : state.socialCitizens()) {
-            if (citizen.alive() && citizen.settlementId() == settlementId) citizen.migrateTo(toFactionId, settlementId);
+            if (citizen.alive() && citizen.settlementId() == settlementId) {
+                citizen.migrateTo(toFactionId, settlementId);
+                SocialPopulationEngine.rebindAfterMigration(state, citizen);
+            }
         }
         for (HouseholdState household : state.households()) {
             if (household.settlementId() == settlementId) household.migrate(toFactionId, settlementId);
