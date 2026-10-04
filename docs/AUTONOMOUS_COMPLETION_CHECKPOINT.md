@@ -1,25 +1,25 @@
 # Living Realms Autonomous Completion Checkpoint
 
-**HEAD:** `9ce4146df6aef2272ddcf0597a68ffd02d3bfa2a`  
+**HEAD:** `4b7706f2898b3ebff917ee9f666b6a1473278a63`  
 **Branch:** `cursor/livingrealms-final-product-0116`  
 **PR:** https://github.com/syneyexx/Mc-LivingRealms-Mod/pull/8  
 **Pins:** schema **17** · dashboard protocol **17** · network **14** · ContentRevision **11**
 
-## Completed this session stretch
-- Influence unlocks + dashboard buttons
-- 8 culture architecture families
-- Caravan wagon/pack modes; wildlife intent animation; military formations
-- Court skins 44–47 + heraldry kits; street furniture; settlement ambience
-- EmergentStoryChainsTest; ImportantNotifications on F12 overview
-- Docs pin reconciliation (README/ROADMAP/LEDGER/PRODUCTION_READINESS)
-- Production gates: core+soak PASS, release audit PASS, linked build PASS
+## Subagent follow-up (verified)
 
-## Remaining (continue next)
-1. Create industrial visual polish (Wave 114)
-2. Ship/aircraft deeper class differentiation QA
-3. Accessibility pass (Wave 155)
-4. Manual runtime test plan (Wave 249) — external
-5. Full COMPLETION_MATRIX rebuild claiming only evidenced COMPLETE rows
+### Presentation assets (`scripts/generate-presentation-assets.py`)
+- Already committed on branch; regen is idempotent (no worktree dirty).
+- Verified: **48** unique citizen skins + 48 overlays, **134** unique species textures, **16** heraldry banners, PNG headers OK (284 assets).
+
+### Core schema-17 models
+- Commits `550546d` / `e7160ad` are already ancestors of current HEAD and pushed to origin.
+- No duplicate-authority merge required; branch was already past those pins.
+
+## Gates
+- Core suite + 3650-day soak: PASS (prior full run)
+- Release audit: PASS
+- Linked NeoForge build: PASS
+- Runtime smoke: unverified
 
 ## Exact next action
-Continue Create industrial presentation + accessibility/UI polish; re-run production build after next code batch.
+Continue remaining presentation/docs polish; re-run `./build-production.sh` after the next substantive code batch to refresh RELEASE_MANIFEST for current HEAD.
