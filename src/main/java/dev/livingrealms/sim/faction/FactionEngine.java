@@ -4,6 +4,7 @@ import dev.livingrealms.sim.military.*;
 import dev.livingrealms.sim.util.DeterministicRng;
 import dev.livingrealms.sim.util.Mathx;
 import dev.livingrealms.sim.world.*;
+import static dev.livingrealms.sim.world.SettlementTransfer.transfer;
 import java.util.*;
 
 /** Deterministic strategic economy, diplomacy, movement, battle, siege and conquest simulation. */
@@ -153,8 +154,10 @@ public final class FactionEngine {
         boolean crossedHigh=breachBefore<.75&&siege.breach()>=.75;
         if(!(crossedLow||crossedMid||crossedHigh))return;
         for(String prefix:prefixes){
-            String hit=settlement.damageAuthoredStructure(prefix);
-            if(hit!=null){state.history().add(new WorldEvent(state.clock().day(),"siege_structure_damage",settlement.name()+" lost "+hit+" (breach="+String.format(java.util.Locale.ROOT,"%.2f",siege.breach())+")"));break;}
+            String hit;
+            while((hit=settlement.damageAuthoredStructure(prefix))!=null){
+                state.history().add(new WorldEvent(state.clock().day(),"siege_structure_damage",settlement.name()+" lost "+hit+" (breach="+String.format(java.util.Locale.ROOT,"%.2f",siege.breach())+")"));
+            }
         }
     }
     private static void provisionSiegeEquipment(Faction attacker,Army army,SiegeState siege){
@@ -162,7 +165,13 @@ public final class FactionEngine {
         if(siege.ladders()<6&&attacker.stockpile().get(ResourceType.WOOD)>=6){attacker.stockpile().take(ResourceType.WOOD,6);siege.addEquipment(0,2,0);}
         if(siege.artilleryPieces()<Math.max(0,Math.min(6,army.artillery()/12))&&attacker.stockpile().get(ResourceType.IRON)>=8&&attacker.stockpile().get(ResourceType.MACHINERY)>=4){attacker.stockpile().take(ResourceType.IRON,8);attacker.stockpile().take(ResourceType.MACHINERY,4);siege.addEquipment(0,0,1);}
     }
-    private static void capture(SimulationState state,Faction attacker,Faction defender,Army army,Settlement settlement){Settlement captured=defender.removeSettlement(settlement.id());if(captured==null)return;attacker.addSettlement(captured);attacker.relationWith(defender.id()).adjust(-8);defender.relationWith(attacker.id()).adjust(-8);army.resupply(-.12);captured.adjustUnrest(.18);if(state!=null){state.history().add(new WorldEvent(state.clock().day(),"settlement_captured",attacker.name()+" captured "+captured.name()+" from "+defender.name()));state.activeWar(attacker.id(),defender.id()).ifPresent(w->w.adjustScore(18));}}
+    private static void capture(SimulationState state,Faction attacker,Faction defender,Army army,Settlement settlement){
+        Settlement captured=state==null?defender.removeSettlement(settlement.id()):transfer(state,settlement,defender,attacker);
+        if(captured==null)return;
+        if(state==null)attacker.addSettlement(captured);
+        attacker.relationWith(defender.id()).adjust(-8);defender.relationWith(attacker.id()).adjust(-8);army.resupply(-.12);captured.adjustUnrest(.18);
+        if(state!=null){state.history().add(new WorldEvent(state.clock().day(),"settlement_captured",attacker.name()+" captured "+captured.name()+" from "+defender.name()));state.activeWar(attacker.id(),defender.id()).ifPresent(w->w.adjustScore(18));}
+    }
 
     private static void resupplyNearFriendlySettlement(Faction owner, Army army) {for (Settlement settlement : owner.settlements()) if (army.position().distanceTo(settlement.position()) <= 120) {double food = owner.stockpile().take(ResourceType.FOOD, Math.max(1, army.totalPersonnel() * .01));if (food > 0) army.resupply(.08);return;}}
     private static EnemyTarget nearestTarget(Army army, List<Faction> enemies) {EnemyTarget best = null; double bestDistance = Double.POSITIVE_INFINITY;for (Faction enemy : enemies) for (Settlement settlement : enemy.settlements()) {double distance = army.position().distanceTo(settlement.position());if (distance < bestDistance) { bestDistance = distance; best = new EnemyTarget(enemy, settlement); }}return best;}
