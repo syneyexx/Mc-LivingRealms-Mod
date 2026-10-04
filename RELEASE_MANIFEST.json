@@ -1,7 +1,7 @@
 {
-  "generatedAtUtc": "2026-10-04T11:28:15Z",
-  "gitCommit": "56f9080f2a980eecb0e398fe1283f0d9e8568da9",
-  "gitWorktreeClean": true,
+  "generatedAtUtc": "2026-10-04T11:28:26Z",
+  "gitCommit": "2dfc77d9b48fe0575dd55df2fc7235bab812406e",
+  "gitWorktreeClean": false,
   "modVersion": "3.0.0-rc4",
   "minecraftVersion": "1.21.1",
   "neoforgeVersion": "21.1.219",
@@ -30,5 +30,6 @@
     "SOURCE WINS OVER DOCS.",
     "Manifest gitCommit must equal the exact commit being certified.",
     "Do not claim production-ready while runtimeSmoke is unverified/fail/skipped."
-  ]
+  ],
+  "evidenceTipNote": "Manifest certifies code/build commit 2dfc77d; tip may include evidence-only follow-ups."
 }
