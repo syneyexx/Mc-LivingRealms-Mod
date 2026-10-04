@@ -18,8 +18,8 @@
 - Gradle 8.10.2 bootstrap SHA-256 verification in Linux/Windows production runners.
 
 ## Linked/runtime verification status
-- This workspace still cannot download Gradle because `services.gradle.org` is DNS-blocked.
-- External Windows verification has nevertheless proven the actual RC4 JAR can be built and loaded in a full Minecraft 1.21.1 modpack using NeoForge 21.1.252 and Create 6.0.10.
+- Linked NeoForge/Create `clean --no-build-cache build` now succeeds in the Cloud Agent environment (Gradle 8.10.2 checksum-verified) and emits `RELEASE_MANIFEST.json` + `livingrealms-3.0.0-rc4.jar`.
+- External Windows verification has previously proven an RC4 JAR can be loaded in a full Minecraft 1.21.1 modpack using NeoForge 21.1.252 and Create 6.0.10.
 - World creation, player login and dashboard opening succeeded.
 - A later exploration/progression smoke exposed `minecraft:generic.flying_speed` missing from a Living Realms Common Raven using `FlyingMoveControl`; buildfix9 registers and profiles that attribute.
 - A repeat runtime smoke is mandatory before declaring the integrated-world gate green, including Waystone placement, old-structure rebuild, roads/sidewalks, player-founded settlement and NPC equipment behavior.

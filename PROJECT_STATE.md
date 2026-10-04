@@ -26,7 +26,17 @@
 - `ConstructionIntegrityTest` and `TradeLivenessTest` are mandatory core gates.
 
 ## Explicit status claim
-**CODE COMPLETE for completed P0/P1 hardening tranches / EXTERNAL GATE UNVERIFIED** — linked NeoForge clean build, fresh/migrated world smoke, and full modpack matrix are not claimed green from this environment alone.
+**CODE COMPLETE / EXTERNAL GATE UNVERIFIED**
+
+Proven in this pass:
+- full core suite (29 tests) green
+- release-audit green
+- linked NeoForge/Create `clean --no-build-cache build` green → `build/libs/livingrealms-3.0.0-rc4.jar` + `RELEASE_MANIFEST.json`
+
+Still unverified externally:
+- fresh-world / migrated-world client smoke
+- full target modpack coexistence
+- Waystones / Create kinetic / chunk-unload stress in a real client session
 
 ## Ecology/world integration
 - Ecosystem regions now have canonical world centers instead of existing only as abstract biome buckets.
