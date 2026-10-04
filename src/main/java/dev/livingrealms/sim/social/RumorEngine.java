@@ -1,6 +1,10 @@
 package dev.livingrealms.sim.social;
 
 import dev.livingrealms.sim.civilian.CitizenRole;
+import dev.livingrealms.sim.economy.LocalMarketEngine;
+import dev.livingrealms.sim.economy.MarketQuote;
+import dev.livingrealms.sim.faction.ResourceType;
+import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.transport.TransportRoute;
 import dev.livingrealms.sim.world.*;
 import java.util.*;
@@ -10,9 +14,28 @@ public final class RumorEngine {
     public void simulateDay(SimulationState state){
         long day=state.clock().day();
         for(SocialCitizen citizen:state.socialCitizens())if(citizen.alive()&&Math.floorMod(day+citizen.id(),3L)==0)observe(state,citizen,day);
+        if(day>0&&day%7==0)seedPriceRumors(state,day);
         Map<Long,List<SocialCitizen>> bySettlement=new LinkedHashMap<>();for(SocialCitizen c:state.socialCitizens())if(c.alive())bySettlement.computeIfAbsent(c.settlementId(),k->new ArrayList<>()).add(c);
         for(var entry:bySettlement.entrySet()){List<SocialCitizen> people=entry.getValue();if(people.size()<2)continue;people.sort(Comparator.comparingLong(SocialCitizen::id));int a=Math.floorMod((int)(day+entry.getKey()),people.size());int b=(a+1+Math.floorMod((int)(day/3),people.size()-1))%people.size();share(people.get(a),people.get(b),day,.82);}
         spreadAlongRoutes(state,bySettlement,day);
+    }
+
+    /** Traders carry local scarcity prices as rumors along the road network. */
+    private static void seedPriceRumors(SimulationState state,long day){
+        for(SocialCitizen citizen:state.socialCitizens()){
+            if(!citizen.alive()||citizen.role()!=CitizenRole.TRADER)continue;
+            if(Math.floorMod(citizen.id()+day,5L)!=0)continue;
+            Settlement settlement=state.findSettlement(citizen.settlementId()).orElse(null);if(settlement==null)continue;
+            MarketQuote food=LocalMarketEngine.quote(settlement,ResourceType.FOOD,day);
+            String subject="price:food:"+settlement.id();
+            if(citizen.latestMemory(m->m.subjectKey().equals(subject)&&m.day()>=day-6).isPresent())continue;
+            String tone=food.scarcity()>1.4?"dear":food.scarcity()<.7?"cheap":"fair";
+            String summary="Market talk: food is "+tone+" here (about "+String.format(Locale.ROOT,"%.2f",food.unitPrice())+" with ~"+String.format(Locale.ROOT,"%.1f",food.supplyDays())+" days of supply).";
+            citizen.remember(new CitizenMemory(day,MemoryType.RUMOR,subject,"market stall",summary,settlement.position(),.48,.78));
+            if(food.scarcity()>1.6||food.scarcity()<.55){
+                state.history().add(new WorldEvent(day,"price_rumor","settlement="+settlement.id()+", resource=FOOD, price="+String.format(Locale.ROOT,"%.3f",food.unitPrice())+", scarcity="+String.format(Locale.ROOT,"%.2f",food.scarcity())+", faction="+citizen.factionId()));
+            }
+        }
     }
 
     private static void observe(SimulationState state,SocialCitizen citizen,long day){
@@ -23,7 +46,7 @@ public final class RumorEngine {
         String m=e.message();if(refersToSettlement(m,c.settlementId())||m.contains("faction="+c.factionId())||m.contains("toFaction="+c.factionId())||m.contains("fromFaction="+c.factionId()))return true;
         String t=e.type().toLowerCase(Locale.ROOT);if(institutional(c.role()))return containsAny(t,"war","crime","bounty","treaty","faction","siege","raid","desert","migrat","epidemic","tribute","spy","assimilat","rebell","capture");
         return switch(c.role()){
-            case TRADER -> containsAny(t,"trade","shipment","route","migrat","refugee","raid","tribute","market");
+            case TRADER -> containsAny(t,"trade","shipment","route","migrat","refugee","raid","tribute","market","price");
             case HEALER -> containsAny(t,"epidemic","disease","death","demograph");
             case PRIEST -> containsAny(t,"festival","culture","assimilat","death","succession","legend");
             case SCHOLAR -> containsAny(t,"legend","history","succession","assimilat","technology","education","astronom","cartograph");

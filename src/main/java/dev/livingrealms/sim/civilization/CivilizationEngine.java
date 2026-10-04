@@ -18,9 +18,11 @@ public final class CivilizationEngine {
     public void simulateDay(SimulationState state,DeterministicRng rng){
         Objects.requireNonNull(state);Objects.requireNonNull(rng);ensureProfilesAndClaims(state);updateSettlements(state);
         simulateSettlementAttraction(state);updateNamedPeople(state,rng);updateMilitaryAndBanditry(state,rng);advanceRaids(state);
+        BanditEconomyEngine.spawnFromPressures(state,rng);
+        BanditEconomyEngine.extortRoutes(state,rng);
         long day=state.clock().day();
         if(day%7==0)lifecycleEngine.considerMigration(state);
-        if(day%30==0){simulateDemography(state);simulateFamilies(state);simulateClaims(state);simulateInformationAndTribute(state);promoteLegends(state);}
+        if(day%30==0){simulateDemography(state);simulateFamilies(state);simulateClaims(state);simulateInformationAndTribute(state);promoteLegends(state);BanditEconomyEngine.promoteOutlawLegends(state);}
         lifecycleEngine.simulateDay(state,rng);
     }
 
@@ -155,7 +157,7 @@ public final class CivilizationEngine {
                         PirateHideout hideout=new PirateHideout(state.nextId(),band.id(),nearest.id(),day,camp);
                         hideout.adjustDefense(.12);
                         state.addPirateHideout(hideout);
-                        state.history().add(new WorldEvent(day,"deserter_band_formed","faction="+faction.id()+", army="+army.id()+", band="+band.id()+", deserters="+deserters));
+                        state.history().add(new WorldEvent(day,"deserter_band_formed","kind=deserters, faction="+faction.id()+", army="+army.id()+", band="+band.id()+", settlement="+nearest.id()+", deserters="+deserters));
                     }
                 }
                 state.history().add(new WorldEvent(day,"military_desertion","faction="+faction.id()+", army="+army.id()+", deserters="+deserters));
@@ -167,7 +169,7 @@ public final class CivilizationEngine {
         Set<Long> activeOrigins=new HashSet<>();for(RaidParty raid:state.raids())if(raid.active())activeOrigins.add(raid.originSettlementId());
         for(Faction owner:state.factions())for(Settlement origin:owner.settlements()){
             if(activeOrigins.contains(origin.id()))continue;SettlementCivilizationState c=state.ensureSettlementCivilization(origin.id(),owner.id());
-            if(c.banditPressure()>.60){Settlement target=nearestRaidTarget(origin,null,true,allSettlements,owners);if(target!=null){int men=Math.min(32,Math.max(6,origin.population()/120));state.addRaid(new RaidParty(state.nextId(),0,origin.id(),target.id(),day,men,.48,true));activeOrigins.add(origin.id());c.adjustBanditPressure(-.12);state.history().add(new WorldEvent(day,"bandit_raid_departed","from="+origin.id()+", target="+target.id()+", manpower="+men));}continue;}
+            if(c.banditPressure()>.60){Settlement target=nearestRaidTarget(origin,null,true,allSettlements,owners);if(target!=null){BanditArchetype kind=BanditArchetype.choose(origin,owner,c,day);int men=Math.min(32,Math.max(6,(int)Math.round(origin.population()/120.0*kind.manpowerMul())));state.addRaid(new RaidParty(state.nextId(),0,origin.id(),target.id(),day,men,kind.morale(),true));activeOrigins.add(origin.id());c.adjustBanditPressure(-.12);state.history().add(new WorldEvent(day,"bandit_raid_departed","kind="+kind.key()+", from="+origin.id()+", target="+target.id()+", manpower="+men+", settlement="+origin.id()+", faction="+owner.id()));}continue;}
             Settlement target=nearestRaidTarget(origin,owner,false,allSettlements,owners);if(target!=null&&owner.government().ruler().martial()>.52&&rng.chance(.035)){int men=Math.min(48,Math.max(8,origin.population()/100));state.addRaid(new RaidParty(state.nextId(),owner.id(),origin.id(),target.id(),day,men,.62,false));activeOrigins.add(origin.id());state.history().add(new WorldEvent(day,"faction_raid_departed","faction="+owner.id()+", from="+origin.id()+", target="+target.id()+", manpower="+men));}
         }
     }
@@ -238,9 +240,9 @@ public final class CivilizationEngine {
         for(LegendRecord legend:state.legends())if(!legend.monumented()&&legend.settlementId()>0){Settlement s=state.findSettlement(legend.settlementId()).orElse(null);if(s!=null&&has(s,"monument:")){legend.markMonumented();state.history().add(new WorldEvent(day,"legend_memorialized","legend="+legend.id()+", settlement="+s.id()));}}
     }
 
-    private static boolean legendWorthy(String type){String t=type.toLowerCase(Locale.ROOT);return t.contains("siege_won")||t.contains("settlement_captured")||t.contains("rebell")||t.contains("epidemic")||t.contains("raid_repelled")||t.contains("succession")||t.equals("battle")||t.equals("naval_battle");}
-    private static String legendTitle(String type){String clean=type.replace('_',' ').trim();if(clean.isEmpty())return "Remembered Event";return Character.toUpperCase(clean.charAt(0))+clean.substring(1);}
-    private static double renownFor(String type){String t=type.toLowerCase(Locale.ROOT);if(t.contains("captured")||t.contains("siege"))return .82;if(t.contains("rebell")||t.contains("epidemic"))return .72;if(t.contains("battle"))return .65;return .55;}
+    private static boolean legendWorthy(String type){String t=type.toLowerCase(Locale.ROOT);return t.contains("siege_won")||t.contains("settlement_captured")||t.contains("rebell")||t.contains("epidemic")||t.contains("raid_repelled")||t.contains("succession")||t.equals("battle")||t.equals("naval_battle")||t.contains("outlaw_legend")||t.contains("deserter_band_formed")||t.contains("bandit_band_formed");}
+    private static String legendTitle(String type){String clean=type.replace('_',' ').trim();if(clean.isEmpty())return "Remembered Event";if(clean.contains("outlaw")||clean.contains("bandit")||clean.contains("deserter"))return "Outlaw Legend";return Character.toUpperCase(clean.charAt(0))+clean.substring(1);}
+    private static double renownFor(String type){String t=type.toLowerCase(Locale.ROOT);if(t.contains("captured")||t.contains("siege"))return .82;if(t.contains("rebell")||t.contains("epidemic"))return .72;if(t.contains("outlaw")||t.contains("bandit")||t.contains("deserter"))return .68;if(t.contains("battle"))return .65;return .55;}
 
     private static double power(Faction f){return f.armies().stream().mapToDouble(Army::combatPower).sum()+f.population()*.018+f.treasury()*.01;}
     private static double specialistShare(SimulationState state,long settlementId,CitizenRole role){long total=state.socialCitizens().stream().filter(SocialCitizen::alive).filter(c->c.settlementId()==settlementId).count();if(total==0)return 0;long count=state.socialCitizens().stream().filter(SocialCitizen::alive).filter(c->c.settlementId()==settlementId&&c.role()==role).count();return count/(double)total;}

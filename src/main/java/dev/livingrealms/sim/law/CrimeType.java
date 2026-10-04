@@ -12,7 +12,10 @@ public enum CrimeType {
     ARSON(100, 40, true),
     MURDER(250, 100, true),
     REGICIDE(1000, 250, true),
-    WAR_CRIME(800, 180, true);
+    WAR_CRIME(800, 180, true),
+    /** Appended for schema-safe ordinal growth (old saves never wrote these indices). */
+    SMUGGLING(40, 16, false),
+    HERESY(55, 22, false);
 
     private final double baseBounty;
     private final double notoriety;

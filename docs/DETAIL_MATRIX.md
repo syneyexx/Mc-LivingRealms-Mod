@@ -22,7 +22,7 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 | Local stockpile/market day (F2) | SettlementEconomyEngine + LocalMarketEngine | COMPLETE | Per-settlement stockpile, barn/granary, weekday market prices, tithe (no free pop* mint) |
 | Farming seasons (F3) | SettlementEconomyEngine + AgrarianProfile | PARTIAL | Crop/livestock mix (grain/rye/barley/oats/veg/flax/grapes/hops + herds) + three-field rotation; still FOOD/TEXTILES proxy storage |
 | Goods chains (F4) | ResourceType + industry | PARTIAL | Mill→bakery→brewery chain on FOOD proxy; full goods enum deferred (codec-safe) |
-| Trade routes (F5) | TradeEngine + TransportRoute | PARTIAL | Price-differential dispatch; local+faction draw; split delivery |
+| Trade routes (F5) | TradeEngine + TransportRoute + RumorEngine | PARTIAL | Price-differential dispatch; trader price rumors travel roads; local+faction draw |
 | Jobs/wages (F6) | SocietyDiagnostics + payWages | PARTIAL | Workplace-slot jobCapacity + monthly skill-scaled wages |
 | Households/day rhythm (F7) | HouseholdState + ActivityCycle | PARTIAL | |
 | Unlimited city growth (F8) | SettlementPlanner housing | PARTIAL | Soft tier caps (to 900); hard 132 ceiling removed |
@@ -32,10 +32,10 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 | Religion depth (F12) | FaithCatalog + FaithEconomyHooks | PARTIAL | Concrete deities/dogma/scripture/symbols/holy orders; holy/fast days; church tithe; dialogue + civic rites |
 | Calendar/festivals (F13) | CivilizationCalendar + CivicEvent | PARTIAL | Holy-day rituals use faith deity titles |
 | Politics/law (F14) | Government/Justice | PARTIAL | |
-| Bandits full (F15) | RaidParty/Pirate* | PARTIAL | Deserter→band+hideout; loot to hideout/origin; soft raid cap |
+| Bandits full (F15) | BanditArchetype + BanditEconomyEngine + Pirate* | PARTIAL | Typed causes (hunger/tax/deserter/smuggler/…); road extortion/ambush; outlaw legends; loot/hideouts |
 | War/refugees (F16) | MigrationGroup + camps | PARTIAL | Camp absorb/cap, farm/well seed, REFUGEE_SUPPORT tasks, persecution reason |
 | Epidemics (F17) | EpidemicRecord | PARTIAL | Soft epidemic cap under plague stress |
-| Justice flow (F18) | Crime/Justice/Custody | PARTIAL | |
+| Justice flow (F18) | Crime/Justice/Custody | PARTIAL | HERESY + SMUGGLING crime types; faith heresySeverity shapes sentences |
 | Naval (F19) | NavalEngine | PARTIAL | |
 | Education (F20) | KnowledgeDomain | PARTIAL | |
 | Ecology↔people (F21) | Ecology + hinterland hunt/forestry | PARTIAL | |
@@ -56,4 +56,4 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 |---|---|---|---|---|---|---|---|
 | year start | 0 | 219923 | 0 | 4295 | 0 | 0 | 0 |
 | year end | 365 | 278703 | 1559 | 1844 | 1 | 4 | 0 |
-| soak 3650 | 3650 | 1128919 | 3306 | 2437 | 4 | 10 | 0 |
+| soak 3650 | 3650 | 1117660 | 3297 | 2437 | 2 | 12 | 0 |
