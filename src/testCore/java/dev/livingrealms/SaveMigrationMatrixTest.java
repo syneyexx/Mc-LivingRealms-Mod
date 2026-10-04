@@ -183,11 +183,11 @@ public final class SaveMigrationMatrixTest {
         out.writeInt(1);out.writeLong(FACTION_ID);out.writeInt(1);out.writeInt(InfluenceInstitution.MILITARY.ordinal());out.writeDouble(22.0);
         out.writeInt(CareerTrack.MILITARY.ordinal());out.writeInt(2);out.writeDouble(150.0);
         out.writeInt(1); // debts
-        out.writeLong(9100L);out.writeLong(FACTION_ID);writeString(out,"merchant:legacy_house");out.writeDouble(100.0);out.writeDouble(.08);out.writeDouble(90.0);out.writeLong(10L);out.writeLong(200L);out.writeDouble(.4);out.writeBoolean(false);out.writeBoolean(true);
+        out.writeLong(8601L);out.writeLong(FACTION_ID);writeString(out,"merchant:legacy_house");out.writeDouble(100.0);out.writeDouble(.08);out.writeDouble(90.0);out.writeLong(10L);out.writeLong(200L);out.writeDouble(.4);out.writeBoolean(false);out.writeBoolean(true);
         out.writeInt(1); // grand projects
-        out.writeLong(9200L);out.writeLong(FACTION_ID);out.writeLong(SETTLEMENT_ID);out.writeInt(GrandProjectType.CIVIC_MONUMENT.ordinal());out.writeLong(12L);out.writeDouble(.25);out.writeInt(ConstructionPhase.FOUNDATION.ordinal());writeString(out,"");out.writeBoolean(false);out.writeBoolean(true);out.writeDouble(40.0);out.writeDouble(5.0);out.writeDouble(8.0);out.writeDouble(6.0);out.writeDouble(1.0);out.writeInt(20);out.writeBoolean(false);out.writeBoolean(false);out.writeBoolean(false);out.writeBoolean(false);
+        out.writeLong(8602L);out.writeLong(FACTION_ID);out.writeLong(SETTLEMENT_ID);out.writeInt(GrandProjectType.CIVIC_MONUMENT.ordinal());out.writeLong(12L);out.writeDouble(.25);out.writeInt(ConstructionPhase.FOUNDATION.ordinal());writeString(out,"");out.writeBoolean(false);out.writeBoolean(true);out.writeDouble(40.0);out.writeDouble(5.0);out.writeDouble(8.0);out.writeDouble(6.0);out.writeDouble(1.0);out.writeInt(20);out.writeBoolean(false);out.writeBoolean(false);out.writeBoolean(false);out.writeBoolean(false);
         out.writeInt(1); // campaign plans
-        out.writeLong(9300L);out.writeLong(FACTION_ID);out.writeLong(500L);out.writeInt(CampaignPlanType.DEFEND_BORDER.ordinal());out.writeLong(SETTLEMENT_ID);out.writeInt(80);out.writeLong(14L);out.writeBoolean(true);
+        out.writeLong(8603L);out.writeLong(FACTION_ID);out.writeLong(500L);out.writeInt(CampaignPlanType.DEFEND_BORDER.ordinal());out.writeLong(SETTLEMENT_ID);out.writeInt(80);out.writeLong(14L);out.writeBoolean(true);
         out.writeInt(1); // shipment logistics
         out.writeLong(400L);out.writeLong(SETTLEMENT_ID);out.writeLong(301L);out.writeLong(0L);out.writeInt(0);out.writeLong(16L);out.writeLong(20L);out.writeDouble(.33);out.writeDouble(.5);out.writeInt(0);out.writeInt(0);
     }

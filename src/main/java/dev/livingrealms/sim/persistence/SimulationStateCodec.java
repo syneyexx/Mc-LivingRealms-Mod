@@ -426,12 +426,15 @@ public final class SimulationStateCodec {
 
     private static void migratePreV17FinalProduct(SimulationState state){
         for(SocialCitizen c:state.socialCitizens()){
-            if(c.appearancePacked()!=0)continue;
             int age=Math.max(1,c.ageYears(state.clock().day()));
             AppearanceProfile profile=AppearanceProfile.forCitizen(state.seed(),c.id(),c.role(),age,c.factionId());
+            // Prefer deterministic rebuild from identity when packed appearance was constructor-default only.
             c.restoreAppearance(profile.pack());
             FactionCivilizationState civ=state.findFactionCivilization(c.factionId()).orElse(null);
-            if(civ!=null){c.setCultureKey(civ.cultureName());c.setFaithKey(civ.faithName());}
+            if(civ!=null){
+                if(c.cultureKey()==null||c.cultureKey().isBlank())c.setCultureKey(civ.cultureName());
+                if(c.faithKey()==null||c.faithKey().isBlank())c.setFaithKey(civ.faithName());
+            }
         }
     }
 
