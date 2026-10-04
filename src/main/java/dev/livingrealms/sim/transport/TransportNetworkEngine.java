@@ -47,9 +47,8 @@ public final class TransportNetworkEngine {
     }
 
     private static void discoverRoutes(SimulationState state){
-        // Build a legible regional graph rather than connecting every settlement to every other
-        // settlement. Each settlement seeks its four nearest same-realm neighbours. This produces
-        // dense road webs with recognizable trunks/branches and scales to many kingdoms.
+        // Sparse regional graph: each settlement seeks its two nearest same-realm neighbours.
+        // That leaves wild countryside between trunks instead of paving every valley.
         for(Faction faction:state.factions()){
             List<Settlement> settlements=faction.settlements();
             Set<RouteKey> existing=new HashSet<>();
@@ -57,9 +56,9 @@ public final class TransportNetworkEngine {
             for(Settlement a:settlements){
                 List<Settlement> nearest=settlements.stream().filter(b->b.id()!=a.id())
                         .sorted(Comparator.comparingDouble(b->a.position().distanceTo(b.position())))
-                        .limit(4).toList();
+                        .limit(2).toList();
                 for(Settlement b:nearest){
-                    double d=a.position().distanceTo(b.position());if(!(d>1)||d>2_600)continue;
+                    double d=a.position().distanceTo(b.position());if(!(d>1)||d>2_200)continue;
                     TransportMode mode=chooseMode(faction,a,b);
                     RouteKey key=RouteKey.of(a.id(),b.id(),mode);
                     if(existing.contains(key))continue;

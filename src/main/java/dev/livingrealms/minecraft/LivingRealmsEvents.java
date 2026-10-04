@@ -53,6 +53,7 @@ import dev.livingrealms.sim.law.CrimeType;
 import dev.livingrealms.minecraft.construction.SettlementConstructionMaterializer;
 import dev.livingrealms.minecraft.construction.SettlementGeographyDiscoveryRuntime;
 import dev.livingrealms.minecraft.construction.TransportNetworkMaterializer;
+import dev.livingrealms.minecraft.construction.UrbanCoreMaterializer;
 import dev.livingrealms.minecraft.construction.IndustrialSiteMaterializer;
 import dev.livingrealms.minecraft.construction.HistoricalSiteMaterializer;
 import dev.livingrealms.sim.industry.*;
@@ -130,7 +131,19 @@ public final class LivingRealmsEvents {
         // Construction is budgeted every tick; only loaded chunks near players are touched.
         SettlementConstructionMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
         TransportNetworkMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
+        UrbanCoreMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
         IndustrialSiteMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
+        // Sparse far-world continuity: when players roam beyond the authored belt, seed frontier outposts.
+        if (tickCounter % 100L == 0) {
+            var data = SimulationRuntime.data(event.getServer());
+            boolean seeded = false;
+            for (var player : event.getServer().overworld().players()) {
+                int n = dev.livingrealms.sim.world.FrontierExplorationSeeder.ensureNear(
+                        data.state(), new SimPosition(player.getX(), player.getZ()));
+                if (n > 0) seeded = true;
+            }
+            if (seeded) data.setDirty();
+        }
         // Expensive aggregate simulation runs once per Minecraft day, not 20 times per second.
         if (tickCounter % 24000L == 0) {
             var data = SimulationRuntime.data(event.getServer());
@@ -543,23 +556,31 @@ public final class LivingRealmsEvents {
 
     private static int locateByQuery(net.minecraft.commands.CommandSourceStack source,String kind) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         ServerPlayer player=source.getPlayerOrException();
-        var state=SimulationRuntime.data(source.getServer()).state();
+        var data=SimulationRuntime.data(source.getServer());
+        var state=data.state();
         SimPosition from=new SimPosition(player.getX(),player.getZ());
+        // Seed a far-world outpost if the player is in a civilization desert so locate has something to find later.
+        if(dev.livingrealms.sim.world.FrontierExplorationSeeder.ensureNear(state,from)>0)data.setDirty();
         java.util.Optional<dev.livingrealms.sim.world.LocateQuery.Hit> hit=switch(kind){
             case "city" -> dev.livingrealms.sim.world.LocateQuery.nearestCity(state,from);
             case "mine" -> dev.livingrealms.sim.world.LocateQuery.nearestMine(state,from);
             case "kingdom" -> dev.livingrealms.sim.world.LocateQuery.nearestKingdom(state,from);
             case "market" -> dev.livingrealms.sim.world.LocateQuery.nearestMarket(state,from);
-            case "port" -> dev.livingrealms.sim.world.LocateQuery.nearestPort(state,from);
+            case "port" -> {
+                var port=dev.livingrealms.sim.world.LocateQuery.nearestPort(state,from);
+                if(port.isPresent())yield port;
+                // Fall back to nearest coastal/ship-suitable settlement so far ports still resolve.
+                yield dev.livingrealms.sim.world.LocateQuery.nearestSettlement(state,from,s->s.geography().shipSuitable(),"port");
+            }
             case "wizardtrees" -> dev.livingrealms.sim.world.LocateQuery.nearestWizardTrees(state,from);
             case "ruin" -> dev.livingrealms.sim.world.LocateQuery.nearestRuin(state,from);
             default -> java.util.Optional.empty();
         };
-        if(hit.isEmpty()){source.sendFailure(Component.literal("No Living Realms "+kind+" exists in the canonical world state."));return 0;}
+        if(hit.isEmpty()){source.sendFailure(Component.literal("No Living Realms "+kind+" exists in the canonical world state yet. Explore farther or wait for discovery — locate searches the whole world with no distance limit."));return 0;}
         var found=hit.get();
         final int x=(int)Math.round(found.x()),z=(int)Math.round(found.z());
         final long distance=Math.round(found.distance());
-        source.sendSuccess(()->Component.literal("Nearest "+found.label()+": "+found.name()+" • "+found.type()+" • "+found.factionName()+" • X "+x+" Z "+z+" • "+distance+" blocks"),false);
+        source.sendSuccess(()->Component.literal("Nearest "+found.label()+": "+found.name()+" • "+found.type()+" • "+found.factionName()+" • X "+x+" Z "+z+" • "+distance+" blocks"+(distance>2_000?" (far — travel or Waystone)":"")),false);
         return 1;
     }
 
@@ -576,21 +597,16 @@ public final class LivingRealmsEvents {
 
     private static int locateNearest(net.minecraft.commands.CommandSourceStack source, java.util.function.Predicate<Settlement> filter, String label) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         ServerPlayer player=source.getPlayerOrException();
-        var state=SimulationRuntime.data(source.getServer()).state();
-        Settlement nearest=null;
-        Faction owner=null;
-        double best=Double.POSITIVE_INFINITY;
-        for(Faction faction:state.factions())for(Settlement settlement:faction.settlements()){
-            if(!filter.test(settlement))continue;
-            double dx=player.getX()-settlement.position().x(),dz=player.getZ()-settlement.position().z(),distance=dx*dx+dz*dz;
-            if(distance<best){best=distance;nearest=settlement;owner=faction;}
-        }
-        if(nearest==null){source.sendFailure(Component.literal("No Living Realms "+label+" exists in the canonical world state."));return 0;}
-        final Settlement found=nearest;
-        final Faction realm=owner;
-        final long distance=Math.round(Math.sqrt(best));
-        final int x=(int)Math.round(found.position().x()),z=(int)Math.round(found.position().z());
-        source.sendSuccess(()->Component.literal("Nearest "+label+": "+found.name()+" • "+found.tier()+" • "+realm.name()+" • X "+x+" Z "+z+" • "+distance+" blocks"),false);
+        var data=SimulationRuntime.data(source.getServer());
+        var state=data.state();
+        SimPosition from=new SimPosition(player.getX(),player.getZ());
+        if(dev.livingrealms.sim.world.FrontierExplorationSeeder.ensureNear(state,from)>0)data.setDirty();
+        var hit=dev.livingrealms.sim.world.LocateQuery.nearestSettlement(state,from,filter,label);
+        if(hit.isEmpty()){source.sendFailure(Component.literal("No Living Realms "+label+" exists in the canonical world state yet. Locate searches the entire world — if it exists anywhere, it will be found."));return 0;}
+        var found=hit.get();
+        final long distance=Math.round(found.distance());
+        final int x=(int)Math.round(found.x()),z=(int)Math.round(found.z());
+        source.sendSuccess(()->Component.literal("Nearest "+label+": "+found.name()+" • "+found.type()+" • "+found.factionName()+" • X "+x+" Z "+z+" • "+distance+" blocks"+(distance>2_000?" (far — travel or Waystone)":"")),false);
         return 1;
     }
 

@@ -5,6 +5,7 @@ import dev.livingrealms.sim.faction.DevelopmentPriority;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.player.PlayerInfluenceActions;
+import dev.livingrealms.sim.player.PlayerSettlementFounder;
 import dev.livingrealms.sim.territory.TerritoryEngine;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
@@ -38,6 +39,13 @@ public final class DashboardActionService {
             DevelopmentPriority priority=switch(command.action()){case SETTLEMENT_BALANCED->DevelopmentPriority.BALANCED;case SETTLEMENT_FOOD->DevelopmentPriority.FOOD;case SETTLEMENT_HOUSING->DevelopmentPriority.HOUSING;case SETTLEMENT_INDUSTRY->DevelopmentPriority.INDUSTRY;case SETTLEMENT_DEFENSE->DevelopmentPriority.DEFENSE;default->throw new IllegalStateException("policy action");};
             if(settlement.developmentPriority()==priority)return new Result(false,false,"policy_unchanged");settlement.setDevelopmentPriority(priority);return new Result(true,true,"policy_"+priority.name().toLowerCase());
         }
+        if(command.action()==DashboardActionCommand.Action.FOUND_SETTLEMENT){
+            String playerName=actorKey.contains(":")?actorKey.substring(actorKey.indexOf(':')+1):actorKey;
+            if(playerName.length()>24)playerName=playerName.substring(0,24);
+            String settlementName=playerName+"stead";
+            var r=PlayerSettlementFounder.found(state,actorKey,playerName,settlementName,position);
+            return new Result(r.success(),r.success(),r.success()?"founded_"+r.settlementName():r.reason());
+        }
         if(command.action()==DashboardActionCommand.Action.MARKET_BUY||command.action()==DashboardActionCommand.Action.MARKET_SELL)return new Result(false,false,"runtime_inventory_required");
         if(isInfluenceAction(command.action())){
             var unlock=switch(command.action()){
@@ -62,7 +70,7 @@ public final class DashboardActionService {
         return switch(command.action()){
             case BOUNTY_ACCEPT -> {var r=state.acceptBounty(contract.id(),actorKey);yield new Result(r.success(),r.success(),r.reason());}
             case BOUNTY_ABANDON -> {var r=state.abandonBounty(contract.id(),actorKey);yield new Result(r.success(),r.success(),r.reason());}
-            case CONFIG_PERFORMANCE,CONFIG_BALANCED,CONFIG_IMMERSIVE,CONFIG_CINEMATIC,FACTION_JOIN_LOCAL,FACTION_LEAVE,TAX_LOWER,TAX_RAISE,SETTLEMENT_BALANCED,SETTLEMENT_FOOD,SETTLEMENT_HOUSING,SETTLEMENT_INDUSTRY,SETTLEMENT_DEFENSE,MARKET_BUY,MARKET_SELL,REQUEST_AUDIENCE,PROPOSE_PROJECT,REQUEST_MILITARY_SUPPORT,PETITION_TRADE,PETITION_CLERGY -> new Result(false,false,"action_unreachable");
+            case CONFIG_PERFORMANCE,CONFIG_BALANCED,CONFIG_IMMERSIVE,CONFIG_CINEMATIC,FACTION_JOIN_LOCAL,FACTION_LEAVE,TAX_LOWER,TAX_RAISE,SETTLEMENT_BALANCED,SETTLEMENT_FOOD,SETTLEMENT_HOUSING,SETTLEMENT_INDUSTRY,SETTLEMENT_DEFENSE,MARKET_BUY,MARKET_SELL,REQUEST_AUDIENCE,PROPOSE_PROJECT,REQUEST_MILITARY_SUPPORT,PETITION_TRADE,PETITION_CLERGY,FOUND_SETTLEMENT -> new Result(false,false,"action_unreachable");
         };
     }
 

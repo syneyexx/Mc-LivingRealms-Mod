@@ -10,7 +10,9 @@ public record DashboardActionCommand(Action action,long targetId) {
         SETTLEMENT_BALANCED, SETTLEMENT_FOOD, SETTLEMENT_HOUSING, SETTLEMENT_INDUSTRY, SETTLEMENT_DEFENSE,
         MARKET_BUY, MARKET_SELL,
         /** Influence unlocks — targetId is the faction id. */
-        REQUEST_AUDIENCE, PROPOSE_PROJECT, REQUEST_MILITARY_SUPPORT, PETITION_TRADE, PETITION_CLERGY
+        REQUEST_AUDIENCE, PROPOSE_PROJECT, REQUEST_MILITARY_SUPPORT, PETITION_TRADE, PETITION_CLERGY,
+        /** Found a player realm at the actor position; targetId is ignored (pass 1). */
+        FOUND_SETTLEMENT
     }
 
     public DashboardActionCommand {

@@ -831,12 +831,61 @@ def shift_palette(img: Image.Image, hue_shift: float, sat_mul: float, light_mul:
 
 def species_tint_params(species_id: str, index: int) -> tuple[float, float, float, float, float]:
     rnd = rng(seed_hash("species", species_id, index))
-    hue = (index * 0.047) + rnd() * 0.08
-    sat = 0.75 + rnd() * 0.55
-    light = 0.78 + rnd() * 0.45
-    body_l = 0.25 + rnd() * 0.35
-    accent_h = hue + 0.12 + rnd() * 0.2
+    # Prefer earthy animal hues (browns/greys/olives) instead of rainbow candy colors.
+    hue = 0.06 + (index % 17) * 0.018 + rnd() * 0.04  # mostly warm browns → olive
+    sat = 0.28 + rnd() * 0.28
+    light = 0.72 + rnd() * 0.22
+    body_l = 0.28 + rnd() * 0.28
+    accent_h = (hue + 0.04 + rnd() * 0.08) % 1.0
     return hue, sat, light, body_l, accent_h
+
+
+# Hand-authored realistic body/accent colors for iconic species (RGB 0-255).
+REALISTIC_SPECIES: dict[str, tuple[tuple[int, int, int], tuple[int, int, int]]] = {
+    "porcupine": ((92, 68, 48), (48, 40, 34)),
+    "pelican": ((232, 228, 214), (240, 170, 48)),
+    "gray_wolf": ((120, 120, 128), (50, 50, 55)),
+    "red_fox": ((188, 98, 42), (230, 220, 210)),
+    "mallard": ((50, 110, 70), (40, 90, 140)),
+    "canada_goose": ((60, 70, 55), (230, 230, 230)),
+    "brown_bear": ((110, 72, 42), (60, 40, 28)),
+    "black_bear": ((35, 32, 30), (20, 18, 16)),
+    "rabbit": ((170, 150, 130), (230, 220, 210)),
+    "wild_boar": ((90, 70, 50), (40, 30, 25)),
+    "bald_eagle": ((70, 55, 40), (230, 230, 230)),
+    "great_white_shark": ((140, 150, 160), (220, 220, 225)),
+}
+
+
+def generate_species_texture(species: dict, index: int) -> Image.Image:
+    family = morph_family_key(species.get("morphology", "UNGULATE"), species.get("id", ""), float(species.get("adultMassKg", 0) or 0))
+    sid = str(species.get("id", ""))
+    if sid in REALISTIC_SPECIES:
+        body_rgb, accent_rgb = REALISTIC_SPECIES[sid]
+        body = rgb(*body_rgb)
+        accent = rgb(*accent_rgb)
+    else:
+        hue, sat, light, body_l, accent_h = species_tint_params(sid, index)
+        body = hsl(hue, sat * 0.7, body_l)
+        accent = hsl(accent_h, clamp(sat * 0.85), clamp(light * 0.45))
+        diet = str(species.get("diet", "")).upper()
+        if diet == "CARNIVORE":
+            body = mix(body, rgb(120, 80, 55), 0.18)
+        elif diet == "HERBIVORE":
+            body = mix(body, rgb(100, 110, 70), 0.12)
+        climates = species.get("climates") or []
+        if "POLAR" in climates or "BOREAL" in climates:
+            body = mix(body, rgb(210, 210, 215), 0.28)
+            accent = mix(accent, rgb(190, 190, 200), 0.2)
+        if "ARID" in climates:
+            body = mix(body, rgb(180, 140, 80), 0.18)
+        # Birds: prefer feather-like greys/browns unless overridden above.
+        if family in ("bird", "raptor"):
+            body = mix(body, rgb(90, 95, 100), 0.25)
+            accent = mix(accent, rgb(200, 170, 60), 0.2)
+    img = draw_wildlife(family, body, accent)
+    # Tiny deterministic grain only — no rainbow hue spinning.
+    return shift_palette(img, (seed_hash(sid) % 40) / 10000.0, 0.95, 1.0)
 
 
 def generate_wildlife_family(family: str) -> Image.Image:
@@ -859,28 +908,6 @@ def generate_wildlife_family(family: str) -> Image.Image:
         "small_quadruped": (240, 230, 210),
     }
     return draw_wildlife(family, rgb(*base), rgb(*accents.get(family, accent)))
-
-
-def generate_species_texture(species: dict, index: int) -> Image.Image:
-    family = morph_family_key(species.get("morphology", "UNGULATE"), species.get("id", ""), float(species.get("adultMassKg", 0) or 0))
-    hue, sat, light, body_l, accent_h = species_tint_params(species["id"], index)
-    body = hsl(hue, sat * 0.7, body_l)
-    accent = hsl(accent_h, clamp(sat), clamp(light * 0.55))
-    # diet/climate nudges for extra uniqueness
-    diet = str(species.get("diet", "")).upper()
-    if diet == "CARNIVORE":
-        body = mix(body, rgb(140, 70, 50), 0.15)
-    elif diet == "HERBIVORE":
-        body = mix(body, rgb(90, 120, 70), 0.12)
-    climates = species.get("climates") or []
-    if "POLAR" in climates or "BOREAL" in climates:
-        body = mix(body, rgb(220, 220, 225), 0.25)
-        accent = mix(accent, rgb(200, 200, 210), 0.2)
-    if "ARID" in climates:
-        body = mix(body, rgb(180, 140, 80), 0.18)
-    img = draw_wildlife(family, body, accent)
-    # slight additional hue shift pass keyed by id
-    return shift_palette(img, (seed_hash(species["id"]) % 1000) / 10000.0, 1.0, 1.0)
 
 
 # ---------------------------------------------------------------------------

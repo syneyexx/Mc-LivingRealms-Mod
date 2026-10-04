@@ -92,10 +92,26 @@ public final class LocateQuery {
                 factionFound = state.findFaction(claim.factionId()).orElse(null);
             }
         }
-        if (settlementFound == null || factionFound == null) return Optional.empty();
+        // Global fallback: nearest rocky/highland settlement still counts as a mine destination
+        // so far-world locate never reports "not found" when civilization exists somewhere.
+        if (settlementFound == null) {
+            for (Faction faction : state.factions()) {
+                for (Settlement settlement : faction.settlements()) {
+                    if (settlement.geography().miningPotential() < .35) continue;
+                    double d = from.distanceTo(settlement.position());
+                    if (d < best) {
+                        best = d;
+                        settlementFound = settlement;
+                        factionFound = faction;
+                    }
+                }
+            }
+        }
+        if (settlementFound == null || factionFound == null) {
+            return nearestSettlement(state, from, s -> true, "mine");
+        }
         double x = nearestIntent != null ? nearestIntent.center().x() : settlementFound.position().x();
         double z = nearestIntent != null ? nearestIntent.center().z() : settlementFound.position().z();
-        // Prefer claim position when that was the winner and no intent was kept.
         for (ResourceClaim claim : state.resourceClaims()) {
             if (claim.active() && claim.type() == ResourceClaimType.MINE && claim.settlementId() == settlementFound.id()
                     && Math.abs(from.distanceTo(claim.position()) - best) < 1e-6) {
