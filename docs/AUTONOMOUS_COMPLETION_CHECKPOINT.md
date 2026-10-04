@@ -1,47 +1,49 @@
 # Living Realms Autonomous Completion Checkpoint
 
-Current wave: court + infrastructure repair + wildlife family textures + linked build green  
-Current objective: Remaining runtime smoke / bespoke art external gates; continue any residual PARTIAL polish  
+**HEAD baseline at start:** `c2b1f5d8a33598fa145590ed509ca97a9207bd26`  
+**Branch:** `cursor/livingrealms-final-product-0116`  
+**Current pins (source):** schema **17** · dashboard protocol **17** · network **14** · ContentRevision **10**
 
-## Completed waves (this session)
+## Completed this session
 
-- Wave 0 — forensic audit (HEAD baseline; orthogonal streets identified as universal morphology debt)
-- Wave 1 — preserved single authorities (no parallel engines)
-- Wave 3 — terrain site rejection hardened (unsupported pads / cliff step density)
-- Wave 4 — `SettlementMorphology` geography-derived street patterns (coastal/river/hill/radial/organic/…)
-- Wave 6/174 — sidewalk lights + benches; `StructureRole.PLAZA` civic squares
-- Wave 54 — Ops assistance task board (dashboard protocol 16)
-- Wave 63 — court/ruler presentation: keep spawn, government titles, distinct skins, dialogue self/ruler awareness, ceremonial gold armor
-- Wave 87–91 — ship class part visibility; wildlife mass-driven scale + morphology family textures
-- Wave 116 — `WorldCauseExplainer` + dashboard protocol **16** cause summaries + dialogue wiring
-- Wave 139 — night curfew / low-order nightlife in `CitizenRoutinePlanner`
-- Wave assistance — `AssistanceTaskType.INFRASTRUCTURE_REPAIR` (stone aid → routes/industry/infra)
-- ContentRevision **10** — one-shot construction completion rebuild for new morphology
-- Docs truth — DETAIL_MATRIX / ledger pins aligned to schema16/protocol16/net14/content10
-- Linked NeoForge/Create `build-production.sh` — **PASS** (JAR produced)
+### Wave 0
+- Factual inventory: `docs/WAVE0_SYSTEM_INVENTORY.md`
 
-## Architecture decisions
+### Required new systems (§260)
+- **AppearanceProfile** + skin range **0–47** (48 citizen textures)
+- **Player Influence** (`InfluenceInstitution` + `PlayerStanding.influences`) separate from reputation
+- **Career tracks** (`CareerTrack` / `CareerRank`) with service advancement
+- **SovereignDebt** + `SovereignDebtEngine` (borrow / service / default)
+- **GrandProject** + `GrandProjectEngine`
+- **HeroEngine** (emergent legends from deeds; monuments on high-renown death)
+- **CampaignPlan** + rewritten `MilitaryCommandEngine` campaign AI
+- **TradeShipment** logistics fields + schema-17 sidecar
+- **FactionHeraldry**
+- Schema **17** encode/decode + migration fixtures + `migratePreV17FinalProduct`
+- Dashboard protocol **17** (influence, careers, debts, projects, campaigns)
 
-- Morphology derived from `SettlementGeographyProfile` + tier + capital + tech; salt only breaks ties.
-- Schema remains **16**; dashboard protocol **16**; network **14**; ContentRevision **10**.
-- Infrastructure repair reuses AssistanceContributionEngine (no parallel aid authority).
-- No second economy/population/settlement authority introduced.
+### Worldgen / streets
+- `StreetType` hierarchy wired into planner road keys + blueprint street life
+- `SettlementGrowthLayer`, `SettlementSpecialization`, `SettlementDevelopment`
 
-## Tests currently passing
+### Presentation assets
+- 48 citizen skins, 134 species textures, heraldry banners 0–15, differentiated ship/military/aircraft/siege/caravan/hunter textures, GUI panel/icons
+- Renderer updates: citizen 48, wildlife species textures, ship/military/aircraft class textures
 
-`./scripts/test-core.sh` — **36/36 PASS** including `OrganicMorphologyAndCauseTest`, infrastructure-repair aid, and 3650-day soak.  
-`python3 ./scripts/release-audit.py` — PASS (schema16/protocol16/net14/content10).  
-`./build-production.sh` — linked NeoForge/Create build **PASS**.
+## Tests
+- `./scripts/test-core.sh` — green through Wizard Trees + **3650-day soak PASS**
+- `FinalProductSystemsTest` added to `scripts/core-tests.list`
 
-## Known runtime-unverified gates
-
-- `runtimeSmoke: unverified`
-- `gameTests: unverified`
-- Full modpack client/server smoke
-- Bespoke wildlife meshes/animations beyond morphology-family textures
+## Unresolved / next exact actions
+1. Siege machinery **physical entities** (textures exist; materializer/entity still needed)
+2. Social mobility engine deepen + workplace ownership loop
+3. Full caravan escort/attack player experience polish
+4. Production contract layer deepen beyond AssistanceTask
+5. UI art pass (dashboard still largely text; panel texture exists)
+6. Court art beyond gold armor (textures expanded; ceremonial kit still vanilla-leaning)
+7. Linked NeoForge `build-production.sh` + release manifest regenerate at final HEAD
+8. Continue Waves 18–250 presentation/integration polish
+9. Update COMPLETION_MATRIX / PROJECT_STATE / RELEASE_MANIFEST to match schema17/protocol17 (Wave 226–227 — only after more systems land)
 
 ## Exact next action
-
-1. Keep PR #7 updated with clean release manifest  
-2. Runtime client smoke when a playtest environment is available  
-3. Optional deeper art pass for wildlife/court meshes  
+Implement siege equipment materializer + SocialMobilityEngine, then production build + PR update.
