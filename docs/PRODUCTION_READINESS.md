@@ -38,7 +38,7 @@
 See `docs/RELEASE_GATES.md` for the detailed test procedure.
 
 ## Current acceptance focus
-- Existing RC4 saves upgrade once through `ContentRevision=8` and schema **16**. Starter density is twelve kingdoms + Wizard Trees with **380+** settlements. Construction completion now requires physically acceptable required geometry; player/foreign block entities and non-authored builds are protected.
+- Existing RC4 saves upgrade once through `ContentRevision=9` and schema **16**. Starter density is twelve kingdoms + Wizard Trees with **380+** settlements. Construction completion requires physically acceptable required geometry + continuity rules; typed provenance via `WorldMutationGuard` protects player/foreign builds; physical workers do not mutate canonical stockpiles.
 - M opens the world map and visibly reports discovered ecology/biomes, kingdoms, settlements, routes, armies and war fronts without client-authoritative state.
 - K in creative opens the searchable live-registry item catalog; item spawning must be rejected server-side for non-creative players or invalid item IDs.
 - `/livingrealms locate city` and `/livingrealms locate mine` return canonical coordinates; `/livingrealms found Newhaven` creates a player-controlled realm only when location/membership rules allow it.

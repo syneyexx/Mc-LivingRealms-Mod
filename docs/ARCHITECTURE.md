@@ -1,5 +1,21 @@
 # Living Realms architecture
 
+## Authority boundaries (non-negotiable)
+
+| Concern | Authority | Projection / presentation |
+|---|---|---|
+| Population, households, dynasties | `SimulationState` / social engines | Bounded citizen entities |
+| Economy, stockpiles, markets, industry | Faction/settlement stock + engines | Create yards, market stalls (visual) |
+| Construction intents / completion | Settlement completion keys + receipts | `SettlementConstructionMaterializer` |
+| Block ownership | Typed `AuthoredBlockLedger` via `WorldMutationGuard` | Minecraft blocks |
+| Trade shipments / routes | Logistics + transport engines | Caravan entities / road blocks |
+| Crime / custody / justice | Law engines | Guard/prisoner projections |
+| Ecology | Ecosystem regions / groups | Wildlife entities |
+| Geography | `SettlementGeographyProfile` (discovery runtime) | Biome/terrain samples (loaded chunks only) |
+| Client UI (F12 / M / K) | Server snapshots + actions | Screens |
+
+Physical workers, Create networks, and loaded-chunk side effects must never become a second simulation authority. Chunk unload ≠ canonical death or economic shutdown.
+
 ## Non-negotiable rule: simulation != rendering
 
 A living world at this scale cannot keep every citizen, wolf, fish and army unit as a loaded Minecraft Entity. Living Realms therefore uses two representations:

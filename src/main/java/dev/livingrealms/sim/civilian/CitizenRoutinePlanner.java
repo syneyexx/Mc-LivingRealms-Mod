@@ -4,6 +4,9 @@ import dev.livingrealms.sim.construction.*;
 import dev.livingrealms.sim.civilization.*;
 import dev.livingrealms.sim.economy.primary.PrimaryEconomyPlanner;
 import dev.livingrealms.sim.faction.*;
+import dev.livingrealms.sim.social.HouseholdHomeBinder;
+import dev.livingrealms.sim.social.HouseholdState;
+import dev.livingrealms.sim.social.SocialCitizen;
 import dev.livingrealms.sim.world.*;
 import java.util.*;
 
@@ -13,9 +16,9 @@ public final class CitizenRoutinePlanner {
     public static CitizenRoutine plan(SimulationState state,Faction faction,Settlement settlement,CitizenRole role,int slot){return plan(state,faction,settlement,role,slot,6000);}
     public static CitizenRoutine plan(SimulationState state,Faction faction,Settlement settlement,CitizenRole role,int slot,int dayTimeTicks){
         Objects.requireNonNull(state);Objects.requireNonNull(faction);Objects.requireNonNull(settlement);Objects.requireNonNull(role);
-        List<ConstructionIntent> all=new ArrayList<>(SettlementPlanner.plan(faction,settlement));all.addAll(PrimaryEconomyPlanner.plan(state,faction,settlement));
+        List<ConstructionIntent> all=new ArrayList<>(SettlementPlanCache.plan(faction,settlement));all.addAll(PrimaryEconomyPlanner.plan(state,faction,settlement));
         List<ConstructionIntent> completed=all.stream().filter(i->settlement.isConstructionCompleted(i.key())).toList();
-        int time=Math.floorMod(dayTimeTicks,24000);if(time>=12500||time<1000)return nightRoutine(state,settlement,role,slot,completed);
+        int time=Math.floorMod(dayTimeTicks,24000);if(time>=12500||time<1000)return nightRoutine(state,faction,settlement,role,slot,completed);
         CitizenRoutine epidemic=epidemicRoutine(state,settlement,role,slot,completed);if(epidemic!=null)return epidemic;
         CitizenRoutine civic=civicRoutine(state,settlement,role,slot,completed);if(civic!=null)return civic;
         CitizenRoutine commute=commuteViaStreet(state,settlement,role,slot,completed);
@@ -75,13 +78,29 @@ public final class CitizenRoutinePlanner {
         };
     }
 
-    private static CitizenRoutine nightRoutine(SimulationState state,Settlement settlement,CitizenRole role,int slot,List<ConstructionIntent> completed){
+    private static CitizenRoutine nightRoutine(SimulationState state,Faction faction,Settlement settlement,CitizenRole role,int slot,List<ConstructionIntent> completed){
         if(role==CitizenRole.GUARD)return at(selectAny(completed,slot,List.of(StructureRole.GATE,StructureRole.WALL,StructureRole.ROAD,StructureRole.PRISON,StructureRole.KEEP)),CitizenActivity.PATROL,settlement,.92);
         long phase=state.clock().day()*31L+slot*17L+settlement.id();
         if((role==CitizenRole.TRADER||role==CitizenRole.ARTISAN||role==CitizenRole.BUILDER||role==CitizenRole.CARPENTER||role==CitizenRole.DOCKWORKER||role==CitizenRole.SAILOR)&&Math.floorMod(phase,4L)==0L){ConstructionIntent tavern=select(completed,slot,StructureRole.TAVERN);if(tavern!=null)return at(tavern,CitizenActivity.SOCIALIZE,settlement,.82);}
         if(role==CitizenRole.PRIEST&&Math.floorMod(phase,5L)==0L){ConstructionIntent temple=select(completed,slot,StructureRole.TEMPLE);if(temple!=null)return at(temple,CitizenActivity.WORSHIP,settlement,.8);}
         if((role==CitizenRole.OFFICIAL||role==CitizenRole.SPY)&&Math.floorMod(phase,7L)==0L){ConstructionIntent keep=select(completed,slot,StructureRole.KEEP);if(keep!=null)return at(keep,CitizenActivity.ADMINISTER,settlement,.8);}
-        ConstructionIntent home=select(completed,slot,StructureRole.HOUSE);return at(home,CitizenActivity.REST,settlement,.78);
+        ConstructionIntent home=resolveHouseholdHome(state,faction,settlement,slot,completed);
+        return at(home,CitizenActivity.REST,settlement,.78);
+    }
+
+    private static ConstructionIntent resolveHouseholdHome(SimulationState state,Faction faction,Settlement settlement,int slot,List<ConstructionIntent> completed){
+        SocialCitizen citizen=state.socialCitizens().stream()
+                .filter(c->c.alive()&&c.factionId()==faction.id()&&c.settlementId()==settlement.id()&&c.projectionSlot()==slot)
+                .findFirst().orElse(null);
+        if(citizen!=null&&citizen.householdId()>0){
+            HouseholdState house=state.findHousehold(citizen.householdId()).orElse(null);
+            if(house!=null&&house.active()){
+                HouseholdHomeBinder.rebindIfInvalid(house,faction,settlement);
+                ConstructionIntent bound=HouseholdHomeBinder.resolveHomeIntent(faction,settlement,house.homeKey(),slot);
+                if(bound!=null)return bound;
+            }
+        }
+        return select(completed,slot,StructureRole.HOUSE);
     }
 
     private static CitizenRoutine commuteViaStreet(SimulationState state,Settlement settlement,CitizenRole role,int slot,List<ConstructionIntent> completed){

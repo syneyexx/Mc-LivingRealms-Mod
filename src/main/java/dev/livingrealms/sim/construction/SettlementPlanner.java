@@ -134,8 +134,12 @@ public final class SettlementPlanner {
             SimPosition center=local(settlement,baseRotation,lx,lz);
             int variant=Math.floorMod((int)mix(settlement.id()^(long)emitted*0x9E3779B97F4A7C15L),7);
             int w,d;
-            if(settlement.tier().ordinal()>=Settlement.Tier.CITY.ordinal()&&emitted%5==0){w=13;d=11;}
-            else if(settlement.tier().ordinal()>=Settlement.Tier.TOWN.ordinal()&&emitted%6==0){w=11;d=9;}
+            // Under population pressure, emit denser apartments/townhouses more often so physical
+            // cities visibly scale without a 1:1 cottage per household.
+            boolean pressure=settlement.housingShortage()>40||settlement.population()>settlement.housing();
+            if(settlement.tier().ordinal()>=Settlement.Tier.CITY.ordinal()&&(emitted%5==0||(pressure&&emitted%3==0))){w=13;d=11;}
+            else if(settlement.tier().ordinal()>=Settlement.Tier.TOWN.ordinal()&&(emitted%6==0||(pressure&&emitted%4==0))){w=11;d=9;}
+            else if(settlement.tier()==Settlement.Tier.METROPOLIS&&emitted%2==0){w=13;d=11;}
             else {w=switch(variant){case 0->7;case 1,4->9;default->7;};d=switch(variant){case 2->9;case 5->7;default->9;};}
             int face=houseFacing(lx,lz,spacing,baseRotation);
             addAt(out,faction,settlement,StructureRole.HOUSE,emitted,center,w,d,face,88);
