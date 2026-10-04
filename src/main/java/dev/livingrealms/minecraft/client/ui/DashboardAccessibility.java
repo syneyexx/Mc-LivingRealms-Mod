@@ -15,9 +15,9 @@ import java.util.Properties;
  */
 public final class DashboardAccessibility {
     public enum Scale {
-        COMPACT(480, 280, 11, 11),
-        NORMAL(560, 330, 12, 13),
-        LARGE(640, 380, 14, 11);
+        COMPACT(520, 320, 11, 12),
+        NORMAL(640, 420, 12, 14),
+        LARGE(780, 520, 14, 16);
 
         public final int panelWidth;
         public final int panelHeight;

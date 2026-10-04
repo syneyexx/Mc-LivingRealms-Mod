@@ -207,6 +207,7 @@ public final class SettlementConstructionMaterializer {
     }
 
     private static TerrainStats terrainStats(ServerLevel level,ConstructionIntent intent){
+        boolean allowWater=intent.role()==StructureRole.DOCK||intent.role()==StructureRole.FISHERY;
         int turns=Math.floorMod(intent.rotationQuarterTurns(),4);int w=(turns&1)==0?intent.width():intent.depth(),d=(turns&1)==0?intent.depth():intent.width();
         int cx=(int)Math.round(intent.center().x()),cz=(int)Math.round(intent.center().z()),hx=w/2,hz=d/2;
         int min=Integer.MAX_VALUE,max=Integer.MIN_VALUE,samples=0,steepNeighbors=0;
@@ -214,10 +215,14 @@ public final class SettlementConstructionMaterializer {
         for(int z=-hz;z<=hz;z+=Math.max(2,d/6))for(int x=-hx;x<=hx;x+=Math.max(2,w/6)){
             int wx=cx+x,wz=cz+z;BlockPos probe=new BlockPos(wx,level.getSeaLevel(),wz);if(!level.hasChunkAt(probe))return null;
             int y=naturalSurfaceY(level,wx,wz);if(y<=level.getMinBuildHeight()+1||y>=level.getMaxBuildHeight()-18)return null;
-            BlockState ground=level.getBlockState(new BlockPos(wx,y,wz));if(!ground.getFluidState().isEmpty())return null;
+            BlockState ground=level.getBlockState(new BlockPos(wx,y,wz));
+            boolean flooded=!ground.getFluidState().isEmpty()||!level.getFluidState(new BlockPos(wx,y+1,wz)).isEmpty();
+            // Houses/civic pads must stay dry. Only docks/fisheries may build into water.
+            if(flooded&&!allowWater)return null;
+            if(!allowWater&&y<=level.getSeaLevel()-1)return null;
             // Reject cave mouths / unsupported pads: the block under the surface sample must exist.
             BlockState below=level.getBlockState(new BlockPos(wx,y-1,wz));
-            if(below.isAir()||!below.getFluidState().isEmpty())return null;
+            if(below.isAir()||(!allowWater&&!below.getFluidState().isEmpty()))return null;
             if(prevY!=null&&Math.abs(y-prevY)>4)steepNeighbors++;
             prevY=y;min=Math.min(min,y);max=Math.max(max,y);samples++;
         }
@@ -294,18 +299,34 @@ public final class SettlementConstructionMaterializer {
                 if(!level.hasChunkAt(new BlockPos(wx,level.getSeaLevel(),wz))){omittedRequired++;continue;}
                 int surface=naturalSurfaceY(level,wx,wz);
                 if(surface<=level.getMinBuildHeight()+1||Math.abs(surface-target)>4){omittedRequired++;continue;}
-                // Clear leaves/replaceable vegetation; only clear logs that pass the natural-tree test.
-                for(int y=target+1;y<=Math.min(surface+6,target+8);y++){
+                // Clear leaves/replaceable vegetation AND natural trees blocking the street.
+                for(int y=target+1;y<=Math.min(surface+8,target+10);y++){
                     BlockPos clearPos=new BlockPos(wx,y,wz);
                     BlockState st=level.getBlockState(clearPos);if(st.isAir())continue;
-                    if(st.canBeReplaced()||st.is(BlockTags.LEAVES)||WorldMutationGuard.isNaturalTreeLog(level,clearPos))
+                    if(st.canBeReplaced()||st.is(BlockTags.LEAVES)||st.is(Blocks.SNOW)||st.is(Blocks.MOSS_CARPET)
+                            ||WorldMutationGuard.isNaturalTreeLog(level,clearPos))
                         out.add(new BuildOperation(wx,y,wz,PaletteSlot.AIR,dev.livingrealms.sim.construction.ConstructionPhase.CLEAR));
                     else break;
                 }
+                // Never leave a grass block sitting on top of the carriageway elevation.
+                BlockPos roadPos=new BlockPos(wx,target,wz);
+                BlockState roadHere=level.getBlockState(roadPos);
+                if(roadHere.is(Blocks.GRASS_BLOCK)||roadHere.is(Blocks.DIRT)||roadHere.is(Blocks.PODZOL)||roadHere.is(Blocks.MYCELIUM)){
+                    // PATH/FOUNDATION overwrite handles this; still clear any snow/plant on top.
+                    out.add(new BuildOperation(wx,target+1,wz,PaletteSlot.AIR,dev.livingrealms.sim.construction.ConstructionPhase.CLEAR));
+                }
                 PaletteSlot slot=Math.abs(lx)==hx?PaletteSlot.FOUNDATION:PaletteSlot.PATH;
                 out.add(new BuildOperation(wx,target,wz,slot,dev.livingrealms.sim.construction.ConstructionPhase.FOUNDATION));
+                // Decorative curb lights every so often on arterial edges.
+                if(Math.abs(lx)==hx&&Math.floorMod(lz+wx,11)==0)
+                    out.add(new BuildOperation(wx,target+1,wz,PaletteSlot.LIGHT,dev.livingrealms.sim.construction.ConstructionPhase.DETAIL));
                 // Short retaining support keeps sidewalks from floating over small dips.
                 for(int y=target-1;y>surface&&y>=target-4;y--)out.add(new BuildOperation(wx,y,wz,PaletteSlot.FOUNDATION,dev.livingrealms.sim.construction.ConstructionPhase.FOUNDATION));
+                // If the natural ground drops away, fill pillars so the street stays level (bridge feel).
+                if(surface<target-1){
+                    for(int y=surface+1;y<target;y++)
+                        out.add(new BuildOperation(wx,y,wz,PaletteSlot.FOUNDATION,dev.livingrealms.sim.construction.ConstructionPhase.FOUNDATION));
+                }
             }
         }
         return new RoadPlan(out,omittedRequired);

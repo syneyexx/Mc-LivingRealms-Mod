@@ -125,7 +125,7 @@ public final class StructureBlueprintFactory {
         int w=intent.width(),d=intent.depth();
         if(w>=13&&d>=13)return mansion(w,d);
         if(w>=11||d>=11)return apartmentBlock(w,d,variant(intent,3));
-        int variant=variant(intent,7);
+        int variant=variant(intent,10);
         return switch(variant){
             case 0 -> hut(w,d);
             case 1 -> cottage(w,d);
@@ -133,8 +133,59 @@ public final class StructureBlueprintFactory {
             case 3 -> longhouse(w,d);
             case 4 -> terrace(w,d);
             case 5 -> townhouse(w,d);
-            default -> porchHouse(w,d);
+            case 6 -> porchHouse(w,d);
+            case 7 -> courtyardHouse(w,d);
+            case 8 -> hallHouse(w,d);
+            default -> L_shapedHouse(w,d);
         };
+    }
+
+    /** Inner courtyard cottage — denser cultural variety inspired by compact village compounds. */
+    private static StructureBlueprint courtyardHouse(int w,int d){
+        List<BlockPlacement> p=new ArrayList<>();
+        clear(p,w,d,7);foundation(p,w,d);floor(p,w,d,PaletteSlot.FLOOR);
+        shell(p,w,d,1,4,PaletteSlot.WALL);beamsAtCorners(p,w,d,1,5);doorway(p,w,d);windows(p,w,d,2);pitchedRoof(p,w,d,5);
+        int hx=Math.max(1,w/2-2),hz=Math.max(1,d/2-2);
+        for(int z=-hz;z<=hz;z++)for(int x=-hx;x<=hx;x++){
+            if(Math.abs(x)==hx||Math.abs(z)==hz)add(p,x,1,z,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
+            else add(p,x,0,z,PaletteSlot.PATH,ConstructionPhase.DETAIL);
+        }
+        add(p,0,1,0,PaletteSlot.WATER,ConstructionPhase.DETAIL);
+        furnishHome(p,1,0);
+        add(p,0,2,Math.max(-d/2+1,-2),PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
+        return bp("courtyard_house",w,d,7,p);
+    }
+
+    /** Tall hall-style dwelling with a raised gallery and chimney stack. */
+    private static StructureBlueprint hallHouse(int w,int d){
+        List<BlockPlacement> p=new ArrayList<>();
+        clear(p,w,d,9);foundation(p,w,d);floor(p,w,d,PaletteSlot.FLOOR);
+        shell(p,w,d,1,5,PaletteSlot.WALL);beamsAtCorners(p,w,d,1,6);doorway(p,w,d);
+        windows(p,w,d,2);windows(p,w,d,4);pitchedRoof(p,w,d,6);
+        int hx=w/2;
+        for(int y=1;y<=7;y++)add(p,hx-1,y,0,PaletteSlot.FOUNDATION,ConstructionPhase.DETAIL); // chimney
+        add(p,hx-1,8,0,PaletteSlot.FOUNDATION,ConstructionPhase.DETAIL);
+        furnishHome(p,1,0);furnishHome(p,1,1);
+        add(p,0,3,0,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
+        add(p,-Math.max(1,hx-2),1,Math.max(1,d/2-2),PaletteSlot.DECORATION,ConstructionPhase.DETAIL);
+        return bp("hall_house",w,d,9,p);
+    }
+
+    /** L-plan cottage with a wing — more irregular massing like real vernacular homes. */
+    private static StructureBlueprint L_shapedHouse(int w,int d){
+        List<BlockPlacement> p=new ArrayList<>();
+        clear(p,w,d,7);foundation(p,w,d);floor(p,w,d,PaletteSlot.FLOOR);
+        shell(p,w,d,1,4,PaletteSlot.WALL);beamsAtCorners(p,w,d,1,5);doorway(p,w,d);windows(p,w,d,2);pitchedRoof(p,w,d,5);
+        int wing=Math.max(3,w/3);
+        for(int z=d/2;z<=d/2+2;z++)for(int x=-wing;x<=wing;x++){
+            add(p,x,0,z,PaletteSlot.FOUNDATION,ConstructionPhase.FOUNDATION);
+            if(Math.abs(x)==wing||z==d/2+2){add(p,x,1,z,PaletteSlot.WALL,ConstructionPhase.FRAME);add(p,x,2,z,PaletteSlot.WALL,ConstructionPhase.FRAME);add(p,x,3,z,PaletteSlot.ROOF,ConstructionPhase.SHELL);}
+            else add(p,x,0,z,PaletteSlot.FLOOR,ConstructionPhase.FRAME);
+        }
+        furnishHome(p,1,0);
+        add(p,0,2,0,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
+        add(p,Math.max(-w/2+1,1),1,Math.max(-d/2+1,1),PaletteSlot.DECORATION,ConstructionPhase.DETAIL);
+        return bp("l_shaped_house",w,d,7,p);
     }
 
     /** Dense multi-storey housing used by towns/cities so growth is visible vertically as well as horizontally. */

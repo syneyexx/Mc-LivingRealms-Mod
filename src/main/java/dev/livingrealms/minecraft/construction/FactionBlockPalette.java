@@ -130,7 +130,16 @@ public final class FactionBlockPalette {
                 case 7 -> Blocks.CHERRY_FENCE.defaultBlockState();
                 default -> Blocks.OAK_FENCE.defaultBlockState();
             };
-            case PATH -> Blocks.DIRT_PATH.defaultBlockState();
+            case PATH -> switch (style) {
+                case 1 -> Blocks.COBBLESTONE.defaultBlockState();
+                case 2 -> Blocks.SMOOTH_SANDSTONE.defaultBlockState();
+                case 3 -> Blocks.POLISHED_BLACKSTONE.defaultBlockState();
+                case 4 -> Blocks.POLISHED_ANDESITE.defaultBlockState();
+                case 5 -> Blocks.PRISMARINE.defaultBlockState();
+                case 6 -> Blocks.MOSSY_COBBLESTONE.defaultBlockState();
+                case 7 -> Blocks.SMOOTH_STONE.defaultBlockState();
+                default -> Blocks.DIRT_PATH.defaultBlockState();
+            };
             case FARMLAND -> Blocks.FARMLAND.defaultBlockState();
             case CROP -> Blocks.WHEAT.defaultBlockState();
             case WATER -> Blocks.WATER.defaultBlockState();

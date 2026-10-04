@@ -20,6 +20,8 @@ public final class RealmDashboardScreen extends Screen {
     private RealmDashboardSnapshot snapshot;
     private Tab tab = Tab.OVERVIEW;
     private int page;
+    /** Pixel scroll offset inside the content pane (mouse wheel). */
+    private int contentScroll;
 
     private static int panelWidthPref() { return DashboardAccessibility.scale().panelWidth; }
     private static int panelHeightPref() { return DashboardAccessibility.scale().panelHeight; }
@@ -34,6 +36,7 @@ public final class RealmDashboardScreen extends Screen {
     public void replaceSnapshot(RealmDashboardSnapshot newSnapshot) {
         this.snapshot = newSnapshot;
         this.page = 0;
+        this.contentScroll = 0;
         rebuildDashboardWidgets();
     }
 
@@ -60,6 +63,7 @@ public final class RealmDashboardScreen extends Screen {
             var tabButton = Button.builder(Component.literal(value.label), b -> {
                 tab = value;
                 page = 0;
+                contentScroll = 0;
                 rebuildDashboardWidgets();
             }).bounds(x, y, buttonWidth, 18).build();
             tabButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
@@ -102,10 +106,16 @@ public final class RealmDashboardScreen extends Screen {
 
     private void rebuildFactionButton(int left,int contentY,int panelWidth){
         var player=snapshot.player();var jurisdiction=snapshot.jurisdiction();
+        int panelHeight = Math.min(panelHeightPref(), height - 20);
+        int top = Math.max(10, (height - panelHeight) / 2);
+        int footerY = top + panelHeight - 26;
+        int joinY = Math.min(contentY + 146, footerY - 22);
         if(player.memberFactionId()>0){
-            addRenderableWidget(Button.builder(Component.literal("Leave "+player.memberFactionName()),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_LEAVE,1))).bounds(left+panelWidth-150,contentY+146,136,18).build());
+            addRenderableWidget(Button.builder(Component.literal("Leave "+player.memberFactionName()),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_LEAVE,1))).bounds(left+panelWidth-150,joinY,136,18).build());
         }else if(jurisdiction.claimed()&&!jurisdiction.contested()&&jurisdiction.primaryFactionId()>0){
-            addRenderableWidget(Button.builder(Component.literal("Join "+jurisdiction.primaryName()),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_JOIN_LOCAL,jurisdiction.primaryFactionId()))).bounds(left+panelWidth-150,contentY+146,136,18).build());
+            addRenderableWidget(Button.builder(Component.literal("Join "+jurisdiction.primaryName()),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_JOIN_LOCAL,jurisdiction.primaryFactionId()))).bounds(left+panelWidth-150,joinY,136,18).build());
+        }else if(player.memberFactionId()<=0){
+            addRenderableWidget(Button.builder(Component.literal("Found settlement here"),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FOUND_SETTLEMENT,1))).bounds(left+panelWidth-150,joinY,136,18).build());
         }
     }
 
@@ -127,12 +137,16 @@ public final class RealmDashboardScreen extends Screen {
                 "tooltip.livingrealms.route_security",
                 "tooltip.livingrealms.influence"
         };
+        int panelHeight = Math.min(panelHeightPref(), height - 20);
+        int top = Math.max(10, (height - panelHeight) / 2);
+        int footerY = top + panelHeight - 26;
+        int rowY = Math.min(contentY + 166, footerY - 40);
         int bw=Math.max(58,(panelWidth-28)/5);
         for(int i=0;i<actions.length;i++){
             final DashboardActionCommand.Action action=actions[i];
             var button=Button.builder(Component.literal(labels[i]),
                     b->DashboardClientState.sendAction(new DashboardActionCommand(action,factionId)))
-                    .bounds(left+10+i*bw,contentY+166,bw-3,16).build();
+                    .bounds(left+10+i*bw,rowY,bw-3,16).build();
             button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable(tips[i])));
             addRenderableWidget(button);
         }
@@ -198,14 +212,20 @@ public final class RealmDashboardScreen extends Screen {
     private static int contentTop(int top,int panelWidth){return top+28+tabRows(panelWidth)*20+7;}
 
     @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        LivingRealmsScreens.clearBackground(graphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // Avoid Screen#renderBackground: vanilla applies a world blur that makes the dashboard unreadable.
-        graphics.fill(0, 0, width, height, DashboardAccessibility.backdrop());
+        LivingRealmsScreens.paintBackdrop(graphics, width, height, DashboardAccessibility.backdrop());
         int panelWidth = Math.min(panelWidthPref(), width - 20);
         int panelHeight = Math.min(panelHeightPref(), height - 20);
+        // Prefer fitting the whole panel on screen; shrink further on short displays.
+        panelHeight = Math.min(panelHeight, Math.max(260, height - 24));
+        panelWidth = Math.min(panelWidth, Math.max(360, width - 24));
         int left = (width - panelWidth) / 2;
-        int top = Math.max(10, (height - panelHeight) / 2);
-        // LivingRealms panel texture when present; fall back to solid fill.
+        int top = Math.max(8, (height - panelHeight) / 2);
         var panelTex = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("livingrealms", "textures/gui/dashboard_panel.png");
         graphics.blit(panelTex, left, top, 0, 0, panelWidth, panelHeight, panelWidth, panelHeight);
         graphics.fill(left, top, left + panelWidth, top + panelHeight, DashboardAccessibility.panelScrim());
@@ -214,23 +234,54 @@ public final class RealmDashboardScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
 
         int contentY=contentTop(top,panelWidth);
+        int contentBottom = top + panelHeight - 30;
+        int clipH = Math.max(40, contentBottom - contentY);
         if (tab == Tab.MAP) {
-            renderStrategicMap(graphics, left + 10, contentY, panelWidth - 20, Math.max(80,top+panelHeight-30-contentY));
+            renderStrategicMap(graphics, left + 10, contentY, panelWidth - 20, clipH);
         } else if (tab == Tab.LAW) {
             renderLaw(graphics,left+11,contentY+2,panelWidth-22);
         } else {
             List<Line> lines = linesForCurrentTab();
             int start = Math.min(lines.size(), page * pageLines());
             int end = Math.min(lines.size(), start + pageLines());
-            int y = contentY;
+            int y = contentY - contentScroll;
+            graphics.enableScissor(left + 8, contentY, left + panelWidth - 8, contentBottom);
             for (int i = start; i < end; i++) {
                 Line line = lines.get(i);
-                graphics.drawString(font, line.text, left + 11 + line.indent * 8, y, DashboardAccessibility.textColor(line.color), false);
+                if (y + lineHeight() >= contentY && y < contentBottom) {
+                    graphics.drawString(font, line.text, left + 11 + line.indent * 8, y, DashboardAccessibility.textColor(line.color), false);
+                }
                 y += lineHeight();
             }
+            graphics.disableScissor();
             String pageText = (maxPage() + 1) <= 1 ? "1/1" : (page + 1) + "/" + (maxPage() + 1);
-            graphics.drawCenteredString(font, pageText, width / 2, top + panelHeight - 21, DashboardAccessibility.textColor(0xFFAAAAAA));
+            graphics.drawCenteredString(font, pageText + "  • scroll", width / 2, top + panelHeight - 21, DashboardAccessibility.textColor(0xFFAAAAAA));
         }
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (scrollY != 0) {
+            if (tab != Tab.MAP && tab != Tab.LAW) {
+                contentScroll = Math.max(0, contentScroll - (int) Math.round(scrollY * lineHeight() * 2));
+                int maxScroll = Math.max(0, pageLines() * lineHeight() - 40);
+                contentScroll = Math.min(contentScroll, maxScroll);
+                return true;
+            }
+            if (scrollY < 0) {
+                page = Math.min(maxPage(), page + 1);
+                contentScroll = 0;
+                rebuildDashboardWidgets();
+                return true;
+            }
+            if (scrollY > 0) {
+                page = Math.max(0, page - 1);
+                contentScroll = 0;
+                rebuildDashboardWidgets();
+                return true;
+            }
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     @Override
@@ -312,6 +363,10 @@ public final class RealmDashboardScreen extends Screen {
         }
         lines.add(text("Wanted: " + p.wantedLevel() + "   Bounty: " + whole(p.bounty())));
         if (p.inCustody()) lines.add(warn("IN CUSTODY until day " + p.custodyReleaseDay()));
+        lines.add(header("Player actions"));
+        lines.add(dim("J dashboard: settlements, economy, politics, wars. M opens the world map. Chat NPCs freely.", 0));
+        lines.add(dim("Found a growing realm with Found settlement (Overview) or /livingrealms found <name>.", 0));
+        lines.add(dim("Policy buttons on Settlements change what your towns build next.", 0));
         if (r.factionId() > 0) {
             lines.add(header("Realm"));
             lines.add(text(r.name() + " — ruler " + r.ruler()));
@@ -395,7 +450,14 @@ public final class RealmDashboardScreen extends Screen {
 
     private List<Line> settlementLines() {
         List<Line> lines = new ArrayList<>();
-        if (snapshot.settlements().isEmpty()) { lines.add(dim("No settlement data for the current/member realm.", 0)); return lines; }
+        lines.add(header("How settlements work"));
+        lines.add(dim("Settlements grow when food, housing and order stay healthy. Policy buttons change the construction queue.", 0));
+        lines.add(dim("Found your own realm with the Found button (or /livingrealms found <name>) when not in a faction.", 0));
+        lines.add(dim("Visited frontier lands beyond the starter belt seed sparse outposts so the world never empties.", 0));
+        if (snapshot.settlements().isEmpty()) {
+            lines.add(dim("No settlement data for the current/member realm yet — join a kingdom or found one.", 0));
+            return lines;
+        }
         int index=Math.min(snapshot.settlements().size()-1,page);var s=snapshot.settlements().get(index);
         lines.add(header("Settlement " + (index+1) + "/" + snapshot.settlements().size()));
         lines.add(text(s.name() + " [" + s.tier() + "] — pop " + s.population() + " • " + whole(s.distanceBlocks()) + "m"));
