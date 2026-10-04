@@ -51,11 +51,28 @@ public final class IndustrialSiteMaterializer {
         if(used>=budget)return used;
         used+=place(level,ledger,base.offset(1,1,0),CreateBlockLookup.orElse("cogwheel",Blocks.COPPER_BLOCK).defaultBlockState());
         if(used>=budget)return used;
-        BlockState marker=Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT,site.operational()&&site.status()==IndustrialSiteStatus.ACTIVE);
+        // Status beacon: active=lit lamp, idle=unlit lamp, starved=red wool, damaged=orange wool, offline/broken=black wool.
+        BlockState marker=statusMarker(site);
         used+=place(level,ledger,base.offset(0,1,2),marker);
+        if(site.status()==IndustrialSiteStatus.ACTIVE&&site.operational()&&used<budget){
+            // Active chimney plume cue (bounded particle, not a second authority).
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.CAMPFIRE_COSY_SMOKE,base.getX()+.5,base.getY()+3.2,base.getZ()+.5,1,0.15,0.2,0.15,0.01);
+        }else if((site.status()==IndustrialSiteStatus.STARVED||site.status()==IndustrialSiteStatus.DAMAGED)&&used<budget){
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.SMOKE,base.getX()+.5,base.getY()+2.4,base.getZ()+.5,2,0.2,0.15,0.2,0.0);
+        }
         if(site.level()>=2&&used<budget&&needsBasin(site.kind()))used+=place(level,ledger,base.offset(1,1,1),CreateBlockLookup.orElse("basin",Blocks.CAULDRON).defaultBlockState());
         if(site.level()>=3&&used<budget)used+=place(level,ledger,base.offset(2,1,0),secondaryMachine(site.kind()).defaultBlockState());
         return used;
+    }
+
+    private static BlockState statusMarker(IndustrialSite site){
+        return switch(site.status()){
+            case ACTIVE -> Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT,site.operational());
+            case REPAIRING -> Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT,false);
+            case STARVED -> Blocks.RED_WOOL.defaultBlockState();
+            case DAMAGED -> Blocks.ORANGE_WOOL.defaultBlockState();
+            case OFFLINE -> Blocks.BLACK_WOOL.defaultBlockState();
+        };
     }
 
     private static Block machine(IndustryKind kind){return switch(kind){

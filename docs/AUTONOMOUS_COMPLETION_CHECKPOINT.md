@@ -1,36 +1,25 @@
 # Living Realms Autonomous Completion Checkpoint
 
-**HEAD:** `f3dabea38a33a0ba03d9fda191e6dbc0a1c91763`  
+**HEAD:** `9ce4146df6aef2272ddcf0597a68ffd02d3bfa2a`  
 **Branch:** `cursor/livingrealms-final-product-0116`  
 **PR:** https://github.com/syneyexx/Mc-LivingRealms-Mod/pull/8  
 **Pins:** schema **17** · dashboard protocol **17** · network **14** · ContentRevision **11**
 
-## Completed this session (progress, not COMPLETE claims)
+## Completed this session stretch
+- Influence unlocks + dashboard buttons
+- 8 culture architecture families
+- Caravan wagon/pack modes; wildlife intent animation; military formations
+- Court skins 44–47 + heraldry kits; street furniture; settlement ambience
+- EmergentStoryChainsTest; ImportantNotifications on F12 overview
+- Docs pin reconciliation (README/ROADMAP/LEDGER/PRODUCTION_READINESS)
+- Production gates: core+soak PASS, release audit PASS, linked build PASS
 
-### §260 / core systems (prior + retained)
-- Appearance 0–47, Influence, Careers, SovereignDebt, GrandProjects, HeroEngine, Campaign AI, TradeShipment logistics, Heraldry, Siege equipment, SocialMobility, ProductionContract, escorts
-
-### Presentation / gameplay deepening
-- PlayerInfluenceActions unlocks (audience / project / military / trade / clergy) + dashboard buttons
-- Eight culture architecture families (`FactionBlockPalette`)
-- Caravan wagon vs pack-train modes
-- Wildlife intent-driven animation profiles
-- Military column / line / guard formations
-- Court skins 44–47 + heraldry-dyed ceremonial kits
-- Street furniture (trees, banners, plaza shrines/seating)
-- Settlement ambience particles/sounds (vanilla-only, player-local)
-
-### Gates
-- Core suite + 3650-day soak: **PASS**
-- Release audit: **PASS**
-- Linked NeoForge `clean build`: **PASS** (`livingrealms-3.0.0-rc4.jar`)
-- Runtime smoke: **unverified** (manual Minecraft acceptance pending)
-
-## Unresolved / next exact actions
-1. Continue remaining presentation polish (military art depth, ship differentiation QA, audio pack if original assets added)
-2. Documentation rebuild Waves 226–228 from source truth
-3. Emergent story automated tests (Waves 178–183) where not already covered
-4. Manual Minecraft runtime acceptance plan (Wave 249) — do not block implementation
+## Remaining (continue next)
+1. Create industrial visual polish (Wave 114)
+2. Ship/aircraft deeper class differentiation QA
+3. Accessibility pass (Wave 155)
+4. Manual runtime test plan (Wave 249) — external
+5. Full COMPLETION_MATRIX rebuild claiming only evidenced COMPLETE rows
 
 ## Exact next action
-Continue autonomous presentation/docs polish; do not claim release-complete while runtimeSmoke is unverified.
+Continue Create industrial presentation + accessibility/UI polish; re-run production build after next code batch.
