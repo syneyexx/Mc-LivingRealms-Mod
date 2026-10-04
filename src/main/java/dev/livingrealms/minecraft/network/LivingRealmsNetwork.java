@@ -102,6 +102,7 @@ public final class LivingRealmsNetwork {
             case REQUEST_MILITARY_SUPPORT -> "message.livingrealms.action.military_support";
             case PETITION_TRADE -> "message.livingrealms.action.petition_trade";
             case PETITION_CLERGY -> "message.livingrealms.action.petition_clergy";
+            case FOUND_SETTLEMENT -> "Settlement founded. Your realm can now grow, trade and enter diplomacy.";
         };
     }
 
