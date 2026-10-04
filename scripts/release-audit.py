@@ -88,13 +88,29 @@ for p in files:
     for key in ['locomotion','morphology']:
         require(isinstance(d.get(key),str) and d.get(key),f'{p.name}: missing explicit {key}')
 
-# Versioned state/dashboard contracts.
+# Versioned state/dashboard contracts — parse from source so audit cannot drift from constants.
 codec=(root/'src/main/java/dev/livingrealms/sim/persistence/SimulationStateCodec.java').read_text()
 snap=(root/'src/main/java/dev/livingrealms/sim/ui/RealmDashboardSnapshot.java').read_text()
 net=(root/'src/main/java/dev/livingrealms/minecraft/network/LivingRealmsNetwork.java').read_text()
-require('SCHEMA_VERSION = 15' in codec,'save schema must be 15')
-require('PROTOCOL_VERSION = 14' in snap,'dashboard protocol must be 14')
-require('NETWORK_VERSION = "12"' in net,'network registration version must be 12')
+saved_data_for_rev=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java').read_text()
+def int_const(text,name):
+    m=re.search(rf'\b{re.escape(name)}\s*=\s*(\d+)\b',text)
+    require(m is not None,f'missing constant {name}')
+    return int(m.group(1)) if m else -1
+def str_const(text,name):
+    m=re.search(rf'\b{re.escape(name)}\s*=\s*"([^"]+)"',text)
+    require(m is not None,f'missing string constant {name}')
+    return m.group(1) if m else ''
+schema_version=int_const(codec,'SCHEMA_VERSION')
+min_schema=int_const(codec,'MIN_SUPPORTED_SCHEMA')
+dashboard_protocol=int_const(snap,'PROTOCOL_VERSION')
+network_version=str_const(net,'NETWORK_VERSION')
+content_revision=int_const(saved_data_for_rev,'CONTENT_REVISION')
+require(schema_version==16,f'save schema must be 16 (source currently {schema_version})')
+require(min_schema==1,f'min supported schema must remain 1 (source {min_schema})')
+require(dashboard_protocol==14,f'dashboard protocol must be 14 (source {dashboard_protocol})')
+require(network_version=='12',f'network registration version must be 12 (source {network_version!r})')
+require(content_revision==7,f'content revision must be 7 (source {content_revision})')
 
 
 
@@ -106,27 +122,73 @@ require('.build(ResourceKey.create' not in entities,'NeoForge 1.21.1 entity buil
 for entity_id in ['wildlife','trade_caravan','faction_citizen','military_unit','aircraft','ship','bounty_hunter']:
     require(f'.build(LivingRealms.MOD_ID + ":{entity_id}")' in entities,f'entity {entity_id} must use the 1.21.1 build(String) signature')
 
-# Windows production build must run the same projection-stress gate before linked Gradle compilation.
+# Production runners share one canonical core-suite list; never maintain duplicated test arrays.
+core_list_path=root/'scripts/core-tests.list'
+require(core_list_path.exists(),'scripts/core-tests.list must be the single source of truth for the core suite')
+def parse_core_list(text):
+    out=[]
+    for raw in text.splitlines():
+        line=raw.strip()
+        if not line or line.startswith('#'): continue
+        out.append(line)
+    return out
+canonical_tests=parse_core_list(core_list_path.read_text())
+require(len(canonical_tests)>=20,f'core-tests.list too small ({len(canonical_tests)})')
+for main in canonical_tests:
+    simple=main.rsplit('.',1)[-1]
+    path=root/f'src/testCore/java/dev/livingrealms/{simple}.java'
+    require(path.exists(),f'core suite entry missing source: {main}')
+required_suite={
+    'dev.livingrealms.CoreSimulationTest',
+    'dev.livingrealms.SpeciesPackAuditTest',
+    'dev.livingrealms.SystemCompletenessTest',
+    'dev.livingrealms.SettlementEconomyTest',
+    'dev.livingrealms.ProjectionStressTest',
+    'dev.livingrealms.SaveMigrationMatrixTest',
+    'dev.livingrealms.SaveIntegrityTest',
+    'dev.livingrealms.SaveMutationFuzzTest',
+    'dev.livingrealms.ProductionHardeningTest',
+    'dev.livingrealms.LivingWorldDensityTest',
+    'dev.livingrealms.WorldgenQualityTest',
+    'dev.livingrealms.ProductionQualityTest',
+    'dev.livingrealms.SocietyDialogueTest',
+    'dev.livingrealms.RumorNetworkTest',
+    'dev.livingrealms.SocietyInfrastructureTest',
+    'dev.livingrealms.CivilizationLayerTest',
+    'dev.livingrealms.FaithAndInfrastructureTest',
+    'dev.livingrealms.BanditAndPriceRumorTest',
+    'dev.livingrealms.TradeHouseholdEcologyTest',
+    'dev.livingrealms.HumanityLifecycleTest',
+    'dev.livingrealms.CitizenConversationTest',
+    'dev.livingrealms.ResourceDominanceTest',
+    'dev.livingrealms.CartographicKnowledgeTest',
+    'dev.livingrealms.PlayerRulershipTest',
+    'dev.livingrealms.MobileCivilizationProjectionTest',
+    'dev.livingrealms.WizardTreesTest',
+    'dev.livingrealms.LongRunSoakTest',
+}
+missing_required=sorted(required_suite-set(canonical_tests))
+require(not missing_required,f'core-tests.list missing required gates: {missing_required}')
+
 production_sh=(root/'build-production.sh').read_text()
 production_ps=(root/'build-production.ps1').read_text()
-require('dev.livingrealms.ProjectionStressTest' in production_ps,'Windows production build must run ProjectionStressTest')
-require('dev.livingrealms.SaveMigrationMatrixTest' in production_ps,'Windows production build must run SaveMigrationMatrixTest')
-require('dev.livingrealms.SaveIntegrityTest' in production_ps,'Windows production build must run SaveIntegrityTest')
-require('dev.livingrealms.SaveMutationFuzzTest' in production_ps,'Windows production build must run SaveMutationFuzzTest')
-require('dev.livingrealms.ProductionHardeningTest' in production_ps,'Windows production build must run ProductionHardeningTest')
-require('dev.livingrealms.LivingWorldDensityTest' in production_ps,'Windows production build must run LivingWorldDensityTest')
+test_script=(root/'scripts/test-core.sh').read_text()
+require('scripts/core-tests.list' in test_script or 'core-tests.list' in test_script,'test-core.sh must execute scripts/core-tests.list')
+require('core-tests.list' in production_ps,'Windows production build must execute scripts/core-tests.list')
+require('./scripts/test-core.sh' in production_sh,'Linux production build must invoke scripts/test-core.sh')
 require("Get-ChildItem -Path" in production_ps,'Windows production build must use explicit -Path source discovery')
 require("clean build" in production_ps,'Windows production build must perform a clean linked Gradle build')
 require('python3 ./scripts/release-audit.py' in production_sh,'Linux production build must run release source audit')
 require('clean build' in production_sh,'Linux production build must perform a clean linked Gradle build')
-prod_sh=(root/'build-production.sh').read_text()
-prod_ps1=(root/'build-production.ps1').read_text()
+require('write-release-manifest.py' in production_sh and 'write-release-manifest.py' in production_ps,'production builds must emit RELEASE_MANIFEST.json')
+require('--no-build-cache' in production_sh,'Linux production linked build must disable Gradle build cache as release evidence')
+require((root/'scripts/write-release-manifest.py').exists(),'release manifest writer must exist')
+prod_sh=production_sh
+prod_ps1=production_ps
 for build_script,name in [(prod_sh,'build-production.sh'),(prod_ps1,'build-production.ps1')]:
     require('31c55713e40233a8303827ceb42ca48a47267a0ad4bab9177123121e71524c26' in build_script,f'{name} must verify the official Gradle 8.10.2 binary checksum')
 
-
 # Release test suite must retain exact long-run and projection stress gates.
-test_script=(root/'scripts/test-core.sh').read_text()
 soak_test=(root/'src/testCore/java/dev/livingrealms/LongRunSoakTest.java').read_text()
 stress_test=root/'src/testCore/java/dev/livingrealms/ProjectionStressTest.java'
 migration_test=root/'src/testCore/java/dev/livingrealms/SaveMigrationMatrixTest.java'
@@ -136,20 +198,13 @@ hardening_test=root/'src/testCore/java/dev/livingrealms/ProductionHardeningTest.
 density_test=root/'src/testCore/java/dev/livingrealms/LivingWorldDensityTest.java'
 worldgen_quality_test=(root/'src/testCore/java/dev/livingrealms/WorldgenQualityTest.java')
 require(worldgen_quality_test.exists(),'worldgen quality regression gate must exist')
-require('dev.livingrealms.WorldgenQualityTest' in test_script,'worldgen quality gate must run in test-core.sh')
-require('dev.livingrealms.ProjectionStressTest' in test_script,'projection stress test must run in test-core.sh')
 require(stress_test.exists(),'ProjectionStressTest.java must exist')
-require('dev.livingrealms.SaveMigrationMatrixTest' in test_script,'save migration matrix must run in test-core.sh')
 require(migration_test.exists(),'SaveMigrationMatrixTest.java must exist')
-require('dev.livingrealms.SaveIntegrityTest' in test_script,'save integrity test must run in test-core.sh')
 require(integrity_test.exists(),'SaveIntegrityTest.java must exist')
-require('dev.livingrealms.SaveMutationFuzzTest' in test_script,'save mutation fuzz must run in test-core.sh')
 require(fuzz_test.exists(),'SaveMutationFuzzTest.java must exist')
-require('dev.livingrealms.ProductionHardeningTest' in test_script,'production hardening test must run in test-core.sh')
 require(hardening_test.exists(),'ProductionHardeningTest.java must exist')
-require('dev.livingrealms.LivingWorldDensityTest' in test_script,'living-world density test must run in test-core.sh')
 require(density_test.exists(),'LivingWorldDensityTest.java must exist')
-require('12 kingdoms + Wizard Trees / 219+ settlements' in density_test.read_text(),'living-world gate must retain twelve kingdoms plus the hidden Wizard Trees faction')
+require('12 kingdoms + Wizard Trees / 380+ settlements' in density_test.read_text(),'living-world gate must retain twelve kingdoms plus the hidden Wizard Trees faction')
 founder=(root/'src/main/java/dev/livingrealms/sim/player/PlayerSettlementFounder.java').read_text()
 require('Realm of ' in founder and 'assumeRule' in founder and 'relationWith' in founder,'player-founded settlements must enter canonical government/membership/diplomacy as the actual ruler')
 saved_data=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java').read_text()
@@ -341,8 +396,8 @@ if dialogue_screen.exists():
     client_dialogue=(root/'src/main/java/dev/livingrealms/minecraft/client/ui/NpcDialogueClientState.java').read_text()
     require('DialogueMessagePayload' in client_dialogue,'NPC dialogue client state must send the bounded dialogue payload')
 require('DialogueSessionRuntime.reply' in (root/'src/main/java/dev/livingrealms/minecraft/network/LivingRealmsNetwork.java').read_text(),'dialogue messages must be handled on the integrated server')
-require(society_test.exists() and 'SocietyDialogueTest' in (root/'scripts/test-core.sh').read_text(),'society/dialogue regression gate must remain in the core suite')
-require(all(t in (root/'build-production.ps1').read_text() for t in ['SocietyDialogueTest','SocietyInfrastructureTest','WizardTreesTest']),'Windows production runner must execute all Living Society gates')
+require(society_test.exists() and 'dev.livingrealms.SocietyDialogueTest' in canonical_tests,'society/dialogue regression gate must remain in the core suite')
+require(all(t in canonical_tests for t in ['dev.livingrealms.SocietyDialogueTest','dev.livingrealms.SocietyInfrastructureTest','dev.livingrealms.WizardTreesTest']),'Windows/Linux production runners must execute all Living Society gates via core-tests.list')
 
 # Wizard Trees must remain a dedicated hidden underground faction rather than a surface reskin.
 wizard_seed=root/'src/main/java/dev/livingrealms/sim/world/WizardTreesSeeder.java'
@@ -353,7 +408,7 @@ if wizard_seed.exists(): require('FACTION_NAME="Wizard Trees"' in wizard_seed.re
 if wizard_plan.exists(): require('WIZARD_GROVE' in wizard_plan.read_text() and 'WIZARD_TUNNEL' in wizard_plan.read_text(),'Wizard Trees must retain underground grove/tunnel planning')
 require('WizardTreesPlanner.pending' in construction_runtime and 'safeWizardExcavate' in construction_runtime,'Minecraft construction must route Wizard Trees through bounded underground excavation')
 require('REDSTONE_LIGHT' in (root/'src/main/java/dev/livingrealms/sim/construction/StructureBlueprintFactory.java').read_text(),'Wizard Trees grow chamber must retain redstone-light semantics')
-require((root/'src/testCore/java/dev/livingrealms/WizardTreesTest.java').exists() and 'WizardTreesTest' in (root/'scripts/test-core.sh').read_text(),'Wizard Trees regression gate must remain enabled')
+require((root/'src/testCore/java/dev/livingrealms/WizardTreesTest.java').exists() and 'dev.livingrealms.WizardTreesTest' in canonical_tests,'Wizard Trees regression gate must remain enabled')
 
 # Minecraft 1.21.1 Slot.container is package-private; use the public inventory identity API.
 for java_file in (root/'src/main/java').rglob('*.java'):
@@ -372,4 +427,4 @@ if errors:
     for e in errors: print(' -',e)
     sys.exit(1)
 
-print(f'PASS release audit: metadata + side safety + optional-mod isolation + {len(files)} species JSONs + assets + schema/protocol pins')
+print(f'PASS release audit: metadata + side safety + optional-mod isolation + {len(files)} species JSONs + assets + schema{schema_version}/protocol{dashboard_protocol}/net{network_version}/content{content_revision} + {len(canonical_tests)} core tests')
