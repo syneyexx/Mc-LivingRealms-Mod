@@ -31,6 +31,7 @@ public final class TradeEngine {
             shipment.advanceDistance(speed);
             if(intercepted(state,shipment,route,rng)) {
                 settleInsurance(state,shipment);
+                state.liveness().onShipmentIntercepted();
                 state.history().add(new WorldEvent(state.clock().day(),"trade_intercepted",describe(shipment)+(route==null?"":", route="+route.id())));
                 remove.add(shipment.id());continue;
             }
@@ -42,6 +43,7 @@ public final class TradeEngine {
                     if(dest!=null){dest.stockpile().add(shipment.resource(),localShare);dest.enforceStorageCaps();}
                     else strategic=shipment.amount();
                     buyer.stockpile().add(shipment.resource(),strategic);
+                    state.liveness().onShipmentDelivered();
                     state.history().add(new WorldEvent(state.clock().day(),"trade_delivered",describe(shipment)+(route==null?"":", route="+route.id())));
                 }
                 remove.add(shipment.id());
@@ -146,7 +148,7 @@ public final class TradeEngine {
             if(onRoute>=Math.max(1,(long)(route.get().capacityPerDay()/180.0)))return;
         }
         drawForTrade(seller,origin,resource,amount);double value=amount*price;buyer.addTreasury(-value);seller.addTreasury(value);
-        TradeShipment shipment=new TradeShipment(state.nextId(),seller.id(),buyer.id(),resource,amount,value,origin.position(),destination.position());state.addShipment(shipment);state.history().add(new WorldEvent(state.clock().day(),"trade_dispatched",describe(shipment)+", price="+String.format(java.util.Locale.ROOT,"%.2f",price)+(route.map(r->", route="+r.id()).orElse(""))));
+        TradeShipment shipment=new TradeShipment(state.nextId(),seller.id(),buyer.id(),resource,amount,value,origin.position(),destination.position());state.addShipment(shipment);state.liveness().onShipmentDispatched();state.history().add(new WorldEvent(state.clock().day(),"trade_dispatched",describe(shipment)+", price="+String.format(java.util.Locale.ROOT,"%.2f",price)+(route.map(r->", route="+r.id()).orElse(""))));
     }
 
     private static double localHeld(Faction f,ResourceType r){double t=0;for(Settlement s:f.settlements())t+=s.stockpile().get(r);return t;}

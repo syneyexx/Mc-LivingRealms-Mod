@@ -58,6 +58,9 @@ public final class ProductionQualityTest {
         check(!fixes.isEmpty(), "door above street must produce stair/landing fixes");
         check(fixes.stream().anyMatch(f -> f.slot() == PaletteSlot.FOUNDATION), "access fix must include foundation steps");
         check(EntranceAccessPlanner.plan(0, -5, 70, 70).isEmpty(), "level entrance needs no fix");
+        check(EntranceAccessPlanner.canRepair(70, 64), "six-block grade must be repairable");
+        List<EntranceAccessPlanner.AccessFix> steep = EntranceAccessPlanner.plan(0, -5, 70, 64);
+        check(steep.size() >= 6, "steep entrance must produce switchback/retaining fixes");
     }
 
     private static void physicalCatchupBacklog() {

@@ -11,8 +11,8 @@ This roadmap reflects the current **v3.0.0-rc4** codebase. The older prototype c
 
 ## v3.0 — feature-complete singleplayer candidate
 - [x] Deterministic civilization/ecology core.
-- [x] Versioned persistent world state through schema 10.
-- [x] Save migration support for schemas 1-10.
+- [x] Versioned persistent world state through schema 16.
+- [x] Save migration support for schemas 1-16.
 - [x] Strict save corruption/truncation/trailing-data regression gates.
 - [x] 134-species bundled ecology pack and spatial biome overlay.
 - [x] Factions, settlements, government, society, diplomacy, war, sieges and conquest.
@@ -21,7 +21,7 @@ This roadmap reflects the current **v3.0.0-rc4** codebase. The older prototype c
 - [x] Crime, notoriety, property theft, bounty hunting and custody.
 - [x] Player faction membership, rank/service, tax controls and settlement development policies.
 - [x] Aviation, naval systems, military physical projection and loss reconciliation.
-- [x] Server-authoritative 14-tab dashboard with bounded protocol v12 snapshots.
+- [x] Server-authoritative dashboard with bounded protocol **14** snapshots (F12).
 - [x] Runtime performance profiles persisted in the world.
 - [x] Fixed target-modpack integration policy, including Iron's Lib, registry/API compatible content integration, Create Deep Seas/Aeronautics exclusions, explicit Guns++ and GamingBarn's Guns NPC deny-lists.
 - [x] Exact 3650-day deterministic soak with 30/365/3650 persistence/invariant checkpoints.

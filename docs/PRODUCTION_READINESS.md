@@ -8,7 +8,7 @@
 - Deterministic 365-day replay and exact 3650-day soak with 30/365/3650 persistence checkpoints.
 - 134-species bundled-data audit and strategic completeness suite.
 - Projection stress/reconciliation for wildlife, caravans, citizens, armies, aircraft and fleets.
-- Save migration coverage for schemas 1 through 10.
+- Save migration coverage for schemas 1 through 16.
 - Current-state semantic validation on encode/decode and canonical ID watermark repair.
 - Save corruption/truncation/trailing-data rejection, 32 MiB payload ceiling, 64 KiB string ceiling and strict UTF-8.
 - SavedData payload checksum plus outer/inner schema consistency; legacy/pre-checksum rewrite path.
@@ -37,8 +37,8 @@
 
 See `docs/RELEASE_GATES.md` for the detailed test procedure.
 
-## Buildfix10 acceptance focus
-- Existing buildfix9 saves upgrade once to `ContentRevision=4` and expand to the 12-kingdom/216-settlement starter network. The older revision-3 malformed-construction rebuild remains one-shot and is not repeated by revision 4.
+## Current acceptance focus
+- Existing RC4 saves upgrade once through `ContentRevision=8` and schema **16**. Starter density is twelve kingdoms + Wizard Trees with **380+** settlements. Construction completion now requires physically acceptable required geometry; player/foreign block entities and non-authored builds are protected.
 - M opens the world map and visibly reports discovered ecology/biomes, kingdoms, settlements, routes, armies and war fronts without client-authoritative state.
 - K in creative opens the searchable live-registry item catalog; item spawning must be rejected server-side for non-creative players or invalid item IDs.
 - `/livingrealms locate city` and `/livingrealms locate mine` return canonical coordinates; `/livingrealms found Newhaven` creates a player-controlled realm only when location/membership rules allow it.

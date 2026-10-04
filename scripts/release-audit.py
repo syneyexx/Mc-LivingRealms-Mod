@@ -159,6 +159,7 @@ required_suite={
     'dev.livingrealms.FaithAndInfrastructureTest',
     'dev.livingrealms.BanditAndPriceRumorTest',
     'dev.livingrealms.TradeHouseholdEcologyTest',
+    'dev.livingrealms.TradeLivenessTest',
     'dev.livingrealms.HumanityLifecycleTest',
     'dev.livingrealms.CitizenConversationTest',
     'dev.livingrealms.ResourceDominanceTest',

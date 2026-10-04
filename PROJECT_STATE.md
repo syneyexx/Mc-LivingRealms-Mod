@@ -1,20 +1,20 @@
 # Living Realms project state
 
-**Checkpoint:** v3.0.0-rc4 buildfix14 — A–Z / Claude masterplan deepening
+**Checkpoint:** v3.0.0-rc4 production-hardening pass (release truth + construction integrity)
 
-## Current production state (buildfix14 + masterplan pass)
-- Starter density target is **32** settlements per surface realm (~387 with Wizard Trees) including fertile rural hamlets; physical entities/blocks remain player-local and budgeted.
+## Current production state
+- Starter density target is **32** settlements per surface realm (~380+ with Wizard Trees) including fertile rural hamlets; physical entities/blocks remain player-local and budgeted.
 - Local settlement economy (schema **16**): barn/granary/stockpile, seasonal farms/pastures, agrarian crop mix, faith calendars, route upkeep, typed bandits, trader price rumors.
 - See `docs/DETAIL_MATRIX.md` for per-detail masterplan status.
-- Settlement streets are orthogonal/connected and include residential side streets + sidewalks; houses use cottage/longhouse/townhouse/porch variants and towns/cities add multi-storey apartment blocks.
-- Building floors are walkable; real faction wood doors are placed; EntranceAccessPlanner repairs door↔street grade mismatches. Tier-specific road/keep/wall/gate keys ensure settlements physically expand again after population-tier upgrades.
-- The spawn kingdom is city-scale with capital castle footprint; capitals also project a small court cluster.
-- Intercity routes use bounded terrain-cost corridor planning with local grade detours and water bridge decks.
-- `/setday`/`advance` catch-up uses PhysicalDevelopmentReconciler. M-map/dialogue/dashboard/catalog have no vanilla blur; M paints cached terrain when loaded. Dashboard key is F12.
-- Villagers + allowlisted civilians enter no-LLM dialogue; sneak-interact preserves native trading.
+- Settlement streets are orthogonal/connected and include residential side streets + sidewalks; houses use cottage/longhouse/townhouse/porch variants and towns/cities add multi-storey apartment blocks with density-compressed housing capacity.
+- Construction completion requires physically acceptable required geometry (`StructureMaterializationReceipt`). Decorative skips are allowed; missing foundation/wall/door/path is not.
+- Authored-block provenance (`AuthoredBlockLedger`, ContentRevision **8**) protects player/foreign builds; block entities remain a hard stop.
+- Building floors are walkable; real faction wood doors are placed; EntranceAccessPlanner repairs door↔street grades including steeper switchbacks. Tier-specific road/keep/wall/gate keys ensure settlements physically expand after tier upgrades.
+- Intercity routes use bounded terrain-cost corridor planning **without** destructive straight-road fallback. SettlementGeographyProfile drives water modes (name heuristic is bootstrap/fallback only).
+- `/setday`/`advance` catch-up uses PhysicalDevelopmentReconciler. Dashboard key is **F12**; world map **M**; creative catalog **K**.
 - Waystones: one Living Realms-authored stone per settlement with outer-save provenance; player stones are never auto-destroyed.
-- Locate covers city/mine/tiers plus kingdom/market/port/wizardtrees/ruin via LocateQuery.
-- `WorldgenQualityTest` and `ProductionQualityTest` are mandatory. Ledger: `IMPLEMENTATION_LEDGER.md`.
+- Release suite is driven by `scripts/core-tests.list` (Linux + Windows parity). Production runners emit `RELEASE_MANIFEST.json`.
+- Ledger: `IMPLEMENTATION_LEDGER.md`.
 
 ## Verified core gates
 - Java 21 core compiles with `-Xlint:all -Werror`.
@@ -22,7 +22,11 @@
 - Full bundled species-pack audit passes: **134 species** with explicit morphology/locomotion fields and a validated food web.
 - Strategic completeness suite passes.
 - 3650-day deterministic soak now has explicit persistence/invariant gates at day 30, 365 and 3650, plus a biodiversity floor.
-- Save schema is **16**; schemas 1-15 remain readable. Schema 16 persists per-settlement barn/granary capacity and local stockpiles. Dashboard snapshot protocol is **14**. Outer Minecraft `ContentRevision=7` adds Waystone provenance and keeps the revision-6 physical settlement-layout rebuild.
+- Save schema is **16**; schemas 1-15 remain readable. Schema 16 persists per-settlement barn/granary capacity and local stockpiles. Dashboard snapshot protocol is **14**. Outer Minecraft `ContentRevision=8` adds authored-block ledger + geography sidecar while keeping Waystone provenance and the revision-6 layout rebuild.
+- `ConstructionIntegrityTest` and `TradeLivenessTest` are mandatory core gates.
+
+## Explicit status claim
+**CODE COMPLETE for completed P0/P1 hardening tranches / EXTERNAL GATE UNVERIFIED** — linked NeoForge clean build, fresh/migrated world smoke, and full modpack matrix are not claimed green from this environment alone.
 
 ## Ecology/world integration
 - Ecosystem regions now have canonical world centers instead of existing only as abstract biome buckets.

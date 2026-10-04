@@ -2,6 +2,7 @@ package dev.livingrealms.minecraft;
 
 import dev.livingrealms.minecraft.compat.WaystoneSettlementRuntime;
 import dev.livingrealms.minecraft.construction.AuthoredBlockLedgerNbt;
+import dev.livingrealms.minecraft.construction.SettlementGeographyNbt;
 import dev.livingrealms.sim.construction.AuthoredBlockLedger;
 import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.world.DemoSeeder;
@@ -74,6 +75,7 @@ public final class LivingRealmsSavedData extends SavedData {
         LivingRealmsSavedData loaded = new LivingRealmsSavedData(SimulationStateCodec.decode(payload, SpeciesDataRegistry.current()));
         loaded.waystonesBySettlement.putAll(WaystoneSettlementRuntime.readProvenance(tag));
         AuthoredBlockLedgerNbt.read(tag, loaded.authoredBlocks);
+        SettlementGeographyNbt.read(tag, loaded.state());
         // Revision 3 rebuilt unsafe early-RC structures. Revision 4 expands the canonical world
         // to the twelve-kingdom target while preserving already-migrated physical construction.
         int densityChanges = contentRevision < 6 ? SettlementDensitySeeder.ensureStarterDensity(loaded.state()) : 0;
@@ -127,6 +129,7 @@ public final class LivingRealmsSavedData extends SavedData {
         tag.putInt(KEY_CONTENT_REVISION, CONTENT_REVISION);
         WaystoneSettlementRuntime.writeProvenance(tag, waystonesBySettlement);
         AuthoredBlockLedgerNbt.write(tag, authoredBlocks);
+        SettlementGeographyNbt.write(tag, state);
         return tag;
     }
 }

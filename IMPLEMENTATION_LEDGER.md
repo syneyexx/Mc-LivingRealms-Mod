@@ -33,9 +33,10 @@ COMPLETE only when: model + sim + save + runtime + feedback + integration + test
 | Create | 6.0.10 |
 | Save schema | **16** (1–15 readable; settlement stockpiles) |
 | Dashboard protocol | **14** |
-| ContentRevision | **7** (Waystone provenance; keeps rev-6 construction rebuild) |
+| ContentRevision | **8** (authored-block ledger + geography sidecar; Waystone provenance; keeps rev-6 construction rebuild) |
 | Dashboard key | F12 |
 | Map key | M |
+| Core suite source | `scripts/core-tests.list` (Linux/Windows parity) |
 
 ---
 

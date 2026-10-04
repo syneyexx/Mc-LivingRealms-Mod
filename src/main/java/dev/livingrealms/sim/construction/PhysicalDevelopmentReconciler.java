@@ -54,9 +54,15 @@ public final class PhysicalDevelopmentReconciler {
                 .filter(i -> i.role() != StructureRole.HOUSE && i.role() != StructureRole.ROAD && i.role() != StructureRole.FARM)
                 .count() + civicDone;
 
-        // Population-facing housing gap: each completed house intent is treated as ~8 capacity units
-        // for deficit signalling (canonical housing stock remains Settlement#housing).
-        int physicalHousingEstimate = housesDone * 8;
+        // Population-facing housing gap uses density compression (cottage/townhouse/apartment).
+        // Canonical housing stock remains Settlement#housing; this estimates visible capacity.
+        int physicalHousingEstimate = 0;
+        for (ConstructionIntent intent : SettlementPlanner.plan(faction, settlement)) {
+            if (intent.role() != StructureRole.HOUSE) continue;
+            if (!settlement.isConstructionCompleted(intent.key())) continue;
+            physicalHousingEstimate += HousingCapacity.representedResidents(intent);
+        }
+        if (physicalHousingEstimate == 0 && housesDone > 0) physicalHousingEstimate = housesDone * 8;
         int housingCapacityGap = Math.max(0, settlement.population() - Math.max(settlement.housing(), physicalHousingEstimate));
 
         int roadGap = Math.max(0, expectedRoads(settlement) - roadsDone);
