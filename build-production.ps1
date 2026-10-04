@@ -34,16 +34,24 @@ $sources += Get-ChildItem -Path (Join-Path $root 'src\main\java\dev\livingrealms
 $sources += Get-ChildItem -Path (Join-Path $root 'src\testCore\java') -Recurse -Filter *.java | ForEach-Object FullName
 if ($sources.Count -lt 1) { throw 'No core Java sources found for Windows core suite.' }
 # Windows CreateProcess cmdline is ~8191 chars; 300+ absolute paths blow past that.
-# javac @argfile keeps the process argv short (paths with spaces are quoted).
+# javac @argfile keeps the process argv short. Inside quoted argfile tokens, '\' is an
+# escape — so use forward slashes (accepted by javac on Windows) instead of backslashes.
+function Format-JavacArgPath([string]$path) {
+    $normalized = ($path -replace '\\', '/')
+    if ($normalized -match '[\s"]') {
+        return '"' + ($normalized -replace '"', '\"') + '"'
+    }
+    return $normalized
+}
 $argFile = Join-Path $coreOut 'javac-sources.args'
 $argLines = @(
     '--release', '21',
     '-Xlint:all',
     '-Werror',
-    '-d', ('"{0}"' -f $coreOut)
+    '-d', (Format-JavacArgPath $coreOut)
 )
 foreach ($source in $sources) {
-    $argLines += ('"{0}"' -f $source)
+    $argLines += (Format-JavacArgPath $source)
 }
 Set-Content -LiteralPath $argFile -Value $argLines -Encoding ascii
 & javac "@$argFile"
