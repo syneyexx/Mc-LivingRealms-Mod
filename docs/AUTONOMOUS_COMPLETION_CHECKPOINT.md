@@ -1,7 +1,7 @@
 # Living Realms Autonomous Completion Checkpoint
 
-Current wave: court presentation + INFRASTRUCTURE_REPAIR after morphology/causality/nightlife/plazas  
-Current objective: Continue remaining presentation/sim depth waves; linked build next  
+Current wave: court + infrastructure repair + wildlife family textures + linked build green  
+Current objective: Remaining runtime smoke / bespoke art external gates; continue any residual PARTIAL polish  
 
 ## Completed waves (this session)
 
@@ -11,12 +11,14 @@ Current objective: Continue remaining presentation/sim depth waves; linked build
 - Wave 4 — `SettlementMorphology` geography-derived street patterns (coastal/river/hill/radial/organic/…)
 - Wave 6/174 — sidewalk lights + benches; `StructureRole.PLAZA` civic squares
 - Wave 54 — Ops assistance task board (dashboard protocol 16)
-- Wave 63 — court/ruler presentation: keep spawn, government titles, distinct skins, dialogue self/ruler awareness
-- Wave 87–91 — ship class part visibility; wildlife mass-driven scale
+- Wave 63 — court/ruler presentation: keep spawn, government titles, distinct skins, dialogue self/ruler awareness, ceremonial gold armor
+- Wave 87–91 — ship class part visibility; wildlife mass-driven scale + morphology family textures
 - Wave 116 — `WorldCauseExplainer` + dashboard protocol **16** cause summaries + dialogue wiring
 - Wave 139 — night curfew / low-order nightlife in `CitizenRoutinePlanner`
 - Wave assistance — `AssistanceTaskType.INFRASTRUCTURE_REPAIR` (stone aid → routes/industry/infra)
 - ContentRevision **10** — one-shot construction completion rebuild for new morphology
+- Docs truth — DETAIL_MATRIX / ledger pins aligned to schema16/protocol16/net14/content10
+- Linked NeoForge/Create `build-production.sh` — **PASS** (JAR produced)
 
 ## Architecture decisions
 
@@ -28,17 +30,18 @@ Current objective: Continue remaining presentation/sim depth waves; linked build
 ## Tests currently passing
 
 `./scripts/test-core.sh` — **36/36 PASS** including `OrganicMorphologyAndCauseTest`, infrastructure-repair aid, and 3650-day soak.  
-`python3 ./scripts/release-audit.py` — PASS (schema16/protocol16/net14/content10).
+`python3 ./scripts/release-audit.py` — PASS (schema16/protocol16/net14/content10).  
+`./build-production.sh` — linked NeoForge/Create build **PASS**.
 
 ## Known runtime-unverified gates
 
 - `runtimeSmoke: unverified`
 - `gameTests: unverified`
 - Full modpack client/server smoke
-- Linked NeoForge/Create `build-production.sh` (Gradle bootstrap may be network-blocked)
+- Bespoke wildlife meshes/animations beyond morphology-family textures
 
 ## Exact next action
 
-1. Commit/push + update PR #7  
-2. Run linked `./build-production.sh` if deps allow  
-3. Continue remaining PARTIAL presentation rows (wildlife art, linked smoke) and docs truth pass  
+1. Keep PR #7 updated with clean release manifest  
+2. Runtime client smoke when a playtest environment is available  
+3. Optional deeper art pass for wildlife/court meshes  
