@@ -110,7 +110,7 @@ require(schema_version==16,f'save schema must be 16 (source currently {schema_ve
 require(min_schema==1,f'min supported schema must remain 1 (source {min_schema})')
 require(dashboard_protocol==14,f'dashboard protocol must be 14 (source {dashboard_protocol})')
 require(network_version=='12',f'network registration version must be 12 (source {network_version!r})')
-require(content_revision==8,f'content revision must be 8 (source {content_revision})')
+require(content_revision==9,f'content revision must be 9 (source {content_revision})')
 
 
 
@@ -211,14 +211,20 @@ founder=(root/'src/main/java/dev/livingrealms/sim/player/PlayerSettlementFounder
 require('Realm of ' in founder and 'assumeRule' in founder and 'relationWith' in founder,'player-founded settlements must enter canonical government/membership/diplomacy as the actual ruler')
 saved_data=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java').read_text()
 require('ContentRevision' in saved_data and 'contentRevision < CONTENT_REVISION' in saved_data,'density content migration must remain one-shot and persisted')
-require('resetConstructionCompletion' in saved_data and 'contentRevision < 6' in saved_data and 'CONTENT_REVISION = 8' in saved_data,'content revision 8 keeps revision-6 construction rebuild, Waystone provenance, and authored-block ledger without schema bump')
+require('resetConstructionCompletion' in saved_data and 'contentRevision < 6' in saved_data and 'CONTENT_REVISION = 9' in saved_data,'content revision 9 keeps revision-6 construction rebuild, Waystone provenance, and typed authored-block ledger without schema bump')
 require('AuthoredBlockLedger' in saved_data or 'authoredBlocks' in saved_data,'SavedData must persist authored construction provenance outside schema payload')
 construction_runtime_text=(root/'src/main/java/dev/livingrealms/minecraft/construction/SettlementConstructionMaterializer.java').read_text()
 require('OBSTRUCTED_PROTECTED' in construction_runtime_text and 'AuthoredBlockLedger' in construction_runtime_text,'construction materializer must use provenance-aware obstruction results')
+require('ConstructionRetryKey' in construction_runtime_text,'construction retry/backoff must use globally stable settlement-scoped keys')
+require('WorldMutationGuard' in construction_runtime_text,'settlement construction must use shared WorldMutationGuard')
 require('hasChunkAt(center)) continue' in construction_runtime_text or 'hasChunkAt(center))continue' in construction_runtime_text.replace(' ',''),'unloaded construction intents must continue to later loaded work, not break the settlement scan')
 require('physicallyComplete' in (root/'src/main/java/dev/livingrealms/sim/construction/ConstructionJob.java').read_text(),'construction jobs must expose physical completion distinct from cursor completion')
+require((root/'src/main/java/dev/livingrealms/sim/construction/AuthoredOwnerType.java').exists(),'typed provenance owner classes must exist')
+require((root/'src/main/java/dev/livingrealms/minecraft/construction/WorldMutationGuard.java').exists(),'shared WorldMutationGuard must exist')
+require((root/'src/main/java/dev/livingrealms/minecraft/construction/SettlementGeographyDiscoveryRuntime.java').exists(),'Minecraft geography discovery runtime must exist')
 require('return List.of()' in (root/'src/main/java/dev/livingrealms/sim/transport/TerrainCorridorPlanner.java').read_text() and 'straight(' not in (root/'src/main/java/dev/livingrealms/sim/transport/TerrainCorridorPlanner.java').read_text(),'terrain corridor must not fall back to destructive straight roads')
 events_text=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsEvents.java').read_text()
+require('SettlementGeographyDiscoveryRuntime.tick' in events_text,'server tick must run settlement geography discovery from loaded chunks')
 require('Commands.literal("setday")' in events_text and 'advanceToDay(target)' in events_text,'absolute setday command must run canonical simulation progression')
 require('Commands.literal("locate")' in events_text and 'Commands.literal("city")' in events_text,'Living Realms locate commands must remain registered')
 require('Commands.literal("found")' in events_text and 'PlayerSettlementFounder.found' in events_text,'player-founded realm command must remain registered')
@@ -340,10 +346,21 @@ require('SpawnKingdomRuntime.ensure' in events and 'ForeignSettlementDiscoveryRu
 if foreign_structure.exists():
     fs=foreign_structure.read_text()
     require('startsForStructure' in fs and 'SCANNED_CHUNKS' in fs,'foreign structure adoption must use loaded structure starts with bounded per-session scanning')
+    require('pathContainsOnlyWeakTokens' in fs or 'MIN_SETTLEMENT_AREA' in fs,'foreign structure adoption must reject lone house/building/tower classifications')
 if foreign_bootstrap.exists():
     fb=foreign_bootstrap.read_text()
     require('preserveExistingInfrastructure' in fb and 'markConstructionCompleted' in fb,'adopted villages/structures must preserve their existing physical infrastructure before future growth')
+    require('foreign:adopted_footprint' in fb,'foreign adoption must record an explicit adopted-footprint marker')
+    require('PrimaryEconomyPlanner' not in fb or 'Intentionally do NOT mark PrimaryEconomyPlanner' in fb,'foreign adoption must not auto-complete primary economy mines/fisheries/lumber camps')
 require(all(token in citizen_runtime for token in ['workLumber','workFarm','workMine','workFish','huntWildlife']),'civilian runtime must retain physical lumber/farm/mine/fish/hunt work loops')
+require('stockpile().add' not in citizen_runtime,'physical workers must not add canonical stockpile resources from loaded-chunk projection')
+require('findAuthoredWorksite' in citizen_runtime,'physical workers must bind to Living Realms-authored worksites instead of free-radius destruction')
+transport_text=(root/'src/main/java/dev/livingrealms/minecraft/construction/TransportNetworkMaterializer.java').read_text()
+industry_text=(root/'src/main/java/dev/livingrealms/minecraft/construction/IndustrialSiteMaterializer.java').read_text()
+historical_text=(root/'src/main/java/dev/livingrealms/minecraft/construction/HistoricalSiteMaterializer.java').read_text()
+require('WorldMutationGuard' in transport_text and 'AuthoredOwnerType.INTERCITY_ROUTE' in transport_text,'transport projection must use typed provenance mutation guard')
+require('WorldMutationGuard' in industry_text and 'AuthoredOwnerType.INDUSTRIAL_SITE' in industry_text,'industrial projection must use typed provenance mutation guard')
+require('AuthoredOwnerType.HIDDEN_CACHE' in historical_text and 'AuthoredOwnerType.HISTORICAL_RUIN' in historical_text,'historical sites must persist typed provenance')
 require('HumanoidArmorLayer' in citizen_renderer and 'ItemInHandLayer' in citizen_renderer,'citizen renderer must visibly render compatible armor and held tools/weapons')
 world_map=root/'src/main/java/dev/livingrealms/minecraft/client/ui/RealmWorldMapScreen.java'
 creative_catalog=root/'src/main/java/dev/livingrealms/minecraft/client/ui/CreativeItemCatalogScreen.java'

@@ -44,6 +44,7 @@ import dev.livingrealms.minecraft.network.DialogueRequestLimiter;
 import dev.livingrealms.minecraft.network.DialogueSessionRuntime;
 import dev.livingrealms.sim.law.CrimeType;
 import dev.livingrealms.minecraft.construction.SettlementConstructionMaterializer;
+import dev.livingrealms.minecraft.construction.SettlementGeographyDiscoveryRuntime;
 import dev.livingrealms.minecraft.construction.TransportNetworkMaterializer;
 import dev.livingrealms.minecraft.construction.IndustrialSiteMaterializer;
 import dev.livingrealms.minecraft.construction.HistoricalSiteMaterializer;
@@ -112,6 +113,7 @@ public final class LivingRealmsEvents {
             CustodyRuntime.tick(event.getServer(), data);
             CitizenConversationRuntime.tick(event.getServer(), data, tickCounter);
             HistoricalSiteMaterializer.tick(event.getServer().overworld(), data);
+            SettlementGeographyDiscoveryRuntime.tick(event.getServer().overworld(), data);
         }
         // Construction is budgeted every tick; only loaded chunks near players are touched.
         SettlementConstructionMaterializer.tick(event.getServer().overworld(), SimulationRuntime.data(event.getServer()));
@@ -258,6 +260,7 @@ public final class LivingRealmsEvents {
         DialogueSessionRuntime.clear();
         FactionContainerTheftRuntime.clear();
         SettlementConstructionMaterializer.clear();
+        SettlementGeographyDiscoveryRuntime.clear();
         HistoricalSiteMaterializer.clear();
         ForeignStructureDiscoveryRuntime.clear();
         tickCounter = 0;

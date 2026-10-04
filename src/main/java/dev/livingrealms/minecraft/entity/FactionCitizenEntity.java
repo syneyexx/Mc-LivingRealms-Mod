@@ -9,14 +9,10 @@ import dev.livingrealms.sim.civilian.CitizenRoutine;
 import dev.livingrealms.sim.civilian.CitizenRoutinePlanner;
 import dev.livingrealms.sim.law.*;
 import dev.livingrealms.sim.ecology.Diet;
-import dev.livingrealms.sim.faction.ResourceType;
+import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.social.SocialCitizen;
 import net.minecraft.core.BlockPos;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.level.block.CropBlock;
-import net.minecraft.world.level.block.state.BlockState;
 import java.util.Comparator;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -108,85 +104,55 @@ public final class FactionCitizenEntity extends PathfinderMob {
         else if(getTarget() instanceof LivingRealmsAnimalEntity)setTarget(null);
     }
 
+    /**
+     * Physical work is visualization only. Canonical economy remains authoritative; loaded chunks
+     * must never create extra stockpile production. Workers also must not destroy player/unknown blocks.
+     */
     private void workLumber(ServerLevel level,LivingRealmsSavedData data){
-        BlockPos log=findNaturalLog(level,blockPosition(),6);
-        if(log==null)return;
-        double dx=getX()-(log.getX()+.5),dy=getY()-(log.getY()+.5),dz=getZ()-(log.getZ()+.5);
-        if(dx*dx+dy*dy+dz*dz>6.25D){getNavigation().moveTo(log.getX()+.5,log.getY(),log.getZ()+.5,.95);return;}
-        if(level.destroyBlock(log,false,this)){
-            var faction=data.state().findFaction(factionId()).orElse(null);
-            if(faction!=null){faction.stockpile().add(ResourceType.WOOD,.75D);data.setDirty();}
-        }
+        BlockPos site=findAuthoredWorksite(level,data,blockPosition(),8,AuthoredOwnerType.INFRASTRUCTURE,AuthoredOwnerType.SETTLEMENT_STRUCTURE);
+        if(site==null){followRoutine(data.state());return;}
+        moveOrSwingAt(site,.95);
     }
 
     private void workFarm(ServerLevel level,LivingRealmsSavedData data){
-        BlockPos cropPos=findMatureCrop(level,blockPosition(),6);if(cropPos==null)return;
-        double dx=getX()-(cropPos.getX()+.5),dz=getZ()-(cropPos.getZ()+.5);
-        if(dx*dx+dz*dz>6.25D){getNavigation().moveTo(cropPos.getX()+.5,cropPos.getY(),cropPos.getZ()+.5,.9);return;}
-        BlockState state=level.getBlockState(cropPos);
-        if(!(state.getBlock() instanceof CropBlock crop)||!crop.isMaxAge(state))return;
-        level.setBlock(cropPos,crop.getStateForAge(0),3);
-        var faction=data.state().findFaction(factionId()).orElse(null);
-        if(faction!=null){faction.stockpile().add(ResourceType.FOOD,1.25D);data.setDirty();}
+        BlockPos site=findAuthoredWorksite(level,data,blockPosition(),8,AuthoredOwnerType.SETTLEMENT_STRUCTURE,AuthoredOwnerType.INFRASTRUCTURE);
+        if(site==null){followRoutine(data.state());return;}
+        moveOrSwingAt(site,.9);
     }
 
     private void workMine(ServerLevel level,LivingRealmsSavedData data){
-        BlockPos ore=findNaturalOre(level,blockPosition(),6);if(ore==null)return;
-        double dx=getX()-(ore.getX()+.5),dy=getY()-(ore.getY()+.5),dz=getZ()-(ore.getZ()+.5);
-        if(dx*dx+dy*dy+dz*dz>6.25D){getNavigation().moveTo(ore.getX()+.5,ore.getY(),ore.getZ()+.5,.86);return;}
-        BlockState state=level.getBlockState(ore);var id=BuiltInRegistries.BLOCK.getKey(state.getBlock());
-        if(id==null||!id.getPath().contains("ore")||state.hasBlockEntity())return;
-        if(level.destroyBlock(ore,false,this)){
-            var faction=data.state().findFaction(factionId()).orElse(null);
-            if(faction!=null){faction.stockpile().add(resourceForOre(id.getPath()),1.0D);data.setDirty();}
-        }
+        BlockPos site=findAuthoredWorksite(level,data,blockPosition(),8,AuthoredOwnerType.INFRASTRUCTURE);
+        if(site==null){followRoutine(data.state());return;}
+        moveOrSwingAt(site,.86);
     }
 
     private void workFish(ServerLevel level,LivingRealmsSavedData data){
-        if(!nearWater(level,blockPosition(),7))return;
-        var faction=data.state().findFaction(factionId()).orElse(null);
-        if(faction!=null){faction.stockpile().add(ResourceType.FOOD,.85D);data.setDirty();}
+        if(!nearWater(level,blockPosition(),7)){followRoutine(data.state());return;}
+        // Visual fishing only — no canonical stockpile mutation from loaded-chunk projection.
         swing(net.minecraft.world.InteractionHand.MAIN_HAND);
     }
 
-    private static BlockPos findMatureCrop(ServerLevel level,BlockPos center,int radius){
+    private void moveOrSwingAt(BlockPos site,double speed){
+        double dx=getX()-(site.getX()+.5),dy=getY()-(site.getY()+.5),dz=getZ()-(site.getZ()+.5);
+        if(dx*dx+dy*dy+dz*dz>6.25D){getNavigation().moveTo(site.getX()+.5,site.getY(),site.getZ()+.5,speed);return;}
+        swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+    }
+
+    private static BlockPos findAuthoredWorksite(ServerLevel level,LivingRealmsSavedData data,BlockPos center,int radius,AuthoredOwnerType... owners){
+        if(data==null||owners==null||owners.length==0)return null;
         BlockPos best=null;double bestDistance=Double.POSITIVE_INFINITY;
-        for(BlockPos pos:BlockPos.betweenClosed(center.offset(-radius,-2,-radius),center.offset(radius,2,radius))){
-            BlockState state=level.getBlockState(pos);if(!(state.getBlock() instanceof CropBlock crop)||!crop.isMaxAge(state))continue;
-            double d=pos.distSqr(center);if(d<bestDistance){bestDistance=d;best=pos.immutable();}
-        }return best;
-    }
-
-    private static BlockPos findNaturalOre(ServerLevel level,BlockPos center,int radius){
-        BlockPos best=null;double bestDistance=Double.POSITIVE_INFINITY;
-        for(BlockPos pos:BlockPos.betweenClosed(center.offset(-radius,-5,-radius),center.offset(radius,4,radius))){
-            BlockState state=level.getBlockState(pos);if(state.hasBlockEntity())continue;
-            var id=BuiltInRegistries.BLOCK.getKey(state.getBlock());if(id==null||!id.getPath().contains("ore"))continue;
-            double d=pos.distSqr(center);if(d<bestDistance){bestDistance=d;best=pos.immutable();}
-        }return best;
-    }
-
-    private static boolean nearWater(ServerLevel level,BlockPos center,int radius){
-        for(BlockPos pos:BlockPos.betweenClosed(center.offset(-radius,-2,-radius),center.offset(radius,2,radius)))if(level.getFluidState(pos).is(FluidTags.WATER))return true;
-        return false;
-    }
-
-    private static ResourceType resourceForOre(String path){
-        String p=path.toLowerCase(java.util.Locale.ROOT);
-        if(p.contains("iron"))return ResourceType.IRON;if(p.contains("copper"))return ResourceType.COPPER;if(p.contains("gold"))return ResourceType.GOLD;if(p.contains("coal"))return ResourceType.COAL;return ResourceType.STONE;
-    }
-
-    private static BlockPos findNaturalLog(ServerLevel level,BlockPos center,int radius){
-        BlockPos best=null;double bestDistance=Double.POSITIVE_INFINITY;
-        for(BlockPos pos:BlockPos.betweenClosed(center.offset(-radius,-3,-radius),center.offset(radius,5,radius))){
-            if(!level.getBlockState(pos).is(BlockTags.LOGS)||!hasLeaves(level,pos))continue;
+        for(BlockPos pos:BlockPos.betweenClosed(center.offset(-radius,-3,-radius),center.offset(radius,4,radius))){
+            AuthoredOwnerType owner=data.authoredBlocks().ownerType(pos.getX(),pos.getY(),pos.getZ());
+            if(owner==null)continue;
+            boolean match=false;for(AuthoredOwnerType allowed:owners)if(owner==allowed){match=true;break;}
+            if(!match)continue;
             double d=pos.distSqr(center);if(d<bestDistance){bestDistance=d;best=pos.immutable();}
         }
         return best;
     }
 
-    private static boolean hasLeaves(ServerLevel level,BlockPos log){
-        for(BlockPos p:BlockPos.betweenClosed(log.offset(-3,-2,-3),log.offset(3,5,3)))if(level.getBlockState(p).is(BlockTags.LEAVES))return true;
+    private static boolean nearWater(ServerLevel level,BlockPos center,int radius){
+        for(BlockPos pos:BlockPos.betweenClosed(center.offset(-radius,-2,-radius),center.offset(radius,2,radius)))if(level.getFluidState(pos).is(FluidTags.WATER))return true;
         return false;
     }
 

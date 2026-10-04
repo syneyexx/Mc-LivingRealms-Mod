@@ -26,10 +26,10 @@ public final class LivingRealmsSavedData extends SavedData {
     private static final String KEY_PAYLOAD_INTEGRITY = "PayloadCrc32Plus1";
     private static final String KEY_CONTENT_REVISION = "ContentRevision";
     /**
-     * Revision 8 keeps revision-7 Waystone provenance and adds a bounded authored-block ledger for
-     * construction safety without changing SimulationStateCodec schema 16 bytes.
+     * Revision 9 keeps revision-8 authored-block ledger bytes and adds typed ownership packing in
+     * unused high bits (ContentRevision sidecar only; SimulationStateCodec schema 16 unchanged).
      */
-    private static final int CONTENT_REVISION = 8;
+    private static final int CONTENT_REVISION = 9;
 
     private final SimulationState state;
     /** settlementId -> packed BlockPos of Living Realms-authored Waystone only. */
@@ -87,11 +87,10 @@ public final class LivingRealmsSavedData extends SavedData {
         if(contentRevision < 6){
             for(var faction:loaded.state().factions())for(var settlement:faction.settlements())constructionResets+=settlement.resetConstructionCompletion();
         }
-        // Revision 8 introduces authored-block provenance. Do not reset construction completion:
-        // existing completed keys stay; future overwrite protection uses the ledger + natural terrain.
-        // Legacy payloads, pre-checksum RC saves and older RC4 content are rewritten in the
-        // current validated form on the next normal Minecraft save. The content revision makes each
-        // world-content migration one-shot so later conquest/destruction is never resurrected.
+        // Revision 8 introduced authored-block provenance. Revision 9 adds typed ownership in the
+        // same NBT key (legacy type bits=0 => SETTLEMENT_STRUCTURE). Do not reset construction
+        // completion: existing completed keys stay; future overwrite protection uses typed ledger
+        // + natural terrain rules. Legacy payloads are rewritten on the next normal Minecraft save.
         if (outerSchema != SimulationStateCodec.SCHEMA_VERSION || expectedIntegrity == 0L || contentRevision < CONTENT_REVISION || densityChanges > 0 || wizardChanges > 0 || constructionResets > 0) loaded.setDirty();
         return loaded;
     }
