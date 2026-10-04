@@ -303,7 +303,11 @@ public final class CivilizationLifecycleEngine {
             for(SocialCitizen apprentice:entry.getValue()){
                 int age=apprentice.ageYears(day);if(age>32||apprentice.professionSkill()>=.88)continue;SocialCitizen mentor=mentorByRole.get(apprentice.role());if(mentor==null||mentor.id()==apprentice.id()||mentor.professionSkill()<apprentice.professionSkill()+.10)continue;
                 double before=apprentice.professionSkill();double training=.008+.012*civ.education()+.012*mentor.professionSkill()+(school?.008:0);apprentice.practiceProfession(training);double after=apprentice.professionSkill();
-                if((before<.50&&after>=.50)||(before<.75&&after>=.75)){apprentice.remember(new CitizenMemory(day,MemoryType.LOCAL_EVENT,"citizen:"+mentor.id(),mentor.name(),"I advanced in my trade under "+mentor.name()+".",settlement.position(),.55,1));state.history().add(new WorldEvent(day,"apprenticeship_milestone","citizen="+apprentice.id()+", mentor="+mentor.id()+", role="+apprentice.role()+", skill="+String.format(java.util.Locale.ROOT,"%.2f",after)));}
+                if((before<.50&&after>=.50)||(before<.75&&after>=.75)){
+                    GuildRank rank=GuildRank.of(after);
+                    apprentice.remember(new CitizenMemory(day,MemoryType.LOCAL_EVENT,"citizen:"+mentor.id(),mentor.name(),"I was raised to "+rank.titleFor(apprentice.role())+" under "+mentor.name()+".",settlement.position(),.55,1));
+                    state.history().add(new WorldEvent(day,"apprenticeship_milestone","citizen="+apprentice.id()+", mentor="+mentor.id()+", role="+apprentice.role()+", rank="+rank.key()+", skill="+String.format(java.util.Locale.ROOT,"%.2f",after)));
+                }
             }
         }
     }
@@ -568,7 +572,8 @@ public final class CivilizationLifecycleEngine {
                         case PRIEST -> .85;
                         default -> .75;
                     };
-                    double wage=Math.max(.05,wagePool/workers.size()*roleMul*(.55+.9*c.professionSkill())*employment);
+                    double guildMul=GuildRank.guildedRole(c.role())?GuildRank.of(c).wageMultiplier():1.0;
+                    double wage=Math.max(.05,wagePool/workers.size()*roleMul*guildMul*(.55+.9*c.professionSkill())*employment);
                     if(faction.treasury()<wage*.15&&settlement.stockpile().get(ResourceType.GOLD)<wage)continue;
                     double fromLocal=settlement.stockpile().take(ResourceType.GOLD,wage*.35);
                     double need=wage-fromLocal;

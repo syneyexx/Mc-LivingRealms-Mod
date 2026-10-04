@@ -1,9 +1,11 @@
 # Living Realms project state
 
-**Checkpoint:** v3.0.0-rc4 buildfix14 — A–Z production completion pass
+**Checkpoint:** v3.0.0-rc4 buildfix14 — A–Z / Claude masterplan deepening
 
-## Current production state (buildfix14)
-- Starter density target is 26 settlements per surface realm plus Wizard Trees; physical entities/blocks remain player-local and budgeted.
+## Current production state (buildfix14 + masterplan pass)
+- Starter density target is **32** settlements per surface realm (~387 with Wizard Trees) including fertile rural hamlets; physical entities/blocks remain player-local and budgeted.
+- Local settlement economy (schema **16**): barn/granary/stockpile, seasonal farms/pastures, agrarian crop mix, faith calendars, route upkeep, typed bandits, trader price rumors.
+- See `docs/DETAIL_MATRIX.md` for per-detail masterplan status.
 - Settlement streets are orthogonal/connected and include residential side streets + sidewalks; houses use cottage/longhouse/townhouse/porch variants and towns/cities add multi-storey apartment blocks.
 - Building floors are walkable; real faction wood doors are placed; EntranceAccessPlanner repairs door↔street grade mismatches. Tier-specific road/keep/wall/gate keys ensure settlements physically expand again after population-tier upgrades.
 - The spawn kingdom is city-scale with capital castle footprint; capitals also project a small court cluster.

@@ -23,7 +23,7 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 | Farming seasons (F3) | SettlementEconomyEngine + AgrarianProfile | PARTIAL | Crop/livestock mix (grain/rye/barley/oats/veg/flax/grapes/hops + herds) + three-field rotation; still FOOD/TEXTILES proxy storage |
 | Goods chains (F4) | ResourceType + industry | PARTIAL | Mill→bakery→brewery chain on FOOD proxy; full goods enum deferred (codec-safe) |
 | Trade routes (F5) | TradeEngine + TransportRoute + RumorEngine | PARTIAL | Price-differential dispatch; trader price rumors travel roads; local+faction draw |
-| Jobs/wages (F6) | SocietyDiagnostics + payWages | PARTIAL | Workplace-slot jobCapacity + monthly skill-scaled wages |
+| Jobs/wages (F6) | SocietyDiagnostics + payWages + GuildRank | PARTIAL | Workplace-slot jobCapacity; apprentice/journeyman/master wage multipliers; apprenticeship milestones |
 | Households/day rhythm (F7) | HouseholdState + ActivityCycle | PARTIAL | |
 | Unlimited city growth (F8) | SettlementPlanner housing | PARTIAL | Soft tier caps (to 900); hard 132 ceiling removed |
 | Rural hierarchy (F9) | SettlementDensitySeeder + tiers | PARTIAL | 4 rural hamlets/realm (Croft/Thorp/…) with farm/pasture/well seed; hierarchy cities/towns/villages/hamlets gated |
