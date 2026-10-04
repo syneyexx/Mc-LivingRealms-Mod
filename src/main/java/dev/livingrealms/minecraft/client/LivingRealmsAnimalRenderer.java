@@ -11,10 +11,18 @@ import net.minecraft.client.renderer.entity.MobRenderer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
-/** Morphology-family wildlife renderer with mass-driven scale so species are not identical silhouettes. */
+/** Morphology-family wildlife renderer with mass-driven scale and family textures. */
 public final class LivingRealmsAnimalRenderer extends MobRenderer<LivingRealmsAnimalEntity, LivingRealmsAnimalModel> {
-    private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(
+    private static final ResourceLocation FALLBACK = ResourceLocation.fromNamespaceAndPath(
             LivingRealms.MOD_ID, "textures/entity/wildlife.png");
+    private static final java.util.EnumMap<SpeciesMorphology, ResourceLocation> FAMILY_TEXTURES =
+            new java.util.EnumMap<>(SpeciesMorphology.class);
+    static {
+        for (SpeciesMorphology morph : SpeciesMorphology.values()) {
+            FAMILY_TEXTURES.put(morph, ResourceLocation.fromNamespaceAndPath(
+                    LivingRealms.MOD_ID, "textures/entity/wildlife_" + morph.name().toLowerCase(java.util.Locale.ROOT) + ".png"));
+        }
+    }
 
     public LivingRealmsAnimalRenderer(EntityRendererProvider.Context context) {
         super(context, new LivingRealmsAnimalModel(context.bakeLayer(LivingRealmsAnimalModel.LAYER)), 0.5F);
@@ -39,7 +47,7 @@ public final class LivingRealmsAnimalRenderer extends MobRenderer<LivingRealmsAn
                 case PINNIPED -> Mth.clamp((float) Math.pow(mass / 200.0, 0.28), 0.7F, 1.6F);
                 case BIRD -> Mth.clamp((float) Math.pow(mass / 3.0, 0.30), 0.35F, 1.2F);
             };
-            // Deterministic tint-ish stretch by species id so similar masses still differ slightly.
+            // Deterministic stretch by species id so similar masses still differ slightly.
             long h = sp.id().hashCode() & 0xffffffffL;
             scale *= 0.94F + ((h % 13) * 0.01F);
         }
@@ -49,6 +57,9 @@ public final class LivingRealmsAnimalRenderer extends MobRenderer<LivingRealmsAn
 
     @Override
     public ResourceLocation getTextureLocation(LivingRealmsAnimalEntity entity) {
-        return TEXTURE;
+        SpeciesDefinition sp = entity.species();
+        if (sp == null) return FALLBACK;
+        ResourceLocation family = FAMILY_TEXTURES.get(SpeciesMorphologyResolver.resolve(sp));
+        return family != null ? family : FALLBACK;
     }
 }

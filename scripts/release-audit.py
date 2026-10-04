@@ -345,6 +345,10 @@ citizen_renderer=(root/'src/main/java/dev/livingrealms/minecraft/client/FactionC
 require('CitizenIdentity.forProjection' in citizen_runtime and 'SKIN_VARIANT' in citizen_runtime,'citizens must keep deterministic names and appearance variants')
 require('new ResourceLocation[12]' in citizen_renderer,'citizen renderer must keep twelve stable skin variants')
 for i in range(12): require((root/f'src/main/resources/assets/livingrealms/textures/entity/faction_citizen_{i}.png').exists(),f'missing citizen skin variant {i}')
+animal_renderer=(root/'src/main/java/dev/livingrealms/minecraft/client/LivingRealmsAnimalRenderer.java').read_text()
+require('FAMILY_TEXTURES' in animal_renderer and 'wildlife_' in animal_renderer,'wildlife renderer must select morphology-family textures')
+for morph in ('small_quadruped','ungulate','predator_quadruped','bear','large_mammal','crocodilian','fish','cetacean','pinniped','bird'):
+    require((root/f'src/main/resources/assets/livingrealms/textures/entity/wildlife_{morph}.png').exists(),f'missing wildlife morphology texture {morph}')
 require('path.contains("gun")' in content_runtime and 'equipMilitary' in content_runtime,'faction equipment must discover gun-class mod weapons and military loadouts')
 policy_text=(root/'src/main/java/dev/livingrealms/sim/compat/ModCompatibilityPolicy.java').read_text()
 require('\"Guns++\",\"mr_guns\",Category.COMBAT,Strategy.PLAYER_ONLY,false' in policy_text,'Guns++ must remain player-only/NPC-forbidden')

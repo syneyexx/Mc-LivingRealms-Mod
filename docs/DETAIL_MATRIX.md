@@ -18,7 +18,7 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 | NPC dialogue all villagers | DialogueSessionRuntime + CivilianNpcAdoption | COMPLETE (core) | AbstractVillager + allowlist; path/name role inference; EXTERNAL GATE: pack NPC smoke |
 | UI blur removed (M/dialogue/dashboard) | client screens | COMPLETE (core) | No renderBackground; EXTERNAL GATE: visual confirm |
 | M-map terrain always on | RealmWorldMapScreen + ClientTerrainMapCache | COMPLETE (core) | Cached surface (24k atlas) + ecology fallback; EXTERNAL GATE: client confirm |
-| Court at capitals | CitizenMaterializationPlanner | COMPLETE (core) | Dynasty ruler/heir slots bound into capital projections |
+| Court at capitals | CitizenMaterializationPlanner + FactionCitizenMaterializer | COMPLETE (core) | Dynasty ruler/heir/regent at keep; government titles; court skins; dialogue awareness |
 | Local stockpile/market day (F2) | SettlementEconomyEngine + LocalMarketEngine | COMPLETE | Per-settlement stockpile, barn/granary, weekday market prices, tithe |
 | Farming seasons (F3) | SettlementEconomyEngine + AgrarianProfile | COMPLETE (core) | Crop/livestock mix + three-field rotation; FOOD/TEXTILES proxy storage (schema-safe) |
 | Goods chains (F4) | ResourceType + industry | COMPLETE (core) | Mill→bakery→brewery on FOOD proxy; full goods enum deferred (would need schema bump) |
@@ -48,8 +48,9 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 
 ## Version pins
 - Save schema **16** (1–15 readable; settlement barn/granary/stockpile)
-- Dashboard protocol **14**
-- ContentRevision **9** (typed authored-block ownership + geography discovery runtime; Waystone provenance; rev-6 construction rebuild)
+- Dashboard protocol **16** (cause summaries + Ops assistance task board)
+- Network **14**
+- ContentRevision **10** (morphology completion rebuild; typed authored-block ownership; Waystone provenance)
 
 ## Phase 1 baseline (seed `123456789`, DemoSeeder; denser rural network TARGET=32)
 | Gate | day | people | industry | animals≈ | wars | raids | shipments |

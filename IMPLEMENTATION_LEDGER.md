@@ -60,7 +60,7 @@ Where linked Minecraft smoke is required, status is **COMPLETE (core) / EXTERNAL
 | Court/ruler visuals | CitizenMaterializationPlanner + FactionCitizenMaterializer | Dynasty ruler/heir/regent at keep; government titles; court skins; dialogue awareness | Bespoke royal meshes | SocialCitizen | citizens | Politics/dialogue | CompletionPass | COMPLETE (core) / EXTERNAL GATE |
 | Culture visuals | FactionCivilizationState → palette | Artistic/agrarian/martial style families | Deeper clothing art | schema | palette | dialogue | — | COMPLETE (core) / EXTERNAL GATE |
 | Create industry | IndustryEngine | Projection + maintenance | Kinetic under unload | schema | Create | Ops | — | PARTIAL (EXTERNAL GATE) |
-| Wildlife visuals | EcologyEngine 134 spp | Sim + LOD strong | Bespoke art | schema | entities | Ecology | soak | PARTIAL (assets) |
+| Wildlife visuals | EcologyEngine 134 spp | Sim + LOD + mass scale + morphology family textures | Bespoke meshes/anim | schema | entities | Ecology | soak | PARTIAL (bespoke art) |
 | Economy detail (F2–5) | SettlementEconomy + Trade | Stockpile/tithe/market/farms/chains/routes | Full goods enum deferred | schema 16 | markets | Economy/dialogue | SettlementEconomy+Trade* | COMPLETE (core) |
 | Farming/seasons (F3) | AgrarianProfile | Named crop/livestock mix + rotation | — | schema 16 | farm/pasture/mill | — | SettlementEconomyTest | COMPLETE |
 | Jobs/wages (F6) | payWages + GuildRank | Workplace slots + multipliers | Physical job polish | schema | routines | — | TradeHouseholdEcology | COMPLETE (core) |
