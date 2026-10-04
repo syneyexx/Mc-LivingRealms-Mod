@@ -28,7 +28,7 @@ public final class OrganicMorphologyAndCauseTest {
         denseWorldUsesMultipleStreetPatterns();
         plazasAndStreetLightsExist();
         causeExplainerAndDashboardProtocol15();
-        System.out.println("PASS organic morphology + cause summaries: geography morphologies, plazas/lights, protocol 15 causality");
+        System.out.println("PASS organic morphology + cause summaries: geography morphologies, plazas/lights, protocol 16 causality");
     }
 
     private static void morphologiesAreGeographyDerived() {

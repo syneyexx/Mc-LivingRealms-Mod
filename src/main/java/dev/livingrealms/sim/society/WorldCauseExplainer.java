@@ -163,6 +163,7 @@ public final class WorldCauseExplainer {
             case REFUGEE_SUPPORT -> "Refugee support requested for displaced arrivals.";
             case WATER_SUPPLY -> "Water supply aid requested under sanitation or drought pressure.";
             case TRADE_ESCORT -> "Trade escort requested after route insecurity.";
+            case INFRASTRUCTURE_REPAIR -> "Infrastructure repair requested after route wear or damaged industry.";
         };
     }
 

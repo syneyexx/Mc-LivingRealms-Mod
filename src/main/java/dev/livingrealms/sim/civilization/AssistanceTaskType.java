@@ -8,5 +8,7 @@ public enum AssistanceTaskType {
     REFUGEE_SUPPORT,
     WATER_SUPPLY,
     HOUSING_SUPPLIES,
-    TRADE_ESCORT
+    TRADE_ESCORT,
+    /** Emergent from damaged industry / degraded routes — stone/tools for repairs. */
+    INFRASTRUCTURE_REPAIR
 }

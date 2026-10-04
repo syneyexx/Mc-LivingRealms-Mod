@@ -35,6 +35,8 @@ Proven in this pass:
 - release-audit green (schema16 / protocol16 / net14 / content10 + morphology/cause/task-board authorities)
 - geography-derived `SettlementMorphology` street patterns, plazas, sidewalk lights; `WorldCauseExplainer` on F12 Society + dialogue
 - night curfew / low-order nightlife; ship class visuals; wildlife mass scaling; terrain cliff/pad rejection
+- court/ruler presentation: keep-centered spawn, government titles, distinct skins, dialogue self/ruler awareness
+- `INFRASTRUCTURE_REPAIR` assistance tasks from route/industry wear; stone contributions reopen routes and repair sites
 - holy-day civic rites + festival decorations + verified assistance + refugee camp enqueue remain intact
 - linked NeoForge/Create build must be re-run on this tip (prior tip was green)
 

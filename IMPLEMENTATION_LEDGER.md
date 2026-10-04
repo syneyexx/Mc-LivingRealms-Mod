@@ -33,8 +33,8 @@ Where linked Minecraft smoke is required, status is **COMPLETE (core) / EXTERNAL
 | Java | 21 |
 | Create | 6.0.10 |
 | Save schema | **16** (1–15 readable; settlement stockpiles) |
-| Dashboard protocol | **14** |
-| ContentRevision | **9** (typed authored ownership; geography discovery runtime; Waystone provenance; rev-6 rebuild) |
+| Dashboard protocol | **16** (cause summaries + Ops assistance task board) |
+| ContentRevision | **10** (morphology completion rebuild; typed authored ownership; Waystone provenance) |
 | Dashboard key | F12 |
 | Map key | M |
 
@@ -57,7 +57,7 @@ Where linked Minecraft smoke is required, status is **COMPLETE (core) / EXTERNAL
 | NPC adoption | Dialogue + CivilianNpcAdoption | Villagers + allowlist + role inference | Pack smoke | SocialCitizen | interact | dialogue | SocietyDialogue+CompletionPass | COMPLETE (core) / EXTERNAL GATE |
 | Dialogue blur | client screens | Blur removed | Visual confirm | n/a | client | sharp UI | release-audit | COMPLETE (core) / EXTERNAL GATE |
 | M-map terrain | RealmWorldMapScreen + cache | 24k terrain atlas + ecology fallback | Client confirm | client cache | screen | always-on ground | release-audit | COMPLETE (core) / EXTERNAL GATE |
-| Court/ruler visuals | CitizenMaterializationPlanner | Dynasty ruler/heir bound into projections | Named art | SocialCitizen | citizens | Politics | CompletionPass | COMPLETE (core) / EXTERNAL GATE |
+| Court/ruler visuals | CitizenMaterializationPlanner + FactionCitizenMaterializer | Dynasty ruler/heir/regent at keep; government titles; court skins; dialogue awareness | Bespoke royal meshes | SocialCitizen | citizens | Politics/dialogue | CompletionPass | COMPLETE (core) / EXTERNAL GATE |
 | Culture visuals | FactionCivilizationState → palette | Artistic/agrarian/martial style families | Deeper clothing art | schema | palette | dialogue | — | COMPLETE (core) / EXTERNAL GATE |
 | Create industry | IndustryEngine | Projection + maintenance | Kinetic under unload | schema | Create | Ops | — | PARTIAL (EXTERNAL GATE) |
 | Wildlife visuals | EcologyEngine 134 spp | Sim + LOD strong | Bespoke art | schema | entities | Ecology | soak | PARTIAL (assets) |
@@ -66,7 +66,7 @@ Where linked Minecraft smoke is required, status is **COMPLETE (core) / EXTERNAL
 | Jobs/wages (F6) | payWages + GuildRank | Workplace slots + multipliers | Physical job polish | schema | routines | — | TradeHouseholdEcology | COMPLETE (core) |
 | Religion (F12) | FaithCatalog | Deities/holy days/tithe/rites + holy-order patrol | Clergy careers depth | schema | priests | — | FaithAndInfrastructure+CivicHolyDay | COMPLETE (core) |
 | Festivals (F13) | CivicEvent + CivicFestival* | Exact-day holy rites + temporary decorations | Client visual confirm | ledger sidecar | CivicFestivalMaterializer | dialogue | CivicHolyDayFestivalTest | COMPLETE (core) / EXTERNAL GATE |
-| Assistance aid (F25+) | AssistanceTask + AssistanceContributionEngine | Verified inventory delivery mutates pressure | Dashboard task board UI | schema 16 tasks | `/livingrealms assist` | dialogue OFFER_TASK | AssistanceContributionTest | COMPLETE (core) / EXTERNAL GATE |
+| Assistance aid (F25+) | AssistanceTask + AssistanceContributionEngine | Verified delivery incl. INFRASTRUCTURE_REPAIR (stone→routes/industry/infra) | Linked delivery smoke | schema 16 tasks | `/livingrealms assist` | dialogue OFFER_TASK + Ops board | AssistanceContributionTest | COMPLETE (core) / EXTERNAL GATE |
 | Bandits/piracy (F15) | BanditEconomy + Pirate* | Typed bands + extortion | Camp projection smoke | schema | projection | map | BanditAndPriceRumor | COMPLETE (core) / EXTERNAL GATE |
 | Refugees (F16) | MigrationGroup | Camp growth + FAMILY/PERSECUTION | Camp building enqueue polish | schema | mobile civ | map | MobileCivilization | COMPLETE (core) |
 | Epidemics (F17) | EpidemicRecord + routines | Soft cap + REST/clinic behaviour | — | schema | NPC activity | map/dialogue | CompletionPass | COMPLETE (core) |
