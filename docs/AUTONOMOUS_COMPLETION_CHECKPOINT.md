@@ -1,52 +1,36 @@
 # Living Realms Autonomous Completion Checkpoint
 
-**HEAD baseline at start:** `c2b1f5d8a33598fa145590ed509ca97a9207bd26`  
+**HEAD:** `f3dabea38a33a0ba03d9fda191e6dbc0a1c91763`  
 **Branch:** `cursor/livingrealms-final-product-0116`  
 **PR:** https://github.com/syneyexx/Mc-LivingRealms-Mod/pull/8  
-**Current pins (source):** schema **17** · dashboard protocol **17** · network **14** · ContentRevision **11**
+**Pins:** schema **17** · dashboard protocol **17** · network **14** · ContentRevision **11**
 
-## Completed Waves (progress, not COMPLETE claims)
+## Completed this session (progress, not COMPLETE claims)
 
-### Wave 0
-- Factual inventory maintained in `docs/WAVE0_SYSTEM_INVENTORY.md`
+### §260 / core systems (prior + retained)
+- Appearance 0–47, Influence, Careers, SovereignDebt, GrandProjects, HeroEngine, Campaign AI, TradeShipment logistics, Heraldry, Siege equipment, SocialMobility, ProductionContract, escorts
 
-### §260 required systems
-- AppearanceProfile 0–47, Influence, Careers, SovereignDebt, GrandProjects, HeroEngine, CampaignPlan AI, TradeShipment logistics, FactionHeraldry, schema/dashboard **17**
+### Presentation / gameplay deepening
+- PlayerInfluenceActions unlocks (audience / project / military / trade / clergy) + dashboard buttons
+- Eight culture architecture families (`FactionBlockPalette`)
+- Caravan wagon vs pack-train modes
+- Wildlife intent-driven animation profiles
+- Military column / line / guard formations
+- Court skins 44–47 + heraldry-dyed ceremonial kits
+- Street furniture (trees, banners, plaza shrines/seating)
+- Settlement ambience particles/sounds (vanilla-only, player-local)
 
-### Siege / mobility / contracts
-- SiegeEquipmentEntity materializer (RAM/LADDER/ARTILLERY)
-- Authored wall/gate damage on breach thresholds
-- SocialMobilityEngine + workplace assignment
-- ProductionContract + expanded AssistanceTaskType
-- Escort-aware intercept / partial cargo loss
-- Court/clergy heraldry-dyed kits (not gold armor)
-
-### Worldgen / streets / condition / UI
-- Growth-layer encoded road keys
-- Plaza wells/fountains/notice clutter + street trees/banners
-- BuildingCondition derived repair demand
-- F12 panel texture + influence/career/debt lines
-- Localized onboarding + first-settlement discovery
-- 8 culture architecture material families (mercantile/coastal/highland/scholarly)
-
-### Influence unlocks (Wave 135)
-- PlayerInfluenceActions: audience, propose project, military support, trade petition, clergy petition
-- Dashboard overview buttons + DashboardActionCommand wiring
-
-### Presentation polish
-- Caravan wagon vs pack-train mode from cargo/value/escort
-- Wildlife intent-driven animation profiles (walk/run/idle/eat/flee/rest/swim/fly)
-
-## Tests
-- FinalProductSystemsTest green (incl. influence unlocks)
-- Full `./scripts/test-core.sh` + `./build-production.sh` re-run after CaravanEscortMaterializer import fix
+### Gates
+- Core suite + 3650-day soak: **PASS**
+- Release audit: **PASS**
+- Linked NeoForge `clean build`: **PASS** (`livingrealms-3.0.0-rc4.jar`)
+- Runtime smoke: **unverified** (manual Minecraft acceptance pending)
 
 ## Unresolved / next exact actions
-1. Finish clean core suite + NeoForge `build-production.sh` + RELEASE_MANIFEST
-2. Further architecture roof/facade grammar per culture
-3. Ambient audio/VFX where practical
-4. COMPLETION_MATRIX / docs rebuild (Wave 226–227) toward final gates
-5. Continue presentation waves for military formations / court clothing depth
+1. Continue remaining presentation polish (military art depth, ship differentiation QA, audio pack if original assets added)
+2. Documentation rebuild Waves 226–228 from source truth
+3. Emergent story automated tests (Waves 178–183) where not already covered
+4. Manual Minecraft runtime acceptance plan (Wave 249) — do not block implementation
 
 ## Exact next action
-Run clean production build; commit RELEASE_MANIFEST; continue presentation polish.
+Continue autonomous presentation/docs polish; do not claim release-complete while runtimeSmoke is unverified.

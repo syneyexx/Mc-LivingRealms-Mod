@@ -32,7 +32,7 @@ A subsystem is **COMPLETE** only when its authoritative model, simulation rules,
 | Config/data packs | ✅ simulation config + 134 species JSONs | ✅ catalog validation | ✅ schema 9 | ✅ atomic species reload | ✅ Settings tab | 🟡 | ✅ | PARTIAL |
 | Requested modpack compatibility | ✅ expanded target-pack policy | n/a | n/a | 🟡 Waystones + foreign adoption + safe palette | n/a | 🟡 RPG/magic/ranged; gun deny | ✅ | PARTIAL |
 | Performance/LOD | ✅ | ✅ | n/a | ✅ bounded projections | n/a | n/a | ✅ | STRONG, NOT FINAL |
-| World map/strategic UI | ✅ bounded dashboard + M map | n/a | n/a | 🟡 M-map + packet-backed dashboard | ✅ F12/M/K + onboarding | 🟡 panel/icons | ✅ protocol 17 | PARTIAL |
+| World map/strategic UI | ✅ bounded dashboard + M map | n/a | n/a | 🟡 M-map + packet-backed dashboard | ✅ F12/M/K + onboarding + influence unlocks | 🟡 panel/icons + settlement ambience VFX | ✅ protocol 17 | PARTIAL |
 
 ## Non-negotiable release gates
 
