@@ -123,7 +123,7 @@ public final class StructureBlueprintFactory {
 
     private static StructureBlueprint house(ConstructionIntent intent) {
         int w=intent.width(),d=intent.depth();
-        if(w>=13||d>=13)return mansion(w,d);
+        if(w>=13&&d>=13)return mansion(w,d);
         if(w>=11||d>=11)return apartmentBlock(w,d,variant(intent,3));
         int variant=variant(intent,7);
         return switch(variant){
