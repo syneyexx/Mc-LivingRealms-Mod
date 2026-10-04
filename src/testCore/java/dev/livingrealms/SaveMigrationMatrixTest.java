@@ -12,7 +12,12 @@ import dev.livingrealms.sim.industry.IndustryKind;
 import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.civilian.CitizenRole;
 import dev.livingrealms.sim.social.*;
+import dev.livingrealms.sim.construction.ConstructionPhase;
+import dev.livingrealms.sim.government.GrandProjectType;
+import dev.livingrealms.sim.military.CampaignPlanType;
+import dev.livingrealms.sim.player.CareerTrack;
 import dev.livingrealms.sim.player.FactionRank;
+import dev.livingrealms.sim.player.InfluenceInstitution;
 import dev.livingrealms.sim.world.SimClock;
 import dev.livingrealms.sim.world.SimulationState;
 import java.io.BufferedOutputStream;
@@ -41,7 +46,7 @@ public final class SaveMigrationMatrixTest {
             SimulationState state = SimulationStateCodec.decode(fixture, catalog);
             verify(schema, state);
         }
-        System.out.println("PASS save migration matrix: schemas 1-2 fixed fixtures + schemas 3-16 versioned compatibility fixtures");
+        System.out.println("PASS save migration matrix: schemas 1-2 fixed fixtures + schemas 3-17 versioned compatibility fixtures");
     }
 
     private static void verify(int schema, SimulationState state) {
@@ -128,6 +133,16 @@ public final class SaveMigrationMatrixTest {
             check(settlement.barnCapacity() > 0 && settlement.granaryCapacity() > 0, "schema " + schema + " migrated storage capacity");
             check(settlement.stockpile().get(ResourceType.FOOD) > 0, "schema " + schema + " migrated starter food");
         }
+        if (schema >= 17) {
+            var citizen = state.socialCitizens().getFirst();
+            check(citizen.appearancePacked() != 0 && citizen.cultureKey().equals("Legacy Culture"), "schema 17 citizen appearance/culture");
+            check(citizen.socialClass() == SocialClass.MERCHANT && citizen.employmentStatus() == EmploymentStatus.EMPLOYED, "schema 17 citizen social class");
+            var standing = state.findPlayerStanding("player:legacy-member").orElseThrow();
+            check(close(standing.influenceWith(FACTION_ID, InfluenceInstitution.MILITARY), 22.0), "schema 17 influence");
+            check(standing.careerTrack() == CareerTrack.MILITARY && standing.careerRankIndex() == 2, "schema 17 career");
+            check(state.debts().size() == 1 && state.grandProjects().size() == 1 && state.campaignPlans().size() == 1, "schema 17 debt/project/plan");
+            check(state.shipments().getFirst().originSettlementId() == SETTLEMENT_ID && close(state.shipments().getFirst().risk(), .33), "schema 17 shipment logistics");
+        }
     }
 
     private static byte[] fixture(int schema) throws IOException {
@@ -152,9 +167,29 @@ public final class SaveMigrationMatrixTest {
             if (schema >= 14) out.writeInt(0); // pirate hideouts
             if (schema >= 15) out.writeInt(0); // siege equipment extensions
             if (schema >= 16) writeSettlementEconomy(out);
+            if (schema >= 17) writeFinalProduct(out);
             writeHistory(out);
         }
         return bytes.toByteArray();
+    }
+
+    private static void writeFinalProduct(DataOutputStream out) throws IOException {
+        out.writeInt(1); // citizen social extensions
+        out.writeLong(850L);out.writeLong(12345L);writeString(out,"Legacy Culture");writeString(out,"Legacy Faith");
+        out.writeInt(SocialClass.MERCHANT.ordinal());out.writeDouble(.42);writeString(out,"market");
+        out.writeInt(SocialClass.MERCHANT.ordinal());out.writeDouble(.35);writeString(out,"trader");out.writeInt(EmploymentStatus.EMPLOYED.ordinal());
+        out.writeInt(1); // player influence/career
+        writeString(out,"player:legacy-member");
+        out.writeInt(1);out.writeLong(FACTION_ID);out.writeInt(1);out.writeInt(InfluenceInstitution.MILITARY.ordinal());out.writeDouble(22.0);
+        out.writeInt(CareerTrack.MILITARY.ordinal());out.writeInt(2);out.writeDouble(150.0);
+        out.writeInt(1); // debts
+        out.writeLong(8601L);out.writeLong(FACTION_ID);writeString(out,"merchant:legacy_house");out.writeDouble(100.0);out.writeDouble(.08);out.writeDouble(90.0);out.writeLong(10L);out.writeLong(200L);out.writeDouble(.4);out.writeBoolean(false);out.writeBoolean(true);
+        out.writeInt(1); // grand projects
+        out.writeLong(8602L);out.writeLong(FACTION_ID);out.writeLong(SETTLEMENT_ID);out.writeInt(GrandProjectType.CIVIC_MONUMENT.ordinal());out.writeLong(12L);out.writeDouble(.25);out.writeInt(ConstructionPhase.FOUNDATION.ordinal());writeString(out,"");out.writeBoolean(false);out.writeBoolean(true);out.writeDouble(40.0);out.writeDouble(5.0);out.writeDouble(8.0);out.writeDouble(6.0);out.writeDouble(1.0);out.writeInt(20);out.writeBoolean(false);out.writeBoolean(false);out.writeBoolean(false);out.writeBoolean(false);
+        out.writeInt(1); // campaign plans
+        out.writeLong(8603L);out.writeLong(FACTION_ID);out.writeLong(500L);out.writeInt(CampaignPlanType.DEFEND_BORDER.ordinal());out.writeLong(SETTLEMENT_ID);out.writeInt(80);out.writeLong(14L);out.writeBoolean(true);
+        out.writeInt(1); // shipment logistics
+        out.writeLong(400L);out.writeLong(SETTLEMENT_ID);out.writeLong(301L);out.writeLong(0L);out.writeInt(0);out.writeLong(16L);out.writeLong(20L);out.writeDouble(.33);out.writeDouble(.5);out.writeInt(0);out.writeInt(0);
     }
 
     private static void writeSettlementEconomy(DataOutputStream out) throws IOException {

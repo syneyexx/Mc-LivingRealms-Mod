@@ -1,6 +1,7 @@
 package dev.livingrealms.sim.social;
 
 import dev.livingrealms.sim.civilian.*;
+import dev.livingrealms.sim.civilization.FactionCivilizationState;
 import dev.livingrealms.sim.faction.*;
 import dev.livingrealms.sim.util.*;
 import dev.livingrealms.sim.world.*;
@@ -20,6 +21,10 @@ public final class SocialPopulationEngine {
         int ageYears=18+rng.nextInt(role==CitizenRole.GUARD?35:53); long birthDay=state.clock().day()-(long)ageYears*365L-rng.nextInt(365);
         CitizenPersonality personality=new CitizenPersonality(rng.between(.05,.95),rng.between(.05,.95),rng.between(.05,.95),rng.between(.05,.95),rng.between(.05,.95),rng.between(.02,.75));
         SocialCitizen created=new SocialCitizen(id,faction.id(),settlement.id(),slot,identity.name(),identity.skinVariant(),role,birthDay,personality);
+        var appearance=dev.livingrealms.sim.civilian.AppearanceProfile.forCitizen(state.seed(),id,role,ageYears,factionId);
+        created.restoreAppearance(appearance.pack());
+        FactionCivilizationState civ=state.findFactionCivilization(factionId).orElse(null);
+        if(civ!=null){created.setCultureKey(civ.cultureName());created.setFaithKey(civ.faithName());}
         created.needs().restore(settlement.foodSecurity(),settlement.publicOrder(),.55+.35*settlement.prosperity(),.35+.5*settlement.prosperity(),Math.min(1,.35+.35*settlement.infrastructure()+.3*Math.min(1,(double)settlement.housing()/Math.max(1,settlement.population()))));
         state.addSocialCitizen(created);return created;
     }

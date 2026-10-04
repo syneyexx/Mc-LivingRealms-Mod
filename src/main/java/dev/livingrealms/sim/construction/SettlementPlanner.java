@@ -221,10 +221,10 @@ public final class SettlementPlanner {
                     int offset = spacing * ring;
                     int jx = organicShift(settlement, 10 + ring);
                     int jz = organicShift(settlement, 20 + ring);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset + jx, jz), 5, halfLength * 2 + 5, baseRotation, 108);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -offset + jx / 2, -jz), 5, halfLength * 2 + 5, baseRotation, 108);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, jx, offset + jz), 5, halfLength * 2 + 5, baseRotation + 1, 108);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -jx, -offset + jz / 2), 5, halfLength * 2 + 5, baseRotation + 1, 108);
+                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset + jx, jz), 5, halfLength * 2 + 5, baseRotation, 108, ring);
+                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -offset + jx / 2, -jz), 5, halfLength * 2 + 5, baseRotation, 108, ring);
+                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, jx, offset + jz), 5, halfLength * 2 + 5, baseRotation + 1, 108, ring);
+                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -jx, -offset + jz / 2), 5, halfLength * 2 + 5, baseRotation + 1, 108, ring);
                 }
                 if (tier >= Settlement.Tier.VILLAGE.ordinal()) {
                     int offset = Math.max(20, spacing / 2);
@@ -241,18 +241,18 @@ public final class SettlementPlanner {
         addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, 0), 9, halfLength * 2 + 9, baseRotation + 1, 132);
         for (int ring = 1; ring <= rings; ring++) {
             int offset = spacing * ring;
-            addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset, 0), 9, halfLength * 2 + 9, baseRotation, 112);
-            addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -offset, 0), 9, halfLength * 2 + 9, baseRotation, 112);
-            addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, offset), 9, halfLength * 2 + 9, baseRotation + 1, 112);
-            addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, -offset), 9, halfLength * 2 + 9, baseRotation + 1, 112);
+            addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset, 0), 9, halfLength * 2 + 9, baseRotation, 112, ring);
+            addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -offset, 0), 9, halfLength * 2 + 9, baseRotation, 112, ring);
+            addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, offset), 9, halfLength * 2 + 9, baseRotation + 1, 112, ring);
+            addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, -offset), 9, halfLength * 2 + 9, baseRotation + 1, 112, ring);
         }
         if (sideStreets && tier >= Settlement.Tier.VILLAGE.ordinal()) {
             for (int ring = 0; ring < rings; ring++) {
                 int offset = spacing * ring + spacing / 2;
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset, 0), 5, halfLength * 2 + 5, baseRotation, 98);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -offset, 0), 5, halfLength * 2 + 5, baseRotation, 98);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, offset), 5, halfLength * 2 + 5, baseRotation + 1, 98);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, -offset), 5, halfLength * 2 + 5, baseRotation + 1, 98);
+                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset, 0), 5, halfLength * 2 + 5, baseRotation, 98, ring);
+                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -offset, 0), 5, halfLength * 2 + 5, baseRotation, 98, ring);
+                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, offset), 5, halfLength * 2 + 5, baseRotation + 1, 98, ring);
+                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, -offset), 5, halfLength * 2 + 5, baseRotation + 1, 98, ring);
             }
         }
         return index;
@@ -418,7 +418,22 @@ public final class SettlementPlanner {
     }
 
     private static void addRoad(List<ConstructionIntent> out, Faction f, Settlement s, int i, SimPosition c, int w, int d, int rot, int p) {
-        addAt(out, f, s, StructureRole.ROAD, i, c, w, d, rot, p);
+        addRoad(out, f, s, i, c, w, d, rot, p, -1);
+    }
+
+    private static void addRoad(List<ConstructionIntent> out, Faction f, Settlement s, int i, SimPosition c, int w, int d, int rot, int p, int ring) {
+        SettlementMorphology morph = SettlementMorphology.derive(s);
+        SettlementGrowthLayer layer = ring >= 0
+                ? SettlementGrowthLayer.forRing(ring, morph, s.tier().ordinal())
+                : SettlementGrowthLayer.HISTORIC_CORE;
+        StreetType preferred = layer.preferredStreet();
+        boolean market = preferred == StreetType.MARKET_STREET || preferred == StreetType.COMMERCIAL_STREET;
+        boolean regional = preferred == StreetType.REGIONAL_ROAD || preferred == StreetType.ROYAL_ROAD;
+        StreetType street = StreetType.forWidth(w, false, market, regional);
+        // Growth-layer preference may refine the label when it does not inflate the planner's budgeted width.
+        if (preferred.width() <= w && preferred.trafficImportance() >= street.trafficImportance()) street = preferred;
+        String key = "road:" + street.name().toLowerCase(java.util.Locale.ROOT) + ":" + layer.name().toLowerCase(java.util.Locale.ROOT) + ":" + i;
+        out.add(new ConstructionIntent(key, f.id(), s.id(), StructureRole.ROAD, c, Math.max(street.width(), w), d, rot, p));
     }
 
     private static int houseFacing(int x, int z, int spacing, int baseRotation) {

@@ -93,7 +93,7 @@ public final class CivilizationLifecycleEngine {
         SocialCitizen ruler=dynasty.rulerCitizenId()>0?state.findSocialCitizen(dynasty.rulerCitizenId()).filter(SocialCitizen::alive).orElse(null):null;
         if(ruler==null)ruler=state.socialCitizens().stream().filter(SocialCitizen::alive).filter(c->c.factionId()==faction.id()&&c.name().equals(faction.rulerName())).findFirst().orElse(null);
         if(ruler==null&&state.socialCitizens().size()<MAX_NAMED_CITIZENS&&!faction.settlements().isEmpty()){
-            Settlement capital=faction.settlements().stream().max(Comparator.comparingInt(Settlement::population)).orElseThrow();long id=state.nextId();int slot=virtualSlot(state,capital.id(),id);CitizenRole role=faction.government().type()==GovernmentType.THEOCRACY?CitizenRole.PRIEST:CitizenRole.OFFICIAL;long birth=state.clock().day()-faction.government().ruler().ageYears()*365L-120;DeterministicRng r=new DeterministicRng(state.seed()^id);CitizenPersonality personality=new CitizenPersonality(r.between(.2,.8),r.between(.2,.8),r.between(.2,.8),r.between(.15,.8),r.between(.35,.95),r.between(.02,.5));ruler=new SocialCitizen(id,faction.id(),capital.id(),slot,faction.rulerName(),Math.floorMod((int)id,12),role,birth,personality);ruler.addMoney(Math.max(40,faction.treasury()*.02));state.addSocialCitizen(ruler);state.history().add(new WorldEvent(state.clock().day(),"ruler_personified","faction="+faction.id()+", citizen="+id+", name="+ruler.name()));
+            Settlement capital=faction.settlements().stream().max(Comparator.comparingInt(Settlement::population)).orElseThrow();long id=state.nextId();int slot=virtualSlot(state,capital.id(),id);CitizenRole role=faction.government().type()==GovernmentType.THEOCRACY?CitizenRole.PRIEST:CitizenRole.OFFICIAL;long birth=state.clock().day()-faction.government().ruler().ageYears()*365L-120;DeterministicRng r=new DeterministicRng(state.seed()^id);CitizenPersonality personality=new CitizenPersonality(r.between(.2,.8),r.between(.2,.8),r.between(.2,.8),r.between(.15,.8),r.between(.35,.95),r.between(.02,.5));int ageYears=Math.max(18,faction.government().ruler().ageYears());var appearance=dev.livingrealms.sim.civilian.AppearanceProfile.forCitizen(state.seed(),id,role,ageYears,faction.id());ruler=new SocialCitizen(id,faction.id(),capital.id(),slot,faction.rulerName(),appearance.textureIndex(),role,birth,personality);ruler.restoreAppearance(appearance.pack());ruler.addMoney(Math.max(40,faction.treasury()*.02));state.addSocialCitizen(ruler);state.history().add(new WorldEvent(state.clock().day(),"ruler_personified","faction="+faction.id()+", citizen="+id+", name="+ruler.name()));
         }
         if(ruler!=null)dynasty.setRulerCitizenId(ruler.id());
     }
@@ -138,6 +138,15 @@ public final class CivilizationLifecycleEngine {
             double insecureTrade=state.routes().stream().filter(TransportRoute::operational).filter(r->r.fromSettlementId()==settlement.id()||r.toSettlementId()==settlement.id()).mapToDouble(r->Math.max(0,.55-r.security())).max().orElse(0);
             pressure.put(AssistanceTaskType.TRADE_ESCORT,Mathx.clamp(insecureTrade*1.7,0,1));
             pressure.put(AssistanceTaskType.INFRASTRUCTURE_REPAIR,AssistanceContributionEngine.infrastructurePressure(state,settlement));
+            double bandit=Mathx.clamp(civ.banditPressure()-.4,0,1);
+            pressure.put(AssistanceTaskType.BANDIT_BOUNTY,bandit);
+            boolean bridgeNeeded=settlement.geography().riverAdjacent()&&settlement.completedConstruction().stream().noneMatch(k->k.startsWith("bridge:"));
+            pressure.put(AssistanceTaskType.BRIDGE_REPAIR,bridgeNeeded?Mathx.clamp(.35+settlement.prosperity()*.2,0,1):0);
+            boolean atWar=state.wars().stream().anyMatch(w->w.active()&&w.involves(faction.id()));
+            pressure.put(AssistanceTaskType.MILITARY_SUPPLY,atWar?Mathx.clamp(.3+(1-settlement.foodSecurity())*.4,0,1):0);
+            pressure.put(AssistanceTaskType.RECONSTRUCTION_AID,Mathx.clamp(settlement.unrest()*.4+(1-settlement.infrastructure())*.5-settlement.prosperity()*.2+dev.livingrealms.sim.construction.BuildingCondition.of(settlement).repairDemand()*.35,0,1));
+            long missingCaravans=state.history().recent(12).stream().filter(e->"trade_intercepted".equals(e.type())||"trade_partial_loss".equals(e.type())).count();
+            pressure.put(AssistanceTaskType.MISSING_CARAVAN,Mathx.clamp(missingCaravans*.25,0,1));
             for(var entry:pressure.entrySet()){
                 AssistanceTaskType type=entry.getKey();double p=entry.getValue();Optional<AssistanceTask> active=state.activeAssistanceTask(settlement.id(),type);
                 if(active.isPresent()){active.get().updatePressure(day,p);if(!active.get().active())state.history().add(new WorldEvent(day,"assistance_task_"+active.get().status().name().toLowerCase(Locale.ROOT),"task="+active.get().id()+", settlement="+settlement.id()+", type="+type));continue;}

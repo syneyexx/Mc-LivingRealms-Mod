@@ -20,5 +20,9 @@ public enum PaletteSlot {
     MACHINE,
     STORAGE,
     RUNWAY,
-    REDSTONE_LIGHT
+    REDSTONE_LIGHT,
+    /** Soft interior props — beds, tables, decoration. Never required for structure completion. */
+    BED,
+    TABLE,
+    DECORATION
 }

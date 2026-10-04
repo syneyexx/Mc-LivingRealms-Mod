@@ -26,10 +26,11 @@ public final class LivingRealmsSavedData extends SavedData {
     private static final String KEY_PAYLOAD_INTEGRITY = "PayloadCrc32Plus1";
     private static final String KEY_CONTENT_REVISION = "ContentRevision";
     /**
-     * Revision 9 keeps revision-8 authored-block ledger bytes and adds typed ownership packing in
-     * unused high bits (ContentRevision sidecar only; SimulationStateCodec schema 16 unchanged).
+     * Revision 11: appearance/heraldry/presentation rebuild if needed. Does not reset construction
+     * completion keys (revision 10 morphology rebuild already applied). Schema 17 carries social
+     * appearance, influence/careers, debts, grand projects, campaign plans and shipment logistics.
      */
-    private static final int CONTENT_REVISION = 10;
+    private static final int CONTENT_REVISION = 11;
 
     private final SimulationState state;
     /** settlementId -> packed BlockPos of Living Realms-authored Waystone only. */
@@ -91,7 +92,7 @@ public final class LivingRealmsSavedData extends SavedData {
         }
         // Revision 8 introduced authored-block provenance. Revision 9 adds typed ownership in the
         // same NBT key (legacy type bits=0 => SETTLEMENT_STRUCTURE). Revision 10 only rebuilds
-        // settlement morphology completion keys (above).
+        // settlement morphology completion keys (above). Revision 11 is presentation/social only.
         if (outerSchema != SimulationStateCodec.SCHEMA_VERSION || expectedIntegrity == 0L || contentRevision < CONTENT_REVISION || densityChanges > 0 || wizardChanges > 0 || constructionResets > 0) loaded.setDirty();
         return loaded;
     }

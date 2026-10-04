@@ -164,6 +164,11 @@ public final class WorldCauseExplainer {
             case WATER_SUPPLY -> "Water supply aid requested under sanitation or drought pressure.";
             case TRADE_ESCORT -> "Trade escort requested after route insecurity.";
             case INFRASTRUCTURE_REPAIR -> "Infrastructure repair requested after route wear or damaged industry.";
+            case BANDIT_BOUNTY -> "Bandit bounty opened after rising outlaw pressure.";
+            case BRIDGE_REPAIR -> "Bridge repair requested for river access.";
+            case MILITARY_SUPPLY -> "Military supply requested while the realm is at war.";
+            case RECONSTRUCTION_AID -> "Reconstruction aid requested after unrest and infrastructure loss.";
+            case MISSING_CARAVAN -> "Missing caravan investigation after trade interception.";
         };
     }
 
@@ -196,6 +201,35 @@ public final class WorldCauseExplainer {
             sb.append(parts.get(i));
         }
         return sb.toString();
+    }
+
+    public static String debtCause(SimulationState state, Faction faction) {
+        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(faction, "faction");
+        long active = state.debts().stream().filter(d -> d.active() && d.debtorFactionId() == faction.id()).count();
+        long defaults = state.debts().stream().filter(d -> d.defaulted() && d.debtorFactionId() == faction.id()).count();
+        if (defaults > 0) return "Sovereign default has weakened legitimacy and merchant confidence.";
+        if (active > 0 && faction.treasury() < 80) return "Debt service is straining a thin treasury.";
+        if (active > 0) return "The realm carries " + active + " active sovereign debt instrument" + (active == 1 ? "" : "s") + ".";
+        return "The treasury is not currently bound by active sovereign debt.";
+    }
+
+    public static String grandProjectCause(SimulationState state, Faction faction) {
+        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(faction, "faction");
+        var project = state.grandProjects().stream().filter(p -> p.active() && p.sponsorFactionId() == faction.id()).findFirst().orElse(null);
+        if (project == null) return "No active grand project is consuming treasury and labor.";
+        if (!project.pauseReason().isBlank()) return "The " + project.type().name().toLowerCase(Locale.ROOT).replace('_', ' ') + " is paused: " + project.pauseReason() + ".";
+        return "The " + project.type().name().toLowerCase(Locale.ROOT).replace('_', ' ') + " advances with available materials and labor.";
+    }
+
+    public static String campaignCause(SimulationState state, Faction faction) {
+        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(faction, "faction");
+        var plan = state.campaignPlans().stream().filter(p -> p.active() && p.factionId() == faction.id())
+                .max(Comparator.comparingInt(dev.livingrealms.sim.military.CampaignPlan::priority)).orElse(null);
+        if (plan == null) return "No active wartime campaign plan directs the field armies.";
+        return "Campaign posture is " + plan.type().name().toLowerCase(Locale.ROOT).replace('_', ' ') + " at priority " + plan.priority() + ".";
     }
 
     /** Compact cause for dashboard packets (bounded length). */

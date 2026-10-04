@@ -4,7 +4,7 @@ import dev.livingrealms.sim.config.SimulationPreset;
 import dev.livingrealms.sim.faction.DevelopmentPriority;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
-
+import dev.livingrealms.sim.player.PlayerInfluenceActions;
 import dev.livingrealms.sim.territory.TerritoryEngine;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
@@ -39,6 +39,18 @@ public final class DashboardActionService {
             if(settlement.developmentPriority()==priority)return new Result(false,false,"policy_unchanged");settlement.setDevelopmentPriority(priority);return new Result(true,true,"policy_"+priority.name().toLowerCase());
         }
         if(command.action()==DashboardActionCommand.Action.MARKET_BUY||command.action()==DashboardActionCommand.Action.MARKET_SELL)return new Result(false,false,"runtime_inventory_required");
+        if(isInfluenceAction(command.action())){
+            var unlock=switch(command.action()){
+                case REQUEST_AUDIENCE -> PlayerInfluenceActions.Unlock.REQUEST_AUDIENCE;
+                case PROPOSE_PROJECT -> PlayerInfluenceActions.Unlock.PROPOSE_PROJECT;
+                case REQUEST_MILITARY_SUPPORT -> PlayerInfluenceActions.Unlock.REQUEST_MILITARY_SUPPORT;
+                case PETITION_TRADE -> PlayerInfluenceActions.Unlock.PETITION_TRADE;
+                case PETITION_CLERGY -> PlayerInfluenceActions.Unlock.PETITION_CLERGY;
+                default -> throw new IllegalStateException("influence action");
+            };
+            var r=PlayerInfluenceActions.apply(state,actorKey,command.targetId(),unlock);
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
         var jurisdiction=TerritoryEngine.resolve(state.factions(),position,state.config().borderDisputeThreshold());
         if(!jurisdiction.claimed()||jurisdiction.contested())return new Result(false,false,"no_usable_board");
         if(command.action()==DashboardActionCommand.Action.FACTION_JOIN_LOCAL){
@@ -50,7 +62,14 @@ public final class DashboardActionService {
         return switch(command.action()){
             case BOUNTY_ACCEPT -> {var r=state.acceptBounty(contract.id(),actorKey);yield new Result(r.success(),r.success(),r.reason());}
             case BOUNTY_ABANDON -> {var r=state.abandonBounty(contract.id(),actorKey);yield new Result(r.success(),r.success(),r.reason());}
-            case CONFIG_PERFORMANCE,CONFIG_BALANCED,CONFIG_IMMERSIVE,CONFIG_CINEMATIC,FACTION_JOIN_LOCAL,FACTION_LEAVE,TAX_LOWER,TAX_RAISE,SETTLEMENT_BALANCED,SETTLEMENT_FOOD,SETTLEMENT_HOUSING,SETTLEMENT_INDUSTRY,SETTLEMENT_DEFENSE,MARKET_BUY,MARKET_SELL -> new Result(false,false,"action_unreachable");
+            case CONFIG_PERFORMANCE,CONFIG_BALANCED,CONFIG_IMMERSIVE,CONFIG_CINEMATIC,FACTION_JOIN_LOCAL,FACTION_LEAVE,TAX_LOWER,TAX_RAISE,SETTLEMENT_BALANCED,SETTLEMENT_FOOD,SETTLEMENT_HOUSING,SETTLEMENT_INDUSTRY,SETTLEMENT_DEFENSE,MARKET_BUY,MARKET_SELL,REQUEST_AUDIENCE,PROPOSE_PROJECT,REQUEST_MILITARY_SUPPORT,PETITION_TRADE,PETITION_CLERGY -> new Result(false,false,"action_unreachable");
+        };
+    }
+
+    private static boolean isInfluenceAction(DashboardActionCommand.Action action){
+        return switch(action){
+            case REQUEST_AUDIENCE,PROPOSE_PROJECT,REQUEST_MILITARY_SUPPORT,PETITION_TRADE,PETITION_CLERGY -> true;
+            default -> false;
         };
     }
 

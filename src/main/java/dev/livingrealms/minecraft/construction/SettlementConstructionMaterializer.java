@@ -393,7 +393,7 @@ public final class SettlementConstructionMaterializer {
     private static BlockState paletteState(ServerLevel level,ConstructionJob job,PaletteSlot slot){
         FactionCivilizationState civ=SimulationRuntime.data(level.getServer()).state().findFactionCivilization(job.intent().factionId()).orElse(null);
         if(civ==null)return FactionBlockPalette.state(job.intent().factionId(),slot);
-        return FactionBlockPalette.state(job.intent().factionId(),slot,civ.artisticTradition(),civ.agrarianTradition(),civ.martialTradition());
+        return FactionBlockPalette.state(job.intent().factionId(),slot,civ.artisticTradition(),civ.agrarianTradition(),civ.martialTradition(),civ.mercantileTradition());
     }
 
     private static BuildApplyResult applyDoor(ServerLevel level,ConstructionJob job,BlockPos pos,BlockState current,AuthoredBlockLedger ledger,AuthoredOwnerType owner){

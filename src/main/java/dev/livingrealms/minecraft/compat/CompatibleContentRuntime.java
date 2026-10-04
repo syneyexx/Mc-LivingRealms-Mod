@@ -54,25 +54,39 @@ public final class CompatibleContentRuntime {
                     item->entity.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(item)),
                     ()->entity.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.IRON_AXE)));
         }else if(role==CitizenRole.OFFICIAL){
-            // Court officials (incl. dynasty ruler/heir projections) wear visible ceremonial armor.
-            entity.setItemSlot(EquipmentSlot.HEAD,new ItemStack(Items.GOLDEN_HELMET));
-            entity.setItemSlot(EquipmentSlot.CHEST,new ItemStack(Items.GOLDEN_CHESTPLATE));
-            entity.setItemSlot(EquipmentSlot.LEGS,new ItemStack(Items.GOLDEN_LEGGINGS));
-            entity.setItemSlot(EquipmentSlot.FEET,new ItemStack(Items.GOLDEN_BOOTS));
+            // Court officials: heraldry-dyed ceremonial leather + banner accent — not universal gold armor.
+            int primary=dev.livingrealms.sim.faction.FactionHeraldry.forFaction(factionId,"court").primaryRgb();
+            int secondary=dev.livingrealms.sim.faction.FactionHeraldry.forFaction(factionId,"court").secondaryRgb();
+            entity.setItemSlot(EquipmentSlot.HEAD,dyedLeather(Items.LEATHER_HELMET,primary));
+            entity.setItemSlot(EquipmentSlot.CHEST,dyedLeather(Items.LEATHER_CHESTPLATE,primary));
+            entity.setItemSlot(EquipmentSlot.LEGS,dyedLeather(Items.LEATHER_LEGGINGS,secondary));
+            entity.setItemSlot(EquipmentSlot.FEET,dyedLeather(Items.LEATHER_BOOTS,secondary));
+            entity.setItemSlot(EquipmentSlot.OFFHAND,new ItemStack(Items.WHITE_BANNER));
             List<Item> magic=weaponCandidates.stream().filter(CompatibleContentRuntime::looksMagical).toList();
             pick(magic,factionId,projectionSlot,53+role.ordinal()).ifPresentOrElse(
                     item->entity.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(item)),
-                    ()->entity.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.GOLDEN_SWORD)));
+                    ()->entity.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.IRON_SWORD)));
+        }else if(role==CitizenRole.PRIEST){
+            // Distinct clergy kit — robes via dyed leather, not combat leather default.
+            int faithTint=0xE8E0C8^Math.floorMod((int)factionId*17,0x3F3F3F);
+            entity.setItemSlot(EquipmentSlot.HEAD,dyedLeather(Items.LEATHER_HELMET,faithTint));
+            entity.setItemSlot(EquipmentSlot.CHEST,dyedLeather(Items.LEATHER_CHESTPLATE,0xF5F0E6));
+            List<Item> magic=weaponCandidates.stream().filter(CompatibleContentRuntime::looksMagical).toList();
+            pick(magic,factionId,projectionSlot,53+role.ordinal()).ifPresentOrElse(
+                    item->entity.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(item)),
+                    ()->entity.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(Items.BOOK)));
         }else{
-            // Priests and scholars can visibly carry compatible fantasy/magic staves.
+            // Scholars can visibly carry compatible fantasy/magic staves.
             // Actual spell casting stays behind an isolated runtime adapter instead of being faked.
             List<Item> magic=weaponCandidates.stream().filter(CompatibleContentRuntime::looksMagical).toList();
             pick(magic,factionId,projectionSlot,53+role.ordinal()).ifPresent(item->entity.setItemSlot(EquipmentSlot.MAINHAND,new ItemStack(item)));
-            if(role==CitizenRole.PRIEST){
-                entity.setItemSlot(EquipmentSlot.HEAD,new ItemStack(Items.LEATHER_HELMET));
-                entity.setItemSlot(EquipmentSlot.CHEST,new ItemStack(Items.LEATHER_CHESTPLATE));
-            }
         }
+    }
+
+    private static ItemStack dyedLeather(Item item,int rgb){
+        ItemStack stack=new ItemStack(item);
+        stack.set(net.minecraft.core.component.DataComponents.DYED_COLOR,new net.minecraft.world.item.component.DyedItemColor(rgb&0xFFFFFF,true));
+        return stack;
     }
 
     /** Safe visible pirate equipment. Player-only gun namespaces remain excluded by usableEquipmentNamespace(). */

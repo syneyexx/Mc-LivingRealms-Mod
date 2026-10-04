@@ -100,7 +100,7 @@ public final class SettlementEconomyTest {
         Settlement settlement = state.factions().getFirst().settlements().getFirst();
         settlement.restoreEconomy(777, 888, java.util.Map.of(ResourceType.FOOD, 321.0, ResourceType.WOOD, 44.0));
         byte[] bytes = SimulationStateCodec.encode(state);
-        check(SimulationStateCodec.inspectSchema(bytes) == 16, "encode schema 16");
+        check(SimulationStateCodec.inspectSchema(bytes) == 17, "encode schema 17");
         SimulationState loaded = SimulationStateCodec.decode(bytes);
         Settlement again = loaded.findSettlement(settlement.id()).orElseThrow();
         check(close(again.barnCapacity(), 777) && close(again.granaryCapacity(), 888), "capacities round-trip");

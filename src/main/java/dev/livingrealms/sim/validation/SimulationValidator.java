@@ -128,7 +128,7 @@ public final class SimulationValidator {
         for(SocialCitizen c:state.socialCitizens()){
             id(canonicalIds,max,c.id(),"social citizen",errors);citizenIds.add(c.id());
             if(!factionIds.contains(c.factionId())||!settlementIds.contains(c.settlementId()))errors.add("social citizen "+c.id()+" invalid faction/settlement");
-            if(c.projectionSlot()<0||c.skinVariant()<0||c.skinVariant()>=12||c.name().isBlank())errors.add("social citizen "+c.id()+" invalid identity");
+            if(c.projectionSlot()<0||c.skinVariant()<0||c.skinVariant()>=48||c.name().isBlank())errors.add("social citizen "+c.id()+" invalid identity");
             if(c.birthDay()>state.clock().day())errors.add("social citizen "+c.id()+" born in future");
             if(!unit(c.health())||!finiteNonNegative(c.money()))errors.add("social citizen "+c.id()+" invalid health/money");
             CitizenNeeds n=c.needs();if(!unit(n.hunger())||!unit(n.safety())||!unit(n.social())||!unit(n.status())||!unit(n.comfort()))errors.add("social citizen "+c.id()+" invalid needs");

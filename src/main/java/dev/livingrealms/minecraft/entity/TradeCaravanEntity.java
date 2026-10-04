@@ -22,6 +22,8 @@ import net.minecraft.world.phys.Vec3;
 /** Loaded projection of a persistent strategic TradeShipment. */
 public final class TradeCaravanEntity extends PathfinderMob {
     private static final EntityDataAccessor<Long> SHIPMENT_ID=SynchedEntityData.defineId(TradeCaravanEntity.class,EntityDataSerializers.LONG);
+    private static final EntityDataAccessor<Integer> CARGO_UNITS=SynchedEntityData.defineId(TradeCaravanEntity.class,EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> WAGON_MODE=SynchedEntityData.defineId(TradeCaravanEntity.class,EntityDataSerializers.BOOLEAN);
     private boolean dematerializing;
     private boolean lossReported;
 
@@ -31,14 +33,24 @@ public final class TradeCaravanEntity extends PathfinderMob {
             .add(Attributes.MAX_HEALTH,30).add(Attributes.MOVEMENT_SPEED,.26).add(Attributes.FOLLOW_RANGE,24).add(Attributes.ARMOR,2);}
 
     @Override protected void registerGoals(){goalSelector.addGoal(0,new FloatGoal(this));goalSelector.addGoal(6,new LookAtPlayerGoal(this,Player.class,8));goalSelector.addGoal(7,new RandomLookAroundGoal(this));}
-    @Override protected void defineSynchedData(SynchedEntityData.Builder builder){super.defineSynchedData(builder);builder.define(SHIPMENT_ID,0L);}
+    @Override protected void defineSynchedData(SynchedEntityData.Builder builder){super.defineSynchedData(builder);builder.define(SHIPMENT_ID,0L);builder.define(CARGO_UNITS,0);builder.define(WAGON_MODE,false);}
 
     public void initializeProjection(TradeShipment shipment){
         this.entityData.set(SHIPMENT_ID,shipment.id());
-        this.setCustomName(Component.literal("Trade Caravan • "+shipment.resource().name().toLowerCase()+" x"+(int)Math.round(shipment.amount())));
+        int units=(int)Math.round(Math.max(1,shipment.amount()));
+        this.entityData.set(CARGO_UNITS,units);
+        boolean wagon=units>=40||shipment.value()>=180||shipment.escortStrength()>.55;
+        this.entityData.set(WAGON_MODE,wagon);
+        String form=wagon?"Wagon":"Pack train";
+        String escort=shipment.escortStrength()>.55?" • escorted":shipment.escortStrength()>.3?" • light escort":"";
+        String loss=shipment.lossState()==TradeShipment.LossState.PARTIAL?" • damaged cargo":"";
+        this.setCustomName(Component.literal(form+" • "+shipment.resource().name().toLowerCase()+" x"+units+escort+loss));
         this.setCustomNameVisible(false);
     }
-    public long shipmentId(){return entityData.get(SHIPMENT_ID);} public boolean isDematerializing(){return dematerializing;} public boolean lossReported(){return lossReported;} public void markLossReported(){lossReported=true;}
+    public long shipmentId(){return entityData.get(SHIPMENT_ID);}
+    public int cargoUnits(){return entityData.get(CARGO_UNITS);}
+    public boolean wagonMode(){return entityData.get(WAGON_MODE);}
+    public boolean isDematerializing(){return dematerializing;} public boolean lossReported(){return lossReported;} public void markLossReported(){lossReported=true;}
     public void dematerialize(){dematerializing=true;discard();}
 
     @Override public void tick(){
@@ -46,10 +58,13 @@ public final class TradeCaravanEntity extends PathfinderMob {
         if(level().isClientSide()||tickCount%20!=0||!(level() instanceof ServerLevel serverLevel)||shipmentId()<=0)return;
         TradeShipment shipment=SimulationRuntime.data(serverLevel.getServer()).state().findShipment(shipmentId()).orElse(null);
         if(shipment==null){dematerialize();return;}
+        int units=(int)Math.round(Math.max(1,shipment.amount()));
+        entityData.set(CARGO_UNITS,units);
+        entityData.set(WAGON_MODE,units>=40||shipment.value()>=180||shipment.escortStrength()>.55);
         Vec3 delta=new Vec3(shipment.destination().x()-getX(),0,shipment.destination().z()-getZ());
         if(delta.lengthSqr()>9){Vec3 step=delta.normalize().scale(Math.min(20,Math.sqrt(delta.lengthSqr())));getNavigation().moveTo(getX()+step.x,getY(),getZ()+step.z,1.0);}
     }
 
-    @Override public void addAdditionalSaveData(CompoundTag tag){super.addAdditionalSaveData(tag);tag.putLong("LivingRealmsShipment",shipmentId());tag.putBoolean("LivingRealmsDematerializing",dematerializing);tag.putBoolean("LivingRealmsLossReported",lossReported);}
-    @Override public void readAdditionalSaveData(CompoundTag tag){super.readAdditionalSaveData(tag);entityData.set(SHIPMENT_ID,tag.getLong("LivingRealmsShipment"));dematerializing=tag.getBoolean("LivingRealmsDematerializing");lossReported=tag.getBoolean("LivingRealmsLossReported");}
+    @Override public void addAdditionalSaveData(CompoundTag tag){super.addAdditionalSaveData(tag);tag.putLong("LivingRealmsShipment",shipmentId());tag.putInt("LivingRealmsCargo",cargoUnits());tag.putBoolean("LivingRealmsWagon",wagonMode());tag.putBoolean("LivingRealmsDematerializing",dematerializing);tag.putBoolean("LivingRealmsLossReported",lossReported);}
+    @Override public void readAdditionalSaveData(CompoundTag tag){super.readAdditionalSaveData(tag);entityData.set(SHIPMENT_ID,tag.getLong("LivingRealmsShipment"));entityData.set(CARGO_UNITS,tag.getInt("LivingRealmsCargo"));entityData.set(WAGON_MODE,tag.getBoolean("LivingRealmsWagon"));dematerializing=tag.getBoolean("LivingRealmsDematerializing");lossReported=tag.getBoolean("LivingRealmsLossReported");}
 }

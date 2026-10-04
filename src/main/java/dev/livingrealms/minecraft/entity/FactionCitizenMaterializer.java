@@ -1,6 +1,8 @@
 package dev.livingrealms.minecraft.entity;
 
-import dev.livingrealms.minecraft.LivingRealmsSavedData;import dev.livingrealms.sim.config.RuntimeProjectionPolicy;
+import dev.livingrealms.minecraft.LivingRealmsSavedData;
+import dev.livingrealms.minecraft.compat.CompatibleContentRuntime;
+import dev.livingrealms.sim.config.RuntimeProjectionPolicy;
 import dev.livingrealms.sim.civilian.*;
 import dev.livingrealms.sim.civilization.MigrationStatus;
 import dev.livingrealms.sim.construction.*;
@@ -31,10 +33,12 @@ public final class FactionCitizenMaterializer {
         if(dynasty==null)return;
         var faction=state.findFaction(social.factionId()).orElse(null);
         String title=courtTitle(faction,dynasty,social);
-        // Distinct high-index skins so court figures do not blend into common civilian looks.
-        if(social.id()==dynasty.rulerCitizenId())entity.setSkinVariant(11);
-        else if(social.id()==dynasty.heirCitizenId())entity.setSkinVariant(10);
-        else if(social.id()==dynasty.regentCitizenId())entity.setSkinVariant(10);
+        // Court uses dedicated high appearance indices (44–47) within the 48-skin pool — not gold armor.
+        if(social.id()==dynasty.rulerCitizenId())entity.setSkinVariant(47);
+        else if(social.id()==dynasty.heirCitizenId())entity.setSkinVariant(46);
+        else if(social.id()==dynasty.regentCitizenId())entity.setSkinVariant(45);
+        else entity.setSkinVariant(44);
+        CompatibleContentRuntime.equipCitizen(entity,social.factionId(),CitizenRole.OFFICIAL,Math.floorMod((int)social.id(),32));
         entity.setCustomName(net.minecraft.network.chat.Component.literal(title+" "+social.name()));
         entity.setCustomNameVisible(true);
     }

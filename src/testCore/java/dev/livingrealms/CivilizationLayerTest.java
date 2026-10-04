@@ -51,7 +51,7 @@ public final class CivilizationLayerTest {
 
         state.advanceDays(35);SimulationValidator.validate(state).throwIfInvalid();
         byte[] encoded=SimulationStateCodec.encode(state);SimulationState restored=SimulationStateCodec.decode(encoded,state.species());
-        check(SimulationStateCodec.SCHEMA_VERSION==16,"schema16");
+        check(SimulationStateCodec.SCHEMA_VERSION==17,"schema17");
         check(restored.settlementCivilizations().size()==state.settlementCivilizations().size(),"civilization persistence");
         check(restored.resourceClaims().size()==state.resourceClaims().size(),"claim persistence");
         check(restored.legends().size()==state.legends().size(),"legend persistence");

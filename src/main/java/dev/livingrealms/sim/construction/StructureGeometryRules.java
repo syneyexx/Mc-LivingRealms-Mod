@@ -11,7 +11,7 @@ public final class StructureGeometryRules {
     public static boolean isRequiredGeometry(PaletteSlot slot, ConstructionPhase phase) {
         if (slot == null || phase == null) return true;
         return switch (slot) {
-            case LIGHT, REDSTONE_LIGHT, FENCE, GLASS, CROP, STORAGE, MACHINE, METAL -> false;
+            case LIGHT, REDSTONE_LIGHT, FENCE, GLASS, CROP, STORAGE, MACHINE, METAL, BED, TABLE, DECORATION -> false;
             case AIR -> phase != ConstructionPhase.DETAIL;
             case FOUNDATION, FLOOR, WALL, BEAM, ROOF, DOOR, PATH, FARMLAND, RUNWAY, WATER -> true;
         };

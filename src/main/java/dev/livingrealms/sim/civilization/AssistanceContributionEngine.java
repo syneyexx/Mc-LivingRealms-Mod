@@ -32,11 +32,11 @@ public final class AssistanceContributionEngine {
 
     public static ResourceType requiredResource(AssistanceTaskType type) {
         return switch (type) {
-            case FOOD_RELIEF, REFUGEE_SUPPORT -> ResourceType.FOOD;
+            case FOOD_RELIEF, REFUGEE_SUPPORT, MILITARY_SUPPLY -> ResourceType.FOOD;
             case MEDICAL_AID, WATER_SUPPLY -> ResourceType.TEXTILES;
-            case HOUSING_SUPPLIES -> ResourceType.WOOD;
-            case SECURITY_SUPPORT, TRADE_ESCORT -> ResourceType.IRON;
-            case INFRASTRUCTURE_REPAIR -> ResourceType.STONE;
+            case HOUSING_SUPPLIES, BRIDGE_REPAIR -> ResourceType.WOOD;
+            case SECURITY_SUPPORT, TRADE_ESCORT, BANDIT_BOUNTY, MISSING_CARAVAN -> ResourceType.IRON;
+            case INFRASTRUCTURE_REPAIR, RECONSTRUCTION_AID -> ResourceType.STONE;
         };
     }
 
@@ -82,7 +82,7 @@ public final class AssistanceContributionEngine {
     private static void applyRelief(AssistanceTaskType type, Settlement settlement, SettlementCivilizationState civ,
                                     SimulationState state, double relief) {
         switch (type) {
-            case FOOD_RELIEF -> {
+            case FOOD_RELIEF, MILITARY_SUPPLY -> {
                 settlement.setFoodSecurity(Math.min(1, settlement.foodSecurity() + relief));
                 settlement.adjustProsperity(relief * .15);
             }
@@ -92,9 +92,12 @@ public final class AssistanceContributionEngine {
                         civ.waterSecurity(), civ.refugeePressure(), civ.banditPressure(), civ.culturalCohesion(),
                         civ.assimilation(), civ.resourcePressure(), .12);
             }
-            case SECURITY_SUPPORT, TRADE_ESCORT -> {
+            case SECURITY_SUPPORT, TRADE_ESCORT, BANDIT_BOUNTY, MISSING_CARAVAN -> {
                 civ.adjustBanditPressure(-relief);
                 settlement.setPublicOrder(Math.min(1, settlement.publicOrder() + relief * .65));
+                state.routes().stream()
+                        .filter(r -> r.fromSettlementId() == settlement.id() || r.toSettlementId() == settlement.id())
+                        .forEach(r -> r.adjustSecurity(relief * .2));
             }
             case REFUGEE_SUPPORT -> {
                 civ.adjustRefugeePressure(-relief);
@@ -107,9 +110,10 @@ public final class AssistanceContributionEngine {
                 settlement.addHousing(Math.max(1, (int) Math.round(relief * 6)));
                 settlement.adjustProsperity(relief * .08);
             }
-            case INFRASTRUCTURE_REPAIR -> {
+            case INFRASTRUCTURE_REPAIR, BRIDGE_REPAIR, RECONSTRUCTION_AID -> {
                 settlement.improveInfrastructure(relief * 2.5);
                 settlement.adjustProsperity(relief * .1);
+                settlement.adjustUnrest(-relief * .15);
                 state.routes().stream()
                         .filter(r -> r.fromSettlementId() == settlement.id() || r.toSettlementId() == settlement.id())
                         .forEach(r -> {
@@ -125,16 +129,16 @@ public final class AssistanceContributionEngine {
 
     private static double currentPressure(AssistanceTaskType type, Settlement settlement, SettlementCivilizationState civ, SimulationState state) {
         return switch (type) {
-            case FOOD_RELIEF -> Mathx.clamp((.48 - settlement.foodSecurity()) / .48, 0, 1);
+            case FOOD_RELIEF, MILITARY_SUPPLY -> Mathx.clamp((.48 - settlement.foodSecurity()) / .48, 0, 1);
             case MEDICAL_AID -> Mathx.clamp(Math.max(civ.diseasePressure(), 1 - civ.sanitation()) - .34, 0, 1);
-            case SECURITY_SUPPORT -> Mathx.clamp(Math.max(civ.banditPressure(), 1 - settlement.publicOrder()) - .30, 0, 1);
+            case SECURITY_SUPPORT, BANDIT_BOUNTY -> Mathx.clamp(Math.max(civ.banditPressure(), 1 - settlement.publicOrder()) - .30, 0, 1);
             case REFUGEE_SUPPORT -> Mathx.clamp(civ.refugeePressure() - .28, 0, 1);
             case WATER_SUPPLY -> Mathx.clamp(.50 - civ.waterSecurity(), 0, 1) * 2;
             case HOUSING_SUPPLIES -> {
                 double ratio = settlement.housing() <= 0 ? 1 : Mathx.clamp(settlement.population() / (double) settlement.housing(), 0, 2);
                 yield Mathx.clamp(ratio - .84, 0, 1);
             }
-            case TRADE_ESCORT -> {
+            case TRADE_ESCORT, MISSING_CARAVAN -> {
                 double insecure = state.routes().stream()
                         .filter(r -> r.operational())
                         .filter(r -> r.fromSettlementId() == settlement.id() || r.toSettlementId() == settlement.id())
@@ -142,7 +146,7 @@ public final class AssistanceContributionEngine {
                         .max().orElse(0);
                 yield Mathx.clamp(insecure * 1.7, 0, 1);
             }
-            case INFRASTRUCTURE_REPAIR -> infrastructurePressure(state, settlement);
+            case INFRASTRUCTURE_REPAIR, BRIDGE_REPAIR, RECONSTRUCTION_AID -> infrastructurePressure(state, settlement);
         };
     }
 
