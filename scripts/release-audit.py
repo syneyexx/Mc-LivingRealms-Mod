@@ -108,9 +108,9 @@ network_version=str_const(net,'NETWORK_VERSION')
 content_revision=int_const(saved_data_for_rev,'CONTENT_REVISION')
 require(schema_version==16,f'save schema must be 16 (source currently {schema_version})')
 require(min_schema==1,f'min supported schema must remain 1 (source {min_schema})')
-require(dashboard_protocol==14,f'dashboard protocol must be 14 (source {dashboard_protocol})')
-require(network_version=='12',f'network registration version must be 12 (source {network_version!r})')
-require(content_revision==9,f'content revision must be 9 (source {content_revision})')
+require(dashboard_protocol==15,f'dashboard protocol must be 15 (source {dashboard_protocol})')
+require(network_version=='13',f'network registration version must be 13 (source {network_version!r})')
+require(content_revision==10,f'content revision must be 10 (source {content_revision})')
 
 
 
@@ -211,7 +211,14 @@ founder=(root/'src/main/java/dev/livingrealms/sim/player/PlayerSettlementFounder
 require('Realm of ' in founder and 'assumeRule' in founder and 'relationWith' in founder,'player-founded settlements must enter canonical government/membership/diplomacy as the actual ruler')
 saved_data=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java').read_text()
 require('ContentRevision' in saved_data and 'contentRevision < CONTENT_REVISION' in saved_data,'density content migration must remain one-shot and persisted')
-require('resetConstructionCompletion' in saved_data and 'contentRevision < 6' in saved_data and 'CONTENT_REVISION = 9' in saved_data,'content revision 9 keeps revision-6 construction rebuild, Waystone provenance, and typed authored-block ledger without schema bump')
+require('resetConstructionCompletion' in saved_data and 'contentRevision < 10' in saved_data and 'CONTENT_REVISION = 10' in saved_data,'content revision 10 rebuilds morphology completion keys once and keeps Waystone provenance + typed authored-block ledger without schema bump')
+require((root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').exists(),'geography-derived SettlementMorphology must exist')
+require('COASTAL_PORT' in (root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').read_text() and 'HILL_TOWN' in (root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').read_text(),'morphology catalog must include coastal/hill patterns')
+cause_explainer=root/'src/main/java/dev/livingrealms/sim/society/WorldCauseExplainer.java'
+require(cause_explainer.exists() and 'settlementPressureCause' in cause_explainer.read_text(),'player-facing WorldCauseExplainer must exist')
+require('causeSummary' in (root/'src/main/java/dev/livingrealms/sim/ui/RealmDashboardSnapshot.java').read_text(),'dashboard protocol 15 must expose settlement cause summaries')
+require('case PLAZA' in (root/'src/main/java/dev/livingrealms/sim/construction/StructureBlueprintFactory.java').read_text() or 'PLAZA ->' in (root/'src/main/java/dev/livingrealms/sim/construction/StructureBlueprintFactory.java').read_text(),'civic plazas must have blueprints')
+require('PaletteSlot.LIGHT' in (root/'src/main/java/dev/livingrealms/sim/construction/StructureBlueprintFactory.java').read_text() and 'road_with_sidewalks' in (root/'src/main/java/dev/livingrealms/sim/construction/StructureBlueprintFactory.java').read_text(),'roads must place street lighting on sidewalks')
 require('AuthoredBlockLedger' in saved_data or 'authoredBlocks' in saved_data,'SavedData must persist authored construction provenance outside schema payload')
 construction_runtime_text=(root/'src/main/java/dev/livingrealms/minecraft/construction/SettlementConstructionMaterializer.java').read_text()
 require('OBSTRUCTED_PROTECTED' in construction_runtime_text and 'AuthoredBlockLedger' in construction_runtime_text,'construction materializer must use provenance-aware obstruction results')

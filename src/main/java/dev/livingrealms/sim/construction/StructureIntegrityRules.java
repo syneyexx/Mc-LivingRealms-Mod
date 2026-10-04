@@ -24,6 +24,7 @@ public final class StructureIntegrityRules {
             case WALL, GATE -> wallConnected(operations, receipt);
             case HOUSE, KEEP, MARKET, WAREHOUSE, WORKSHOP, BARRACKS, TEMPLE, SCHOOL, CLINIC, COURTHOUSE,
                     PRISON, TAVERN, BAKERY, BREWERY, MILL, FACTORY, DOCK, AIRFIELD -> buildingIntegrity(operations, receipt);
+            case PLAZA -> roadConnected(operations, receipt);
             default -> true;
         };
     }

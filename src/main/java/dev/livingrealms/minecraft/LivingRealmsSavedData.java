@@ -29,7 +29,7 @@ public final class LivingRealmsSavedData extends SavedData {
      * Revision 9 keeps revision-8 authored-block ledger bytes and adds typed ownership packing in
      * unused high bits (ContentRevision sidecar only; SimulationStateCodec schema 16 unchanged).
      */
-    private static final int CONTENT_REVISION = 9;
+    private static final int CONTENT_REVISION = 10;
 
     private final SimulationState state;
     /** settlementId -> packed BlockPos of Living Realms-authored Waystone only. */
@@ -84,13 +84,14 @@ public final class LivingRealmsSavedData extends SavedData {
         // Revision 6 replaces the old curved/free-form settlement layouts with connected street
         // blocks, accessible floors, denser housing and capital castles. Completion keys must be
         // rebuilt once so old saves do not incorrectly treat the new geometry as already present.
-        if(contentRevision < 6){
+        // Revision 10 replaces universal orthogonal rings with geography-derived morphologies
+        // (coastal/river/hill/radial/organic) plus plazas and street furniture — reset once.
+        if(contentRevision < 6 || contentRevision < 10){
             for(var faction:loaded.state().factions())for(var settlement:faction.settlements())constructionResets+=settlement.resetConstructionCompletion();
         }
         // Revision 8 introduced authored-block provenance. Revision 9 adds typed ownership in the
-        // same NBT key (legacy type bits=0 => SETTLEMENT_STRUCTURE). Do not reset construction
-        // completion: existing completed keys stay; future overwrite protection uses typed ledger
-        // + natural terrain rules. Legacy payloads are rewritten on the next normal Minecraft save.
+        // same NBT key (legacy type bits=0 => SETTLEMENT_STRUCTURE). Revision 10 only rebuilds
+        // settlement morphology completion keys (above).
         if (outerSchema != SimulationStateCodec.SCHEMA_VERSION || expectedIntegrity == 0L || contentRevision < CONTENT_REVISION || densityChanges > 0 || wizardChanges > 0 || constructionResets > 0) loaded.setDirty();
         return loaded;
     }

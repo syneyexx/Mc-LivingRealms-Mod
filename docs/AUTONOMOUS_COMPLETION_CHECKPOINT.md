@@ -1,90 +1,39 @@
 # Living Realms Autonomous Completion Checkpoint
 
-Current wave: 49 (refugee camp physical enqueue) after Waves 41/42/37/60  
-Current subwave: linked-build verified; follow-up commit for camp construction  
-Current objective: Keep external runtime gates truthful; continue physicality polish  
+Current wave: 4/116/139/174 (morphology + causality + nightlife + plazas) after Wave 0 audit  
+Current objective: Continue remaining presentation/sim depth waves; linked build next  
 
 ## Completed waves (this session)
 
-- Wave 0 — repository forensics (HEAD already CODE COMPLETE / EXTERNAL GATE UNVERIFIED baseline)
-- Wave 1 — foundation verified (Java 21 core suite green)
-- Wave 41 — civic-event holy-day cadence repaired (rites no longer miss non-day%30 holy days)
-- Wave 42 — festival decoration planner + CIVIC_FESTIVAL materializer/cleanup wired
-- Wave 37 — holy-order presence now affects bandit pressure / cohesion / order (monthly)
-- Wave 60 — AssistanceContributionEngine + PlayerAssistanceRuntime + `/livingrealms assist`
-- Wave 88 — new automated gates: CivicHolyDayFestivalTest, AssistanceContributionTest
+- Wave 0 — forensic audit (HEAD baseline; orthogonal streets identified as universal morphology debt)
+- Wave 1 — preserved single authorities (no parallel engines)
+- Wave 3 — terrain site rejection hardened (unsupported pads / cliff step density)
+- Wave 4 — `SettlementMorphology` geography-derived street patterns (coastal/river/hill/radial/organic/…)
+- Wave 6/174 — sidewalk lights + benches; `StructureRole.PLAZA` civic squares
+- Wave 87–91 — ship class part visibility; wildlife mass-driven scale
+- Wave 116 — `WorldCauseExplainer` + dashboard protocol **15** cause summaries + dialogue wiring
+- Wave 139 — night curfew / low-order nightlife in `CitizenRoutinePlanner`
+- ContentRevision **10** — one-shot construction completion rebuild for new morphology
 
-## Completed subsystems (pre-existing, preserved)
+## Architecture decisions
 
-Canonical sim through schema 16 / protocol 14 / ContentRevision 9: settlements, factions, economy, trade, war, law, religion catalog, ecology (134 spp), dashboard F12, map M, Wizard Trees, provenance, construction integrity.
-
-## Current architecture decisions
-
-- No schema bump required for this pass (festival ownership is AuthoredBlockLedger sidecar; assistance contribution mutates existing tasks/stockpiles).
-- `AuthoredOwnerType.CIVIC_FESTIVAL` (id=10) for temporary decorations only; cleanup never destroys player-replaced blocks.
-- Holy-day scheduling respects `advanceDays` semantics (simulate day D, then increment clock) via `isHolyDay(day)||isHolyDay(day+1)`.
-- Player aid never completes via dialogue alone; inventory drain + `contributeVerified` is mandatory.
-
-## Files materially changed
-
-- `CivilizationLifecycleEngine.java` — holy-day daily rites, siege/epidemic suppression, holy-order patrol
-- `CivicFestivalDecorationPlanner.java` (new)
-- `CivicFestivalMaterializer.java` (new)
-- `AssistanceContributionEngine.java` (new)
-- `PlayerAssistanceRuntime.java` (new)
-- `AuthoredOwnerType.java` — CIVIC_FESTIVAL
-- `LivingRealmsEvents.java` — tick/cleanup/commands
-- `NaturalLanguageDialogueEngine.java` — verified-delivery help text
-- `FaithEconomyHooks.java` — holy order in holy_day history
-- Tests + `core-tests.list` + `release-audit.py`
-- Docs / checkpoint
+- Morphology derived from `SettlementGeographyProfile` + tier + capital + tech; salt only breaks ties.
+- Schema remains **16**; dashboard protocol **15**; network **13**; ContentRevision **10**.
+- No second economy/population/settlement authority introduced.
 
 ## Tests currently passing
 
-`./scripts/test-core.sh` — **34/34 PASS** including 3650-day soak and new civic/assistance gates.
-
-## Tests currently failing
-
-None (headless).
+`./scripts/test-core.sh` — **36/36 PASS** including `OrganicMorphologyAndCauseTest` and 3650-day soak.  
+`python3 ./scripts/release-audit.py` — PASS (schema16/protocol15/net13/content10).
 
 ## Known runtime-unverified gates
 
 - `runtimeSmoke: unverified`
 - `gameTests: unverified`
-- Full modpack client/server smoke, Waystones live path, Create kinetic unload stress
-
-## Known defects / remaining P0
-
-None known internally after this pass.
-
-## Remaining P1
-
-- Linked NeoForge/Create clean build must be re-run on this commit (prior tip was green; re-verify).
-- Festival decoration visual quality in real client (external).
-
-## Remaining P2
-
-- Deeper district visual language / clothing assets
-- Bespoke wildlife meshes
-- Dashboard protocol expansion for assistance task board (commands/dialogue cover it now)
-- Broader morphology archetypes beyond existing planner
-
-## Remaining P3
-
-- UI polish, localization, heraldry art
+- Full modpack client/server smoke
 
 ## Exact next action
 
-1. Commit/push this pass and open/update PR  
-2. Run `./build-production.sh` if network/deps allow  
-3. Continue Waves 44–54 physical history / culture visibility if time remains  
-
-## Last clean build
-
-- Headless core: PASS (34 tests at `0bf2740`; RefugeeCampConstructionTest added after)
-- Linked NeoForge: PASS at tip `3ddec75` → `build/libs/livingrealms-3.0.0-rc4.jar` (runtimeSmoke still unverified)
-- Headless core: PASS (35 tests)
-
-## Last commit/checkpoint
-
-`3ddec75` tip; linked build PASS + RELEASE_MANIFEST certifies this commit; runtimeSmoke unverified
+1. Commit/push + open/update PR  
+2. Run linked `./build-production.sh` if deps allow  
+3. Continue Waves 54+ tasks board, wildlife textures, court presentation, docs truth pass  

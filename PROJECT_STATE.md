@@ -1,6 +1,6 @@
 # Living Realms project state
 
-**Checkpoint:** v3.0.0-rc4 A–Z autonomous deepen (holy-day rites + festival projection + assistance delivery)
+**Checkpoint:** v3.0.0-rc4 A–Z deepen (geography morphologies + plazas + cause summaries + ContentRevision 10)
 
 ## Current production state
 - Starter density target is **32** settlements per surface realm (~380+ with Wizard Trees) including fertile rural hamlets; physical entities/blocks remain player-local and budgeted.
@@ -8,9 +8,9 @@
 - Naval ports are discovered from ship-suitable geography; coastal settlements plan docks; locate-port works after discovery.
 - Court projections bind dynasty ruler/heir identities; foreign NPC adoption infers roles; dialogue OPEN_TRADE quotes local/realm markets.
 - See `docs/DETAIL_MATRIX.md` for per-detail masterplan status.
-- Settlement streets are orthogonal/connected and include residential side streets + sidewalks; houses use cottage/longhouse/townhouse/porch variants and towns/cities add multi-storey apartment blocks with density-compressed housing capacity.
+- Settlement streets use geography-derived morphologies (`SettlementMorphology`: coastal port, river/valley, hill town, radial capital, organic medieval, market-cross, boulevard, industrial edge) with connected arterials, residential side streets, sidewalk lights/benches and civic plazas; houses use cottage/longhouse/townhouse/porch variants and towns/cities add multi-storey apartment blocks with density-compressed housing capacity.
 - Construction completion requires physically acceptable required geometry (`StructureMaterializationReceipt`). Decorative skips are allowed; missing foundation/wall/door/path is not.
-- Typed authored-block provenance (`AuthoredOwnerType` + `AuthoredBlockLedger` + `WorldMutationGuard`, ContentRevision **9**) protects player/foreign builds; block entities remain a hard stop; ALREADY_CORRECT never claims unknown identical blocks.
+- Typed authored-block provenance (`AuthoredOwnerType` + `AuthoredBlockLedger` + `WorldMutationGuard`, ContentRevision **10**) protects player/foreign builds; block entities remain a hard stop; ALREADY_CORRECT never claims unknown identical blocks. ContentRevision 10 also rebuilds settlement morphology completion keys once for geography-derived streets/plazas.
 - Building floors are walkable; real faction wood doors are placed; EntranceAccessPlanner repairs door↔street grades including steeper switchbacks. Tier-specific road/keep/wall/gate keys ensure settlements physically expand after tier upgrades.
 - Intercity routes use bounded terrain-cost corridor planning **without** destructive straight-road fallback. SettlementGeographyProfile drives water modes (name heuristic is bootstrap/fallback only).
 - `/setday`/`advance` catch-up uses PhysicalDevelopmentReconciler. Dashboard key is **F12**; world map **M**; creative catalog **K**.

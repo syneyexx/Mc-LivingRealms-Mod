@@ -14,6 +14,7 @@ dev.livingrealms.SaveIntegrityTest
 dev.livingrealms.SaveMutationFuzzTest
 dev.livingrealms.ProductionHardeningTest
 dev.livingrealms.LivingWorldDensityTest
+dev.livingrealms.OrganicMorphologyAndCauseTest
 dev.livingrealms.WorldgenQualityTest
 dev.livingrealms.ProductionQualityTest
 dev.livingrealms.ProductionCompletionPassTest

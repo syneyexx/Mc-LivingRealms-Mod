@@ -17,6 +17,7 @@ public final class StructureBlueprintFactory {
             case FARM -> farm(intent.width(), intent.depth());
             case ROAD -> road(intent.width(), intent.depth());
             case MARKET -> market(intent);
+            case PLAZA -> plaza(intent.width(), intent.depth());
             case WAREHOUSE -> warehouse(intent.width(), intent.depth());
             case WORKSHOP -> workshop(intent.width(), intent.depth());
             case BARRACKS -> barracks(intent.width(), intent.depth());
@@ -301,13 +302,37 @@ public final class StructureBlueprintFactory {
 
     private static StructureBlueprint road(int w,int d) {
         List<BlockPlacement> p=new ArrayList<>(); int hx=w/2,hz=d/2;
-        // Five-block carriageway/path with one-block stone sidewalks on both sides.
-        // Rotation happens later, so x is always the local cross-road axis here.
+        // Carriageway with sidewalks; periodic lamps/benches stay on sidewalk edges so the centerline stays clear.
         for(int z=-hz;z<=hz;z++) for(int x=-hx;x<=hx;x++) {
             PaletteSlot slot=Math.abs(x)>=Math.max(1,hx-0)?PaletteSlot.FOUNDATION:PaletteSlot.PATH;
             add(p,x,0,z,slot,ConstructionPhase.FOUNDATION);
         }
-        return bp("road_with_sidewalks",w,d,1,p);
+        if(w>=5){
+            for(int z=-hz+2;z<=hz-2;z+=8){
+                add(p,-hx,1,z,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
+                add(p,hx,1,z,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
+                if(z+4<=hz-2){
+                    add(p,-hx,1,z+4,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
+                    add(p,hx,1,z+4,PaletteSlot.FENCE,ConstructionPhase.DETAIL);
+                }
+            }
+        }
+        return bp("road_with_sidewalks",w,d,2,p);
+    }
+
+    /** Open civic plaza: paved square, corner lamps, edge seating — keeps the center traversable. */
+    private static StructureBlueprint plaza(int w,int d) {
+        List<BlockPlacement> p=new ArrayList<>();int hx=w/2,hz=d/2;
+        for(int z=-hz;z<=hz;z++)for(int x=-hx;x<=hx;x++){
+            boolean rim=Math.abs(x)==hx||Math.abs(z)==hz;
+            add(p,x,0,z,rim?PaletteSlot.FOUNDATION:PaletteSlot.PATH,ConstructionPhase.FOUNDATION);
+        }
+        for(int[] c:new int[][]{{-hx,-hz},{hx,-hz},{-hx,hz},{hx,hz}}){
+            add(p,c[0],1,c[1],PaletteSlot.LIGHT,ConstructionPhase.DETAIL);
+            add(p,c[0],1,c[1]==0?1:c[1]+Integer.signum(-c[1]),PaletteSlot.FENCE,ConstructionPhase.DETAIL);
+        }
+        add(p,0,0,0,PaletteSlot.PATH,ConstructionPhase.FOUNDATION);
+        return bp("civic_plaza",w,d,2,p);
     }
 
     private static StructureBlueprint wall(int w,int d) {

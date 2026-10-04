@@ -24,7 +24,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Custom payload registration for bounded strategic UI synchronization. */
 public final class LivingRealmsNetwork {
-    public static final String NETWORK_VERSION = "12";
+    public static final String NETWORK_VERSION = "13";
 
     private LivingRealmsNetwork() {}
 

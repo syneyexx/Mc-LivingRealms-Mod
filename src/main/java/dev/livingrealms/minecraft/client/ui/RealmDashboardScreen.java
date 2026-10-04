@@ -292,6 +292,7 @@ public final class RealmDashboardScreen extends Screen {
         lines.add(dim("Food " + pct(s.foodSecurity()) + " • order " + pct(s.publicOrder()) + " • employment " + pct(s.employment()), 1));
         lines.add(dim("Housing satisfaction " + pct(s.housingSatisfaction()) + " • goods " + pct(s.goodsAccess()), 1));
         lines.add(dim("Society satisfaction " + pct(s.societySatisfaction()) + " • pressure " + titleCase(s.primaryPressure()) + " " + pct(s.pressureSeverity()), 1));
+        if(s.causeSummary()!=null&&!s.causeSummary().isBlank()) lines.add(dim("Why: "+s.causeSummary(),1));
         if(snapshot.player().memberFactionId()==snapshot.realm().factionId()) lines.add(dim("Use the policy buttons below; changes affect real construction order.",0));
         return lines;
     }
@@ -314,8 +315,14 @@ public final class RealmDashboardScreen extends Screen {
             lines.add(dim("Employment " + pct(s.employment()) + " • goods " + pct(s.goodsAccess()), 1));
             if (!s.primaryPressure().equals("BALANCED")) {
                 lines.add(warn("  Main pressure: " + titleCase(s.primaryPressure()) + " (" + pct(s.pressureSeverity()) + " deficit)"));
+                if (s.causeSummary() != null && !s.causeSummary().isBlank()) {
+                    lines.add(dim("  Why: " + s.causeSummary(), 1));
+                }
             } else {
                 lines.add(dim("Needs are broadly balanced.", 1));
+                if (s.causeSummary() != null && !s.causeSummary().isBlank()) {
+                    lines.add(dim("  " + s.causeSummary(), 1));
+                }
             }
         }
         return lines;

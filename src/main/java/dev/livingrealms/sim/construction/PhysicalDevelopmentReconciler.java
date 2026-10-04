@@ -127,7 +127,7 @@ public final class PhysicalDevelopmentReconciler {
         return switch (role) {
             case ROAD -> 0;
             case HOUSE -> 1;
-            case MARKET, WELL, TAVERN, TEMPLE -> 2;
+            case MARKET, PLAZA, WELL, TAVERN, TEMPLE -> 2;
             case WALL, GATE, KEEP -> 3;
             default -> 4;
         };
