@@ -111,12 +111,21 @@ public final class RealmDashboardScreen extends Screen {
                 DashboardActionCommand.Action.PETITION_CLERGY
         };
         String[] labels={"Audience","Propose","Military","Trade","Clergy"};
+        String[] tips={
+                "tooltip.livingrealms.influence",
+                "tooltip.livingrealms.grand_project",
+                "tooltip.livingrealms.influence",
+                "tooltip.livingrealms.route_security",
+                "tooltip.livingrealms.influence"
+        };
         int bw=Math.max(58,(panelWidth-28)/5);
         for(int i=0;i<actions.length;i++){
             final DashboardActionCommand.Action action=actions[i];
-            addRenderableWidget(Button.builder(Component.literal(labels[i]),
+            var button=Button.builder(Component.literal(labels[i]),
                     b->DashboardClientState.sendAction(new DashboardActionCommand(action,factionId)))
-                    .bounds(left+10+i*bw,contentY+166,bw-3,16).build());
+                    .bounds(left+10+i*bw,contentY+166,bw-3,16).build();
+            button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable(tips[i])));
+            addRenderableWidget(button);
         }
     }
 

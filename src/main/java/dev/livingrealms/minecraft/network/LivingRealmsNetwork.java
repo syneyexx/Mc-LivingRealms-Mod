@@ -64,7 +64,7 @@ public final class LivingRealmsNetwork {
             var result=DashboardActionService.apply(data.state(),actor,position,command);
             if(!result.success()){player.sendSystemMessage(Component.literal("Living Realms action failed: "+result.reason()));return;}
             if(result.dirty())data.setDirty();
-            player.sendSystemMessage(Component.literal(actionMessage(command.action())));
+            sendActionFeedback(player,command.action());
             sendDashboard(player,level);
         } catch(RuntimeException ex){
             LivingRealms.LOGGER.warn("Rejected dashboard action from {}",player.getGameProfile().getName(),ex);
@@ -72,7 +72,13 @@ public final class LivingRealmsNetwork {
         }
     }
 
-    private static String actionMessage(DashboardActionCommand.Action action){
+    private static void sendActionFeedback(ServerPlayer player, DashboardActionCommand.Action action) {
+        String key = actionMessageKey(action);
+        if (key.startsWith("message.")) player.sendSystemMessage(Component.translatable(key));
+        else player.sendSystemMessage(Component.literal(key));
+    }
+
+    private static String actionMessageKey(DashboardActionCommand.Action action){
         return switch(action){
             case BOUNTY_ACCEPT -> "Bounty accepted.";
             case BOUNTY_ABANDON -> "Bounty returned to the board.";
@@ -91,11 +97,11 @@ public final class LivingRealmsNetwork {
             case SETTLEMENT_DEFENSE -> "Settlement priority: Defense.";
             case MARKET_BUY -> "Market purchase completed.";
             case MARKET_SELL -> "Market sale completed.";
-            case REQUEST_AUDIENCE -> "Audience granted.";
-            case PROPOSE_PROJECT -> "Grand project proposed.";
-            case REQUEST_MILITARY_SUPPORT -> "Military support secured.";
-            case PETITION_TRADE -> "Trade petition heard.";
-            case PETITION_CLERGY -> "Clergy petition heard.";
+            case REQUEST_AUDIENCE -> "message.livingrealms.action.audience";
+            case PROPOSE_PROJECT -> "message.livingrealms.action.propose_project";
+            case REQUEST_MILITARY_SUPPORT -> "message.livingrealms.action.military_support";
+            case PETITION_TRADE -> "message.livingrealms.action.petition_trade";
+            case PETITION_CLERGY -> "message.livingrealms.action.petition_clergy";
         };
     }
 
