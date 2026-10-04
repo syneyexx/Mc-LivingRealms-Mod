@@ -268,7 +268,23 @@ public final class RealmDashboardScreen extends Screen {
                 lines.add(text("Debts " + r.activeDebts() + "   projects " + r.grandProjects() + "   campaigns " + r.campaignPlans()));
             }
         }
+        List<Line> notices = importantNotices();
+        if (!notices.isEmpty()) {
+            lines.add(header("Important notices"));
+            lines.addAll(notices);
+        }
         return lines;
+    }
+
+    private List<Line> importantNotices() {
+        List<Line> out = new ArrayList<>();
+        for (var h : snapshot.history()) {
+            if (!dev.livingrealms.sim.ui.ImportantNotifications.isImportant(h.type())) continue;
+            String label = dev.livingrealms.sim.ui.ImportantNotifications.label(h.type());
+            out.add(text("Day " + h.day() + " [" + label + "] " + h.message()));
+            if (out.size() >= 5) break;
+        }
+        return out;
     }
 
     private List<Line> politicsLines() {
