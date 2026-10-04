@@ -32,7 +32,21 @@ New-Item -ItemType Directory -Force -Path $coreOut | Out-Null
 $sources = @()
 $sources += Get-ChildItem -Path (Join-Path $root 'src\main\java\dev\livingrealms\sim') -Recurse -Filter *.java | ForEach-Object FullName
 $sources += Get-ChildItem -Path (Join-Path $root 'src\testCore\java') -Recurse -Filter *.java | ForEach-Object FullName
-& javac --release 21 -Xlint:all -Werror -d $coreOut @sources
+if ($sources.Count -lt 1) { throw 'No core Java sources found for Windows core suite.' }
+# Windows CreateProcess cmdline is ~8191 chars; 300+ absolute paths blow past that.
+# javac @argfile keeps the process argv short (paths with spaces are quoted).
+$argFile = Join-Path $coreOut 'javac-sources.args'
+$argLines = @(
+    '--release', '21',
+    '-Xlint:all',
+    '-Werror',
+    '-d', ('"{0}"' -f $coreOut)
+)
+foreach ($source in $sources) {
+    $argLines += ('"{0}"' -f $source)
+}
+Set-Content -LiteralPath $argFile -Value $argLines -Encoding ascii
+& javac "@$argFile"
 if ($LASTEXITCODE -ne 0) { throw 'Core compilation failed.' }
 
 $testListPath = Join-Path $root 'scripts\core-tests.list'
