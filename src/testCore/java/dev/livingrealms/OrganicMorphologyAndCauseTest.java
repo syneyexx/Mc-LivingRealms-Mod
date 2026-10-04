@@ -28,7 +28,7 @@ public final class OrganicMorphologyAndCauseTest {
         denseWorldUsesMultipleStreetPatterns();
         plazasAndStreetLightsExist();
         causeExplainerAndDashboardProtocol15();
-        System.out.println("PASS organic morphology + cause summaries: geography morphologies, plazas/lights, protocol 16 causality");
+        System.out.println("PASS organic morphology + cause summaries: geography morphologies, plazas/lights, protocol 17 causality");
     }
 
     private static void morphologiesAreGeographyDerived() {
@@ -94,14 +94,14 @@ public final class OrganicMorphologyAndCauseTest {
         String cause = WorldCauseExplainer.settlementPressureCause(state, faction, settlement);
         check(cause != null && !cause.isBlank(), "cause explainer must return text");
         var snap = RealmDashboardBuilder.build(state, "player:test", settlement.position());
-        check(snap.protocolVersion() == 16, "builder emits protocol 16");
+        check(snap.protocolVersion() == 17, "builder emits protocol 17");
         check(!snap.settlements().isEmpty(), "snapshot has settlements");
         check(snap.settlements().stream().anyMatch(s -> s.causeSummary() != null && !s.causeSummary().isBlank()),
                 "settlement views must include cause summaries");
         check(snap.operations().assistanceTasks() != null, "operations must expose assistance task board");
         String json = RealmDashboardCodec.encode(snap);
         var round = RealmDashboardCodec.decode(json);
-        check(round.protocolVersion() == 16, "codec roundtrip keeps protocol 16");
+        check(round.protocolVersion() == 17, "codec roundtrip keeps protocol 17");
         check(round.settlements().getFirst().causeSummary().equals(snap.settlements().getFirst().causeSummary()),
                 "cause summary must survive codec roundtrip");
     }
