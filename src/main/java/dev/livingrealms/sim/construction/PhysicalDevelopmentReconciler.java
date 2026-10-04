@@ -39,25 +39,20 @@ public final class PhysicalDevelopmentReconciler {
     public static Deficit analyze(Faction faction, Settlement settlement) {
         Objects.requireNonNull(faction, "faction");
         Objects.requireNonNull(settlement, "settlement");
+        SettlementDistrictPlan districts = SettlementDistrictPlan.derive(faction, settlement);
         List<ConstructionIntent> pending = new ArrayList<>(SettlementPlanner.pending(faction, settlement));
         pending.sort(Comparator.comparingInt(ConstructionIntent::priority).reversed().thenComparing(ConstructionIntent::key));
 
         int housesDone = (int) settlement.completedConstruction().stream().filter(k -> k.startsWith("house:")).count();
         int roadsDone = (int) settlement.completedConstruction().stream().filter(k -> k.startsWith("road:")).count();
         int civicDone = (int) settlement.completedConstruction().stream()
-                .filter(k -> !(k.startsWith("house:") || k.startsWith("road:") || k.startsWith("farm:")))
+                .filter(k -> !(k.startsWith("house:") || k.startsWith("road:") || k.startsWith("farm:") || k.startsWith("foreign:")))
                 .count();
-
-        int housesTarget = (int) pending.stream().filter(i -> i.role() == StructureRole.HOUSE).count() + housesDone;
-        int roadsTarget = (int) pending.stream().filter(i -> i.role() == StructureRole.ROAD).count() + roadsDone;
-        int civicTarget = (int) pending.stream()
-                .filter(i -> i.role() != StructureRole.HOUSE && i.role() != StructureRole.ROAD && i.role() != StructureRole.FARM)
-                .count() + civicDone;
 
         // Population-facing housing gap uses density compression (cottage/townhouse/apartment).
         // Canonical housing stock remains Settlement#housing; this estimates visible capacity.
         int physicalHousingEstimate = 0;
-        for (ConstructionIntent intent : SettlementPlanner.plan(faction, settlement)) {
+        for (ConstructionIntent intent : SettlementPlanCache.plan(faction, settlement)) {
             if (intent.role() != StructureRole.HOUSE) continue;
             if (!settlement.isConstructionCompleted(intent.key())) continue;
             physicalHousingEstimate += HousingCapacity.representedResidents(intent);
@@ -69,10 +64,15 @@ public final class PhysicalDevelopmentReconciler {
         int civicGap = Math.max(0, expectedCivic(settlement) - civicDone);
 
         // Catch-up backlog: roads and housing first after large time jumps, then civic.
+        // Under housing pressure, denser house intents sort ahead of cottages. District anchors
+        // give market/harbor/government a bounded priority nudge without relocating geometry.
+        boolean denseHousingPreferred = housingCapacityGap > 80 || settlement.tier().ordinal() >= Settlement.Tier.CITY.ordinal();
         List<ConstructionIntent> backlog = new ArrayList<>(pending);
         backlog.sort(Comparator
                 .comparingInt((ConstructionIntent i) -> roleCatchupWeight(i.role()))
-                .thenComparing(Comparator.comparingInt(ConstructionIntent::priority).reversed())
+                .thenComparingInt((ConstructionIntent i) -> denseHousingPreferred && i.role() == StructureRole.HOUSE
+                        ? -HousingCapacity.representedResidents(i) : 0)
+                .thenComparing(Comparator.comparingInt((ConstructionIntent i) -> i.priority() + districts.priorityBoost(i)).reversed())
                 .thenComparing(ConstructionIntent::key));
 
         return new Deficit(settlement, faction, pending.size(), housingCapacityGap, roadGap, civicGap, backlog);

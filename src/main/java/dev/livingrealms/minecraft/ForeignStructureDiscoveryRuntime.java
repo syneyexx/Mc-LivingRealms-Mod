@@ -20,11 +20,13 @@ import net.minecraft.world.level.levelgen.structure.StructureStart;
 /**
  * Discovers already-generated residential/civic structures in loaded chunks and folds them into
  * canonical Living Realms state. Foreign structure blocks remain authoritative; Living Realms marks
- * their initial infrastructure as complete and only builds later expansion around them.
+ * their adopted footprint and only builds later expansion around them.
  */
 public final class ForeignStructureDiscoveryRuntime {
     private static final int CHUNK_RADIUS = 4;
     private static final double EXISTING_RADIUS = 220.0D;
+    private static final int MIN_SETTLEMENT_AREA = 900;
+    private static final int MIN_STRONGHOLD_AREA = 1_600;
     private static final Set<Long> SCANNED_CHUNKS = new HashSet<>();
 
     private ForeignStructureDiscoveryRuntime() {}
@@ -44,19 +46,23 @@ public final class ForeignStructureDiscoveryRuntime {
 
     private static void scanChunk(ServerLevel level, LivingRealmsSavedData data, ChunkPos chunk) {
         var registry = level.registryAccess().registryOrThrow(Registries.STRUCTURE);
-        for (StructureStart start : level.structureManager().startsForStructure(chunk, structure -> settlementLike(registry.getKey(structure)))) {
+        for (StructureStart start : level.structureManager().startsForStructure(chunk, structure -> true)) {
             if (start == null || !start.isValid()) continue;
             ResourceLocation id = registry.getKey(start.getStructure());
-            if (!settlementLike(id)) continue;
+            if (!settlementLike(id, start)) continue;
             var box = start.getBoundingBox();
             SimPosition pos = new SimPosition((box.minX() + box.maxX()) * 0.5D, (box.minZ() + box.maxZ()) * 0.5D);
             if (hasSettlementNear(data, pos)) continue;
-            adopt(data, id, pos);
+            adopt(data, id, pos, start);
         }
     }
 
-    private static boolean settlementLike(ResourceLocation id) {
-        if (id == null) return false;
+    /**
+     * Tight classification: generic path tokens like house/building/tower alone are insufficient.
+     * Require known settlement-class ids plus a minimum bounding footprint.
+     */
+    private static boolean settlementLike(ResourceLocation id, StructureStart start) {
+        if (id == null || start == null || !start.isValid()) return false;
         String namespace = id.getNamespace();
         String path = id.getPath().toLowerCase(Locale.ROOT);
         boolean targetNamespace = namespace.equals("minecraft") || ModCompatibilityPolicy.find(namespace)
@@ -65,10 +71,37 @@ public final class ForeignStructureDiscoveryRuntime {
                         || entry.category() == ModCompatibilityPolicy.Category.CONTENT))
                 .orElse(false);
         if (!targetNamespace) return false;
-        return path.contains("village") || path.contains("town") || path.contains("city") || path.contains("colony")
-                || path.contains("settlement") || path.contains("castle") || path.contains("fort") || path.contains("keep")
-                || path.contains("tower") || path.contains("medieval") || path.contains("manor") || path.contains("outpost")
-                || path.contains("hamlet") || path.contains("house") || path.contains("building");
+
+        // Explicitly reject lone decorative/generic structures.
+        if (pathContainsOnlyWeakTokens(path)) return false;
+
+        var box = start.getBoundingBox();
+        int spanX = Math.max(1, box.maxX() - box.minX() + 1);
+        int spanZ = Math.max(1, box.maxZ() - box.minZ() + 1);
+        int area = spanX * spanZ;
+        int pieces = start.getPieces().size();
+
+        boolean strongResidential = path.contains("village") || path.contains("town") || path.contains("city")
+                || path.contains("colony") || path.contains("settlement") || path.contains("hamlet");
+        boolean strongCivic = path.contains("castle") || path.contains("fortress") || path.contains("citadel")
+                || path.contains("manor") || (path.contains("keep") && !path.contains("keeper"));
+        boolean fortifiedOutpost = path.contains("pillager_outpost") || path.endsWith("/outpost") || path.contains("fort/");
+
+        if (strongResidential && area >= MIN_SETTLEMENT_AREA && pieces >= 2) return true;
+        if (strongCivic && area >= MIN_STRONGHOLD_AREA) return true;
+        if (fortifiedOutpost && area >= MIN_SETTLEMENT_AREA && pieces >= 2) return true;
+        return false;
+    }
+
+    private static boolean pathContainsOnlyWeakTokens(String path) {
+        boolean hasStrong = path.contains("village") || path.contains("town") || path.contains("city")
+                || path.contains("colony") || path.contains("settlement") || path.contains("hamlet")
+                || path.contains("castle") || path.contains("fortress") || path.contains("citadel")
+                || path.contains("manor") || path.contains("pillager_outpost");
+        if (hasStrong) return false;
+        // house / building / tower alone (or with filler words) must never create a town.
+        return path.contains("house") || path.contains("building") || path.contains("tower")
+                || path.equals("outpost") || (path.endsWith("_outpost") && !path.contains("pillager"));
     }
 
     private static boolean hasSettlementNear(LivingRealmsSavedData data, SimPosition pos) {
@@ -77,11 +110,11 @@ public final class ForeignStructureDiscoveryRuntime {
         return false;
     }
 
-    private static void adopt(LivingRealmsSavedData data, ResourceLocation structureId, SimPosition pos) {
+    private static void adopt(LivingRealmsSavedData data, ResourceLocation structureId, SimPosition pos, StructureStart start) {
         Faction owner = data.state().factions().stream().min(Comparator.comparingDouble(f -> f.settlements().stream()
                 .mapToDouble(s -> s.position().distanceTo(pos)).min().orElse(Double.POSITIVE_INFINITY))).orElse(null);
         if (owner == null) return;
-        int population = inferredPopulation(structureId.getPath());
+        int population = inferredPopulation(structureId.getPath(), start);
         Settlement settlement = new Settlement(data.state().nextId(), generatedName(structureId, pos), pos, population,
                 (int)Math.ceil(population * 1.18D));
         owner.addSettlement(settlement);
@@ -94,14 +127,21 @@ public final class ForeignStructureDiscoveryRuntime {
         data.setDirty();
     }
 
-    private static int inferredPopulation(String path) {
+    private static int inferredPopulation(String path, StructureStart start) {
         String p = path.toLowerCase(Locale.ROOT);
-        if (p.contains("city")) return 2_400;
-        if (p.contains("town")) return 1_150;
-        if (p.contains("village") || p.contains("colony") || p.contains("settlement")) return 420;
-        if (p.contains("castle") || p.contains("fort") || p.contains("keep")) return 260;
-        if (p.contains("tower") || p.contains("outpost")) return 95;
-        return 135;
+        var box = start.getBoundingBox();
+        int area = Math.max(1, (box.maxX() - box.minX() + 1) * (box.maxZ() - box.minZ() + 1));
+        int pieces = Math.max(1, start.getPieces().size());
+        if (p.contains("city")) return Math.min(3_200, Math.max(1_800, area / 12));
+        if (p.contains("town")) return Math.min(1_600, Math.max(800, area / 18));
+        if (p.contains("village") || p.contains("colony") || p.contains("settlement") || p.contains("hamlet")) {
+            return Math.min(700, Math.max(180, 80 + pieces * 35 + area / 40));
+        }
+        if (p.contains("castle") || p.contains("fortress") || p.contains("citadel") || p.contains("manor")) {
+            return Math.min(420, Math.max(160, 120 + pieces * 20));
+        }
+        if (p.contains("pillager_outpost")) return 90;
+        return Math.min(220, Math.max(120, 100 + pieces * 15));
     }
 
     private static String generatedName(ResourceLocation structureId, SimPosition pos) {

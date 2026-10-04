@@ -49,7 +49,7 @@ Source wins over docs. Linked Minecraft playtest remains an external gate.
 ## Version pins
 - Save schema **16** (1–15 readable; settlement barn/granary/stockpile)
 - Dashboard protocol **14**
-- ContentRevision **8** (authored-block ledger + geography sidecar; Waystone provenance; rev-6 construction rebuild)
+- ContentRevision **9** (typed authored-block ownership + geography discovery runtime; Waystone provenance; rev-6 construction rebuild)
 
 ## Phase 1 baseline (seed `123456789`, DemoSeeder; denser rural network TARGET=32)
 | Gate | day | people | industry | animals≈ | wars | raids | shipments |

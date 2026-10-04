@@ -1,28 +1,35 @@
 {
-  "generatedAtUtc": "2026-10-04T08:35:51Z",
-  "gitCommit": "e0597f326299f5d4a097033e4f734a64de43bfd8",
+  "generatedAtUtc": "2026-10-04T11:28:26Z",
+  "gitCommit": "2dfc77d9b48fe0575dd55df2fc7235bab812406e",
+  "gitWorktreeClean": false,
   "modVersion": "3.0.0-rc4",
   "minecraftVersion": "1.21.1",
   "neoforgeVersion": "21.1.219",
   "createVersion": "6.0.10-280",
+  "javaVersion": "openjdk version \"21.0.10\" 2026-01-20",
+  "gradleVersion": "unknown",
   "saveSchema": 16,
   "minSupportedSchema": 1,
   "dashboardProtocol": 14,
   "networkProtocol": "12",
-  "contentRevision": 8,
+  "contentRevision": 9,
   "gates": {
     "coreSuite": "pass",
     "linkedBuild": "pass",
+    "gameTests": "unverified",
     "runtimeSmoke": "unverified"
   },
   "artifact": {
     "jar": "/workspace/build/libs/livingrealms-3.0.0-rc4.jar",
     "jarPresent": true,
-    "jarBytes": 1429257
+    "jarBytes": 1485264,
+    "jarSha256": "d47196a0ec575aa03d708e1142b7546a293368ec37f6571240257a02b849c842"
   },
   "releaseCompleteClaimAllowed": false,
   "notes": [
     "SOURCE WINS OVER DOCS.",
+    "Manifest gitCommit must equal the exact commit being certified.",
     "Do not claim production-ready while runtimeSmoke is unverified/fail/skipped."
-  ]
+  ],
+  "evidenceTipNote": "Manifest certifies code/build commit 2dfc77d; tip may include evidence-only follow-ups."
 }

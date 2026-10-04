@@ -130,7 +130,8 @@ public final class TradeEngine {
         double sellerHeld=seller.stockpile().get(resource)+localHeld(seller,resource);
         double sellerReserve=desiredReserve(seller,resource)*.75;
         double surplus=Math.max(0,sellerHeld-sellerReserve);
-        Settlement origin=closestPairOrigin(seller,buyer),destination=closestTo(buyer,origin.position());
+        SettlementPair pair=chooseTradePair(state,seller,buyer);
+        Settlement origin=pair.origin(),destination=pair.destination();
         long day=state.clock().day();
         double sellerAsk=LocalMarketEngine.quote(seller,origin,resource,day).unitPrice();
         double buyerBid=LocalMarketEngine.quote(buyer,destination,resource,day).unitPrice();
@@ -157,7 +158,36 @@ public final class TradeEngine {
         if(fromLocal<amount)seller.stockpile().take(resource,amount-fromLocal);
     }
 
-    private static Settlement closestPairOrigin(Faction seller,Faction buyer){Settlement best=seller.settlements().getFirst();double distance=Double.POSITIVE_INFINITY;for(Settlement s:seller.settlements())for(Settlement b:buyer.settlements()){double d=s.position().distanceTo(b.position());if(d<distance){distance=d;best=s;}}return best;}
+    private record SettlementPair(Settlement origin,Settlement destination){}
+
+    /**
+     * Prefer operational corridor hubs, then a tiny candidate set of top towns/ports.
+     * Bounded to avoid O(settlements² × routes) per daily trade dispatch.
+     */
+    private static SettlementPair chooseTradePair(SimulationState state,Faction seller,Faction buyer){
+        List<Settlement> sellerCandidates=tradeCandidates(seller);
+        List<Settlement> buyerCandidates=tradeCandidates(buyer);
+        SettlementPair best=null;double bestScore=Double.POSITIVE_INFINITY;
+        for(Settlement s:sellerCandidates)for(Settlement b:buyerCandidates){
+            double d=s.position().distanceTo(b.position());
+            boolean routed=TransportNetworkEngine.bestRoute(state,seller.id(),s.id(),b.id()).isPresent();
+            boolean hubish=s.tier().ordinal()>=Settlement.Tier.TOWN.ordinal()&&b.tier().ordinal()>=Settlement.Tier.TOWN.ordinal();
+            double score=d-(routed?400:0)-(hubish?160:0)-(s.geography().shipSuitable()&&b.geography().shipSuitable()?200:0);
+            if(score<bestScore){bestScore=score;best=new SettlementPair(s,b);}
+        }
+        if(best!=null)return best;
+        Settlement origin=seller.settlements().getFirst();
+        return new SettlementPair(origin,closestTo(buyer,origin.position()));
+    }
+
+    private static List<Settlement> tradeCandidates(Faction faction){
+        return faction.settlements().stream()
+                .sorted(Comparator.comparingInt((Settlement s)->s.tier().ordinal()).reversed()
+                        .thenComparingInt(Settlement::population).reversed()
+                        .thenComparingLong(Settlement::id))
+                .limit(4)
+                .toList();
+    }
     private static Settlement closestTo(Faction faction,SimPosition target){return faction.settlements().stream().min(Comparator.comparingDouble(s->s.position().distanceTo(target))).orElseThrow();}
     private static double desiredReserve(Faction f,ResourceType r){return switch(r){case FOOD->Math.max(30,f.population()*.30);case IRON->Math.max(12,f.population()*.03);case FUEL->Math.max(24,f.population()*.004);case TOOLS->Math.max(8,f.population()*.008);case TEXTILES->Math.max(8,f.population()*.01);case MACHINERY->Math.max(4,f.population()*.001);default->10;};}
     private static String describe(TradeShipment s){return "shipment="+s.id()+", "+s.resource()+"="+s.amount()+", seller="+s.sellerFactionId()+", buyer="+s.buyerFactionId();}

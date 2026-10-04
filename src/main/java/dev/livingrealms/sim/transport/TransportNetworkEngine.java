@@ -75,6 +75,59 @@ public final class TransportNetworkEngine {
                 }
             }
         }
+        discoverCrossFactionCorridors(state);
+    }
+
+    /**
+     * Inter-realm trade corridors: when two factions have mutual trade agreements and peace,
+     * connect a regional hub pair (capitals / market towns / ports) instead of every settlement pair.
+     */
+    private static void discoverCrossFactionCorridors(SimulationState state){
+        List<Faction> factions=new ArrayList<>(state.factions());
+        Set<RouteKey> existing=new HashSet<>();
+        for(TransportRoute route:state.routes())existing.add(RouteKey.of(route.fromSettlementId(),route.toSettlementId(),route.mode()));
+        for(int i=0;i<factions.size();i++)for(int j=i+1;j<factions.size();j++){
+            Faction a=factions.get(i),b=factions.get(j);
+            DiplomaticRelation ar=a.relations().get(b.id()),br=b.relations().get(a.id());
+            if(ar==null||br==null||!ar.tradeAgreement()||!br.tradeAgreement())continue;
+            if(ar.status()==RelationStatus.WAR||br.status()==RelationStatus.WAR)continue;
+            if(ar.status()==RelationStatus.HOSTILE||br.status()==RelationStatus.HOSTILE)continue;
+            Settlement hubA=tradeHub(a),hubB=tradeHub(b);
+            if(hubA==null||hubB==null)continue;
+            double d=hubA.position().distanceTo(hubB.position());
+            if(!(d>40)||d>3_600)continue;
+            // Prefer road/caravan corridors for land trade; ships only when both hubs are ship-suitable.
+            TransportMode mode;
+            if(hubA.geography().shipSuitable()&&hubB.geography().shipSuitable())mode=TransportMode.SHIP;
+            else if(d>1_800)mode=TransportMode.CARAVAN;
+            else mode=TransportMode.ROAD;
+            RouteKey key=RouteKey.of(hubA.id(),hubB.id(),mode);
+            if(existing.contains(key))continue;
+            // Ownership: the richer solvent partner pays and owns the connector for maintenance.
+            Faction owner=a.treasury()>=b.treasury()?a:b;
+            double cost=d*(mode==TransportMode.SHIP?.035:mode==TransportMode.CARAVAN?.012:.016);
+            ResourceType material=mode==TransportMode.SHIP?ResourceType.WOOD:ResourceType.STONE;
+            if(owner.stockpile().get(material)<cost||owner.treasury()<Math.min(250,cost))continue;
+            owner.stockpile().take(material,cost);
+            owner.addTreasury(-Math.min(owner.treasury(),Math.min(250,cost*.25)));
+            double capacity=switch(mode){case SHIP->640;case CARAVAN->300;default->360;};
+            double security=.35+.08*Math.min(ar.opinion(),br.opinion())/100.0;
+            state.addRoute(new TransportRoute(state.nextId(),owner.id(),hubA.id(),hubB.id(),mode,d,.34,security,capacity));
+            existing.add(key);
+            state.liveness().onRouteBuilt();
+            state.history().add(new WorldEvent(state.clock().day(),"trade_corridor_built",
+                    owner.name()+" "+mode+" corridor "+hubA.name()+"-"+hubB.name()+" (trade agreement)"));
+        }
+    }
+
+    private static Settlement tradeHub(Faction faction){
+        return faction.settlements().stream()
+                .max(Comparator
+                        .comparingInt((Settlement s)->s.tier().ordinal())
+                        .thenComparingInt(Settlement::population)
+                        .thenComparingDouble(s->s.geography().shipSuitable()?1:s.geography().harborSuitability())
+                        .thenComparingLong(Settlement::id))
+                .orElse(null);
     }
 
     /**
@@ -96,5 +149,14 @@ public final class TransportNetworkEngine {
         static RouteKey of(long a,long b,TransportMode mode){return a<b?new RouteKey(a,b,mode):new RouteKey(b,a,mode);}
     }
     private static boolean sameEnds(TransportRoute r,long a,long b){return(r.fromSettlementId()==a&&r.toSettlementId()==b)||(r.fromSettlementId()==b&&r.toSettlementId()==a);}
-    public static Optional<TransportRoute> bestRoute(SimulationState state,long ownerFactionId,long fromSettlementId,long toSettlementId){return state.routes().stream().filter(TransportRoute::operational).filter(r->r.ownerFactionId()==ownerFactionId&&sameEnds(r,fromSettlementId,toSettlementId)).max(Comparator.comparingDouble(TransportRoute::speedBlocksPerDay));}
+    public static Optional<TransportRoute> bestRoute(SimulationState state,long ownerFactionId,long fromSettlementId,long toSettlementId){
+        // Prefer own-faction routes, then any operational corridor with matching ends (cross-realm trade connectors).
+        Optional<TransportRoute> owned=state.routes().stream().filter(TransportRoute::operational)
+                .filter(r->r.ownerFactionId()==ownerFactionId&&sameEnds(r,fromSettlementId,toSettlementId))
+                .max(Comparator.comparingDouble(TransportRoute::speedBlocksPerDay));
+        if(owned.isPresent())return owned;
+        return state.routes().stream().filter(TransportRoute::operational)
+                .filter(r->sameEnds(r,fromSettlementId,toSettlementId))
+                .max(Comparator.comparingDouble(TransportRoute::speedBlocksPerDay));
+    }
 }

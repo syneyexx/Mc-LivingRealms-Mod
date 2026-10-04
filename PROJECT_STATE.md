@@ -10,7 +10,7 @@
 - See `docs/DETAIL_MATRIX.md` for per-detail masterplan status.
 - Settlement streets are orthogonal/connected and include residential side streets + sidewalks; houses use cottage/longhouse/townhouse/porch variants and towns/cities add multi-storey apartment blocks with density-compressed housing capacity.
 - Construction completion requires physically acceptable required geometry (`StructureMaterializationReceipt`). Decorative skips are allowed; missing foundation/wall/door/path is not.
-- Authored-block provenance (`AuthoredBlockLedger`, ContentRevision **8**) protects player/foreign builds; block entities remain a hard stop.
+- Typed authored-block provenance (`AuthoredOwnerType` + `AuthoredBlockLedger` + `WorldMutationGuard`, ContentRevision **9**) protects player/foreign builds; block entities remain a hard stop; ALREADY_CORRECT never claims unknown identical blocks.
 - Building floors are walkable; real faction wood doors are placed; EntranceAccessPlanner repairs door↔street grades including steeper switchbacks. Tier-specific road/keep/wall/gate keys ensure settlements physically expand after tier upgrades.
 - Intercity routes use bounded terrain-cost corridor planning **without** destructive straight-road fallback. SettlementGeographyProfile drives water modes (name heuristic is bootstrap/fallback only).
 - `/setday`/`advance` catch-up uses PhysicalDevelopmentReconciler. Dashboard key is **F12**; world map **M**; creative catalog **K**.
@@ -24,7 +24,7 @@
 - Full bundled species-pack audit passes: **134 species** with explicit morphology/locomotion fields and a validated food web.
 - Strategic completeness suite passes.
 - 3650-day deterministic soak now has explicit persistence/invariant gates at day 30, 365 and 3650, plus a biodiversity floor.
-- Save schema is **16**; schemas 1-15 remain readable. Schema 16 persists per-settlement barn/granary capacity and local stockpiles. Dashboard snapshot protocol is **14**. Outer Minecraft `ContentRevision=8` adds authored-block ledger + geography sidecar while keeping Waystone provenance and the revision-6 layout rebuild.
+- Save schema is **16**; schemas 1-15 remain readable. Schema 16 persists per-settlement barn/granary capacity and local stockpiles. Dashboard snapshot protocol is **14**. Outer Minecraft `ContentRevision=9` packs typed ownership into the authored-block ledger (legacy type bits=0 ⇒ SETTLEMENT_STRUCTURE) and keeps Waystone provenance + revision-6 layout rebuild.
 - `ConstructionIntegrityTest` and `TradeLivenessTest` are mandatory core gates.
 
 ## Explicit status claim

@@ -49,7 +49,7 @@ Use a fresh test world plus one existing migrated world.
 Do not label v3.0 release-complete or promote to v4.0 while any linked/runtime gate above remains unverified. Headless success is necessary but not sufficient.
 
 ## Current content-revision smoke additions
-- Load an older RC4 save and verify one-shot migrations up through `ContentRevision=8` (schema **16** payload, Waystone provenance, authored-block ledger). Revision-6 construction rebuild and revision-4/6 density expansion must not re-trigger after the world has been rewritten.
+- Load an older RC4 save and verify one-shot migrations up through `ContentRevision=9` (schema **16** payload, Waystone provenance, typed authored-block ledger). Revision-6 construction rebuild and revision-4/6 density expansion must not re-trigger after the world has been rewritten.
 - Press **M** and verify the dedicated world map renders discovered biome/ecology cells, kingdoms/claims, settlements, roads/routes, armies and war fronts. Pan/scale polish may be iterative, but snapshot bounds and server authority must hold.
 - Press **K** in creative, search for items from several target mods, spawn 1/16/64 items, and verify non-creative/invalid-id packets are rejected server-side.
 - Verify actual world spawn lies within a Living Realms kingdom/city or receives the bounded Crownspawn fallback.

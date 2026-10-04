@@ -3,6 +3,8 @@
 # and blank lines are ignored.
 dev.livingrealms.CoreSimulationTest
 dev.livingrealms.ConstructionIntegrityTest
+dev.livingrealms.ProvenanceSafetyTest
+dev.livingrealms.WorldQualityPassTest
 dev.livingrealms.SpeciesPackAuditTest
 dev.livingrealms.SystemCompletenessTest
 dev.livingrealms.SettlementEconomyTest

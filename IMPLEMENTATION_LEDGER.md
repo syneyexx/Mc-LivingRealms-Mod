@@ -34,7 +34,7 @@ Where linked Minecraft smoke is required, status is **COMPLETE (core) / EXTERNAL
 | Create | 6.0.10 |
 | Save schema | **16** (1–15 readable; settlement stockpiles) |
 | Dashboard protocol | **14** |
-| ContentRevision | **8** (authored ledger + geography; Waystone provenance; rev-6 rebuild) |
+| ContentRevision | **9** (typed authored ownership; geography discovery runtime; Waystone provenance; rev-6 rebuild) |
 | Dashboard key | F12 |
 | Map key | M |
 

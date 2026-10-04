@@ -102,7 +102,18 @@ public final class CivilizationLifecycleEngine {
             if(citizen.householdId()>0&&byId.containsKey(citizen.householdId()))continue;
             HouseholdState partnerHouse=null;
             for(var e:citizen.relationships().entrySet())if(e.getValue().familyBond()==FamilyBond.PARTNER){long otherId=parseCitizenKey(e.getKey());SocialCitizen other=state.findSocialCitizen(otherId).filter(SocialCitizen::alive).orElse(null);if(other!=null&&other.householdId()>0){partnerHouse=byId.get(other.householdId());if(partnerHouse!=null)break;}}
-            if(partnerHouse==null){partnerHouse=new HouseholdState(state.nextId(),citizen.factionId(),citizen.settlementId(),state.clock().day());partnerHouse.setHomeKey("house:"+Math.floorMod(citizen.projectionSlot(),72));partnerHouse.adjustWealth(citizen.money()*.25);state.addHousehold(partnerHouse);byId.put(partnerHouse.id(),partnerHouse);}
+            if(partnerHouse==null){
+                partnerHouse=new HouseholdState(state.nextId(),citizen.factionId(),citizen.settlementId(),state.clock().day());
+                Faction owner=state.findFaction(citizen.factionId()).orElse(null);
+                Settlement homeSettlement=state.findSettlement(citizen.settlementId()).orElse(null);
+                String homeKey=owner!=null&&homeSettlement!=null
+                        ?dev.livingrealms.sim.social.HouseholdHomeBinder.assignHomeKey(owner,homeSettlement,partnerHouse.id())
+                        :"house:"+Math.floorMod(citizen.projectionSlot(),72);
+                partnerHouse.setHomeKey(homeKey);
+                partnerHouse.adjustWealth(citizen.money()*.25);
+                state.addHousehold(partnerHouse);
+                byId.put(partnerHouse.id(),partnerHouse);
+            }
             partnerHouse.addMember(citizen.id());citizen.setHouseholdId(partnerHouse.id());
         }
         // Merge households after partnership formation; oldest household survives to preserve a stable identity.
