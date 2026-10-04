@@ -62,7 +62,7 @@ public final class LivingRealmsNetwork {
                 if(trade.dirty())data.setDirty();player.sendSystemMessage(Component.literal(trade.message()));sendDashboard(player,level);return;
             }
             var result=DashboardActionService.apply(data.state(),actor,position,command);
-            if(!result.success()){player.sendSystemMessage(Component.literal("Living Realms action failed: "+result.reason()));return;}
+            if(!result.success()){player.sendSystemMessage(Component.literal(humanActionFailure(command.action(),result.reason())));return;}
             if(result.dirty())data.setDirty();
             sendActionFeedback(player,command.action());
             sendDashboard(player,level);
@@ -76,6 +76,21 @@ public final class LivingRealmsNetwork {
         String key = actionMessageKey(action);
         if (key.startsWith("message.")) player.sendSystemMessage(Component.translatable(key));
         else player.sendSystemMessage(Component.literal(key));
+    }
+
+    private static String humanActionFailure(DashboardActionCommand.Action action, String reason) {
+        String r = reason == null ? "" : reason;
+        return switch (r) {
+            case "insufficient_reputation" -> "Cannot join: need reputation ≥ 10 with this realm.";
+            case "wanted" -> "Cannot join: bounty must be ≤ 25 (pay fine / serve custody first).";
+            case "in_custody" -> "Cannot join while in custody.";
+            case "already_member", "already_member_elsewhere" -> "You already belong to a realm. Leave first.";
+            case "ruler_cannot_leave" -> "Rulers cannot leave. Use succession/abdication to step down.";
+            case "not_member" -> "You are not a member of any realm.";
+            case "wrong_local_faction" -> "That realm is not the local jurisdiction here.";
+            case "no_usable_board" -> "No usable jurisdiction here (wilderness or contested).";
+            default -> "Living Realms action failed: " + (r.isBlank() ? action.name() : r);
+        };
     }
 
     private static String actionMessageKey(DashboardActionCommand.Action action){

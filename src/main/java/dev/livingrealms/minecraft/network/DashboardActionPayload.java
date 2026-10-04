@@ -10,14 +10,18 @@ import net.minecraft.resources.ResourceLocation;
 
 /** Client intent only. Every action is revalidated against canonical server state. */
 public record DashboardActionPayload(String command) implements CustomPacketPayload {
-    public static final Type<DashboardActionPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(LivingRealms.MOD_ID,"dashboard_action"));
-    public static final StreamCodec<ByteBuf,DashboardActionPayload> STREAM_CODEC = StreamCodec.composite(
-            ByteBufCodecs.stringUtf8(64), DashboardActionPayload::command, DashboardActionPayload::new
+    public static final Type<DashboardActionPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(LivingRealms.MOD_ID, "dashboard_action"));
+    /** 96 chars: action + targetId + optional settlement name (≤40). */
+    public static final StreamCodec<ByteBuf, DashboardActionPayload> STREAM_CODEC = StreamCodec.composite(
+            ByteBufCodecs.stringUtf8(96), DashboardActionPayload::command, DashboardActionPayload::new
     );
 
     public DashboardActionPayload {
         DashboardActionCommand.parse(command);
     }
 
-    @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
 }

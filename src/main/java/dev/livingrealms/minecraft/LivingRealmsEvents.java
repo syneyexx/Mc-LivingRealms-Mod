@@ -500,6 +500,8 @@ public final class LivingRealmsEvents {
                     })))
                 .then(Commands.literal("locate")
                     .then(Commands.literal("mine").executes(ctx -> locateByQuery(ctx.getSource(), "mine")))
+                    .then(Commands.literal("home").executes(ctx -> locateOwnSettlement(ctx.getSource())))
+                    .then(Commands.literal("own").executes(ctx -> locateOwnSettlement(ctx.getSource())))
                     .then(Commands.literal("settlement").executes(ctx -> locateNearest(ctx.getSource(), settlement -> true, "settlement")))
                     .then(Commands.literal("city").executes(ctx -> locateByQuery(ctx.getSource(), "city")))
                     .then(Commands.literal("town").executes(ctx -> locateNearest(ctx.getSource(), settlement -> settlement.tier() == Settlement.Tier.TOWN, "town")))

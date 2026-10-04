@@ -11,11 +11,16 @@ import dev.livingrealms.sim.world.SettlementDensitySeeder;
 import dev.livingrealms.sim.world.WizardTreesSeeder;
 import dev.livingrealms.sim.ecology.SpeciesDefinition;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.saveddata.SavedData;
 
 /** Persistent canonical state stored in the Overworld data directory. */
@@ -25,6 +30,7 @@ public final class LivingRealmsSavedData extends SavedData {
     private static final String KEY_PAYLOAD = "Payload";
     private static final String KEY_PAYLOAD_INTEGRITY = "PayloadCrc32Plus1";
     private static final String KEY_CONTENT_REVISION = "ContentRevision";
+    private static final String KEY_ONBOARDED_PLAYERS = "OnboardedPlayers";
     /**
      * Revision 12: ~35% countryside density (fewer authored satellites, sparse roads) plus far-world
      * frontier continuity. Does not shrink already-dense migrated worlds; new seeds use the sparse
@@ -37,6 +43,8 @@ public final class LivingRealmsSavedData extends SavedData {
     private final Map<Long, Long> waystonesBySettlement = new LinkedHashMap<>();
     /** Chunk-local Living Realms-authored block provenance (not part of binary schema payload). */
     private final AuthoredBlockLedger authoredBlocks = new AuthoredBlockLedger();
+    /** Players who already received first-contact onboarding (outer NBT; not schema payload). */
+    private final Set<UUID> onboardedPlayers = new HashSet<>();
 
     private LivingRealmsSavedData(SimulationState state) {
         this.state = state;
@@ -77,6 +85,7 @@ public final class LivingRealmsSavedData extends SavedData {
         loaded.waystonesBySettlement.putAll(WaystoneSettlementRuntime.readProvenance(tag));
         AuthoredBlockLedgerNbt.read(tag, loaded.authoredBlocks);
         SettlementGeographyNbt.read(tag, loaded.state());
+        readOnboardedPlayers(tag, loaded.onboardedPlayers);
         // Revision 3 rebuilt unsafe early-RC structures. Revision 4 expands the canonical world
         // to the twelve-kingdom target while preserving already-migrated physical construction.
         // Revision 12 re-runs densifier for worlds that never received the sparse ~35% target
@@ -123,6 +132,22 @@ public final class LivingRealmsSavedData extends SavedData {
         if(changed)setDirty();
     }
 
+    public boolean hasOnboarded(UUID playerId) {
+        return playerId != null && onboardedPlayers.contains(playerId);
+    }
+
+    public void markOnboarded(UUID playerId) {
+        if (playerId == null) return;
+        if (onboardedPlayers.add(playerId)) setDirty();
+    }
+
+    public void clearOnboardedPlayers() {
+        if (!onboardedPlayers.isEmpty()) {
+            onboardedPlayers.clear();
+            setDirty();
+        }
+    }
+
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         byte[] payload = SimulationStateCodec.encode(state);
@@ -133,6 +158,26 @@ public final class LivingRealmsSavedData extends SavedData {
         WaystoneSettlementRuntime.writeProvenance(tag, waystonesBySettlement);
         AuthoredBlockLedgerNbt.write(tag, authoredBlocks);
         SettlementGeographyNbt.write(tag, state);
+        writeOnboardedPlayers(tag, onboardedPlayers);
         return tag;
+    }
+
+    private static void writeOnboardedPlayers(CompoundTag tag, Set<UUID> players) {
+        ListTag list = new ListTag();
+        for (UUID id : players) list.add(StringTag.valueOf(id.toString()));
+        tag.put(KEY_ONBOARDED_PLAYERS, list);
+    }
+
+    private static void readOnboardedPlayers(CompoundTag tag, Set<UUID> into) {
+        into.clear();
+        if (!tag.contains(KEY_ONBOARDED_PLAYERS, Tag.TAG_LIST)) return;
+        ListTag list = tag.getList(KEY_ONBOARDED_PLAYERS, Tag.TAG_STRING);
+        for (int i = 0; i < list.size(); i++) {
+            try {
+                into.add(UUID.fromString(list.getString(i)));
+            } catch (IllegalArgumentException ignored) {
+                // skip malformed entries from hand-edited saves
+            }
+        }
     }
 }

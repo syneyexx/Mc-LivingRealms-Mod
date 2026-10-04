@@ -6,6 +6,8 @@ import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.economy.MarketTransactionEngine;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -22,6 +24,8 @@ public final class RealmDashboardScreen extends Screen {
     private int page;
     /** Pixel scroll offset inside the content pane (mouse wheel). */
     private int contentScroll;
+    private EditBox foundNameBox;
+    private String foundNameDraft = "";
 
     private static int panelWidthPref() { return DashboardAccessibility.scale().panelWidth; }
     private static int panelHeightPref() { return DashboardAccessibility.scale().panelHeight; }
@@ -110,12 +114,47 @@ public final class RealmDashboardScreen extends Screen {
         int top = Math.max(10, (height - panelHeight) / 2);
         int footerY = top + panelHeight - 26;
         int joinY = Math.min(contentY + 146, footerY - 22);
+        foundNameBox = null;
         if(player.memberFactionId()>0){
-            addRenderableWidget(Button.builder(Component.literal("Leave "+player.memberFactionName()),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_LEAVE,1))).bounds(left+panelWidth-150,joinY,136,18).build());
+            if("RULER".equalsIgnoreCase(player.rank())){
+                // Rulers cannot leave — leave always fails. Abdication is a later agency path.
+            }else{
+                addRenderableWidget(Button.builder(Component.literal("Leave "+player.memberFactionName()),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_LEAVE,1))).bounds(left+panelWidth-150,joinY,136,18).build());
+            }
         }else if(jurisdiction.claimed()&&!jurisdiction.contested()&&jurisdiction.primaryFactionId()>0){
-            addRenderableWidget(Button.builder(Component.literal("Join "+jurisdiction.primaryName()),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_JOIN_LOCAL,jurisdiction.primaryFactionId()))).bounds(left+panelWidth-150,joinY,136,18).build());
+            boolean canJoin = player.localReputation() >= 10 && player.bounty() <= 25 && !player.inCustody();
+            var join = Button.builder(Component.literal("Join "+jurisdiction.primaryName()), b -> {
+                if (!canJoin) return;
+                DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_JOIN_LOCAL, jurisdiction.primaryFactionId()));
+            }).bounds(left + panelWidth - 150, joinY, 136, 18).build();
+            join.active = canJoin;
+            String tip = canJoin
+                    ? "Join this realm (reputation " + Math.round(player.localReputation()) + ")."
+                    : "Requires reputation ≥ 10 and bounty ≤ 25"
+                            + (player.inCustody() ? "; you are in custody." : ".")
+                            + " Current: rep " + Math.round(player.localReputation())
+                            + ", bounty " + Math.round(player.bounty()) + ".";
+            join.setTooltip(Tooltip.create(Component.literal(tip)));
+            addRenderableWidget(join);
         }else if(player.memberFactionId()<=0){
-            addRenderableWidget(Button.builder(Component.literal("Found settlement here"),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FOUND_SETTLEMENT,1))).bounds(left+panelWidth-150,joinY,136,18).build());
+            int nameWidth = Math.max(90, panelWidth - 170);
+            foundNameBox = new EditBox(font, left + 10, joinY, nameWidth, 18, Component.literal("Settlement name"));
+            foundNameBox.setMaxLength(40);
+            foundNameBox.setHint(Component.literal("Settlement name"));
+            if (foundNameDraft == null || foundNameDraft.isBlank()) {
+                String actor = player.actorKey();
+                String base = actor.contains(":") ? actor.substring(actor.indexOf(':') + 1) : actor;
+                if (base.length() > 24) base = base.substring(0, 24);
+                foundNameDraft = base.length() >= 2 ? base + "stead" : "Newstead";
+            }
+            foundNameBox.setValue(foundNameDraft);
+            foundNameBox.setResponder(value -> foundNameDraft = value == null ? "" : value);
+            addRenderableWidget(foundNameBox);
+            addRenderableWidget(Button.builder(Component.literal("Found settlement"), b -> {
+                String name = foundNameBox != null ? foundNameBox.getValue().trim() : foundNameDraft;
+                if (name.length() < 2) name = "Newstead";
+                DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FOUND_SETTLEMENT, 1, name));
+            }).bounds(left + panelWidth - 150, joinY, 136, 18).build());
         }
     }
 
@@ -364,8 +403,11 @@ public final class RealmDashboardScreen extends Screen {
         lines.add(text("Wanted: " + p.wantedLevel() + "   Bounty: " + whole(p.bounty())));
         if (p.inCustody()) lines.add(warn("IN CUSTODY until day " + p.custodyReleaseDay()));
         lines.add(header("Player actions"));
-        lines.add(dim("J dashboard: settlements, economy, politics, wars. M opens the world map. Chat NPCs freely.", 0));
+        lines.add(dim("F12 dashboard: settlements, economy, politics, wars. M opens the world map. Chat NPCs freely.", 0));
         lines.add(dim("Found a growing realm with Found settlement (Overview) or /livingrealms found <name>.", 0));
+        if ("RULER".equalsIgnoreCase(p.rank())) {
+            lines.add(dim("As ruler you cannot Leave — succession/abdication is required to step down.", 0));
+        }
         lines.add(dim("Policy buttons on Settlements change what your towns build next.", 0));
         if (r.factionId() > 0) {
             lines.add(header("Realm"));

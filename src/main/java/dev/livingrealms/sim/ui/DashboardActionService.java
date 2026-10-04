@@ -4,6 +4,7 @@ import dev.livingrealms.sim.config.SimulationPreset;
 import dev.livingrealms.sim.faction.DevelopmentPriority;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.player.FactionRank;
 import dev.livingrealms.sim.player.PlayerInfluenceActions;
 import dev.livingrealms.sim.player.PlayerSettlementFounder;
 import dev.livingrealms.sim.territory.TerritoryEngine;
@@ -26,7 +27,13 @@ public final class DashboardActionService {
             default -> null;
         };
         if(preset!=null){state.setConfig(preset.config());return new Result(true,true,"config_"+preset.name().toLowerCase());}
-        if(command.action()==DashboardActionCommand.Action.FACTION_LEAVE){boolean left=state.leaveFaction(actorKey);return new Result(left,left,left?"faction_left":"not_member");}
+        if(command.action()==DashboardActionCommand.Action.FACTION_LEAVE){
+            var standing=state.findPlayerStanding(actorKey).orElse(null);
+            if(standing==null||!standing.isMember())return new Result(false,false,"not_member");
+            if(standing.rank()==FactionRank.RULER)return new Result(false,false,"ruler_cannot_leave");
+            boolean left=state.leaveFaction(actorKey);
+            return new Result(left,left,left?"faction_left":"leave_failed");
+        }
         if(command.action()==DashboardActionCommand.Action.TAX_LOWER||command.action()==DashboardActionCommand.Action.TAX_RAISE||isSettlementPolicy(command.action())){
             var standing=state.findPlayerStanding(actorKey).orElse(null);if(standing==null||!standing.isMember())return new Result(false,false,"not_member");
             Faction faction=state.findFaction(standing.memberFactionId()).orElse(null);if(faction==null)return new Result(false,false,"member_faction_missing");
@@ -42,7 +49,10 @@ public final class DashboardActionService {
         if(command.action()==DashboardActionCommand.Action.FOUND_SETTLEMENT){
             String playerName=actorKey.contains(":")?actorKey.substring(actorKey.indexOf(':')+1):actorKey;
             if(playerName.length()>24)playerName=playerName.substring(0,24);
-            String settlementName=playerName+"stead";
+            String settlementName=command.argument();
+            if(settlementName==null||settlementName.isBlank()){
+                settlementName=playerName.length()>=2?playerName+"stead":"Newstead";
+            }
             var r=PlayerSettlementFounder.found(state,actorKey,playerName,settlementName,position);
             return new Result(r.success(),r.success(),r.success()?"founded_"+r.settlementName():r.reason());
         }

@@ -38,4 +38,5 @@ dev.livingrealms.CartographicKnowledgeTest
 dev.livingrealms.PlayerRulershipTest
 dev.livingrealms.MobileCivilizationProjectionTest
 dev.livingrealms.WizardTreesTest
+dev.livingrealms.RuntimeSmokeTest
 dev.livingrealms.LongRunSoakTest

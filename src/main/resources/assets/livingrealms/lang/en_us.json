@@ -42,5 +42,10 @@
   "message.livingrealms.onboarding.map": "Press M to open the strategic world map.",
   "message.livingrealms.onboarding.dashboard": "Press F12 to open the realm dashboard for government, economy and contracts.",
   "message.livingrealms.onboarding.npc": "Talk to citizens for local knowledge. Help requests come from real shortages.",
-  "message.livingrealms.onboarding.catalog": "Press K for the creative item catalog when in creative mode."
+  "message.livingrealms.onboarding.catalog": "Press K for the creative item catalog when in creative mode.",
+  "tooltip.livingrealms.join_requirements": "Join requires reputation ≥ 10 and bounty ≤ 25 with the local realm.",
+  "tooltip.livingrealms.ruler_cannot_leave": "Rulers cannot leave. Succession or abdication is required to step down.",
+  "message.livingrealms.action.found": "Settlement founded. Your realm can now grow, trade and enter diplomacy.",
+  "message.livingrealms.action.join_failed_reputation": "Cannot join: need reputation ≥ 10 with this realm.",
+  "message.livingrealms.action.join_failed_wanted": "Cannot join: bounty must be ≤ 25."
 }

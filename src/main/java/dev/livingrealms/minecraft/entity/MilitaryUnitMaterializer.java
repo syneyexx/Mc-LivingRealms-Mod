@@ -33,6 +33,8 @@ public final class MilitaryUnitMaterializer {
         for (MilitaryProjection p : desired) wanted.add(p.projectionKey());
         Set<String> seen = new HashSet<>();
         for (MilitaryUnitEntity e : MilitaryUnitIndex.loaded()) {
+            // Escort projections use a negative army-id namespace owned by CaravanEscortMaterializer.
+            if (e.isEscort()) continue;
             String key = e.armyId() + ":" + e.projectionSlot();
             if (!wanted.contains(key) || !seen.add(key)) e.dematerialize();
         }
