@@ -52,7 +52,7 @@ public final class FactionBlockPalette {
 
     private static BlockState state(long factionId, PaletteSlot slot, int style) {
         // Foreign registry blocks are intentionally restricted to decorative/non-structural slots.
-        if (slot == PaletteSlot.GLASS || slot == PaletteSlot.FENCE || slot == PaletteSlot.PATH || slot == PaletteSlot.LIGHT || slot == PaletteSlot.DOOR) {
+        if(slot==PaletteSlot.GLASS||slot==PaletteSlot.FENCE||slot==PaletteSlot.PATH||slot==PaletteSlot.LIGHT||slot==PaletteSlot.DOOR){
             var compatible = CompatibleContentRuntime.decorativeBlock(factionId, slot);
             if (compatible.isPresent()) return compatible.get();
         }
