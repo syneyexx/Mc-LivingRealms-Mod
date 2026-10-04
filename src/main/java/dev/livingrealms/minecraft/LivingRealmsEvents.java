@@ -32,6 +32,9 @@ import dev.livingrealms.minecraft.entity.NavalMaterializer;
 import dev.livingrealms.minecraft.entity.BountyHunterEntity;
 import dev.livingrealms.minecraft.entity.BountyHunterIndex;
 import dev.livingrealms.minecraft.entity.BountyHunterMaterializer;
+import dev.livingrealms.minecraft.entity.SiegeEquipmentEntity;
+import dev.livingrealms.minecraft.entity.SiegeEquipmentIndex;
+import dev.livingrealms.minecraft.entity.SiegeEquipmentMaterializer;
 import dev.livingrealms.minecraft.law.CrimeRuntime;
 import dev.livingrealms.minecraft.law.CustodyRuntime;
 import dev.livingrealms.minecraft.law.FactionContainerTheftRuntime;
@@ -112,6 +115,7 @@ public final class LivingRealmsEvents {
             AircraftMaterializer.tick(event.getServer(), data);
             NavalMaterializer.tick(event.getServer(), data);
             BountyHunterMaterializer.tick(event.getServer(), data);
+            SiegeEquipmentMaterializer.tick(event.getServer(), data);
             CustodyRuntime.tick(event.getServer(), data);
             CitizenConversationRuntime.tick(event.getServer(), data, tickCounter);
             HistoricalSiteMaterializer.tick(event.getServer().overworld(), data);
@@ -143,6 +147,7 @@ public final class LivingRealmsEvents {
         if (!event.getLevel().isClientSide() && event.getEntity() instanceof LivingRealmsAircraftEntity aircraft) AircraftProjectionIndex.joined(aircraft);
         if (!event.getLevel().isClientSide() && event.getEntity() instanceof LivingRealmsShipEntity ship) ShipProjectionIndex.joined(ship);
         if (!event.getLevel().isClientSide() && event.getEntity() instanceof BountyHunterEntity hunter) BountyHunterIndex.joined(hunter);
+        if (!event.getLevel().isClientSide() && event.getEntity() instanceof SiegeEquipmentEntity siege) SiegeEquipmentIndex.joined(siege);
     }
 
     @SubscribeEvent
@@ -180,6 +185,8 @@ public final class LivingRealmsEvents {
             if(!ship.isDematerializing()&&!ship.lossReported()&&!ship.isAlive()&&event.getLevel() instanceof ServerLevel level){var data=SimulationRuntime.data(level.getServer());if(data.state().recordPhysicalShipLoss(ship.fleetId(),ship.shipClass(),ship.representedShips(),"physical_ship_destroyed")){ship.markLossReported();data.setDirty();}}
         } else if (event.getEntity() instanceof BountyHunterEntity hunter) {
             BountyHunterIndex.left(hunter);
+        } else if (event.getEntity() instanceof SiegeEquipmentEntity siege) {
+            SiegeEquipmentIndex.left(siege);
         } else if (event.getEntity() instanceof TradeCaravanEntity caravan) {
             TradeCaravanIndex.left(caravan);
             if (!caravan.isDematerializing() && !caravan.lossReported() && !caravan.isAlive() && event.getLevel() instanceof ServerLevel level) {
@@ -257,6 +264,7 @@ public final class LivingRealmsEvents {
         AircraftProjectionIndex.clear();
         ShipProjectionIndex.clear();
         BountyHunterIndex.clear();
+        SiegeEquipmentIndex.clear();
         DashboardRequestLimiter.clear();
         DashboardActionLimiter.clear();
         DialogueRequestLimiter.clear();

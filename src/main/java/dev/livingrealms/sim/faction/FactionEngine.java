@@ -139,9 +139,23 @@ public final class FactionEngine {
         SiegeState siege=state.sieges().stream().filter(SiegeState::active).filter(x->x.settlementId()==settlement.id()&&x.attackerFactionId()==attacker.id()).findFirst().orElse(null);
         if(siege==null){siege=new SiegeState(state.nextId(),attacker.id(),defender.id(),settlement.id(),state.clock().day());state.addSiege(siege);state.history().add(new WorldEvent(state.clock().day(),"siege_started",attacker.name()+" besieged "+settlement.name()));}
         provisionSiegeEquipment(attacker,army,siege);
-        double fort=.35+Math.min(.5,settlement.completedConstruction().stream().filter(k->k.startsWith("wall:")).count()*.035);double blockade=Mathx.clamp(.35+army.totalPersonnel()/Math.max(50.0,settlement.population())*.25,0,1);double engineering=Math.min(.45,siege.rams()*.035+siege.ladders()*.012+siege.artilleryPieces()*.06);double ammoNeed=siege.artilleryPieces()*.12;double ammo=ammoNeed<=0?0:attacker.stockpile().take(ResourceType.AMMUNITION,ammoNeed);double artilleryOperational=ammoNeed<=0?0:Mathx.clamp(ammo/ammoNeed,0,1);double breachGain=Math.max(0,(siege.rams()*.004+siege.artilleryPieces()*.006*artilleryOperational)*(1-siege.defenderCountermeasures()*.55));siege.addBreach(breachGain);double progress=Math.max(.0005,(army.combatPower()/Math.max(50,settlement.population()*1.5))*.022+engineering*.015+siege.breach()*.018-fort*.006);siege.advance(progress,blockade);settlement.adjustUnrest(.0015*blockade);settlement.setFoodSecurity(settlement.foodSecurity()-.0025*blockade);
+        double fort=.35+Math.min(.5,settlement.completedConstruction().stream().filter(k->k.startsWith("wall:")).count()*.035);double blockade=Mathx.clamp(.35+army.totalPersonnel()/Math.max(50.0,settlement.population())*.25,0,1);double engineering=Math.min(.45,siege.rams()*.035+siege.ladders()*.012+siege.artilleryPieces()*.06);double ammoNeed=siege.artilleryPieces()*.12;double ammo=ammoNeed<=0?0:attacker.stockpile().take(ResourceType.AMMUNITION,ammoNeed);double artilleryOperational=ammoNeed<=0?0:Mathx.clamp(ammo/ammoNeed,0,1);double breachGain=Math.max(0,(siege.rams()*.004+siege.artilleryPieces()*.006*artilleryOperational)*(1-siege.defenderCountermeasures()*.55));double breachBefore=siege.breach();siege.addBreach(breachGain);applySiegeStructureDamage(state,settlement,siege,breachBefore);double progress=Math.max(.0005,(army.combatPower()/Math.max(50,settlement.population()*1.5))*.022+engineering*.015+siege.breach()*.018-fort*.006);siege.advance(progress,blockade);settlement.adjustUnrest(.0015*blockade);settlement.setFoodSecurity(settlement.foodSecurity()-.0025*blockade);
         if(state.clock().day()%7==0&&siege.active()){double defend=Mathx.clamp(settlement.publicOrder()*.35+settlement.infrastructure()*.08,0,1);siege.adjustCountermeasures((defend-.5)*.025);if(defend>.62){int ladderLoss=siege.ladders()>0?1:0;int ramLoss=defend>.78&&siege.rams()>0?1:0;siege.damageEquipment(ramLoss,ladderLoss,0);}}
         if(!siege.active()){capture(state,attacker,defender,army,settlement);state.history().add(new WorldEvent(state.clock().day(),"siege_won",attacker.name()+" captured "+settlement.name()));}
+    }
+    /** Damages LivingRealms-authored walls/gates/keeps when breach crosses thresholds — never player/foreign builds. */
+    private static void applySiegeStructureDamage(SimulationState state,Settlement settlement,SiegeState siege,double breachBefore){
+        if(siege.breach()<.25)return;
+        String[] prefixes=siege.breach()>.75?new String[]{"gate:","wall:","keep:","barracks:"}:siege.breach()>.5?new String[]{"gate:","wall:"}:new String[]{"wall:"};
+        // Fire once per threshold crossing.
+        boolean crossedLow=breachBefore<.25&&siege.breach()>=.25;
+        boolean crossedMid=breachBefore<.5&&siege.breach()>=.5;
+        boolean crossedHigh=breachBefore<.75&&siege.breach()>=.75;
+        if(!(crossedLow||crossedMid||crossedHigh))return;
+        for(String prefix:prefixes){
+            String hit=settlement.damageAuthoredStructure(prefix);
+            if(hit!=null){state.history().add(new WorldEvent(state.clock().day(),"siege_structure_damage",settlement.name()+" lost "+hit+" (breach="+String.format(java.util.Locale.ROOT,"%.2f",siege.breach())+")"));break;}
+        }
     }
     private static void provisionSiegeEquipment(Faction attacker,Army army,SiegeState siege){
         if(siege.rams()<2&&attacker.stockpile().get(ResourceType.WOOD)>=18&&attacker.stockpile().get(ResourceType.TOOLS)>=3){attacker.stockpile().take(ResourceType.WOOD,18);attacker.stockpile().take(ResourceType.TOOLS,3);siege.addEquipment(1,0,0);}

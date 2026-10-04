@@ -67,8 +67,14 @@ public final class ModEntities {
                     .build(LivingRealms.MOD_ID + ":bounty_hunter")
     );
 
+    public static final Supplier<EntityType<SiegeEquipmentEntity>> SIEGE_EQUIPMENT = ENTITY_TYPES.register(
+            "siege_equipment", () -> EntityType.Builder.of(SiegeEquipmentEntity::new, MobCategory.MISC)
+                    .sized(1.8F, 1.6F).clientTrackingRange(14).updateInterval(5)
+                    .build(LivingRealms.MOD_ID + ":siege_equipment")
+    );
+
     private ModEntities() {}
 
     public static void register(IEventBus modBus) {ENTITY_TYPES.register(modBus);modBus.addListener(ModEntities::createAttributes);}
-    private static void createAttributes(EntityAttributeCreationEvent event) {event.put(WILDLIFE.get(), LivingRealmsAnimalEntity.createAttributes().build());event.put(CARAVAN.get(),TradeCaravanEntity.createAttributes().build());event.put(CITIZEN.get(),FactionCitizenEntity.createAttributes().build());event.put(MILITARY_UNIT.get(),MilitaryUnitEntity.createAttributes().build());event.put(MOBILE_CIVILIZATION.get(),MobileCivilizationEntity.createAttributes().build());event.put(AIRCRAFT.get(),LivingRealmsAircraftEntity.createAttributes().build());event.put(SHIP.get(),LivingRealmsShipEntity.createAttributes().build());event.put(BOUNTY_HUNTER.get(),BountyHunterEntity.createAttributes().build());}
+    private static void createAttributes(EntityAttributeCreationEvent event) {event.put(WILDLIFE.get(), LivingRealmsAnimalEntity.createAttributes().build());event.put(CARAVAN.get(),TradeCaravanEntity.createAttributes().build());event.put(CITIZEN.get(),FactionCitizenEntity.createAttributes().build());event.put(MILITARY_UNIT.get(),MilitaryUnitEntity.createAttributes().build());event.put(MOBILE_CIVILIZATION.get(),MobileCivilizationEntity.createAttributes().build());event.put(AIRCRAFT.get(),LivingRealmsAircraftEntity.createAttributes().build());event.put(SHIP.get(),LivingRealmsShipEntity.createAttributes().build());event.put(BOUNTY_HUNTER.get(),BountyHunterEntity.createAttributes().build());event.put(SIEGE_EQUIPMENT.get(),SiegeEquipmentEntity.createAttributes().build());}
 }

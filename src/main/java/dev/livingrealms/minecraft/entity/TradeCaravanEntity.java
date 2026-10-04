@@ -35,7 +35,9 @@ public final class TradeCaravanEntity extends PathfinderMob {
 
     public void initializeProjection(TradeShipment shipment){
         this.entityData.set(SHIPMENT_ID,shipment.id());
-        this.setCustomName(Component.literal("Trade Caravan • "+shipment.resource().name().toLowerCase()+" x"+(int)Math.round(shipment.amount())));
+        String escort=shipment.escortStrength()>.55?" • escorted":shipment.escortStrength()>.3?" • light escort":"";
+        String loss=shipment.lossState()==TradeShipment.LossState.PARTIAL?" • damaged cargo":"";
+        this.setCustomName(Component.literal("Trade Caravan • "+shipment.resource().name().toLowerCase()+" x"+(int)Math.round(shipment.amount())+escort+loss));
         this.setCustomNameVisible(false);
     }
     public long shipmentId(){return entityData.get(SHIPMENT_ID);} public boolean isDematerializing(){return dematerializing;} public boolean lossReported(){return lossReported;} public void markLossReported(){lossReported=true;}

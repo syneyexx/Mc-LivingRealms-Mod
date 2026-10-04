@@ -138,6 +138,15 @@ public final class CivilizationLifecycleEngine {
             double insecureTrade=state.routes().stream().filter(TransportRoute::operational).filter(r->r.fromSettlementId()==settlement.id()||r.toSettlementId()==settlement.id()).mapToDouble(r->Math.max(0,.55-r.security())).max().orElse(0);
             pressure.put(AssistanceTaskType.TRADE_ESCORT,Mathx.clamp(insecureTrade*1.7,0,1));
             pressure.put(AssistanceTaskType.INFRASTRUCTURE_REPAIR,AssistanceContributionEngine.infrastructurePressure(state,settlement));
+            double bandit=Mathx.clamp(civ.banditPressure()-.4,0,1);
+            pressure.put(AssistanceTaskType.BANDIT_BOUNTY,bandit);
+            boolean bridgeNeeded=settlement.geography().riverAdjacent()&&settlement.completedConstruction().stream().noneMatch(k->k.startsWith("bridge:"));
+            pressure.put(AssistanceTaskType.BRIDGE_REPAIR,bridgeNeeded?Mathx.clamp(.35+settlement.prosperity()*.2,0,1):0);
+            boolean atWar=state.wars().stream().anyMatch(w->w.active()&&w.involves(faction.id()));
+            pressure.put(AssistanceTaskType.MILITARY_SUPPLY,atWar?Mathx.clamp(.3+(1-settlement.foodSecurity())*.4,0,1):0);
+            pressure.put(AssistanceTaskType.RECONSTRUCTION_AID,Mathx.clamp(settlement.unrest()*.4+(1-settlement.infrastructure())*.5-settlement.prosperity()*.2,0,1));
+            long missingCaravans=state.history().recent(12).stream().filter(e->"trade_intercepted".equals(e.type())||"trade_partial_loss".equals(e.type())).count();
+            pressure.put(AssistanceTaskType.MISSING_CARAVAN,Mathx.clamp(missingCaravans*.25,0,1));
             for(var entry:pressure.entrySet()){
                 AssistanceTaskType type=entry.getKey();double p=entry.getValue();Optional<AssistanceTask> active=state.activeAssistanceTask(settlement.id(),type);
                 if(active.isPresent()){active.get().updatePressure(day,p);if(!active.get().active())state.history().add(new WorldEvent(day,"assistance_task_"+active.get().status().name().toLowerCase(Locale.ROOT),"task="+active.get().id()+", settlement="+settlement.id()+", type="+type));continue;}

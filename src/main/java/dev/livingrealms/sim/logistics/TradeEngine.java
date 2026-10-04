@@ -93,7 +93,23 @@ public final class TradeEngine {
         // Land bandit hideouts near the caravan raise intercept risk.
         long nearbyBands=state.pirateHideouts().stream().filter(h->h.active()&&h.position().distanceTo(p)<420).count();
         risk+=Math.min(.12,nearbyBands*.035);
-        return rng.chance(Math.min(.38,risk));
+        // Escort strength from logistics fields reduces intercept chance (guards protect cargo).
+        risk*=Math.max(.22,1.0-shipment.escortStrength()*.65);
+        risk=Math.min(.38,risk);
+        if(!rng.chance(risk))return false;
+        // Partial loss when escorts hold: cargo delayed/damaged but shipment continues unless total wipe.
+        if(shipment.escortStrength()>.45&&shipment.lossState()==TradeShipment.LossState.NONE&&rng.chance(.55)){
+            shipment.restoreLogistics(shipment.originSettlementId(),shipment.destinationSettlementId(),shipment.routeId(),shipment.transportModeOrdinal(),
+                    shipment.departureDay(),shipment.expectedArrivalDay()+2,Math.min(1,shipment.risk()+.12),shipment.escortStrength()*.7,
+                    TradeShipment.LossState.PARTIAL,shipment.delayDays()+2);
+            if(route!=null)route.adjustSecurity(-.04);
+            state.history().add(new WorldEvent(state.clock().day(),"trade_partial_loss",describe(shipment)+", escorts held"));
+            return false;
+        }
+        if(route!=null)route.adjustSecurity(-.08);
+        shipment.restoreLogistics(shipment.originSettlementId(),shipment.destinationSettlementId(),shipment.routeId(),shipment.transportModeOrdinal(),
+                shipment.departureDay(),shipment.expectedArrivalDay(),Math.min(1,shipment.risk()+.2),0,TradeShipment.LossState.TOTAL,shipment.delayDays());
+        return true;
     }
 
     /** Buyer already paid; seller refunds an insured share when cargo is lost. */
@@ -153,8 +169,9 @@ public final class TradeEngine {
         TradeShipment shipment=new TradeShipment(state.nextId(),seller.id(),buyer.id(),resource,amount,value,origin.position(),destination.position());
         double dist=origin.position().distanceTo(destination.position());long travelDays=Math.max(1L,Math.round(dist/220.0));
         double routeRisk=route.map(r->Mathx.clamp(1.0-r.security(),0,1)).orElse(.35);
-        shipment.restoreLogistics(origin.id(),destination.id(),route.map(r->r.id()).orElse(0L),route.map(r->r.mode().ordinal()).orElse(-1),day,day+travelDays,routeRisk,route.map(r->r.security()).orElse(.4),TradeShipment.LossState.NONE,0);
-        state.addShipment(shipment);state.liveness().onShipmentDispatched();state.history().add(new WorldEvent(state.clock().day(),"trade_dispatched",describe(shipment)+", price="+String.format(java.util.Locale.ROOT,"%.2f",price)+(route.map(r->", route="+r.id()).orElse(""))));
+        double escort=Mathx.clamp(route.map(r->r.security()).orElse(.4)+Math.min(.35,value/800.0)+Math.min(.2,routeRisk*.4),0,1);
+        shipment.restoreLogistics(origin.id(),destination.id(),route.map(r->r.id()).orElse(0L),route.map(r->r.mode().ordinal()).orElse(-1),day,day+travelDays,routeRisk,escort,TradeShipment.LossState.NONE,0);
+        state.addShipment(shipment);state.liveness().onShipmentDispatched();state.history().add(new WorldEvent(state.clock().day(),"trade_dispatched",describe(shipment)+", price="+String.format(java.util.Locale.ROOT,"%.2f",price)+(route.map(r->", route="+r.id()).orElse(""))+", escort="+String.format(java.util.Locale.ROOT,"%.2f",escort)));
     }
 
     private static double localHeld(Faction f,ResourceType r){double t=0;for(Settlement s:f.settlements())t+=s.stockpile().get(r);return t;}

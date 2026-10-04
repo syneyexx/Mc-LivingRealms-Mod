@@ -56,6 +56,17 @@ public final class Settlement {
     public Set<String> completedConstruction(){return Collections.unmodifiableSet(completedConstruction);}
     public boolean isConstructionCompleted(String key){return completedConstruction.contains(key);}
     public boolean markConstructionCompleted(String key){if(key==null||key.isBlank())throw new IllegalArgumentException("key");boolean added=completedConstruction.add(key);if(added)refreshStorageCapacity();return added;}
+    /**
+     * Removes one LivingRealms-authored structure matching a prefix (e.g. wall:/gate:/keep:).
+     * Used for siege damage against simulation construction keys — never player/foreign builds.
+     */
+    public String damageAuthoredStructure(String prefix){
+        if(prefix==null||prefix.isBlank())throw new IllegalArgumentException("prefix");
+        String hit=completedConstruction.stream().filter(k->k.startsWith(prefix)).findFirst().orElse(null);
+        if(hit==null)return null;
+        completedConstruction.remove(hit);refreshStorageCapacity();improveInfrastructure(-.015);adjustUnrest(.02);adjustProsperity(-.01);
+        return hit;
+    }
     /** One-shot content migration hook used when an authored blueprint system changes incompatibly. */
     public int resetConstructionCompletion(){int count=completedConstruction.size();completedConstruction.clear();refreshStorageCapacity();return count;}
     public void adjustProsperity(double v){prosperity=Mathx.clamp(prosperity+v,0,1);} public void adjustUnrest(double v){unrest=Mathx.clamp(unrest+v,0,1);}

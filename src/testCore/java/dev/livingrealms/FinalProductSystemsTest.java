@@ -2,12 +2,18 @@ package dev.livingrealms;
 
 import dev.livingrealms.sim.civilian.AppearanceProfile;
 import dev.livingrealms.sim.civilian.CitizenRole;
+import dev.livingrealms.sim.civilization.AssistanceTask;
+import dev.livingrealms.sim.civilization.AssistanceTaskType;
+import dev.livingrealms.sim.civilization.ProductionContract;
 import dev.livingrealms.sim.diplomacy.WarGoalType;
 import dev.livingrealms.sim.diplomacy.WarState;
 import dev.livingrealms.sim.faction.*;
 import dev.livingrealms.sim.government.*;
 import dev.livingrealms.sim.logistics.TradeShipment;
 import dev.livingrealms.sim.military.CampaignPlan;
+import dev.livingrealms.sim.military.SiegeEquipmentKind;
+import dev.livingrealms.sim.military.SiegeMaterializationPlanner;
+import dev.livingrealms.sim.military.SiegeState;
 import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.player.*;
 import dev.livingrealms.sim.social.*;
@@ -15,6 +21,7 @@ import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /** Schema-17 final-product systems: appearance, influence/careers, debt, projects, campaigns, heroes, logistics. */
@@ -29,7 +36,10 @@ public final class FinalProductSystemsTest {
         testCampaignPlanDuringWar();
         testShipmentLogisticsSchema17();
         testHeroLegendOnDeath();
-        System.out.println("PASS final product systems: appearance48 + influence + debt + projects + campaigns + schema17 logistics + heroes");
+        testSocialMobilityAndWorkplace();
+        testSiegeEquipmentProjection();
+        testProductionContracts();
+        System.out.println("PASS final product systems: appearance48 + influence + debt + projects + campaigns + schema17 logistics + heroes + mobility + siege + contracts");
     }
 
     private static void testAppearanceRange() {
@@ -168,6 +178,62 @@ public final class FinalProductSystemsTest {
         check(state.legends().stream().anyMatch(l -> l.subjectKey().equals(key)), "high-renown death creates legend");
         var legend = state.legends().stream().filter(l -> l.subjectKey().equals(key)).findFirst().orElseThrow();
         if (legend.renown() >= .65) check(legend.monumented() || state.history().all().stream().anyMatch(e -> e.type().equals("hero_monumented") || e.type().equals("hero_recognized")), "monument or recognition history");
+    }
+
+    private static void testSocialMobilityAndWorkplace() {
+        SimulationState state = seeded(908L);
+        Faction f = state.factions().getFirst();
+        Settlement s = f.settlements().getFirst();
+        s.markConstructionCompleted("workshop:0");
+        s.markConstructionCompleted("school:0");
+        s.setEmployment(.9);
+        s.adjustProsperity(.3);
+        SocialCitizen c = state.ensureSocialCitizen(f.id(), s.id(), 3, CitizenRole.FARMER);
+        c.adjustEducation(.7);
+        c.practiceProfession(.8);
+        c.addMoney(40);
+        String before = c.role().name() + "|" + c.workplaceKey();
+        for (int i = 0; i < 90; i++) state.advanceDays(1);
+        check(!c.workplaceKey().isBlank() || c.role() != CitizenRole.FARMER || c.professionSkill() > .8, "mobility assigns workplace or advances career: " + before + " -> " + c.role() + "|" + c.workplaceKey());
+        check(c.socialClass() != null, "social class present");
+    }
+
+    private static void testSiegeEquipmentProjection() {
+        SimulationState state = seeded(909L);
+        Faction a = state.factions().getFirst();
+        Faction b = new Faction(state.nextId(), "Defenders", "Defender");
+        Settlement town = new Settlement(state.nextId(), "Fortwall", new SimPosition(a.settlements().getFirst().position().x() + 400, a.settlements().getFirst().position().z()), 600, 650);
+        town.markConstructionCompleted("wall:0");
+        town.markConstructionCompleted("gate:0");
+        b.addSettlement(town);
+        state.addFaction(b);
+        if (a.armies().isEmpty()) a.addArmy(new Army(state.nextId(), a.id(), town.position(), 120));
+        a.armies().getFirst().moveToward(town.position(), 500);
+        SiegeState siege = new SiegeState(state.nextId(), a.id(), b.id(), town.id(), state.clock().day());
+        siege.addEquipment(2, 4, 1);
+        state.addSiege(siege);
+        var projections = SiegeMaterializationPlanner.plan(state, List.of(town.position()), 500, 24);
+        check(!projections.isEmpty(), "siege planner emits equipment near players");
+        check(projections.stream().anyMatch(p -> p.kind() == SiegeEquipmentKind.RAM), "rams projected");
+        check(projections.stream().anyMatch(p -> p.kind() == SiegeEquipmentKind.LADDER), "ladders projected");
+        check(projections.stream().anyMatch(p -> p.kind() == SiegeEquipmentKind.ARTILLERY), "artillery projected");
+        String damaged = town.damageAuthoredStructure("wall:");
+        check(damaged != null && damaged.startsWith("wall:"), "authored wall can take siege damage");
+        check(!town.isConstructionCompleted("wall:0"), "damaged wall removed from completed set");
+    }
+
+    private static void testProductionContracts() {
+        SimulationState state = seeded(910L);
+        Faction f = state.factions().getFirst();
+        Settlement s = f.settlements().getFirst();
+        AssistanceTask task = new AssistanceTask(state.nextId(), f.id(), s.id(), state.clock().day(), state.clock().day() + 40,
+                AssistanceTaskType.TRADE_ESCORT, "pressure:trade_escort", .7);
+        state.addAssistanceTask(task);
+        ProductionContract contract = ProductionContract.of(task);
+        check(contract.title().contains("Escort"), "contract title");
+        check(contract.rewardTreasury() > 0 && contract.rewardReputation() > 0, "contract rewards derived");
+        check(contract.why().contains("Cause"), "contract explains cause");
+        check(AssistanceTaskType.values().length >= 13, "expanded contract vocabulary");
     }
 
     private static SimulationState seeded(long seed) {

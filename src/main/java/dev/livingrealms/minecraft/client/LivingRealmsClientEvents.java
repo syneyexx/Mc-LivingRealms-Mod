@@ -42,6 +42,7 @@ public final class LivingRealmsClientEvents {
         event.registerLayerDefinition(AircraftModel.LAYER, AircraftModel::createBodyLayer);
         event.registerLayerDefinition(ShipModel.LAYER, ShipModel::createBodyLayer);
         event.registerLayerDefinition(BountyHunterModel.LAYER, BountyHunterModel::createBodyLayer);
+        event.registerLayerDefinition(SiegeEquipmentModel.LAYER, SiegeEquipmentModel::createBodyLayer);
     }
 
     @SubscribeEvent
@@ -54,5 +55,6 @@ public final class LivingRealmsClientEvents {
         event.registerEntityRenderer(ModEntities.AIRCRAFT.get(), AircraftRenderer::new);
         event.registerEntityRenderer(ModEntities.SHIP.get(), ShipRenderer::new);
         event.registerEntityRenderer(ModEntities.BOUNTY_HUNTER.get(), BountyHunterRenderer::new);
+        event.registerEntityRenderer(ModEntities.SIEGE_EQUIPMENT.get(), SiegeEquipmentRenderer::new);
     }
 }

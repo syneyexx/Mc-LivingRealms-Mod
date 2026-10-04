@@ -164,6 +164,11 @@ public final class WorldCauseExplainer {
             case WATER_SUPPLY -> "Water supply aid requested under sanitation or drought pressure.";
             case TRADE_ESCORT -> "Trade escort requested after route insecurity.";
             case INFRASTRUCTURE_REPAIR -> "Infrastructure repair requested after route wear or damaged industry.";
+            case BANDIT_BOUNTY -> "Bandit bounty opened after rising outlaw pressure.";
+            case BRIDGE_REPAIR -> "Bridge repair requested for river access.";
+            case MILITARY_SUPPLY -> "Military supply requested while the realm is at war.";
+            case RECONSTRUCTION_AID -> "Reconstruction aid requested after unrest and infrastructure loss.";
+            case MISSING_CARAVAN -> "Missing caravan investigation after trade interception.";
         };
     }
 

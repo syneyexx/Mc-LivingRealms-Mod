@@ -99,6 +99,7 @@ public final class SimulationState {
     private final PrimaryEconomyEngine primaryEconomyEngine=new PrimaryEconomyEngine();
     private final SettlementEconomyEngine settlementEconomyEngine=new SettlementEconomyEngine();
     private final SocialPopulationEngine socialPopulationEngine=new SocialPopulationEngine();
+    private final SocialMobilityEngine socialMobilityEngine=new SocialMobilityEngine();
     private final CivilizationEngine civilizationEngine=new CivilizationEngine();
 
     public SimulationState(long seed){this(seed,SpeciesCatalog.starter(),SimulationConfig.defaults());}
@@ -302,6 +303,7 @@ public final class SimulationState {
             industryEngine.simulateDay(this,new DeterministicRng(seed^day^0x243F6A8885A308D3L));
             for(Faction faction:new ArrayList<>(factions))societyEngine.simulateDay(faction);
             socialPopulationEngine.simulateDay(this);
+            socialMobilityEngine.simulateDay(this,new DeterministicRng(seed^day^0xA5A5A5A5A5A5A5A5L));
             civilizationEngine.simulateDay(this,new DeterministicRng(seed^day^0xD1B54A32D192ED03L));
             governmentEngine.simulateDay(this,new DeterministicRng(seed^day^0x6A09E667F3BCC909L));
             sovereignDebtEngine.simulateDay(this,new DeterministicRng(seed^day^0x243F6A8885A308D3L^0x51L));
