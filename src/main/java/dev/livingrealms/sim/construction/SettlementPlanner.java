@@ -34,8 +34,14 @@ public final class SettlementPlanner {
         int tier = settlement.tier().ordinal();
         int baseRotation = Math.floorMod((int) mix(settlement.id() ^ 0x4F1BBCDCBFA54001L), 2);
 
-        SettlementStreetGraph streetGraph = SettlementRoadPlanner.planGraph(
+        SettlementStreetGraph baseStreetGraph = SettlementRoadPlanner.planGraph(
                 faction, settlement, morph, baseRotation);
+        SettlementBoundary boundary = null;
+        SettlementStreetGraph streetGraph = baseStreetGraph;
+        if (tier >= Settlement.Tier.CITY.ordinal()) {
+            boundary = SettlementBoundary.plan(faction, settlement, baseStreetGraph, baseRotation);
+            streetGraph = baseStreetGraph.withAdditionalSegments(boundary.approachSegments());
+        }
         SettlementRoadPlanner.addRoadNetwork(out, faction, settlement, streetGraph);
 
         boolean capital = settlement.role() == dev.livingrealms.sim.faction.SettlementRole.CAPITAL
@@ -90,7 +96,7 @@ public final class SettlementPlanner {
             addCivic(out, faction, settlement, morph, baseRotation, StructureRole.ORPHANAGE, 0, 15, 13, 79);
             addCivic(out, faction, settlement, morph, baseRotation, StructureRole.MONUMENT, 0, 9, 9, 76);
             if (faction.technology() >= .55) addCivic(out, faction, settlement, morph, baseRotation, StructureRole.OBSERVATORY, 0, 15, 15, 72);
-            addCityWalls(out, faction, settlement, morph, baseRotation);
+            addCityWalls(out, faction, settlement, Objects.requireNonNull(boundary, "boundary"));
         }
         if (tier >= Settlement.Tier.TOWN.ordinal() && faction.technology() >= .35) {
             addCivic(out, faction, settlement, morph, baseRotation, StructureRole.FACTORY, 0, 19, 15, 78);
@@ -159,35 +165,18 @@ public final class SettlementPlanner {
     }
 
     private static void addCityWalls(List<ConstructionIntent> out, Faction faction, Settlement settlement,
-                                     SettlementMorphology morph, int baseRotation) {
-        int radius = settlement.tier() == Settlement.Tier.METROPOLIS ? 238 : 182;
-        if (morph == SettlementMorphology.HILL_TOWN) radius = (int) (radius * 0.82);
-        if (morph == SettlementMorphology.WALLED_CORE) radius = (int) (radius * 0.9);
-        int segment = 34, index = 0;
-        int gateClear = 8; // skip curtain cells that would seal the cardinal gate portals
-        for (int x = -radius; x <= radius; x += segment) {
-            if (Math.abs(x) >= gateClear) {
-                addAt(out, faction, settlement, StructureRole.WALL, index++, local(settlement, baseRotation, x, -radius), 5, segment + 4, baseRotation + 1, 108);
-                addAt(out, faction, settlement, StructureRole.WALL, index++, local(settlement, baseRotation, x, radius), 5, segment + 4, baseRotation + 1, 108);
-            }
+                                     SettlementBoundary boundary) {
+        int wallIndex = 0;
+        for (SettlementBoundary.WallRun run : boundary.wallRuns()) {
+            int length = Math.max(3, (int) Math.round(run.length()) + 1);
+            addAt(out, faction, settlement, StructureRole.WALL, wallIndex++,
+                    run.center(), 5, length, run.rotationQuarterTurns(), 108);
         }
-        for (int z = -radius + segment; z <= radius - segment; z += segment) {
-            if (Math.abs(z) >= gateClear) {
-                addAt(out, faction, settlement, StructureRole.WALL, index++, local(settlement, baseRotation, -radius, z), 5, segment + 4, baseRotation, 108);
-                addAt(out, faction, settlement, StructureRole.WALL, index++, local(settlement, baseRotation, radius, z), 5, segment + 4, baseRotation, 108);
-            }
+        int gateIndex = 0;
+        for (SettlementBoundary.GateNode gate : boundary.gates()) {
+            addAt(out, faction, settlement, StructureRole.GATE, gateIndex++,
+                    gate.position(), 11, 7, gate.rotationQuarterTurns(), 150);
         }
-        // Gates first in priority so portals carve open before nearby curtain segments settle.
-        addAt(out, faction, settlement, StructureRole.GATE, 0, local(settlement, baseRotation, 0, -radius), 11, 7, baseRotation, 150);
-        addAt(out, faction, settlement, StructureRole.GATE, 1, local(settlement, baseRotation, 0, radius), 11, 7, baseRotation + 2, 150);
-        addAt(out, faction, settlement, StructureRole.GATE, 2, local(settlement, baseRotation, -radius, 0), 11, 7, baseRotation + 1, 150);
-        addAt(out, faction, settlement, StructureRole.GATE, 3, local(settlement, baseRotation, radius, 0), 11, 7, baseRotation + 3, 150);
-        // Approach roads through each gate so countryside connectors meet openings, not sealed walls.
-        int approach = Math.max(28, spacing(morph) / 2);
-        addRoad(out, faction, settlement, 900, local(settlement, baseRotation, 0, -radius), 5, approach, baseRotation + 1, 145);
-        addRoad(out, faction, settlement, 901, local(settlement, baseRotation, 0, radius), 5, approach, baseRotation + 1, 145);
-        addRoad(out, faction, settlement, 902, local(settlement, baseRotation, -radius, 0), 5, approach, baseRotation, 145);
-        addRoad(out, faction, settlement, 903, local(settlement, baseRotation, radius, 0), 5, approach, baseRotation, 145);
     }
 
     private static void addCivic(List<ConstructionIntent> out, Faction faction, Settlement settlement,
