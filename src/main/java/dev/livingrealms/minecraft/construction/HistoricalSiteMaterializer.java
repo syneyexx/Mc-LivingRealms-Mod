@@ -21,61 +21,94 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * Only Living Realms-authored historical blocks may later be automatically removed or mutated.
  */
 public final class HistoricalSiteMaterializer {
-    private static final double ACTIVATION_RADIUS=384.0D;
-    private static final double ACTIVATION_RADIUS_SQR=ACTIVATION_RADIUS*ACTIVATION_RADIUS;
     private static final int MAX_SITES_PER_TICK=8;
+    private static final int MAX_SCAN_PER_CATEGORY=32;
     private static final Map<Long,Long> CACHE_AT_POS=new HashMap<>();
     private static final Map<Long,Long> RUIN_AT_POS=new HashMap<>();
     private static final Map<Long,Long> HIDEOUT_AT_POS=new HashMap<>();
+    private static int cacheCursor,hideoutCursor,ruinCursor,legendCursor;
 
     private HistoricalSiteMaterializer(){}
 
     public static void tick(ServerLevel level,LivingRealmsSavedData data){
-        if(level.players().isEmpty())return;
         AuthoredBlockLedger ledger=data.authoredBlocks();
         int budget=MAX_SITES_PER_TICK;
-        for(HiddenCache cache:data.state().hiddenCaches()){
-            if(budget<=0)break;
-            if(!nearPlayer(level,cache.position().x(),cache.position().z()))continue;
-            BlockPos pos=findCacheSite(level,ledger,cache);
-            if(pos==null)continue;
+        int used=processCaches(level,data,ledger,Math.min(2,budget));budget-=used;
+        used=processHideouts(level,data,ledger,Math.min(2,budget));budget-=used;
+        used=processRuins(level,data,ledger,Math.min(2,budget));budget-=used;
+        processLegends(level,data,ledger,Math.min(2,budget));
+    }
+
+    private static int processCaches(ServerLevel level,LivingRealmsSavedData data,AuthoredBlockLedger ledger,int quota){
+        var items=data.state().hiddenCaches();if(quota<=0||items.isEmpty())return 0;
+        cacheCursor=Math.floorMod(cacheCursor,items.size());int scanned=0,used=0;
+        for(int n=0;n<items.size()&&scanned<MAX_SCAN_PER_CATEGORY&&used<quota;n++){
+            HiddenCache cache=items.get(Math.floorMod(cacheCursor+n,items.size()));scanned++;
+            if(!loadedAt(level,cache.position().x(),cache.position().z()))continue;
+            BlockPos pos=findCacheSite(level,ledger,cache);if(pos==null)continue;
             if(cache.recovered()){
                 CACHE_AT_POS.remove(pos.asLong());
                 if(ledger.ownerType(pos.getX(),pos.getY(),pos.getZ())==AuthoredOwnerType.HIDDEN_CACHE
-                        && level.getBlockState(pos).is(Blocks.BARREL)){
-                    level.removeBlock(pos,false);
-                    ledger.forget(pos.getX(),pos.getY(),pos.getZ());
+                        &&level.getBlockState(pos).is(Blocks.BARREL)){
+                    level.removeBlock(pos,false);ledger.forget(pos.getX(),pos.getY(),pos.getZ());
                 }
-                continue;
+                used++;continue;
             }
             if(isAuthoredCache(level,ledger,pos)||placeCache(level,ledger,pos)){
-                CACHE_AT_POS.put(pos.asLong(),cache.id());budget--;
+                CACHE_AT_POS.put(pos.asLong(),cache.id());used++;
             }
         }
-        for(PirateHideout hideout:data.state().pirateHideouts()){
-            if(budget<=0)break;if(!hideout.active()||!nearPlayer(level,hideout.position().x(),hideout.position().z()))continue;if(materializeHideout(level,ledger,hideout))budget--;
+        cacheCursor=Math.floorMod(cacheCursor+Math.max(1,scanned),items.size());return used;
+    }
+
+    private static int processHideouts(ServerLevel level,LivingRealmsSavedData data,AuthoredBlockLedger ledger,int quota){
+        var items=data.state().pirateHideouts();if(quota<=0||items.isEmpty())return 0;
+        hideoutCursor=Math.floorMod(hideoutCursor,items.size());int scanned=0,used=0;
+        for(int n=0;n<items.size()&&scanned<MAX_SCAN_PER_CATEGORY&&used<quota;n++){
+            PirateHideout hideout=items.get(Math.floorMod(hideoutCursor+n,items.size()));scanned++;
+            if(!hideout.active()||!loadedAt(level,hideout.position().x(),hideout.position().z()))continue;
+            if(materializeHideout(level,ledger,hideout))used++;
         }
-        for(RuinSite ruin:data.state().ruinSites()){
-            if(budget<=0)break;
-            if(!ruin.active()||!nearPlayer(level,ruin.position().x(),ruin.position().z()))continue;
-            if(materializeRuin(level,ledger,ruin)){budget--;}
+        hideoutCursor=Math.floorMod(hideoutCursor+Math.max(1,scanned),items.size());return used;
+    }
+
+    private static int processRuins(ServerLevel level,LivingRealmsSavedData data,AuthoredBlockLedger ledger,int quota){
+        var items=data.state().ruinSites();if(quota<=0||items.isEmpty())return 0;
+        ruinCursor=Math.floorMod(ruinCursor,items.size());int scanned=0,used=0;
+        for(int n=0;n<items.size()&&scanned<MAX_SCAN_PER_CATEGORY&&used<quota;n++){
+            RuinSite ruin=items.get(Math.floorMod(ruinCursor+n,items.size()));scanned++;
+            if(!ruin.active()||!loadedAt(level,ruin.position().x(),ruin.position().z()))continue;
+            if(materializeRuin(level,ledger,ruin))used++;
         }
-        for(dev.livingrealms.sim.civilization.LegendRecord legend:data.state().legends()){
-            if(budget<=0)break;
+        ruinCursor=Math.floorMod(ruinCursor+Math.max(1,scanned),items.size());return used;
+    }
+
+    private static int processLegends(ServerLevel level,LivingRealmsSavedData data,AuthoredBlockLedger ledger,int quota){
+        var items=data.state().legends();if(quota<=0||items.isEmpty())return 0;
+        legendCursor=Math.floorMod(legendCursor,items.size());int scanned=0,used=0;
+        for(int n=0;n<items.size()&&scanned<MAX_SCAN_PER_CATEGORY&&used<quota;n++){
+            var legend=items.get(Math.floorMod(legendCursor+n,items.size()));scanned++;
             if(legend.settlementId()<=0)continue;
             var settlement=data.state().findSettlement(legend.settlementId()).orElse(null);
-            if(settlement==null||!nearPlayer(level,settlement.position().x(),settlement.position().z()))continue;
-            if(materializeLegendTrace(level,ledger,legend,settlement.position().x(),settlement.position().z()))budget--;
+            if(settlement==null||!loadedAt(level,settlement.position().x(),settlement.position().z()))continue;
+            if(materializeLegendTrace(level,ledger,legend,settlement.position().x(),settlement.position().z()))used++;
         }
+        legendCursor=Math.floorMod(legendCursor+Math.max(1,scanned),items.size());return used;
+    }
+
+    private static boolean loadedAt(ServerLevel level,double x,double z){
+        return level.hasChunkAt(new BlockPos((int)Math.floor(x),level.getSeaLevel(),(int)Math.floor(z)));
     }
 
     public static OptionalLong cacheIdAt(BlockPos pos){Long id=pos==null?null:CACHE_AT_POS.get(pos.asLong());return id==null?OptionalLong.empty():OptionalLong.of(id);}
     public static OptionalLong ruinIdAt(BlockPos pos){Long id=pos==null?null:RUIN_AT_POS.get(pos.asLong());return id==null?OptionalLong.empty():OptionalLong.of(id);}
     public static OptionalLong pirateHideoutIdAt(BlockPos pos){Long id=pos==null?null:HIDEOUT_AT_POS.get(pos.asLong());return id==null?OptionalLong.empty():OptionalLong.of(id);}
     public static void forget(BlockPos pos){if(pos!=null){CACHE_AT_POS.remove(pos.asLong());RUIN_AT_POS.remove(pos.asLong());HIDEOUT_AT_POS.remove(pos.asLong());}}
-    public static void clear(){CACHE_AT_POS.clear();RUIN_AT_POS.clear();HIDEOUT_AT_POS.clear();}
+    public static void clear(){
+        CACHE_AT_POS.clear();RUIN_AT_POS.clear();HIDEOUT_AT_POS.clear();
+        cacheCursor=hideoutCursor=ruinCursor=legendCursor=0;
+    }
 
-    private static boolean nearPlayer(ServerLevel level,double x,double z){return level.players().stream().anyMatch(p->{double dx=p.getX()-x,dz=p.getZ()-z;return dx*dx+dz*dz<=ACTIVATION_RADIUS_SQR;});}
 
     private static BlockPos findCacheSite(ServerLevel level,AuthoredBlockLedger ledger,HiddenCache cache){
         int baseX=(int)Math.floor(cache.position().x()),baseZ=(int)Math.floor(cache.position().z());
