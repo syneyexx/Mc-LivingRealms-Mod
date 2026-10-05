@@ -30,7 +30,7 @@ public final class SpecialSiteWorldFabricTest {
         state.addFaction(faction);
 
         var result = ForeignAdoptionClassifier.classifyAndAdopt(
-                state, new SimPosition(550, 0), "Foreign Cluster", 60, 70, OutlyingSite.Type.FOREIGN_HAMLET);
+                state, new SimPosition(550, 0), "Foreign Cluster", 700, 760, OutlyingSite.Type.FOREIGN_HAMLET);
         check(result.outcome() == ForeignAdoptionClassifier.Outcome.OUTLYING_SITE,
                 "spacing-blocked foreign site must become outlying site");
         check(result.site() != null && state.findOutlyingSite(result.site().id()).isPresent(),
