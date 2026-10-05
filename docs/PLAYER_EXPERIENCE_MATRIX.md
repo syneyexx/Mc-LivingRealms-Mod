@@ -76,12 +76,13 @@ REGISTER_BUILDING (survey runtime) / invalidate on revalidation fail
 
 ## Underworld player surface (Wave 13)
 
-- Dashboard **Underworld** tab: contract board (type, jurisdiction, non-secret target, reward, days, status), Accept, Bribe, Fence lots
+- Dashboard **Underworld** tab: contract board (type, jurisdiction, non-secret target, reward, days, status)
+- Interactive widgets: **Accept** (AVAILABLE), **Bribe officials** (local jurisdiction), **Fence** (stolen lots when eligible)
+- Accepted contracts show an inspectable objective line; completion stays **CrimeIncident → matcher only**
 - Tavern / trader NPC tip when corrupt jurisdiction has AVAILABLE contracts (points at same board)
-- Completion path remains **CrimeIncident → matcher only**
 
 ## War Room player surface (Wave 14)
 
 - Wars tab: contextual goal cycle (CONQUEST / LIBERATION / REPARATIONS / HUMILIATION …), enemy declare/petition with suggested settlement
 - Army cards: identity, strength, morale, supply, home, objective
-- Escort buttons use `WarRoomOptionsBuilder` escort list only (shipments / friendly settlements — never enemy war targets)
+- **Escort target cycle** over `WarRoomOptionsBuilder` escort list only (friendly settlements / owned shipments — never enemy war targets)

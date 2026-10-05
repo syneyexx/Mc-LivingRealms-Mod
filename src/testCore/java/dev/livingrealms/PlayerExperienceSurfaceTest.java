@@ -93,9 +93,13 @@ public final class PlayerExperienceSurfaceTest {
         var accept = DashboardActionService.apply(state, "player:thief", town.position(),
                 new DashboardActionCommand(DashboardActionCommand.Action.UNDERWORLD_ACCEPT, id));
         check(accept.success(), "dashboard accept: " + accept.reason());
+        var bribe = DashboardActionService.apply(state, "player:thief", town.position(),
+                new DashboardActionCommand(DashboardActionCommand.Action.UNDERWORLD_BRIBE, realm.id(), "80"));
+        check(bribe.success(), "dashboard bribe: " + bribe.reason());
         RealmDashboardSnapshot snap = RealmDashboardBuilder.build(state, "player:thief", town.position());
         check(!snap.underworld().contracts().isEmpty(), "underworld contracts in snapshot");
         check(snap.underworld().contracts().stream().anyMatch(c -> c.acceptedByYou()), "accepted visible");
+        check(snap.underworld().briberySkill() > 0 || snap.underworld().streetCred() >= 0, "profile visible");
         String json = RealmDashboardCodec.encode(snap);
         RealmDashboardSnapshot round = RealmDashboardCodec.decode(json);
         check(round.underworld().contracts().size() == snap.underworld().contracts().size(), "underworld codec");

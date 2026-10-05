@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 /** Wave 14: war goals, army identity, escort from WarRoomOptionsBuilder projection. */
 public final class WarPanel implements DashboardPanel {
     private String selectedWarGoal = "CONQUEST";
+    private long selectedEscortTargetId;
     private final Runnable rebuild;
 
     public WarPanel(Runnable rebuild) {
@@ -38,6 +39,23 @@ public final class WarPanel implements DashboardPanel {
             rebuild.run();
         }).bounds(layout.left + 10, y, Math.min(160, layout.panelWidth - 20), 16).build());
         y += 18;
+        List<Long> escortIds = new ArrayList<>();
+        for (var t : room.escortTargets()) escortIds.add(t.id());
+        if (escortIds.isEmpty() && room.defaultEscortTargetId() > 0) {
+            escortIds.add(room.defaultEscortTargetId());
+        }
+        if (!escortIds.contains(selectedEscortTargetId)) {
+            selectedEscortTargetId = escortIds.isEmpty() ? 0 : escortIds.getFirst();
+        }
+        if (!escortIds.isEmpty()) {
+            String escortLabel = escortLabel(room, selectedEscortTargetId);
+            host.addWidget(Button.builder(Component.literal("Escort tgt: " + escortLabel), b -> {
+                int idx = escortIds.indexOf(selectedEscortTargetId);
+                selectedEscortTargetId = escortIds.get((Math.max(0, idx) + 1) % escortIds.size());
+                rebuild.run();
+            }).bounds(layout.left + 10, y, Math.min(240, layout.panelWidth - 20), 16).build());
+            y += 18;
+        }
         int shown = 0;
         for (var enemy : room.enemies()) {
             if (shown >= 3) break;
@@ -55,7 +73,7 @@ public final class WarPanel implements DashboardPanel {
             shown++;
         }
         long hostile = room.defaultHostileSettlementId();
-        long escortTarget = room.defaultEscortTargetId();
+        long escortTarget = selectedEscortTargetId > 0 ? selectedEscortTargetId : room.defaultEscortTargetId();
         long patrolTarget = room.defaultPatrolSettlementId();
         int bw = Math.max(62, (layout.panelWidth - 28) / 5);
         for (var army : room.armies()) {
@@ -87,6 +105,17 @@ public final class WarPanel implements DashboardPanel {
             }
             y += 18;
         }
+    }
+
+    private static String escortLabel(RealmDashboardSnapshot.WarRoomView room, long id) {
+        for (var t : room.escortTargets()) {
+            if (t.id() == id) {
+                String kind = DashboardPanel.titleCase(t.kind());
+                String name = t.label().isBlank() ? ("#" + id) : t.label();
+                return kind + " " + name;
+            }
+        }
+        return "#" + id;
     }
 
     @Override
