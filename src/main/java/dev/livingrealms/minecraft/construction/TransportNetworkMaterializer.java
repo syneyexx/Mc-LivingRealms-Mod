@@ -5,6 +5,7 @@ import dev.livingrealms.minecraft.compat.CompatibleContentRuntime;
 import dev.livingrealms.sim.construction.AuthoredBlockLedger;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.construction.PaletteSlot;
+import dev.livingrealms.sim.construction.SettlementPlanner;
 import dev.livingrealms.sim.transport.*;
 import dev.livingrealms.sim.world.SimPosition;
 import java.util.*;
@@ -42,9 +43,11 @@ public final class TransportNetworkMaterializer {
                 var to=data.state().findSettlement(route.toSettlementId()).orElse(null);
                 if(from==null||to==null)continue;
                 boolean rural=isRural(route,from,to);
+                SimPosition fromEndpoint=routeEndpoint(data.state(),from,to.position());
+                SimPosition toEndpoint=routeEndpoint(data.state(),to,from.position());
                 for(var chunk:hints){
                     if(remaining<=0)break;
-                    var points=RouteProjectionPlanner.planInBounds(route,from.position(),to.position(),
+                    var points=RouteProjectionPlanner.planInBounds(route,fromEndpoint,toEndpoint,
                             chunk.minX(),chunk.minZ(),chunk.maxX(),chunk.maxZ(),remaining);
                     for(var point:points){
                         if(remaining<=0)break;
@@ -66,11 +69,23 @@ public final class TransportNetworkMaterializer {
                 var from=data.state().findSettlement(route.fromSettlementId()).orElse(null);
                 var to=data.state().findSettlement(route.toSettlementId()).orElse(null);
                 if(from==null||to==null)continue;
-                remaining-=materializeLoadedRouteChunks(level,ledger,route,from.position(),to.position(),
+                SimPosition fromEndpoint=routeEndpoint(data.state(),from,to.position());
+                SimPosition toEndpoint=routeEndpoint(data.state(),to,from.position());
+                remaining-=materializeLoadedRouteChunks(level,ledger,route,fromEndpoint,toEndpoint,
                         remaining,isRural(route,from,to));
             }
             routeCursor=Math.floorMod(routeCursor+Math.max(1,scanned),routes.size());
         }
+    }
+
+    private static SimPosition routeEndpoint(dev.livingrealms.sim.world.SimulationState state,
+                                             dev.livingrealms.sim.faction.Settlement settlement,
+                                             SimPosition target) {
+        var owner=state.findSettlementOwner(settlement.id()).orElse(null);
+        if(owner==null)return settlement.position();
+        return SettlementPlanner.boundary(owner,settlement)
+                .map(boundary->boundary.gateToward(settlement.position(),target).position())
+                .orElse(settlement.position());
     }
 
     private static boolean physicalLandRoute(TransportRoute route){
