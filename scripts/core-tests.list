@@ -31,6 +31,7 @@ dev.livingrealms.DashboardActionExhaustivenessTest
 dev.livingrealms.RumorNetworkTest
 dev.livingrealms.SocietyInfrastructureTest
 dev.livingrealms.CivilizationLayerTest
+dev.livingrealms.ArchitectureLifecycleEnginesTest
 dev.livingrealms.FaithAndInfrastructureTest
 dev.livingrealms.CivicHolyDayFestivalTest
 dev.livingrealms.AssistanceContributionTest

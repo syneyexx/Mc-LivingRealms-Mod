@@ -438,71 +438,42 @@ public final class SimulationState {
         return delta;
     }
 
+    /** Package accessors for {@link SimulationEngine} day orchestration (engines stay owned here). */
+    EcologyEngine ecologyEngine(){return ecology;}
+    FactionEngine factionEngine(){return this.factionEngine;}
+    PrimaryEconomyEngine primaryEconomyEngine(){return this.primaryEconomyEngine;}
+    SettlementEconomyEngine settlementEconomyEngine(){return this.settlementEconomyEngine;}
+    IndustryEngine industryEngine(){return this.industryEngine;}
+    SocietyEngine societyEngine(){return this.societyEngine;}
+    SocialPopulationEngine socialPopulationEngine(){return this.socialPopulationEngine;}
+    SocialMobilityEngine socialMobilityEngine(){return this.socialMobilityEngine;}
+    CivilizationEngine civilizationEngine(){return this.civilizationEngine;}
+    GovernmentEngine governmentEngine(){return this.governmentEngine;}
+    SovereignDebtEngine sovereignDebtEngine(){return this.sovereignDebtEngine;}
+    GrandProjectEngine grandProjectEngine(){return this.grandProjectEngine;}
+    HeroEngine heroEngine(){return this.heroEngine;}
+    MilitaryCommandEngine militaryCommandEngine(){return this.militaryCommandEngine;}
+    DiplomacyEngine diplomacyEngine(){return this.diplomacyEngine;}
+    TradeEngine tradeEngine(){return this.tradeEngine;}
+    TransportNetworkEngine transportEngine(){return this.transportEngine;}
+    AviationEngine aviationEngine(){return this.aviationEngine;}
+    NavalEngine navalEngine(){return this.navalEngine;}
+    CrimeEngine crimeEngine(){return this.crimeEngine;}
+    BountyOfficeEngine bountyOfficeEngine(){return this.bountyOfficeEngine;}
+    LawEnforcementEngine lawEnforcementEngine(){return this.lawEnforcementEngine;}
+    ReputationEngine reputationEngine(){return this.reputationEngine;}
+    RebellionEngine rebellionEngine(){return this.rebellionEngine;}
+
     /**
      * Safe mid-day presentation pulse: shipment progress + migration column crawl.
      * Does <em>not</em> run full {@link #advanceDays} engines or advance the world clock.
      */
     public void advancePresentationPulse(double dayFraction){
-        if(!(dayFraction>0)||!Double.isFinite(dayFraction))return;
-        double frac=Math.min(1.0,dayFraction);
-        long day=clock.day();
-        tradeEngine.presentationPulse(this,new DeterministicRng(seed^day^0x51ED0015EL^(Double.doubleToLongBits(frac))),frac);
-        for(MigrationGroup group:migrationGroups){
-            if(group.status()!=MigrationStatus.TRAVELING)continue;
-            group.advance(frac*.12);
-        }
-        // Subtle siege pressure presentation: nudge attacker armies a few blocks toward the target.
-        for(SiegeState siege:sieges){
-            if(!siege.active())continue;
-            findFaction(siege.attackerFactionId()).ifPresent(attacker->{
-                findSettlement(siege.settlementId()).ifPresent(target->{
-                    for(Army army:attacker.armies()){
-                        if(army.destroyed())continue;
-                        double dist=army.position().distanceTo(target.position());
-                        if(dist<8||dist>400)continue;
-                        army.moveToward(target.position(),Math.min(dist*.08,18*frac));
-                    }
-                });
-            });
-        }
+        SimulationEngine.advancePresentationPulse(this,dayFraction);
     }
 
     public void advanceDays(int days){
-        if(days<0)throw new IllegalArgumentException("days");
-        for(int d=0;d<days;d++){
-            long day=clock.day();
-            for(EcosystemRegion r:regions)ecology.simulate(r,1,new DeterministicRng(seed^(day*0x9E3779B97F4A7C15L)^r.id()));
-            factionEngine.simulateDay(this,new DeterministicRng(seed^day^0xC0FFEE1234L));
-            primaryEconomyEngine.simulateDay(this);
-            // Local farms/workshops/consumption/tithe after primary industry so mines/fisheries enter settlement stores before levy.
-            settlementEconomyEngine.simulateDay(this);
-            industryEngine.simulateDay(this,new DeterministicRng(seed^day^0x243F6A8885A308D3L));
-            for(Faction faction:new ArrayList<>(factions))societyEngine.simulateDay(faction);
-            socialPopulationEngine.simulateDay(this);
-            socialMobilityEngine.simulateDay(this,new DeterministicRng(seed^day^0xA5A5A5A5A5A5A5A5L));
-            civilizationEngine.simulateDay(this,new DeterministicRng(seed^day^0xD1B54A32D192ED03L));
-            governmentEngine.simulateDay(this,new DeterministicRng(seed^day^0x6A09E667F3BCC909L));
-            sovereignDebtEngine.simulateDay(this,new DeterministicRng(seed^day^0x243F6A8885A308D3L^0x51L));
-            grandProjectEngine.simulateDay(this,new DeterministicRng(seed^day^0x85EBCA77C2B2AE63L));
-            heroEngine.simulateDay(this);
-            militaryCommandEngine.simulateDay(this);
-            diplomacyEngine.simulateDay(this,new DeterministicRng(seed^day^0xBB67AE8584CAA73BL));
-            tradeEngine.simulateDay(this,new DeterministicRng(seed^day^0x7A4DE5B19L));
-            transportEngine.simulateDay(this);
-            aviationEngine.simulateDay(this,new DeterministicRng(seed^day^0x3C6EF372FE94F82BL));
-            navalEngine.simulateDay(this,new DeterministicRng(seed^day^0x510E527FADE682D1L));
-            crimeEngine.simulateDay(this,config.crimeHeatDecayPerDay(),config.reputationDecayPerDay());
-            UnderworldActions.expireDue(this);
-            if(day%7==0)UnderworldActions.pruneClosedContracts(this);
-            bountyOfficeEngine.simulateDay(this);
-            lawEnforcementEngine.releaseExpired(this);
-            reputationEngine.simulateDay(this);
-            rebellionEngine.simulateDay(this,new DeterministicRng(seed^day^0xA54FF53A5F1D36F1L),config.rebellionThreshold());
-            RoadLifeEngine.simulateDay(this,new DeterministicRng(seed^day^0xC2B2AE3D27D4EB4FL));
-            if(day%30==15)SettlementExpansionEngine.simulateDay(this,new DeterministicRng(seed^day^0xCA05A15L));
-            clock.advance(SimClock.TICKS_PER_DAY);
-            if(day%30==0)history.add(new WorldEvent(day,"monthly_snapshot",summary()));
-        }
+        SimulationEngine.advanceDays(this,days);
     }
 
     public String summary(){long animalGroups=regions.stream().mapToLong(r->r.populations().size()).sum();double animals=regions.stream().flatMap(r->r.populations().stream()).mapToDouble(PopulationGroup::population).sum();int people=factions.stream().mapToInt(Faction::population).sum();long activeWars=wars.stream().filter(WarState::active).count();long activeRaids=raids.stream().filter(RaidParty::active).count();long openBounties=bounties.stream().filter(b->b.status()==BountyContract.Status.OPEN||b.status()==BountyContract.Status.ASSIGNED).count();return "day="+clock.day()+", factions="+factions.size()+", people="+people+", industry="+industrialSites.size()+", animalGroups="+animalGroups+", animals≈"+(long)animals+", wars="+activeWars+", raids="+activeRaids+", shipments="+shipments.size()+", fleets="+fleets.size()+", members="+playerStandings.values().stream().filter(PlayerStanding::isMember).count()+", bounties="+openBounties;}
