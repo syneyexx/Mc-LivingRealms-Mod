@@ -23,8 +23,10 @@ world_contract=root/'docs/WORLD_INTEGRATION_EXPANSION.md'
 require(world_contract.exists(),'buildfix10 world-integration acceptance contract must exist')
 if readiness.exists():
     readiness_text=readiness.read_text()
-    require('v3.0.0-rc4' in readiness_text,'production readiness report must match RC4')
-    require('Production candidate, not yet release-complete.' in readiness_text,'readiness report must not overclaim unverified linked/runtime gates')
+    require('CURRENT PINS:' in readiness_text and 'schema 18' in readiness_text,'production readiness must carry CURRENT PINS with schema 18')
+    require('contentRevision 14' in readiness_text,'production readiness must pin contentRevision 14')
+    require('runtimeSmoke' in readiness_text and 'pass' in readiness_text.lower(),'readiness must document that runtimeSmoke pass requires a real client run')
+    require('EXTERNAL GATE' not in readiness_text.split('## Geschiedenis')[0],'readiness current status must not claim EXTERNAL GATE')
 
 
 build_gradle=(root/'build.gradle').read_text()
@@ -389,11 +391,17 @@ if foreign_structure.exists():
     fs=foreign_structure.read_text()
     require('startsForStructure' in fs and 'SCANNED_CHUNKS' in fs,'foreign structure adoption must use loaded structure starts with bounded per-session scanning')
     require('pathContainsOnlyWeakTokens' in fs or 'MIN_SETTLEMENT_AREA' in fs,'foreign structure adoption must reject lone house/building/tower classifications')
+foreign_adoption=root/'src/main/java/dev/livingrealms/sim/construction/ForeignSettlementAdoption.java'
+require(foreign_adoption.exists(),'ForeignSettlementAdoption authority must exist')
 if foreign_bootstrap.exists():
     fb=foreign_bootstrap.read_text()
-    require('preserveExistingInfrastructure' in fb and 'markConstructionCompleted' in fb,'adopted villages/structures must preserve their existing physical infrastructure before future growth')
-    require('foreign:adopted_footprint' in fb,'foreign adoption must record an explicit adopted-footprint marker')
+    require('preserveExistingInfrastructure' in fb and 'ForeignSettlementAdoption' in fb,'adopted villages/structures must preserve footprint via ForeignSettlementAdoption')
     require('PrimaryEconomyPlanner' not in fb or 'Intentionally do NOT mark PrimaryEconomyPlanner' in fb,'foreign adoption must not auto-complete primary economy mines/fisheries/lumber camps')
+if foreign_adoption.exists():
+    fa=foreign_adoption.read_text()
+    require('foreign:adopted_footprint' in fa,'foreign adoption must record an explicit adopted-footprint marker')
+    require('markForeignAdopted' in fa,'foreign adoption must use FOREIGN_ADOPTED provenance, not phantom LR completion')
+    require('FOREIGN_ADOPTED' in fa or 'markForeignAdopted' in fa,'foreign keys must be adopted-origin')
 require(all(token in citizen_runtime for token in ['workLumber','workFarm','workMine','workFish','huntWildlife']),'civilian runtime must retain physical lumber/farm/mine/fish/hunt work loops')
 require('stockpile().add' not in citizen_runtime,'physical workers must not add canonical stockpile resources from loaded-chunk projection')
 require('findAuthoredWorksite' in citizen_runtime,'physical workers must bind to Living Realms-authored worksites instead of free-radius destruction')
