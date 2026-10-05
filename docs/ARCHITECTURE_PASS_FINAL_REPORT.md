@@ -60,7 +60,7 @@ Approximate LOC (baseline `2180af6` → current):
 
 | Class | Old (baseline) | New | Responsibility now |
 |-------|----------------|-----|--------------------|
-| `LivingRealmsEvents` | ~678 | ~600 | Commands, interact, limiter; tick delegated to scheduler |
+| `LivingRealmsEvents` | ~678 | thin event router | Tick delegates to scheduler; commands moved to `LivingRealmsCommands`; entity join/leave + physical-loss forwarding moved to `ProjectionEntityLifecycleBridge` |
 | `NaturalLanguageDialogueEngine` | ~215 | ~121 | Orchestrates pipeline; answers extracted |
 | `SimulationStateCodec` | ~743 | ~118 | Envelope only; domains in `codec/` |
 | `RealmDashboardScreen` | ~975 | thinner façade | Tab panels (e.g. `EconomyPanel`) own section UI |
@@ -127,7 +127,7 @@ Honest matrix for this finalize pass:
 
 ## H Remaining limitations
 
-- `SettlementConstructionMaterializer` and `LivingRealmsEvents` remain the main Minecraft-side hotspots; `SettlementPlanner`/`SimulationState` were reduced further in Final+ but still retain orchestration/store density
+- `SettlementConstructionMaterializer` remains the main Minecraft-side hotspot; `LivingRealmsEvents`, `SettlementPlanner`, and `SimulationState` were reduced further in Final+ while retaining stable façades
 - Household-pair formation and several claims/raid helpers remain in `CivilizationEngine`; aggregate demography and named mortality are extracted to `DemographyEngine`
 - Linked build + GameTest + client runtime smoke need CI/agent with NeoForge deps
 - Some player loops are CONSEQUENCE WIRED / DEEP without POLISHED UX
