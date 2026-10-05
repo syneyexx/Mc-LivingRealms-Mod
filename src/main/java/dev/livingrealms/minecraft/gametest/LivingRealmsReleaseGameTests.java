@@ -64,7 +64,7 @@ public final class LivingRealmsReleaseGameTests {
     public static void farmKeyRequiresCompleteReceipt(GameTestHelper helper) {
         Settlement settlement = new Settlement(2, "Farmstead", new SimPosition(0, 0), 80, 100);
         StructureMaterializationReceipt missingDoor = new StructureMaterializationReceipt(
-                "farm:0", StructureRole.FARM, 4, 1, 1);
+                "house:0", StructureRole.HOUSE, 4, 1, 1);
         missingDoor.record(new BuildOperation(0, 64, 0, PaletteSlot.FOUNDATION, ConstructionPhase.FOUNDATION), BuildApplyResult.APPLIED);
         missingDoor.record(new BuildOperation(0, 65, 0, PaletteSlot.WALL, ConstructionPhase.SHELL), BuildApplyResult.APPLIED);
         missingDoor.record(new BuildOperation(1, 65, 0, PaletteSlot.WALL, ConstructionPhase.SHELL), BuildApplyResult.APPLIED);
@@ -72,21 +72,20 @@ public final class LivingRealmsReleaseGameTests {
         missingDoor.record(new BuildOperation(1, 65, 1, PaletteSlot.DOOR, ConstructionPhase.SHELL), BuildApplyResult.OBSTRUCTED_PROTECTED);
         missingDoor.record(new BuildOperation(0, 66, 0, PaletteSlot.DECORATION, ConstructionPhase.DETAIL), BuildApplyResult.SAFELY_IGNORED);
         missingDoor.markFinished();
-        helper.assertFalse(missingDoor.physicallyAcceptable(), "missing door must block completion");
-        helper.assertFalse(settlement.isConstructionCompleted("farm:0"), "key unset without acceptable receipt");
+        helper.assertFalse(missingDoor.physicallyAcceptable(), "missing door must block house completion");
+        helper.assertFalse(settlement.isConstructionCompleted("farm:0"), "farm key unset without acceptable receipt");
 
-        StructureMaterializationReceipt ok = new StructureMaterializationReceipt(
-                "farm:0", StructureRole.FARM, 4, 1, 1);
-        ok.record(new BuildOperation(0, 64, 0, PaletteSlot.FOUNDATION, ConstructionPhase.FOUNDATION), BuildApplyResult.APPLIED);
-        ok.record(new BuildOperation(0, 65, 0, PaletteSlot.WALL, ConstructionPhase.SHELL), BuildApplyResult.APPLIED);
-        ok.record(new BuildOperation(1, 65, 0, PaletteSlot.WALL, ConstructionPhase.SHELL), BuildApplyResult.APPLIED);
-        ok.record(new BuildOperation(2, 65, 0, PaletteSlot.WALL, ConstructionPhase.SHELL), BuildApplyResult.APPLIED);
-        ok.record(new BuildOperation(1, 65, 1, PaletteSlot.DOOR, ConstructionPhase.SHELL), BuildApplyResult.APPLIED);
-        ok.record(new BuildOperation(0, 66, 0, PaletteSlot.DECORATION, ConstructionPhase.DETAIL), BuildApplyResult.SAFELY_IGNORED);
-        ok.markFinished();
-        helper.assertTrue(ok.physicallyAcceptable(), "complete receipt with door is acceptable");
-        if (ok.physicallyAcceptable()) settlement.markConstructionCompleted("farm:0");
-        helper.assertTrue(settlement.isConstructionCompleted("farm:0"), "key set only after acceptable receipt");
+        StructureMaterializationReceipt farmOk = new StructureMaterializationReceipt(
+                "farm:0", StructureRole.FARM, 4, 1, 0);
+        farmOk.record(new BuildOperation(0, 64, 0, PaletteSlot.FOUNDATION, ConstructionPhase.FOUNDATION), BuildApplyResult.APPLIED);
+        farmOk.record(new BuildOperation(0, 65, 0, PaletteSlot.WALL, ConstructionPhase.SHELL), BuildApplyResult.APPLIED);
+        farmOk.record(new BuildOperation(1, 65, 0, PaletteSlot.WALL, ConstructionPhase.SHELL), BuildApplyResult.APPLIED);
+        farmOk.record(new BuildOperation(2, 65, 0, PaletteSlot.FARMLAND, ConstructionPhase.FOUNDATION), BuildApplyResult.APPLIED);
+        farmOk.record(new BuildOperation(0, 66, 0, PaletteSlot.DECORATION, ConstructionPhase.DETAIL), BuildApplyResult.SAFELY_IGNORED);
+        farmOk.markFinished();
+        helper.assertTrue(farmOk.physicallyAcceptable(), "complete farm receipt is acceptable");
+        if (farmOk.physicallyAcceptable()) settlement.markConstructionCompleted("farm:0");
+        helper.assertTrue(settlement.isConstructionCompleted("farm:0"), "farm key set only after acceptable receipt");
 
         BlockPos farm = new BlockPos(2, 1, 2);
         helper.setBlock(farm, Blocks.FARMLAND);
