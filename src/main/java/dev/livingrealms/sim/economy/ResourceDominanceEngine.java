@@ -7,7 +7,6 @@ import dev.livingrealms.sim.industry.*;
 import dev.livingrealms.sim.util.Mathx;
 import dev.livingrealms.sim.world.SimulationState;
 import java.util.*;
-import java.util.function.Consumer;
 
 /**
  * Derived world-market concentration. There is deliberately no mutable monopoly flag: dominance
