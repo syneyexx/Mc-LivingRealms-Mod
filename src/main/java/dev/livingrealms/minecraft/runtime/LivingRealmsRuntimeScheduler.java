@@ -107,7 +107,7 @@ public final class LivingRealmsRuntimeScheduler {
                     tickCounter,
                     errorCtx,
                     () -> task.execute(ctx));
-            if (outcome.skippedDisabled()) {
+            if (outcome.disabled() && !outcome.ran()) {
                 telemetry.domain(task.domain()).recordDeferred();
                 continue;
             }

@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 public final class RuntimeFailureIsolator {
     public record Outcome(boolean ran, boolean failed, boolean disabled, boolean reenabled) {
         public static Outcome ranOk() { return new Outcome(true, false, false, false); }
-        public static Outcome skippedDisabled() { return new Outcome(false, false, true, false); }
+        public static Outcome skippedWhileDisabled() { return new Outcome(false, false, true, false); }
         public static Outcome failedAndDisabled() { return new Outcome(true, true, true, false); }
     }
 
@@ -41,7 +41,7 @@ public final class RuntimeFailureIsolator {
             body.run();
             return Outcome.ranOk();
         }
-        if (isDisabled(taskId, tick)) return Outcome.skippedDisabled();
+        if (isDisabled(taskId, tick)) return Outcome.skippedWhileDisabled();
         try {
             body.run();
             return Outcome.ranOk();
