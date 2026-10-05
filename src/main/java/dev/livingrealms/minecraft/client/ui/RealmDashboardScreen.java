@@ -85,9 +85,6 @@ public final class RealmDashboardScreen extends Screen {
         if (tab == Tab.LAW) rebuildLawButtons(left, contentY, panelWidth);
         if (tab == Tab.SETTINGS) rebuildSettingsButtons(left,contentY,panelWidth);
         if (tab == Tab.MAP) {
-            int panelHeight = Math.min(panelHeightPref(), height - 20);
-            int top = Math.max(10, (height - panelHeight) / 2);
-            int footerY = top + panelHeight - 26;
             addRenderableWidget(Button.builder(Component.literal("Open world map (M)"),
                     b -> DashboardClientState.requestOpenMap())
                     .bounds(left + panelWidth - 158, Math.max(contentY, footerY - 22), 148, 18).build());
