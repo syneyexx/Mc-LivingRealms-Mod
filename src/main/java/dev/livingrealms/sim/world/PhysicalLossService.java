@@ -1,7 +1,6 @@
 package dev.livingrealms.sim.world;
 
 import dev.livingrealms.sim.aviation.AirWing;
-import dev.livingrealms.sim.civilization.CitizenJourney;
 import dev.livingrealms.sim.civilization.MigrationGroup;
 import dev.livingrealms.sim.civilization.PirateBand;
 import dev.livingrealms.sim.ecology.PopulationGroup;
