@@ -1,0 +1,99 @@
+{
+  "id": "dravik",
+  "displayName": "Dravik Iron Kingdom",
+  "rulerSeedName": "King Borin V",
+  "capitalName": "Dravengard",
+  "x": 8030,
+  "z": -6270,
+  "capitalPopulation": 3300,
+  "capitalHousing": 3720,
+  "technology": 0.42,
+  "treasury": 10500,
+  "armyInfantry": 210,
+  "namingHints": [
+    "Drav",
+    "Iron",
+    "Hammer",
+    "Stone",
+    "Coal",
+    "Anvil",
+    "Red",
+    "Deep",
+    "West",
+    "Steel",
+    "Black"
+  ],
+  "satellites": [
+    {
+      "name": "Ironford",
+      "dx": 500,
+      "dz": -400,
+      "population": 610,
+      "housing": 700
+    },
+    {
+      "name": "Hammerfall",
+      "dx": -650,
+      "dz": 360,
+      "population": 190,
+      "housing": 250
+    },
+    {
+      "name": "Stonegate",
+      "dx": 910,
+      "dz": 490,
+      "population": 1360,
+      "housing": 1520
+    },
+    {
+      "name": "Coalbrook",
+      "dx": -1020,
+      "dz": -540,
+      "population": 350,
+      "housing": 430
+    },
+    {
+      "name": "Anvilreach",
+      "dx": 1360,
+      "dz": -700,
+      "population": 1600,
+      "housing": 1820
+    },
+    {
+      "name": "Redcliff",
+      "dx": 1490,
+      "dz": 310,
+      "population": 530,
+      "housing": 620
+    },
+    {
+      "name": "Deepwell",
+      "dx": 420,
+      "dz": 960,
+      "population": 125,
+      "housing": 170
+    },
+    {
+      "name": "Westforge",
+      "dx": -1420,
+      "dz": 770,
+      "population": 790,
+      "housing": 900
+    },
+    {
+      "name": "Steelmead",
+      "dx": 1760,
+      "dz": 1020,
+      "population": 270,
+      "housing": 340
+    },
+    {
+      "name": "Blackpine",
+      "dx": -1860,
+      "dz": -900,
+      "population": 76,
+      "housing": 105
+    }
+  ],
+  "cultureId": "dravik_stoneward"
+}

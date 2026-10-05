@@ -1,0 +1,21 @@
+{
+  "id": "norwyn_highland",
+  "displayName": "Norwyn Highland",
+  "architectureFamily": "NORDIC_FORTRESS",
+  "namingStyle": "nordic_frost",
+  "dialectStyle": "highland speech",
+  "materialPalette": [
+    "cobblestone",
+    "spruce",
+    "snow"
+  ],
+  "economicTendency": 0.4,
+  "martialTendency": 0.7,
+  "artisticTendency": 0.35,
+  "districtTendencies": [
+    "MILITARY",
+    "RESIDENTIAL",
+    "OLD_TOWN"
+  ],
+  "relatedFamily": "MEDIEVAL_FACHWERK"
+}

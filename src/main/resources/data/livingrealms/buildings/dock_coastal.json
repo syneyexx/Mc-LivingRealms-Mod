@@ -1,0 +1,13 @@
+{
+  "id": "dock_coastal",
+  "cultureId": "stormcoast_coastal",
+  "architectureFamily": "COASTAL_VILLA",
+  "role": "DOCK",
+  "tier": "VILLAGE",
+  "district": "HARBOR",
+  "wealthMin": 0.2,
+  "wealthMax": 1.0,
+  "footprintWidth": 17,
+  "footprintDepth": 9,
+  "displayName": "Storm Pier"
+}

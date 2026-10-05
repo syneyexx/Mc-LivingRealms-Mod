@@ -1,0 +1,99 @@
+{
+  "id": "veyran",
+  "displayName": "Veyran Dominion",
+  "rulerSeedName": "King Oren IV",
+  "capitalName": "Veyra",
+  "x": 5280,
+  "z": 660,
+  "capitalPopulation": 3600,
+  "capitalHousing": 4000,
+  "technology": 0.32,
+  "treasury": 9200,
+  "armyInfantry": 180,
+  "namingHints": [
+    "Veyra",
+    "Black",
+    "Red",
+    "Stone",
+    "Ember",
+    "Iron",
+    "Dusk",
+    "East",
+    "Ash",
+    "Kestrel",
+    "North"
+  ],
+  "satellites": [
+    {
+      "name": "Blackwater",
+      "dx": -520,
+      "dz": 470,
+      "population": 1040,
+      "housing": 1180
+    },
+    {
+      "name": "Redhaven",
+      "dx": 610,
+      "dz": -390,
+      "population": 360,
+      "housing": 430
+    },
+    {
+      "name": "Stonecross",
+      "dx": 960,
+      "dz": 420,
+      "population": 1480,
+      "housing": 1660
+    },
+    {
+      "name": "Emberfield",
+      "dx": 260,
+      "dz": 930,
+      "population": 120,
+      "housing": 160
+    },
+    {
+      "name": "Ironvale",
+      "dx": 1420,
+      "dz": -520,
+      "population": 1920,
+      "housing": 2180
+    },
+    {
+      "name": "Duskmere",
+      "dx": 1650,
+      "dz": 590,
+      "population": 560,
+      "housing": 650
+    },
+    {
+      "name": "Eastgate",
+      "dx": 930,
+      "dz": 1130,
+      "population": 88,
+      "housing": 125
+    },
+    {
+      "name": "Ashford",
+      "dx": -1090,
+      "dz": -760,
+      "population": 680,
+      "housing": 780
+    },
+    {
+      "name": "Kestrel",
+      "dx": -1510,
+      "dz": 660,
+      "population": 260,
+      "housing": 330
+    },
+    {
+      "name": "Northreach",
+      "dx": 1980,
+      "dz": 1020,
+      "population": 58,
+      "housing": 82
+    }
+  ],
+  "cultureId": "veyran_ironland"
+}

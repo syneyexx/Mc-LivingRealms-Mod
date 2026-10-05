@@ -55,6 +55,9 @@ dev.livingrealms.RegionalImpostorPlannerTest
 dev.livingrealms.PlayerAgencyTest
 dev.livingrealms.MigrationOrderTest
 dev.livingrealms.AuthoredSettlementNamesTest
+dev.livingrealms.RealmDataLoaderTest
+dev.livingrealms.BuildingTemplateRegistryTest
+dev.livingrealms.SettlementIdentityProfileTest
 dev.livingrealms.GoodsChainTest
 dev.livingrealms.NoPhantomConstructionTest
 dev.livingrealms.SettlementTransferTest

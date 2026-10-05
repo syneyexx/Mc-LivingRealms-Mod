@@ -1,0 +1,13 @@
+{
+  "id": "temple_scholar",
+  "cultureId": "glassmere_scholar",
+  "architectureFamily": "SCHOLAR_VILLA",
+  "role": "TEMPLE",
+  "tier": "TOWN",
+  "district": "RELIGIOUS",
+  "wealthMin": 0.4,
+  "wealthMax": 1.0,
+  "footprintWidth": 13,
+  "footprintDepth": 15,
+  "displayName": "Crystal Chapel"
+}

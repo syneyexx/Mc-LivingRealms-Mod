@@ -1,0 +1,21 @@
+{
+  "id": "sablemere_crownland",
+  "displayName": "Sablemere Crownland",
+  "architectureFamily": "FANTASY_MANOR",
+  "namingStyle": "gothic_sable",
+  "dialectStyle": "crown common",
+  "materialPalette": [
+    "deepslate_bricks",
+    "dark_oak",
+    "blackstone"
+  ],
+  "economicTendency": 0.5,
+  "martialTendency": 0.55,
+  "artisticTendency": 0.65,
+  "districtTendencies": [
+    "GOVERNMENT",
+    "WEALTHY_QUARTER",
+    "RELIGIOUS"
+  ],
+  "relatedFamily": "FANTASY_MANOR"
+}

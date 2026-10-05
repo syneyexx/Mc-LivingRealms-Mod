@@ -1,0 +1,13 @@
+{
+  "id": "keep_nordic",
+  "cultureId": "dravik_stoneward",
+  "architectureFamily": "NORDIC_FORTRESS",
+  "role": "KEEP",
+  "tier": "CITY",
+  "district": "GOVERNMENT",
+  "wealthMin": 0.5,
+  "wealthMax": 1.0,
+  "footprintWidth": 21,
+  "footprintDepth": 21,
+  "displayName": "Iron Keep"
+}

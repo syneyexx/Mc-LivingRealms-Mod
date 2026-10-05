@@ -1,0 +1,97 @@
+{
+  "id": "sablemere",
+  "displayName": "Kingdom of Sablemere",
+  "rulerSeedName": "King Lucan I",
+  "capitalName": "Sablefort",
+  "x": 12540,
+  "z": 2640,
+  "capitalPopulation": 3250,
+  "capitalHousing": 3650,
+  "technology": 0.34,
+  "treasury": 9100,
+  "armyInfantry": 175,
+  "namingHints": [
+    "Sable",
+    "Night",
+    "Crow",
+    "Obsidian",
+    "Dusk",
+    "Black",
+    "Moon",
+    "West",
+    "Grey"
+  ],
+  "satellites": [
+    {
+      "name": "Nightford",
+      "dx": 480,
+      "dz": -360,
+      "population": 580,
+      "housing": 675
+    },
+    {
+      "name": "Crowmere",
+      "dx": -620,
+      "dz": 390,
+      "population": 175,
+      "housing": 230
+    },
+    {
+      "name": "Obsidian Gate",
+      "dx": 900,
+      "dz": 500,
+      "population": 1300,
+      "housing": 1480
+    },
+    {
+      "name": "Duskwater",
+      "dx": -990,
+      "dz": -520,
+      "population": 320,
+      "housing": 395
+    },
+    {
+      "name": "Blackreach",
+      "dx": 1340,
+      "dz": -730,
+      "population": 1490,
+      "housing": 1700
+    },
+    {
+      "name": "Sablewatch",
+      "dx": 1470,
+      "dz": 310,
+      "population": 485,
+      "housing": 570
+    },
+    {
+      "name": "Moonbrook",
+      "dx": 400,
+      "dz": 960,
+      "population": 116,
+      "housing": 158
+    },
+    {
+      "name": "Westshade",
+      "dx": -1430,
+      "dz": 760,
+      "population": 720,
+      "housing": 830
+    },
+    {
+      "name": "Greyfield",
+      "dx": 1750,
+      "dz": 1030,
+      "population": 260,
+      "housing": 325
+    },
+    {
+      "name": "Crowhollow",
+      "dx": -1860,
+      "dz": -900,
+      "population": 74,
+      "housing": 102
+    }
+  ],
+  "cultureId": "sablemere_crownland"
+}

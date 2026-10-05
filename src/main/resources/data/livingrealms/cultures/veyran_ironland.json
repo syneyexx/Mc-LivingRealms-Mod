@@ -1,0 +1,21 @@
+{
+  "id": "veyran_ironland",
+  "displayName": "Veyran Ironland",
+  "architectureFamily": "NORDIC_FORTRESS",
+  "namingStyle": "martial_compound",
+  "dialectStyle": "guild speech",
+  "materialPalette": [
+    "deepslate",
+    "spruce",
+    "iron"
+  ],
+  "economicTendency": 0.5,
+  "martialTendency": 0.75,
+  "artisticTendency": 0.3,
+  "districtTendencies": [
+    "MILITARY",
+    "INDUSTRIAL",
+    "GOVERNMENT"
+  ],
+  "relatedFamily": "NORDIC_FORTRESS"
+}

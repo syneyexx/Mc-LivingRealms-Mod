@@ -2,6 +2,7 @@ package dev.livingrealms.sim.dialogue;
 
 import dev.livingrealms.sim.civilian.CitizenRole;
 import dev.livingrealms.sim.civilization.*;
+import dev.livingrealms.sim.content.SettlementIdentityProfile;
 import dev.livingrealms.sim.faction.*;
 import dev.livingrealms.sim.economy.LocalMarketEngine;
 import dev.livingrealms.sim.economy.MarketEngine;
@@ -49,7 +50,7 @@ public final class NaturalLanguageDialogueEngine {
             case ASK_GUARDS -> answerGuards(state,citizen,settlement,faction,day);
             case ASK_ROUTE -> answerRoute(state,citizen,settlement,day,actions);
             case ASK_MIGRATION -> answerMigration(state,citizen,settlement,faction,day);
-            case ASK_CULTURE -> answerCulture(state,citizen,faction,day);
+            case ASK_CULTURE -> answerCulture(state,citizen,faction,settlement,day);
             case ASK_RELIGION -> answerReligion(state,citizen,faction,day);
             case ASK_HISTORY -> answerHistory(state,citizen,faction,settlement,day);
             case ASK_RUMOR -> answerRumor(citizen,day);
@@ -142,7 +143,18 @@ public final class NaturalLanguageDialogueEngine {
     private static String answerTechnology(SimulationState state,SocialCitizen c,Faction f,long day){FactionCivilizationState civ=state.ensureFactionCivilization(f.id());if(c.role()!=CitizenRole.SCHOLAR&&c.role()!=CitizenRole.ARTISAN&&c.role()!=CitizenRole.OFFICIAL)return compose(c,day,"tech_common",List.of("Scholars and craftspeople know more about that than I do","New techniques spread when traders, schools and workers carry them between towns","I only know the methods used in my own work"))+".";return "Our technical development is "+level(Math.min(1,f.technology()))+" and education is "+level(civ.education())+". Schools, scholars, craftspeople and trade help knowledge spread.";}
     private static String answerWar(SimulationState state,SocialCitizen c,Faction f,long day,List<DialogueAction> actions){List<dev.livingrealms.sim.diplomacy.WarState> wars=state.wars().stream().filter(w->w.active()&&(w.attackerFactionId()==f.id()||w.defenderFactionId()==f.id())).toList();if(wars.isEmpty())return compose(c,day,"peace",List.of("Our realm is not in an open war right now","There is no declared war involving us at the moment","For now, there is no open war for our realm"))+".";var war=wars.getFirst();long enemyId=war.attackerFactionId()==f.id()?war.defenderFactionId():war.attackerFactionId();String enemy=state.findFaction(enemyId).map(Faction::name).orElse("another realm");if(authority(c)||c.role()==CitizenRole.TRADER){if(war.targetSettlementId()>0)state.findSettlement(war.targetSettlementId()).ifPresent(s->actions.add(new DialogueAction(DialogueActionType.MARK_LOCATION,"war_target:"+s.id(),s.position(),0)));return "We are at war with "+enemy+". War exhaustion is "+level(war.attackerFactionId()==f.id()?war.attackerExhaustion():war.defenderExhaustion())+" and the fighting has lasted "+Math.max(0,day-war.startDay())+" days.";}return "Yes. We're at war with "+enemy+". I know what reaches the streets, not every military plan.";}
     private static String answerMigration(SimulationState state,SocialCitizen c,Settlement s,Faction f,long day){SettlementCivilizationState civ=state.ensureSettlementCivilization(s.id(),f.id());String local=civ.refugeePressure()>.62?"Many people are thinking of leaving or seeking safety elsewhere":civ.refugeePressure()>.32?"Some families have been moving because of local pressure":"There is no large movement of people here right now";if(c.role()==CitizenRole.OFFICIAL||c.role()==CitizenRole.TRADER)return local+". Refugee pressure is "+level(civ.refugeePressure())+"; food, safety, disease and war all affect where people go.";return local+".";}
-    private static String answerCulture(SimulationState state,SocialCitizen c,Faction f,long day){FactionCivilizationState civ=state.ensureFactionCivilization(f.id());return compose(c,day,"culture",List.of("Our culture is known as "+civ.cultureName(),"Around here people follow "+civ.cultureName()+" customs"))+". You'll hear "+civ.dialectName()+" in everyday speech. Cultural cohesion is "+level(civ.culturalInfluence())+".";}
+    private static String answerCulture(SimulationState state,SocialCitizen c,Faction f,Settlement s,long day){
+        FactionCivilizationState civ=state.ensureFactionCivilization(f.id());
+        SettlementIdentityProfile identity=SettlementIdentityProfile.derive(state,f,s);
+        String cultureLabel=identity.cultureDisplayName().isBlank()?civ.cultureName():identity.cultureDisplayName();
+        String dialect=civ.dialectName();
+        String shape=" Our "+s.name()+" reads as a "+identity.morphology().wireName().replace('_',' ')
+                +" settlement with a "+identity.specialization().wireName()+" focus.";
+        String scars=identity.historicalScars().isEmpty()?"":" Memories of "+String.join(", ",identity.historicalScars())+" still color local talk.";
+        return compose(c,day,"culture",List.of("Our culture is known as "+cultureLabel,"Around here people follow "+cultureLabel+" customs"))
+                +". You'll hear "+dialect+" in everyday speech. Cultural cohesion is "+level(civ.culturalInfluence())+"."
+                +shape+" Landmark talk centers on the "+identity.landmarkFocus()+"."+scars;
+    }
     private static String answerReligion(SimulationState state,SocialCitizen c,Faction f,long day){
         FactionCivilizationState civ=state.ensureFactionCivilization(f.id());
         FaithCatalog.FaithProfile faith=FaithCatalog.of(civ.faithName());

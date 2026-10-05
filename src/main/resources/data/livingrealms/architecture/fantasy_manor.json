@@ -1,0 +1,14 @@
+{
+  "id": "fantasy_manor",
+  "architectureFamily": "FANTASY_MANOR",
+  "slots": {
+    "FOUNDATION": "tuff_bricks",
+    "FLOOR": "dark_oak_planks",
+    "WALL": "dark_oak_planks",
+    "BEAM": "stripped_dark_oak_log",
+    "ROOF": "dark_oak_stairs",
+    "GLASS": "glass_pane",
+    "DOOR": "dark_oak_door",
+    "PATH": "tuff"
+  }
+}

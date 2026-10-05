@@ -1,0 +1,98 @@
+{
+  "id": "stormcoast",
+  "displayName": "Stormcoast Kingdom",
+  "rulerSeedName": "Queen Rhea I",
+  "capitalName": "Stormhaven",
+  "x": 18040,
+  "z": 11440,
+  "capitalPopulation": 3950,
+  "capitalHousing": 4420,
+  "technology": 0.41,
+  "treasury": 10800,
+  "armyInfantry": 185,
+  "namingHints": [
+    "Storm",
+    "Sea",
+    "Rain",
+    "Gull",
+    "Salt",
+    "Thunder",
+    "Cliff",
+    "Tide",
+    "West",
+    "Mist"
+  ],
+  "satellites": [
+    {
+      "name": "Seaford",
+      "dx": 510,
+      "dz": -390,
+      "population": 720,
+      "housing": 830
+    },
+    {
+      "name": "Rainmere",
+      "dx": -640,
+      "dz": 390,
+      "population": 190,
+      "housing": 250
+    },
+    {
+      "name": "Gullwatch",
+      "dx": 930,
+      "dz": 520,
+      "population": 1410,
+      "housing": 1610
+    },
+    {
+      "name": "Saltfield",
+      "dx": -1000,
+      "dz": -550,
+      "population": 350,
+      "housing": 425
+    },
+    {
+      "name": "Thunderbay",
+      "dx": 1360,
+      "dz": -720,
+      "population": 1720,
+      "housing": 1930
+    },
+    {
+      "name": "Cliffgate",
+      "dx": 1500,
+      "dz": 320,
+      "population": 560,
+      "housing": 650
+    },
+    {
+      "name": "Tidebrook",
+      "dx": 420,
+      "dz": 970,
+      "population": 132,
+      "housing": 178
+    },
+    {
+      "name": "Westport",
+      "dx": -1450,
+      "dz": 780,
+      "population": 800,
+      "housing": 915
+    },
+    {
+      "name": "Stormfield",
+      "dx": 1780,
+      "dz": 1050,
+      "population": 290,
+      "housing": 360
+    },
+    {
+      "name": "Mistwood",
+      "dx": -1890,
+      "dz": -930,
+      "population": 80,
+      "housing": 110
+    }
+  ],
+  "cultureId": "stormcoast_coastal"
+}

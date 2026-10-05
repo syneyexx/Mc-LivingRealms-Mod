@@ -1,0 +1,14 @@
+{
+  "id": "coastal_villa",
+  "architectureFamily": "COASTAL_VILLA",
+  "slots": {
+    "FOUNDATION": "prismarine",
+    "FLOOR": "mangrove_planks",
+    "WALL": "mangrove_planks",
+    "BEAM": "stripped_mangrove_log",
+    "ROOF": "mangrove_stairs",
+    "GLASS": "glass_pane",
+    "DOOR": "mangrove_door",
+    "PATH": "prismarine_bricks"
+  }
+}

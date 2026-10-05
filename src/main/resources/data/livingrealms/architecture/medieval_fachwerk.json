@@ -1,0 +1,14 @@
+{
+  "id": "medieval_fachwerk",
+  "architectureFamily": "MEDIEVAL_FACHWERK",
+  "slots": {
+    "FOUNDATION": "stone_bricks",
+    "FLOOR": "oak_planks",
+    "WALL": "oak_planks",
+    "BEAM": "stripped_oak_log",
+    "ROOF": "oak_stairs",
+    "GLASS": "glass_pane",
+    "DOOR": "oak_door",
+    "PATH": "cobblestone"
+  }
+}

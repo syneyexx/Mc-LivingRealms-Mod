@@ -1,0 +1,13 @@
+{
+  "id": "house_fachwerk_t1",
+  "cultureId": "aster_riverborn",
+  "architectureFamily": "MEDIEVAL_FACHWERK",
+  "role": "HOUSE",
+  "tier": "HAMLET",
+  "district": "RESIDENTIAL",
+  "wealthMin": 0.0,
+  "wealthMax": 0.45,
+  "footprintWidth": 9,
+  "footprintDepth": 9,
+  "displayName": "Timber Row House"
+}

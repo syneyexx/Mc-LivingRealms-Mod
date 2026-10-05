@@ -1,0 +1,14 @@
+{
+  "id": "scholar_villa",
+  "architectureFamily": "SCHOLAR_VILLA",
+  "slots": {
+    "FOUNDATION": "quartz_bricks",
+    "FLOOR": "cherry_planks",
+    "WALL": "cherry_planks",
+    "BEAM": "stripped_cherry_log",
+    "ROOF": "cherry_stairs",
+    "GLASS": "glass",
+    "DOOR": "cherry_door",
+    "PATH": "quartz_block"
+  }
+}

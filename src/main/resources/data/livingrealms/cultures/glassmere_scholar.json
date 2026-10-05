@@ -1,0 +1,21 @@
+{
+  "id": "glassmere_scholar",
+  "displayName": "Glassmere Scholarly",
+  "architectureFamily": "SCHOLAR_VILLA",
+  "namingStyle": "crystal_academic",
+  "dialectStyle": "court speech",
+  "materialPalette": [
+    "quartz",
+    "cherry",
+    "glass"
+  ],
+  "economicTendency": 0.55,
+  "martialTendency": 0.35,
+  "artisticTendency": 0.8,
+  "districtTendencies": [
+    "GOVERNMENT",
+    "RELIGIOUS",
+    "WEALTHY_QUARTER"
+  ],
+  "relatedFamily": "SCHOLAR_VILLA"
+}

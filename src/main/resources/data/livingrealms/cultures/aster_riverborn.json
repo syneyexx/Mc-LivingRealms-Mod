@@ -1,0 +1,21 @@
+{
+  "id": "aster_riverborn",
+  "displayName": "Aster Riverborn",
+  "architectureFamily": "MEDIEVAL_FACHWERK",
+  "namingStyle": "riverine_english",
+  "dialectStyle": "river tongue",
+  "materialPalette": [
+    "oak",
+    "stone_brick",
+    "thatch"
+  ],
+  "economicTendency": 0.55,
+  "martialTendency": 0.4,
+  "artisticTendency": 0.45,
+  "districtTendencies": [
+    "RESIDENTIAL",
+    "MARKET",
+    "RURAL_FRINGE"
+  ],
+  "relatedFamily": "MEDIEVAL_FACHWERK"
+}

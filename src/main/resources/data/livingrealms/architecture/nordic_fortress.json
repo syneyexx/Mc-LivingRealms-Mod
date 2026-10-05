@@ -1,0 +1,14 @@
+{
+  "id": "nordic_fortress",
+  "architectureFamily": "NORDIC_FORTRESS",
+  "slots": {
+    "FOUNDATION": "cobbled_deepslate",
+    "FLOOR": "spruce_planks",
+    "WALL": "spruce_planks",
+    "BEAM": "stripped_spruce_log",
+    "ROOF": "spruce_stairs",
+    "GLASS": "glass_pane",
+    "DOOR": "spruce_door",
+    "PATH": "deepslate"
+  }
+}

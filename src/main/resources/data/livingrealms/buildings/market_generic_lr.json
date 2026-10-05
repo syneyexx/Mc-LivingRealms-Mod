@@ -1,0 +1,14 @@
+{
+  "id": "market_generic_lr",
+  "cultureId": "generic",
+  "architectureFamily": "MEDIEVAL_FACHWERK",
+  "role": "MARKET",
+  "tier": "VILLAGE",
+  "district": "MARKET",
+  "wealthMin": 0.0,
+  "wealthMax": 1.0,
+  "footprintWidth": 13,
+  "footprintDepth": 11,
+  "displayName": "Living Realms Market",
+  "genericFallback": true
+}

@@ -1,0 +1,21 @@
+{
+  "id": "eldermere_deepwood",
+  "displayName": "Eldermere Deepwood",
+  "architectureFamily": "TIMBER_PAVILION",
+  "namingStyle": "sylvan_english",
+  "dialectStyle": "forest speech",
+  "materialPalette": [
+    "dark_oak",
+    "mossy_stone",
+    "leaves"
+  ],
+  "economicTendency": 0.45,
+  "martialTendency": 0.35,
+  "artisticTendency": 0.55,
+  "districtTendencies": [
+    "RESIDENTIAL",
+    "RELIGIOUS",
+    "RURAL_FRINGE"
+  ],
+  "relatedFamily": "MEDIEVAL_FACHWERK"
+}

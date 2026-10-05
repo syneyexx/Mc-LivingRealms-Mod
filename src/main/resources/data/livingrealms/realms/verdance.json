@@ -1,0 +1,99 @@
+{
+  "id": "verdance",
+  "displayName": "Kingdom of Verdance",
+  "rulerSeedName": "Queen Ilyra IV",
+  "capitalName": "Greenwall",
+  "x": -12540,
+  "z": 2750,
+  "capitalPopulation": 3100,
+  "capitalHousing": 3520,
+  "technology": 0.26,
+  "treasury": 8200,
+  "armyInfantry": 145,
+  "namingHints": [
+    "Verd",
+    "Oak",
+    "Fern",
+    "Green",
+    "Meadow",
+    "Elder",
+    "Leaf",
+    "Willow",
+    "West",
+    "Spring",
+    "Moss"
+  ],
+  "satellites": [
+    {
+      "name": "Oakford",
+      "dx": 500,
+      "dz": -370,
+      "population": 550,
+      "housing": 640
+    },
+    {
+      "name": "Fernmere",
+      "dx": -630,
+      "dz": 400,
+      "population": 160,
+      "housing": 215
+    },
+    {
+      "name": "Greenbridge",
+      "dx": 910,
+      "dz": 510,
+      "population": 1220,
+      "housing": 1390
+    },
+    {
+      "name": "Meadowrun",
+      "dx": -1000,
+      "dz": -530,
+      "population": 305,
+      "housing": 375
+    },
+    {
+      "name": "Elderwood",
+      "dx": 1350,
+      "dz": -720,
+      "population": 1450,
+      "housing": 1650
+    },
+    {
+      "name": "Leafwatch",
+      "dx": 1480,
+      "dz": 300,
+      "population": 455,
+      "housing": 535
+    },
+    {
+      "name": "Willowbrook",
+      "dx": 410,
+      "dz": 970,
+      "population": 108,
+      "housing": 148
+    },
+    {
+      "name": "Westgrove",
+      "dx": -1420,
+      "dz": 770,
+      "population": 695,
+      "housing": 805
+    },
+    {
+      "name": "Springfield",
+      "dx": 1740,
+      "dz": 1040,
+      "population": 250,
+      "housing": 315
+    },
+    {
+      "name": "Mossgrove",
+      "dx": -1850,
+      "dz": -910,
+      "population": 70,
+      "housing": 98
+    }
+  ],
+  "cultureId": "verdance_forest"
+}

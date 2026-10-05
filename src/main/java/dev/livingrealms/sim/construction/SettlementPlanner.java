@@ -1,5 +1,8 @@
 package dev.livingrealms.sim.construction;
 
+import dev.livingrealms.sim.content.BuildingDefinition;
+import dev.livingrealms.sim.content.BuildingTemplateRegistry;
+import dev.livingrealms.sim.content.SettlementIdentityProfile;
 import dev.livingrealms.sim.faction.DevelopmentMode;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
@@ -10,6 +13,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Deterministic settlement planner. Street morphology is derived from geography, tier and capital
@@ -96,9 +100,7 @@ public final class SettlementPlanner {
             addAt(out, faction, settlement, StructureRole.AIRFIELD, 0, edge, 25, 70, baseRotation, 64);
         }
 
-        out.replaceAll(intent -> new ConstructionIntent(
-                intent.key(), intent.factionId(), intent.settlementId(), intent.role(), intent.center(),
-                intent.width(), intent.depth(), intent.rotationQuarterTurns(),
+        out.replaceAll(intent -> intent.withPriority(
                 adjustPriority(settlement.developmentPriority(), intent.role(), intent.priority())));
         out.sort(Comparator.comparingInt(ConstructionIntent::priority).reversed().thenComparing(ConstructionIntent::key));
         return List.copyOf(out);
@@ -326,6 +328,9 @@ public final class SettlementPlanner {
             }
             w = Math.max(w, culture.minHouseWidth());
             d = Math.max(d, culture.minHouseDepth());
+            int[] templated = houseFootprintFromTemplate(faction, settlement, culture, w, d);
+            w = templated[0];
+            d = templated[1];
             SettlementParcelPlanner.ParcelPlan parcel = null;
             int parcelIndex = -1;
             for (int pi = 0; pi < remaining.size(); pi++) {
@@ -342,7 +347,7 @@ public final class SettlementPlanner {
             }
             remaining.remove(parcelIndex);
             int face = parcel.orientationQuarterTurns();
-            addAt(out, faction, settlement, StructureRole.HOUSE, emitted, parcel.center(), w, d, face, 88);
+            addAtParcel(out, faction, settlement, StructureRole.HOUSE, emitted, parcel, w, d, face, 88);
             emitted++;
         }
         // Road-first invariant: never spiral-place houses off the street graph.
@@ -425,7 +430,7 @@ public final class SettlementPlanner {
                 }
             }
             if (clash) continue;
-            addAt(out, faction, settlement, StructureRole.HOUSE, houseIndex + placed, parcel.center(),
+            addAtParcel(out, faction, settlement, StructureRole.HOUSE, houseIndex + placed, parcel,
                     Math.min(parcel.width(), w + 2), Math.min(parcel.depth(), d + 2),
                     parcel.orientationQuarterTurns(), 86);
             placed++;
@@ -664,11 +669,44 @@ public final class SettlementPlanner {
         out.add(new ConstructionIntent(key(settlement, role, index), faction.id(), settlement.id(), role, center, width, depth, Math.floorMod(rotation, 4), priority));
     }
 
+    private static void addAtParcel(List<ConstructionIntent> out, Faction faction, Settlement settlement, StructureRole role,
+                                    int index, SettlementParcelPlanner.ParcelPlan parcel, int width, int depth,
+                                    int rotation, int priority) {
+        Objects.requireNonNull(parcel, "parcel");
+        out.add(new ConstructionIntent(
+                key(settlement, role, index), faction.id(), settlement.id(), role, parcel.center(),
+                width, depth, Math.floorMod(rotation, 4), priority,
+                parcel.id(), parcel.width(), parcel.depth()));
+    }
+
     private static String key(Settlement settlement, StructureRole role, int index) {
         String base = role.name().toLowerCase(Locale.ROOT);
         return switch (role) {
             case ROAD, KEEP, WALL, GATE -> base + ":" + settlement.tier().ordinal() + ":" + index;
             default -> base + ":" + index;
+        };
+    }
+
+    /**
+     * Wave 31: prefer authored building templates when culture/role/tier/wealth/footprint match,
+     * falling back through family → generic LR. Never imports external schematics.
+     */
+    private static int[] houseFootprintFromTemplate(Faction faction, Settlement settlement,
+                                                    CultureArchitecture culture, int width, int depth) {
+        String cultureId = SettlementIdentityProfile.resolveCultureId(faction);
+        Optional<BuildingDefinition> template = BuildingTemplateRegistry.find(new BuildingTemplateRegistry.Query(
+                cultureId.isBlank() ? "generic" : cultureId,
+                StructureRole.HOUSE,
+                settlement.tier(),
+                SettlementDistrict.RESIDENTIAL,
+                settlement.prosperity(),
+                Math.max(width + 4, culture.minHouseWidth() + 4),
+                Math.max(depth + 4, culture.minHouseDepth() + 4)));
+        if (template.isEmpty()) return new int[]{width, depth};
+        BuildingDefinition b = template.get();
+        return new int[]{
+                Math.max(width, b.footprintWidth()),
+                Math.max(depth, b.footprintDepth())
         };
     }
 }
