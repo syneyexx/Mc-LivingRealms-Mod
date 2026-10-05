@@ -10,11 +10,11 @@ public final class PrimaryEconomyPlanner {
     private PrimaryEconomyPlanner(){}
     public static List<ConstructionIntent> plan(SimulationState state,Faction faction,Settlement settlement){
         List<ConstructionIntent> out=new ArrayList<>();int tier=settlement.tier().ordinal();
-        if(tier>=Settlement.Tier.HAMLET.ordinal()&&PrimaryEconomySuitability.score(state,settlement,PrimaryEconomyKind.LUMBER_CAMP)>=.30)add(out,faction,settlement,StructureRole.LUMBER_CAMP,0,-52,32,13,11,58);
-        if(tier>=Settlement.Tier.VILLAGE.ordinal()&&PrimaryEconomySuitability.score(state,settlement,PrimaryEconomyKind.MINE)>=.30)add(out,faction,settlement,StructureRole.MINE,0,56,-40,13,11,59);
-        if(tier>=Settlement.Tier.VILLAGE.ordinal()&&PrimaryEconomySuitability.score(state,settlement,PrimaryEconomyKind.FISHERY)>=.42)add(out,faction,settlement,StructureRole.FISHERY,0,56,38,15,9,57);
-        if(settlement.population()>=1800&&PrimaryEconomySuitability.score(state,settlement,PrimaryEconomyKind.MINE)>=.55)add(out,faction,settlement,StructureRole.MINE,1,82,-62,15,13,48);
-        if(settlement.population()>=1600&&PrimaryEconomySuitability.score(state,settlement,PrimaryEconomyKind.LUMBER_CAMP)>=.55)add(out,faction,settlement,StructureRole.LUMBER_CAMP,1,-82,55,15,13,47);
+        if(tier>=Settlement.Tier.HAMLET.ordinal()&&PrimaryEconomySuitability.score(state,settlement,PrimaryEconomyKind.LUMBER_CAMP)>=.30)add(out,faction,settlement,StructureRole.LUMBER_CAMP,0,-180,120,13,11,58);
+        if(tier>=Settlement.Tier.VILLAGE.ordinal()&&PrimaryEconomySuitability.score(state,settlement,PrimaryEconomyKind.MINE)>=.30)add(out,faction,settlement,StructureRole.MINE,0,210,-150,13,11,59);
+        if(tier>=Settlement.Tier.VILLAGE.ordinal()&&PrimaryEconomySuitability.score(state,settlement,PrimaryEconomyKind.FISHERY)>=.42)add(out,faction,settlement,StructureRole.FISHERY,0,185,130,15,9,57);
+        if(settlement.population()>=1800&&PrimaryEconomySuitability.score(state,settlement,PrimaryEconomyKind.MINE)>=.55)add(out,faction,settlement,StructureRole.MINE,1,330,-250,15,13,48);
+        if(settlement.population()>=1600&&PrimaryEconomySuitability.score(state,settlement,PrimaryEconomyKind.LUMBER_CAMP)>=.55)add(out,faction,settlement,StructureRole.LUMBER_CAMP,1,-310,220,15,13,47);
         return List.copyOf(out);
     }
     public static List<ConstructionIntent> pending(SimulationState state,Faction faction,Settlement settlement){return plan(state,faction,settlement).stream().filter(i->!settlement.isConstructionCompleted(i.key())).toList();}
