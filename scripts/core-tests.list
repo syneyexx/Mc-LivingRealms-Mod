@@ -44,6 +44,7 @@ dev.livingrealms.FaithAndInfrastructureTest
 dev.livingrealms.CivicHolyDayFestivalTest
 dev.livingrealms.AssistanceContributionTest
 dev.livingrealms.RefugeeCampConstructionTest
+dev.livingrealms.SpecialSiteSpacingTest
 dev.livingrealms.BanditAndPriceRumorTest
 dev.livingrealms.TradeHouseholdEcologyTest
 dev.livingrealms.TradeLivenessTest
