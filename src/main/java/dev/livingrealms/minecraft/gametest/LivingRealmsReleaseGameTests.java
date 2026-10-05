@@ -25,24 +25,17 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Release-ready GameTests for Q2–Q5. */
 @GameTestHolder(LivingRealms.MOD_ID)
-@EventBusSubscriber(modid = LivingRealms.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
+@PrefixGameTestTemplate(false)
 public final class LivingRealmsReleaseGameTests {
     private LivingRealmsReleaseGameTests() {}
 
-    @SubscribeEvent
-    public static void register(RegisterGameTestsEvent event) {
-        event.register(LivingRealmsReleaseGameTests.class);
-    }
-
     /** Q3: player-placed plank must not be overwritten. */
-    @GameTest(template = "minecraft:empty", timeoutTicks = 20)
+    @GameTest(template = "gametests/empty", timeoutTicks = 20)
     public static void playerPlankIsNotReplaced(GameTestHelper helper) {
         BlockPos pos = new BlockPos(1, 2, 1);
         helper.setBlock(pos, Blocks.OAK_PLANKS);
@@ -62,7 +55,7 @@ public final class LivingRealmsReleaseGameTests {
     }
 
     /** Q2: farm completion key only after a physically acceptable receipt (door required). */
-    @GameTest(template = "minecraft:empty", timeoutTicks = 20)
+    @GameTest(template = "gametests/empty", timeoutTicks = 20)
     public static void farmKeyRequiresCompleteReceipt(GameTestHelper helper) {
         Settlement settlement = new Settlement(2, "Farmstead", new SimPosition(0, 0), 80, 100);
         StructureMaterializationReceipt missingDoor = new StructureMaterializationReceipt(
@@ -96,7 +89,7 @@ public final class LivingRealmsReleaseGameTests {
     }
 
     /** Q4: encode/decode + densifier stay idempotent; SavedData content revision pin stays 14. */
-    @GameTest(template = "minecraft:empty", timeoutTicks = 40)
+    @GameTest(template = "gametests/empty", timeoutTicks = 40)
     public static void savedDataReloadKeepsRevisionAndDensity(GameTestHelper helper) {
         SimulationState state = new SimulationState(0x5AFE_0014L, SpeciesCatalog.starter());
         DemoSeeder.seed(state);
@@ -117,7 +110,7 @@ public final class LivingRealmsReleaseGameTests {
     }
 
     /** Q5: market use requires a completed market key; far positions stay outside the 96-block radius. */
-    @GameTest(template = "minecraft:empty", timeoutTicks = 20)
+    @GameTest(template = "gametests/empty", timeoutTicks = 20)
     public static void marketRequiresNearbyCompletedKey(GameTestHelper helper) {
         Faction faction = new Faction(1, "Market Realm", "Trader");
         Settlement settlement = new Settlement(2, "Market Town", new SimPosition(0, 0), 400, 450);
