@@ -83,6 +83,10 @@ public final class SimulationEngine {
             state.rebellionEngine().simulateDay(state, new DeterministicRng(seed ^ day ^ 0xA54FF53A5F1D36F1L), state.config().rebellionThreshold());
             RoadLifeEngine.simulateDay(state, new DeterministicRng(seed ^ day ^ 0xC2B2AE3D27D4EB4FL));
             if (day % 30 == 15) SettlementExpansionEngine.simulateDay(state, new DeterministicRng(seed ^ day ^ 0xCA05A15L));
+            // Wave 28 — retention: monthly light compact; quarterly deeper summarization.
+            // Compaction only folds inactive/decorative archival rows; completed construction is retained.
+            if (day > 0 && day % 90 == 0) StateRetentionCompactor.compactQuarterly(state);
+            else if (day > 0 && day % 30 == 0) StateRetentionCompactor.compactMonthly(state);
             state.clock().advance(SimClock.TICKS_PER_DAY);
             if (day % 30 == 0) state.history().add(new WorldEvent(day, "monthly_snapshot", state.summary()));
         }

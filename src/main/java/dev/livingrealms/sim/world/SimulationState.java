@@ -233,7 +233,19 @@ public final class SimulationState {
         if(justiceCases.size()>=MAX_JUSTICE_CASES)return;
         observeCanonicalId(value.id());justiceCases.add(value);
     }
+    /** Wave 28 — prune inactive (completed/dismissed) justice cases opened before cutoff. Active cases retained. */
+    public int pruneInactiveJusticeCases(long olderThanDay){
+        int before=justiceCases.size();
+        justiceCases.removeIf(c->!c.active()&&c.openedDay()<olderThanDay);
+        return before-justiceCases.size();
+    }
     public void addHiddenCache(HiddenCache value){Objects.requireNonNull(value);if(hiddenCaches.size()>=MAX_HIDDEN_CACHES)hiddenCaches.removeIf(HiddenCache::recovered);if(hiddenCaches.size()>=MAX_HIDDEN_CACHES)return;observeCanonicalId(value.id());hiddenCaches.add(value);}
+    /** Wave 28 — prune recovered caches created before cutoff. Unrecovered caches retained. */
+    public int pruneRecoveredHiddenCaches(long olderThanDay){
+        int before=hiddenCaches.size();
+        hiddenCaches.removeIf(c->c.recovered()&&c.createdDay()<olderThanDay);
+        return before-hiddenCaches.size();
+    }
     public void addPirateBand(PirateBand value){
         Objects.requireNonNull(value);
         if(pirateBands.size()>=MAX_PIRATE_BANDS){

@@ -34,8 +34,9 @@ public final class SettlementDistrictPlan {
         List<ConstructionIntent> intents = SettlementPlanner.plan(faction, settlement);
         EnumMap<SettlementDistrict, List<ConstructionIntent>> grouped = new EnumMap<>(SettlementDistrict.class);
         Map<String, SettlementDistrict> byKey = new LinkedHashMap<>();
+        List<String> cultureDistricts = cultureDistrictNames(faction);
         for (ConstructionIntent intent : intents) {
-            SettlementDistrict district = refine(intent, settlement);
+            SettlementDistrict district = refine(intent, settlement, cultureDistricts);
             byKey.put(intent.key(), district);
             grouped.computeIfAbsent(district, d -> new ArrayList<>()).add(intent);
         }
@@ -55,6 +56,7 @@ public final class SettlementDistrictPlan {
                 case RELIGIOUS -> 6;
                 default -> 0;
             };
+            if (cultureDistricts.contains(e.getKey().name())) boost += 3;
             anchors.add(new DistrictAnchor(e.getKey(), new SimPosition(x / n, z / n), list.size(), boost));
         }
         anchors.sort((a, b) -> {
@@ -64,18 +66,41 @@ public final class SettlementDistrictPlan {
         return new SettlementDistrictPlan(settlement.id(), anchors, byKey);
     }
 
-    private static SettlementDistrict refine(ConstructionIntent intent, Settlement settlement) {
+    private static List<String> cultureDistrictNames(Faction faction) {
+        return dev.livingrealms.sim.content.SettlementIdentityProfile.cultureOf(faction)
+                .map(c -> c.districtTendencies())
+                .orElse(List.of());
+    }
+
+    private static SettlementDistrict refine(ConstructionIntent intent, Settlement settlement, List<String> cultureDistricts) {
         SettlementDistrict base = SettlementDistrict.forRole(intent.role());
         if (intent.role() != StructureRole.HOUSE) return base;
-        // Dense apartments near keep = wealthy/old town; outer cottages = workers/rural fringe.
         double dist = intent.center().distanceTo(settlement.position());
         boolean apartment = intent.width() >= 11 || intent.depth() >= 11;
         boolean townhouse = intent.width() >= 9 || intent.depth() >= 9;
-        if (apartment && dist < 48) return SettlementDistrict.WEALTHY_QUARTER;
-        if (townhouse && dist < 80) return SettlementDistrict.OLD_TOWN;
-        if (dist > 140) return SettlementDistrict.RURAL_FRINGE;
-        if (dist > 90) return SettlementDistrict.WORKERS_QUARTER;
-        return SettlementDistrict.RESIDENTIAL;
+        SettlementDistrict geometric;
+        if (apartment && dist < 48) geometric = SettlementDistrict.WEALTHY_QUARTER;
+        else if (townhouse && dist < 80) geometric = SettlementDistrict.OLD_TOWN;
+        else if (dist > 140) geometric = SettlementDistrict.RURAL_FRINGE;
+        else if (dist > 90) geometric = SettlementDistrict.WORKERS_QUARTER;
+        else geometric = SettlementDistrict.RESIDENTIAL;
+        // Wave 30 — when culture prefers MARKET/WEALTHY/RURAL_FRINGE, nudge ordinary residential houses.
+        if (geometric == SettlementDistrict.RESIDENTIAL && !cultureDistricts.isEmpty()) {
+            String preferred = cultureDistricts.get(Math.floorMod((int) (settlement.id() ^ intent.key().hashCode()), cultureDistricts.size()));
+            try {
+                SettlementDistrict cultural = SettlementDistrict.valueOf(preferred);
+                if (cultural == SettlementDistrict.WEALTHY_QUARTER || cultural == SettlementDistrict.MARKET
+                        || cultural == SettlementDistrict.RURAL_FRINGE || cultural == SettlementDistrict.OLD_TOWN
+                        || cultural == SettlementDistrict.CRAFTS) {
+                    if (cultural == SettlementDistrict.MARKET) return SettlementDistrict.OLD_TOWN;
+                    if (cultural == SettlementDistrict.CRAFTS) return SettlementDistrict.WORKERS_QUARTER;
+                    return cultural;
+                }
+            } catch (IllegalArgumentException ignored) {
+                // keep geometric
+            }
+        }
+        return geometric;
     }
 
     public long settlementId() { return settlementId; }

@@ -57,7 +57,7 @@ public final class CivicEventEngine {
             }
             if(type==null)continue;
             double intensity=Mathx.clamp(.32+.28*settlement.prosperity()+.2*sc.culturalCohesion()+rng.between(-.05,.05)+(holy?.08:0),.2,.92);
-            CivicEvent event=new CivicEvent(state.nextId(),faction.id(),settlement.id(),day,day+2,type,civicTitle(type,settlement,faith),intensity);state.addCivicEvent(event);
+            CivicEvent event=new CivicEvent(state.nextId(),faction.id(),settlement.id(),day,day+2,type,civicTitle(type,settlement,faith,faction),intensity);state.addCivicEvent(event);
             state.history().add(new WorldEvent(day,"civic_event_started","event="+event.id()+", type="+type+", settlement="+settlement.id()));
             for(SocialCitizen c:state.socialCitizens())if(c.alive()&&c.settlementId()==settlement.id()&&Math.floorMod(c.id()+day,5)==0)c.remember(new CitizenMemory(day,MemoryType.LOCAL_EVENT,"civic:"+event.id(),event.title(),"The community gathered for "+event.title()+".",settlement.position(),.42,1));
         }
@@ -85,5 +85,27 @@ public final class CivicEventEngine {
         }
     }
 
-    public static String civicTitle(CivicEventType type,Settlement settlement,FaithCatalog.FaithProfile faith){return switch(type){case HARVEST_FESTIVAL->settlement.name()+" Harvest Feast";case RELIGIOUS_RITUAL->settlement.name()+" "+faith.primaryDeity()+" Rite";case VICTORY_FEAST->settlement.name()+" Victory Feast";case MOURNING->settlement.name()+" Day of Mourning";case CORONATION->settlement.name()+" Coronation";case MARKET_FAIR->settlement.name()+" Market Fair";case WEDDING_FEAST->settlement.name()+" Wedding Feast";};}
+    public static String civicTitle(CivicEventType type,Settlement settlement,FaithCatalog.FaithProfile faith){
+        return civicTitle(type,settlement,faith,null);
+    }
+
+    /** Wave 30 — culture packs flavour festival titles when available. */
+    public static String civicTitle(CivicEventType type,Settlement settlement,FaithCatalog.FaithProfile faith,Faction faction){
+        String cultureFlavour="";
+        if(faction!=null){
+            var pack=dev.livingrealms.sim.content.SettlementIdentityProfile.cultureOf(faction);
+            if(pack.isPresent()){
+                cultureFlavour=" "+pack.get().displayName();
+            }
+        }
+        return switch(type){
+            case HARVEST_FESTIVAL->settlement.name()+(cultureFlavour.isBlank()?" Harvest Feast":cultureFlavour+" Harvest Feast");
+            case RELIGIOUS_RITUAL->settlement.name()+" "+faith.primaryDeity()+" Rite";
+            case VICTORY_FEAST->settlement.name()+" Victory Feast";
+            case MOURNING->settlement.name()+" Day of Mourning";
+            case CORONATION->settlement.name()+" Coronation";
+            case MARKET_FAIR->settlement.name()+(cultureFlavour.isBlank()?" Market Fair":cultureFlavour+" Market Fair");
+            case WEDDING_FEAST->settlement.name()+" Wedding Feast";
+        };
+    }
 }

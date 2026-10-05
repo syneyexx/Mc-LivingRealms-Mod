@@ -43,6 +43,16 @@ public final class SocialCitizen {
     public void adjustHealth(double delta){if(!Double.isFinite(delta))throw new IllegalArgumentException("health");health=Mathx.clamp(health+delta,0,1);if(health<=0)alive=false;}
     public void markDead(){alive=false;health=0;}
     public void remember(CitizenMemory memory){Objects.requireNonNull(memory);memories.addLast(memory);while(memories.size()>MAX_MEMORIES)memories.removeFirst();}
+    /** Wave 28 — replace memory deque after retention compaction / summarization. */
+    public void replaceMemories(java.util.Collection<CitizenMemory> next){
+        memories.clear();
+        if(next==null)return;
+        for(CitizenMemory memory:next){
+            if(memory==null)continue;
+            memories.addLast(memory);
+            if(memories.size()>=MAX_MEMORIES)break;
+        }
+    }
     public Optional<CitizenMemory> latestMemory(java.util.function.Predicate<CitizenMemory> predicate){Iterator<CitizenMemory> it=memories.descendingIterator();while(it.hasNext()){CitizenMemory m=it.next();if(predicate.test(m))return Optional.of(m);}return Optional.empty();}
     public CitizenRelationship relationship(String targetKey){CitizenRelationship existing=relationships.get(targetKey);if(existing!=null)return existing;while(relationships.size()>=MAX_RELATIONSHIPS){String first=relationships.keySet().iterator().next();relationships.remove(first);}CitizenRelationship created=new CitizenRelationship(targetKey);relationships.put(targetKey,created);return created;}
     public void restoreCore(CitizenRole role,double health,double money,boolean alive){this.role=Objects.requireNonNull(role);this.health=Mathx.clamp(health,0,1);this.money=Math.max(0,money);this.alive=alive&&this.health>0;refreshWealthClass();}

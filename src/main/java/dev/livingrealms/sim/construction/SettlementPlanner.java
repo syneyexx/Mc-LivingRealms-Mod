@@ -4,6 +4,7 @@ import dev.livingrealms.sim.content.BuildingDefinition;
 import dev.livingrealms.sim.content.BuildingTemplateRegistry;
 import dev.livingrealms.sim.content.SettlementIdentityProfile;
 import dev.livingrealms.sim.faction.DevelopmentMode;
+import dev.livingrealms.sim.faction.DevelopmentModeGuard;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
@@ -296,7 +297,7 @@ public final class SettlementPlanner {
                                    SettlementMorphology morph, int baseRotation,
                                    SettlementStreetGraph streetGraph, CultureArchitecture culture) {
         // PLAYER_LED: Living Realms does not auto-spawn houses over the player's layout.
-        if (settlement.developmentMode() == DevelopmentMode.PLAYER_LED) return;
+        if (!DevelopmentModeGuard.allowsOrdinaryHouseEmission(settlement)) return;
         int represented = Math.max(settlement.population(), settlement.housing());
         int softCap = switch (settlement.tier()) {
             case CAMP -> 24; case HAMLET -> 48; case VILLAGE -> 96; case TOWN -> 220; case CITY -> 480; case METROPOLIS -> 900;

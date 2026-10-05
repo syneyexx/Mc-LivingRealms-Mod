@@ -93,4 +93,9 @@ dev.livingrealms.CivicChoreographyTest
 dev.livingrealms.PlayerActorIdentityTest
 dev.livingrealms.HousingDemolitionRegressionTest
 dev.livingrealms.PlayerFoundedTownHallTest
+dev.livingrealms.StateRetentionCompactorTest
+dev.livingrealms.SaveSizeAuditorTest
+dev.livingrealms.CulturalIdentityWiringTest
+dev.livingrealms.HistoricCityEvolutionTest
+dev.livingrealms.DevelopmentModeGuardTest
 dev.livingrealms.LongRunSoakTest

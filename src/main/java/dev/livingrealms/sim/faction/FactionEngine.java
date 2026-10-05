@@ -46,7 +46,7 @@ public final class FactionEngine {
                 // Housing only rises when both wood and stone can actually be paid.
                 // PLAYER_LED settlements never receive abstract auto-housing — capacity comes from
                 // player registration / intentional civic projects only.
-                if (s.developmentMode() == DevelopmentMode.PLAYER_LED) continue;
+                if (!DevelopmentModeGuard.allowsAbstractHousingGrowth(s)) continue;
                 if (s.housingShortage() > Math.max(5, s.population() * .05) && woodAvail > 20 && stoneAvail > 8) {
                     int build = (int)Math.min(s.housingShortage() + 10, 25 + f.technology() * 25);
                     double woodCost=build*.4,stoneCost=build*.15;
@@ -54,7 +54,7 @@ public final class FactionEngine {
                     drawBuildMaterials(f,s,woodCost,stoneCost);
                     s.addHousing(build);s.improveInfrastructure(.001 * build);
                 }
-                if(state!=null&&s.developmentMode()!=DevelopmentMode.PLAYER_LED
+                if(state!=null&&DevelopmentModeGuard.allowsAbstractHousingGrowth(s)
                         &&s.housing()-s.population()<Math.max(10,s.population()/12)&&woodAvail>45&&stoneAvail>18&&Math.floorMod(state.clock().day()+s.id(),7L)==0L){
                     int build=Math.min(36,Math.max(12,s.population()/30));
                     double woodCost=build*.45,stoneCost=build*.18;

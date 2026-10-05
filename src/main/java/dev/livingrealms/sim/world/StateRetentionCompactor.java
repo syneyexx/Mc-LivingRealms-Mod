@@ -1,0 +1,205 @@
+package dev.livingrealms.sim.world;
+
+import dev.livingrealms.sim.logistics.TradeShipment;
+import dev.livingrealms.sim.social.CitizenMemory;
+import dev.livingrealms.sim.social.MemoryType;
+import dev.livingrealms.sim.social.SocialCitizen;
+import dev.livingrealms.sim.underworld.UnderworldActions;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+/**
+ * Wave 28 — retention / compaction policies for bounded collections.
+ *
+ * <p>Intentional retention (never deleted meaninglessly):
+ * <ul>
+ *   <li>Completed construction keys — spatial city truth; historic cores persist across tier growth.</li>
+ *   <li>Active justice cases, open underworld contracts, in-flight shipments, unrecovered caches.</li>
+ *   <li>High-importance citizen memories and non-snapshot history events (wars, battles, legends hooks).</li>
+ * </ul>
+ *
+ * <p>Summarization preferred over silent deletion for monthly_snapshot history clusters.
+ * Compaction must not change deterministic outcomes of active gameplay engines — it only
+ * removes or folds inactive / decorative archival rows.
+ */
+public final class StateRetentionCompactor {
+    /** Keep inactive justice cases this many days after open before pruning. */
+    public static final int JUSTICE_INACTIVE_RETENTION_DAYS = 120;
+    /** Keep recovered caches this many days after creation before pruning (if recovered). */
+    public static final int CACHE_RECOVERED_RETENTION_DAYS = 90;
+    /** Soft cap for history before summarizing old monthly snapshots. */
+    public static final int HISTORY_SOFT_CAP = 8_000;
+    /** Citizen memories older than this with low importance may fold into summaries. */
+    public static final int MEMORY_SOFT_AGE_DAYS = 90;
+    public static final double MEMORY_FOLD_IMPORTANCE = 0.28;
+
+    public record Report(
+            int historySummarized,
+            int memoriesFolded,
+            int justicePruned,
+            int cachesPruned,
+            int shipmentsPruned,
+            int contractsPruned
+    ) {
+        public int totalRemoved() {
+            return historySummarized + memoriesFolded + justicePruned + cachesPruned + shipmentsPruned + contractsPruned;
+        }
+    }
+
+    private StateRetentionCompactor() {}
+
+    /** Monthly light pass: prune closed inactive rows; fold low-value conversation noise. */
+    public static Report compactMonthly(SimulationState state) {
+        Objects.requireNonNull(state, "state");
+        long day = state.clock().day();
+        int justice = state.pruneInactiveJusticeCases(Math.max(0, day - JUSTICE_INACTIVE_RETENTION_DAYS));
+        int caches = state.pruneRecoveredHiddenCaches(Math.max(0, day - CACHE_RECOVERED_RETENTION_DAYS));
+        int shipments = pruneStaleShipments(state);
+        int contracts = UnderworldActions.pruneClosedContracts(state);
+        int memories = compactCitizenMemories(state, day, false);
+        int history = 0;
+        if (state.history().size() > HISTORY_SOFT_CAP) {
+            history = summarizeOldMonthlySnapshots(state.history(), day);
+        }
+        return new Report(history, memories, justice, caches, shipments, contracts);
+    }
+
+    /**
+     * Quarterly deeper pass: summarize older monthly_snapshot clusters even below soft cap,
+     * and fold aged low-importance citizen memories into short summaries.
+     */
+    public static Report compactQuarterly(SimulationState state) {
+        Objects.requireNonNull(state, "state");
+        long day = state.clock().day();
+        Report light = compactMonthly(state);
+        int history = summarizeOldMonthlySnapshots(state.history(), day);
+        int memories = compactCitizenMemories(state, day, true);
+        return new Report(
+                light.historySummarized() + history,
+                light.memoriesFolded() + memories,
+                light.justicePruned(),
+                light.cachesPruned(),
+                light.shipmentsPruned(),
+                light.contractsPruned());
+    }
+
+    /**
+     * TOTAL-loss shipments that somehow linger are removed; arrived shipments are already
+     * cleared by {@code TradeEngine}. Active in-flight shipments are retained.
+     */
+    static int pruneStaleShipments(SimulationState state) {
+        List<Long> remove = new ArrayList<>();
+        for (TradeShipment s : state.shipments()) {
+            if (s.lossState() == TradeShipment.LossState.TOTAL && s.arrived()) {
+                remove.add(s.id());
+            }
+        }
+        for (Long id : remove) state.removeShipment(id);
+        return remove.size();
+    }
+
+    /**
+     * Fold clusters of old {@code monthly_snapshot} events into one era summary per 90-day window.
+     * Non-snapshot history (wars, battles, civic events, etc.) is always retained.
+     */
+    public static int summarizeOldMonthlySnapshots(WorldHistory history, long day) {
+        Objects.requireNonNull(history, "history");
+        List<WorldEvent> all = new ArrayList<>(history.all());
+        if (all.isEmpty()) return 0;
+        long cutoff = Math.max(0, day - 180);
+        List<WorldEvent> keep = new ArrayList<>();
+        Map<Long, List<WorldEvent>> buckets = new LinkedHashMap<>();
+        int folded = 0;
+        for (WorldEvent e : all) {
+            if (!"monthly_snapshot".equals(e.type()) || e.day() >= cutoff) {
+                keep.add(e);
+                continue;
+            }
+            long bucket = e.day() / 90;
+            buckets.computeIfAbsent(bucket, k -> new ArrayList<>()).add(e);
+        }
+        for (var entry : buckets.entrySet()) {
+            List<WorldEvent> cluster = entry.getValue();
+            if (cluster.size() <= 1) {
+                keep.addAll(cluster);
+                continue;
+            }
+            WorldEvent first = cluster.getFirst();
+            WorldEvent last = cluster.getLast();
+            folded += cluster.size() - 1;
+            keep.add(new WorldEvent(
+                    last.day(),
+                    "era_summary",
+                    "days=" + first.day() + ".." + last.day()
+                            + ", snapshots=" + cluster.size()
+                            + ", last=" + truncate(last.message(), 180)));
+        }
+        keep.sort(Comparator.comparingLong(WorldEvent::day).thenComparing(WorldEvent::type).thenComparing(WorldEvent::message));
+        // Prefer keeping important types if still over max after rebuild.
+        history.replaceAll(keep);
+        return folded;
+    }
+
+    static int compactCitizenMemories(SimulationState state, long day, boolean deep) {
+        int folded = 0;
+        for (SocialCitizen citizen : state.socialCitizens()) {
+            if (!citizen.alive()) continue;
+            folded += compactOneCitizen(citizen, day, deep);
+        }
+        return folded;
+    }
+
+    static int compactOneCitizen(SocialCitizen citizen, long day, boolean deep) {
+        List<CitizenMemory> memories = new ArrayList<>(citizen.memories());
+        if (memories.size() < SocialCitizen.MAX_MEMORIES / 2 && !deep) return 0;
+        List<CitizenMemory> keep = new ArrayList<>();
+        List<CitizenMemory> foldable = new ArrayList<>();
+        long ageCutoff = Math.max(0, day - MEMORY_SOFT_AGE_DAYS);
+        for (CitizenMemory m : memories) {
+            boolean oldNoise = m.day() < ageCutoff
+                    && m.importance() < MEMORY_FOLD_IMPORTANCE
+                    && (m.type() == MemoryType.CONVERSATION || (deep && m.type() == MemoryType.RUMOR));
+            if (oldNoise) foldable.add(m);
+            else keep.add(m);
+        }
+        if (foldable.isEmpty()) return 0;
+        // Important history may summarize rather than delete meaninglessly.
+        CitizenMemory sample = foldable.getLast();
+        keep.add(new CitizenMemory(
+                sample.day(),
+                MemoryType.LOCAL_EVENT,
+                "memory-summary:" + citizen.id(),
+                "self",
+                "I retain a faded sense of " + foldable.size()
+                        + " older small matters around " + truncate(sample.summary(), 80) + ".",
+                sample.position(),
+                Math.min(0.45, sample.importance() + 0.08),
+                Math.max(0.35, sample.confidence() * 0.85)));
+        keep.sort(Comparator.comparingLong(CitizenMemory::day).thenComparing(CitizenMemory::subjectKey));
+        while (keep.size() > SocialCitizen.MAX_MEMORIES) keep.removeFirst();
+        citizen.replaceMemories(keep);
+        return foldable.size();
+    }
+
+    private static String truncate(String s, int max) {
+        if (s == null) return "";
+        String t = s.trim();
+        return t.length() <= max ? t : t.substring(0, max) + "…";
+    }
+
+    /** Construction completion keys are intentionally retained — documented no-op for audits. */
+    public static int constructionRecordsRetained(SimulationState state) {
+        Objects.requireNonNull(state, "state");
+        int total = 0;
+        for (var faction : state.factions()) {
+            for (var settlement : faction.settlements()) {
+                total += settlement.completedConstruction().size();
+            }
+        }
+        return total;
+    }
+}
