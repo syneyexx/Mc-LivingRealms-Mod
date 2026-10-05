@@ -5,6 +5,7 @@ import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
+import dev.livingrealms.sim.faction.SettlementRole;
 import dev.livingrealms.sim.util.DeterministicRng;
 import java.util.Comparator;
 import java.util.List;
@@ -15,8 +16,6 @@ import java.util.Objects;
  * Replaces {@link FrontierExplorationSeeder} exploration spawning for living-world continuity.
  */
 public final class SettlementExpansionEngine {
-    public static final double MIN_SETTLEMENT_SPACING = SettlementDensitySeeder.MIN_SETTLEMENT_SPACING;
-    public static final double MIN_SPACING = MIN_SETTLEMENT_SPACING;
     public static final int MAX_CAUSAL_PER_REALM = 12;
     private static final String[] FALLBACK_SUFFIXES = {
             "Reach", "March", "Hollow", "Crossing", "Ford", "Ridge", "Glen", "Rest"
@@ -71,24 +70,27 @@ public final class SettlementExpansionEngine {
         String name;
         int pop;
         int housing;
+        SettlementRole role;
         if (spec != null) {
-            position = placeFromBias(state, capital.position(), faction.id(), spec.dx(), spec.dz(), rng);
             name = spec.name();
             pop = Math.max(40, Math.min(220, spec.population() / 4));
             housing = Math.max(pop, Math.min(260, spec.housing() / 4));
+            role = SettlementRole.fromPopulation(pop);
+            position = placeFromBias(state, capital.position(), faction.id(), spec.dx(), spec.dz(), role, rng);
         } else {
-            position = placeFromBias(state, capital.position(), faction.id(),
-                    rng.nextDouble() * 2 - 1, rng.nextDouble() * 2 - 1, rng);
-            if (position == null) return false;
-            name = uniqueFallbackName(state, faction, capital, position);
             pop = 48 + rng.nextInt(40);
             housing = (int) Math.ceil(pop * 1.2);
+            role = SettlementRole.fromPopulation(pop);
+            position = placeFromBias(state, capital.position(), faction.id(),
+                    rng.nextDouble() * 2 - 1, rng.nextDouble() * 2 - 1, role, rng);
+            if (position == null) return false;
+            name = uniqueFallbackName(state, faction, capital, position);
         }
-        if (position == null || tooClose(state, position, MIN_SETTLEMENT_SPACING)) return false;
+        if (position == null || tooClose(state, position, role)) return false;
         if (faction.settlements().stream().anyMatch(s -> s.name().equals(name))) return false;
 
         Settlement colony = new Settlement(state.nextId(), name, position, pop, housing,
-                SettlementOrigin.CAUSAL_EXPANSION, false, DevelopmentMode.AUTO);
+                SettlementOrigin.CAUSAL_EXPANSION, false, DevelopmentMode.AUTO, role);
         faction.addSettlement(colony);
         // Emigrants leave the crowded capital; surplus pays for the founding.
         int emigrants = Math.min(24, Math.max(8, capital.population() / 40));
@@ -119,7 +121,8 @@ public final class SettlementExpansionEngine {
     }
 
     private static SimPosition placeFromBias(SimulationState state, SimPosition origin, long factionId,
-                                             double dx, double dz, DeterministicRng rng) {
+                                             double dx, double dz, SettlementRole candidateRole,
+                                             DeterministicRng rng) {
         double len = Math.hypot(dx, dz);
         if (len < 1e-6) {
             double a = rng.nextDouble() * Math.PI * 2;
@@ -128,25 +131,28 @@ public final class SettlementExpansionEngine {
             len = 1;
         }
         double nx = dx / len, nz = dz / len;
-        double radius = MIN_SETTLEMENT_SPACING + 200 + rng.nextDouble() * 900;
+        SettlementSpacingPolicy.Range preferred =
+                SettlementSpacingPolicy.preferredRange(SettlementRole.CAPITAL, candidateRole);
+        double radius = preferred.at(rng.nextDouble());
         for (int ring = 0; ring < 18; ring++) {
-            double r = radius + ring * 160;
+            double r = radius + ring * 48.0;
             for (int attempt = 0; attempt < 10; attempt++) {
-                double jitter = (attempt / 10.0) * Math.PI * 2 * .1;
+                double jitter = (attempt / 10.0) * Math.PI * 2 * .12;
                 double cos = Math.cos(jitter), sin = Math.sin(jitter);
                 double bx = nx * cos - nz * sin;
                 double bz = nx * sin + nz * cos;
                 SimPosition candidate = new SimPosition(origin.x() + bx * r, origin.z() + bz * r);
-                if (!tooClose(state, candidate, MIN_SETTLEMENT_SPACING)) return candidate;
+                if (!tooClose(state, candidate, candidateRole)) return candidate;
             }
         }
         return null;
     }
 
-    private static boolean tooClose(SimulationState state, SimPosition p, double spacing) {
+    private static boolean tooClose(SimulationState state, SimPosition p, SettlementRole candidateRole) {
         for (Faction faction : state.factions()) {
             for (Settlement settlement : faction.settlements()) {
-                if (p.distanceTo(settlement.position()) < spacing) return true;
+                double floor = SettlementSpacingPolicy.minimumDistance(candidateRole, settlement.role());
+                if (p.distanceTo(settlement.position()) < floor) return true;
             }
         }
         return false;
