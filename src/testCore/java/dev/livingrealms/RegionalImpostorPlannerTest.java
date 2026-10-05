@@ -76,7 +76,42 @@ public final class RegionalImpostorPlannerTest {
                         == RuntimeProjectionPolicy.citizenBudget(config),
                 "citizen near+far must partition total budget");
 
-        System.out.println("PASS regional impostor planner: band filter + budget + settlement/army/caravan/herd tokens");
+        perKindPhysicalCutoffsPreventOverlap();
+        System.out.println("PASS regional impostor planner: per-kind LOD bands + budget + unique regional tokens");
+    }
+
+    private static void perKindPhysicalCutoffsPreventOverlap() {
+        SimulationState state = new SimulationState(0x10D10DL);
+        Faction faction = new Faction(state.nextId(), "LOD Realm", "Warden");
+        Settlement mid = new Settlement(state.nextId(), "Midtown", new SimPosition(500, 0), 700, 800);
+        Settlement far = new Settlement(state.nextId(), "Far Town", new SimPosition(900, 0), 700, 800);
+        faction.addSettlement(mid);
+        faction.addSettlement(far);
+        Army army = new Army(state.nextId(), faction.id(), new SimPosition(500, 40), 120);
+        faction.addArmy(army);
+        state.addFaction(faction);
+
+        var bands = new RegionalImpostorPlanner.LodBands(
+                600,  // full citizens/settlement presentation still physical at d=500
+                320,  // military is already regional at d=500
+                320,
+                320,
+                480,
+                480,
+                2048,
+                32);
+        List<RegionalImpostorPlanner.Token> tokens =
+                RegionalImpostorPlanner.plan(state, List.of(new SimPosition(0, 0)), bands);
+
+        check(tokens.stream().noneMatch(t -> t.kind() == RegionalImpostorPlanner.Kind.SETTLEMENT_BUSTLE
+                        && t.canonicalId() == mid.id()),
+                "settlement impostor must not overlap full citizen envelope");
+        check(tokens.stream().anyMatch(t -> t.kind() == RegionalImpostorPlanner.Kind.SETTLEMENT_BUSTLE
+                        && t.canonicalId() == far.id()),
+                "far settlement should become regional after citizen envelope");
+        check(tokens.stream().anyMatch(t -> t.kind() == RegionalImpostorPlanner.Kind.MILITARY_BANNER
+                        && t.canonicalId() == army.id()),
+                "military may already be regional at same distance under its smaller physical cutoff");
     }
 
     private static void check(boolean v, String m) {
