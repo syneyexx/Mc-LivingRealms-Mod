@@ -24,14 +24,18 @@ public final class DiplomacyEngine {
             state.history().add(new WorldEvent(state.clock().day(),"war_started",a.name()+" vs "+def.name()+", goal="+war.goal()));
         }
     }
-    private static WarGoalType warGoalFor(Faction attacker,Faction defender){
-        double ratio=power(attacker)/Math.max(1,power(defender));
-        DiplomaticRelation relation=attacker.relationWith(defender.id());
-        double opinion=relation.opinion();
-        if(ratio<.85||attacker.settlements().size()<defender.settlements().size()&&ratio<1.05)return WarGoalType.DEFENSE;
-        if(opinion<-40&&ratio>1.25&&attacker.treasury()<defender.treasury()*.85)return WarGoalType.REPARATIONS;
-        if(opinion<-30&&ratio>1.45)return WarGoalType.HUMILIATION;
-        if(opinion<-20&&defender.government().stability()<.42&&ratio>1.1)return WarGoalType.LIBERATION;
+    private static WarGoalType warGoalFor(Faction attacker, Faction defender) {
+        double ratio = power(attacker) / Math.max(1, power(defender));
+        DiplomaticRelation relation = attacker.relationWith(defender.id());
+        double opinion = relation.opinion();
+        boolean lostSettlement = defender.settlements().stream().anyMatch(s -> s.unrest() > .7)
+                && attacker.settlements().size() > defender.settlements().size();
+        if (lostSettlement && opinion < -15) return WarGoalType.LIBERATION;
+        if (opinion < -40 && ratio > 1.15 && attacker.treasury() < defender.treasury() * .85) return WarGoalType.REPARATIONS;
+        if (opinion < -30 && ratio > 1.45) return WarGoalType.HUMILIATION;
+        if (opinion < -20 && defender.government().stability() < .42 && ratio > 1.1) return WarGoalType.LIBERATION;
+        // Explicit war between peers defaults to conquest of the defender's capital.
+        if (ratio < .65) return WarGoalType.DEFENSE;
         return WarGoalType.CONQUEST;
     }
     private static void updateWar(SimulationState state,WarState war,DeterministicRng rng){
@@ -39,19 +43,22 @@ public final class DiplomacyEngine {
         double ap=power(a),bp=power(b);double total=Math.max(1,ap+bp);war.adjustScore((ap-bp)/total*.20);
         war.addExhaustion(a.id(),Math.min(.01,.00035+a.population()*.00000002+armyDeficit(a)*.001));
         war.addExhaustion(b.id(),Math.min(.01,.00035+b.population()*.00000002+armyDeficit(b)*.001));
-        long duration=state.clock().day()-war.startDay();
-        boolean goalPeace=goalSatisfied(state,war,a,b);
-        boolean peace=goalPeace||duration>30&&(war.attackerExhaustion()>.82||war.defenderExhaustion()>.82||duration>720);
+        long duration = state.clock().day() - war.startDay();
+        boolean goalPeace = goalSatisfied(state, war, a, b, duration);
+        boolean peace = goalPeace || duration > 30 && (war.attackerExhaustion() > .82 || war.defenderExhaustion() > .82 || duration > 720);
         if(!peace&&duration>120&&rng.chance(.0005*(war.attackerExhaustion()+war.defenderExhaustion())))peace=true;
         if(peace)makePeace(state,war,a,b);
     }
-    private static boolean goalSatisfied(SimulationState state,WarState war,Faction attacker,Faction defender){
-        long target=war.targetSettlementId();
-        Optional<Faction> owner=target>0?state.findSettlementOwner(target):Optional.empty();
-        return switch(war.goal()){
-            case CONQUEST,HUMILIATION,LIBERATION -> owner.map(f->f.id()==attacker.id()).orElse(false);
-            case DEFENSE -> owner.map(f->f.id()==defender.id()).orElse(false)&&war.attackerScore()<20;
-            case REPARATIONS -> war.attackerScore()>=25;
+    private static boolean goalSatisfied(SimulationState state, WarState war, Faction attacker, Faction defender, long duration) {
+        long target = war.targetSettlementId();
+        Optional<Faction> owner = target > 0 ? state.findSettlementOwner(target) : Optional.empty();
+        return switch (war.goal()) {
+            case CONQUEST, HUMILIATION, LIBERATION -> owner.map(f -> f.id() == attacker.id()).orElse(false);
+            // DEFENSE is a hold-out: only ends by goal after the defender has pressed and failed for a while.
+            case DEFENSE -> duration >= 21
+                    && owner.map(f -> f.id() == defender.id()).orElse(false)
+                    && war.defenderExhaustion() >= .40;
+            case REPARATIONS -> war.attackerScore() >= 25;
         };
     }
     private static void makePeace(SimulationState state,WarState war,Faction a,Faction b){

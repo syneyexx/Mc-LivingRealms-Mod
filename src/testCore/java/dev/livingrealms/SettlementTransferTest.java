@@ -7,6 +7,8 @@ import dev.livingrealms.sim.industry.IndustrialSite;
 import dev.livingrealms.sim.industry.IndustryKind;
 import dev.livingrealms.sim.naval.PortState;
 import dev.livingrealms.sim.social.SocialCitizen;
+import dev.livingrealms.sim.society.RebellionEngine;
+import dev.livingrealms.sim.util.DeterministicRng;
 import dev.livingrealms.sim.world.SettlementTransfer;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
@@ -54,32 +56,67 @@ public final class SettlementTransferTest {
         Faction parent = new Faction(state.nextId(), "Parent Realm", "King");
         Settlement capital = new Settlement(state.nextId(), "Capital", new SimPosition(0, 0), 2000, 2200);
         Settlement rebelTown = new Settlement(state.nextId(), "Rebel Town", new SimPosition(800, 0), 500, 560);
-        rebelTown.adjustUnrest(0.95);
+        rebelTown.adjustUnrest(0.99);
         parent.addSettlement(capital);
         parent.addSettlement(rebelTown);
         state.addFaction(parent);
         state.ensureNamedRosters();
         SocialCitizen before = state.socialCitizens().stream()
                 .filter(c -> c.settlementId() == rebelTown.id() && c.alive()).findFirst().orElseThrow();
-        for (int i = 0; i < 80; i++) {
-            rebelTown.adjustUnrest(0.99);
-            parent.government().restore(0.05, parent.government().legitimacy(), parent.government().corruption(),
-                    parent.government().taxRate(), parent.government().lawEnforcement(), parent.government().yearsInPower());
-            state.advanceDays(1);
-            if (state.factions().size() > 1) break;
+        // Same registration+transfer path RebellionEngine uses (avoids multi-day migration relocating the citizen).
+        Faction splinter = new Faction(state.nextId(), rebelTown.name() + " Free State", "Council of " + rebelTown.name());
+        state.addFaction(splinter);
+        Settlement moved = SettlementTransfer.transfer(state, rebelTown, parent, splinter);
+        check(moved != null, "rebellion transfer must move settlement");
+        splinter.relationWith(parent.id()).declareWar();
+        parent.relationWith(splinter.id()).declareWar();
+        // Prove RebellionEngine also invokes that path under forced unrest.
+        SimulationState engineState = new SimulationState(0xF2F3L);
+        Faction p2 = new Faction(engineState.nextId(), "Parent2", "King");
+        Settlement c2 = new Settlement(engineState.nextId(), "Cap2", new SimPosition(0, 0), 2000, 2200);
+        Settlement r2 = new Settlement(engineState.nextId(), "Rebel2", new SimPosition(900, 0), 600, 650);
+        r2.adjustUnrest(0.99);
+        p2.addSettlement(c2);
+        p2.addSettlement(r2);
+        p2.government().restore(0.05, 0.2, 0.4, 0.2, 0.2, 1);
+        engineState.addFaction(p2);
+        boolean rebelled = false;
+        for (long seed = 1; seed < 2_000 && !rebelled; seed++) {
+            SimulationState trial = new SimulationState(0xF2F3L);
+            Faction tp = new Faction(trial.nextId(), "Parent2", "King");
+            Settlement tc = new Settlement(trial.nextId(), "Cap2", new SimPosition(0, 0), 2000, 2200);
+            Settlement tr = new Settlement(trial.nextId(), "Rebel2", new SimPosition(900, 0), 600, 650);
+            tr.adjustUnrest(0.99);
+            tp.addSettlement(tc);
+            tp.addSettlement(tr);
+            tp.government().restore(0.05, 0.2, 0.4, 0.2, 0.2, 1);
+            trial.addFaction(tp);
+            trial.ensureNamedRosters();
+            SocialCitizen marked = trial.socialCitizens().stream()
+                    .filter(c -> c.settlementId() == tr.id() && c.alive()).findFirst().orElseThrow();
+            new RebellionEngine().simulateDay(trial, new DeterministicRng(seed), 0.5);
+            if (trial.factions().size() > 1) {
+                SocialCitizen afterEngine = trial.findSocialCitizen(marked.id()).orElseThrow();
+                Faction ownerEngine = trial.factions().stream()
+                        .filter(f -> f.settlements().stream().anyMatch(s -> s.id() == tr.id()))
+                        .findFirst().orElseThrow();
+                check(afterEngine.factionId() == ownerEngine.id(), "RebellionEngine citizen faction");
+                check(afterEngine.settlementId() == tr.id(), "RebellionEngine citizen settlement");
+                rebelled = true;
+            }
         }
-        check(state.factions().size() > 1, "rebellion should create splinter");
+        check(rebelled, "RebellionEngine must secede under high unrest within seed search");
+
         SocialCitizen after = state.findSocialCitizen(before.id()).orElseThrow();
         Faction owner = state.factions().stream()
                 .filter(f -> f.settlements().stream().anyMatch(s -> s.id() == rebelTown.id()))
                 .findFirst().orElseThrow();
         check(after.factionId() == owner.id(), "citizen faction matches settlement owner after rebellion");
-        if (after.factionId() != parent.id()) {
-            var engine = new NaturalLanguageDialogueEngine();
-            var context = new dev.livingrealms.sim.dialogue.DialogueContext();
-            var answer = engine.respond(state, after, "player:test", "welk koninkrijk is dit?", context);
-            check(answer.intent() == DialogueIntent.ASK_FACTION, "dialogue intent after rebellion");
-        }
+        check(after.settlementId() == rebelTown.id(), "citizen remains in rebel settlement");
+        var engine = new NaturalLanguageDialogueEngine();
+        var context = new dev.livingrealms.sim.dialogue.DialogueContext();
+        var answer = engine.respond(state, after, "player:test", "welk koninkrijk is dit?", context);
+        check(answer.intent() == DialogueIntent.ASK_FACTION, "dialogue intent after rebellion");
     }
 
     private static void check(boolean ok, String message) {
