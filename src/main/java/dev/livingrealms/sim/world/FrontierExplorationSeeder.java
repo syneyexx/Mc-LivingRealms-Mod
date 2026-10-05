@@ -13,14 +13,14 @@ import java.util.Objects;
  * starter belt. When a player travels far from every canonical settlement, this seeder plants a
  * sparse frontier hamlet/village under the nearest surface kingdom so the world never empties out.
  *
- * <p>Spacing matches the product floor of 2000 blocks between settlements so wilderness belts stay
+ * <p>Spacing matches {@link SettlementDensitySeeder#MIN_SETTLEMENT_SPACING} so wilderness belts stay
  * wide enough for player founding and inter-city travel.</p>
  */
 public final class FrontierExplorationSeeder {
     /** Minimum distance from any existing settlement before a frontier seed may spawn. */
     public static final double GAP_BEFORE_SEED = 3_400.0;
     /** Preferred spacing between frontier settlements worldwide. */
-    public static final double FRONTIER_SPACING = 2_000.0;
+    public static final double FRONTIER_SPACING = SettlementDensitySeeder.MIN_SETTLEMENT_SPACING;
     /** Soft cap of exploration-seeded settlements per ordinary realm. */
     public static final int MAX_FRONTIER_PER_REALM = 24;
     private static final String[] SUFFIXES = {
@@ -98,11 +98,12 @@ public final class FrontierExplorationSeeder {
     }
 
     private static SimPosition placeAround(SimulationState state, SimPosition observer, long factionId) {
-        // Place well outside the 2000m founding clearance so players can still found nearby.
+        // Place well outside the founding clearance so players can still found nearby.
+        double outer = FRONTIER_SPACING + 100.0;
         for (int attempt = 0; attempt < 24; attempt++) {
             long m = mix(state.seed() ^ factionId ^ (attempt * 0x9E3779B97F4A7C15L) ^ Math.round(observer.x() * 17 + observer.z()));
             double angle = ((m >>> 11) & 0xFFFFL) / 65535.0 * Math.PI * 2.0;
-            double radius = 2_100.0 + ((m >>> 27) & 0x3FFL); // 2100–3123 blocks from the observer
+            double radius = outer + ((m >>> 27) & 0x3FFL); // outer..(outer+1023) from the observer
             SimPosition p = new SimPosition(observer.x() + Math.cos(angle) * radius, observer.z() + Math.sin(angle) * radius);
             if (!tooClose(state, p, FRONTIER_SPACING)) return p;
         }

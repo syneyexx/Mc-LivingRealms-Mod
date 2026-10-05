@@ -26,7 +26,7 @@ public final class LivingWorldDensityTest {
 
     public static void main(String[] args) {
         denseStarterWorldIsHierarchicalAndIdempotent();
-        settlementsRespectTwoThousandBlockSpacing();
+        settlementsRespectAuthoredSpacing();
         settlementsUseDiverseOrganicBlueprints();
         populatedSettlementsProjectVisibleCrowdsWithinBudget();
         absoluteDayProgressActuallySimulates();
@@ -35,7 +35,9 @@ public final class LivingWorldDensityTest {
         frontierExplorationSeedsFarWorld();
         System.out.println("PASS living-world density: 12 kingdoms + Wizard Trees / "
                 + SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS
-                + " surface settlements (capital+10 Specs+rural) + 2000-block spacing + frontier continuity + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
+                + " surface settlements (capital+10 Specs+rural) + "
+                + (int) SettlementDensitySeeder.MIN_SETTLEMENT_SPACING
+                + "-block spacing + frontier continuity + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
     }
 
     private static void denseStarterWorldIsHierarchicalAndIdempotent() {
@@ -72,19 +74,22 @@ public final class LivingWorldDensityTest {
         }
     }
 
-    private static void settlementsRespectTwoThousandBlockSpacing() {
+    private static void settlementsRespectAuthoredSpacing() {
         SimulationState state = new SimulationState(0x2000L);
         DemoSeeder.seed(state);
+        double clearance = PlayerSettlementFounder.MIN_SETTLEMENT_SPACING;
         List<Settlement> all = state.factions().stream().flatMap(f -> f.settlements().stream()).toList();
         for (int i = 0; i < all.size(); i++) for (int j = i + 1; j < all.size(); j++) {
             double dist = all.get(i).position().distanceTo(all.get(j).position());
-            check(dist >= PlayerSettlementFounder.MIN_SETTLEMENT_SPACING - 1.0,
-                    "settlements closer than 2000m: " + all.get(i).name() + " ↔ " + all.get(j).name() + " = " + Math.round(dist));
+            check(dist >= clearance - 1.0,
+                    "settlements closer than " + (int) clearance + "m: "
+                            + all.get(i).name() + " ↔ " + all.get(j).name() + " = " + Math.round(dist));
         }
         var blocked = PlayerSettlementFounder.found(state, "player:near", "Near", "Tooclose",
                 state.factions().getFirst().settlements().getFirst().position());
         check(!blocked.success(), "founding on top of a capital must fail");
-        check(blocked.reason().contains("2000") || blocked.reason().contains("too close"),
+        String expected = String.valueOf((int) Math.round(clearance));
+        check(blocked.reason().contains(expected) || blocked.reason().contains("too close"),
                 "founding error should mention clearance: " + blocked.reason());
     }
 

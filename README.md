@@ -1,12 +1,14 @@
 # Living Realms
 
+CURRENT PINS: schema 18 / minSchema 1 / protocol 18 / network 14 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+
 **Living Realms is a simulation-first civilization, society and ecosystem overhaul for Minecraft 1.21.1 on NeoForge.**
 
-The goal is not to make Minecraft feel like a map with a few extra NPCs. The goal is to make the world feel as if an actual civilization exists inside it: people are born, work, trade, remember, migrate, fight, form families, build settlements, spread knowledge, create cultures, suffer shortages and disease, start wars, become rulers, leave ruins behind and create history — whether the player intervenes or not.
+The goal is not to make Minecraft feel like a map with a few extra NPCs. The goal is to make the world feel as if an actual civilization exists inside it: kingdoms, settlements, a persistent named roster per settlement (aggregate population for demographic scale), wildlife, economy, politics, law, culture and history continue whether the player intervenes or not.
 
 Living Realms is designed primarily for **offline singleplayer**. The integrated Minecraft server remains authoritative for simulation state, while the client renders and interacts with bounded physical projections of that world.
 
-Current development checkpoint: **v3.0.0-rc4** (A–Z production completion pass; save schema **17**, dashboard protocol **17**, ContentRevision **11**). See `IMPLEMENTATION_LEDGER.md` and `docs/DETAIL_MATRIX.md` for consolidated A–Z / correction / Claude-masterplan status.
+Current development checkpoint: save schema **18**, dashboard protocol **18**, network **14**, ContentRevision **14**, surface starter **156** settlements (12×13) at **800**-block spacing plus Wizard Trees. See `PROJECT_STATE.md` and `COMPLETION_MATRIX.md`.
 
 > **End-product vision:** a persistent living world where kingdoms, settlements, people, wildlife, economy, politics, law, culture and history continue to evolve as one connected system instead of as isolated features.
 
@@ -576,36 +578,25 @@ The current RC4 line includes:
 - canonical ID high-watermark repair;
 - long deterministic soak testing.
 
-The attached/current development line uses **save schema 17** (schemas 1–16 remain readable; schema 17 adds influence/careers/debt/projects/campaigns/appearance/logistics) with older schemas retained through migration support.
+The attached/current development line uses **save schema 18** (schemas 1–17 remain readable; schema 18 adds the goods chain GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL) with older schemas retained through migration support.
 
 ---
 
 ## Current development status
 
-The repository is currently on the **v3.0.0-RC4** development line.
+CURRENT PINS: schema 18 / minSchema 1 / protocol 18 / network 14 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
 
-The latest local checkpoint represented by this README direction is based on the worldgen/city/map/NPC correction pass and includes work such as:
-
-- dense starter civilization;
 - 12 surface kingdoms plus Wizard Trees;
-- 380+ starter settlements/colonies in the current density gate (32/realm + rural hamlets);
-- settlement streets, sidewalks and denser housing;
-- capital/spawn city and castle planning;
-- terrain-aware route correction;
-- terrain-backed M-map without background blur;
-- F12 dashboard binding;
-- villager/civilian dialogue adoption;
-- Waystone deduplication;
-- dedicated city/mine locate logic;
-- 134-species ecology;
-- society/civilization state;
-- no-LLM dialogue;
-- persistent migration/history/law/economy/war systems;
-- long deterministic simulation and migration gates.
+- 156 surface starter settlements (capital + 10 authored Specs + 2 rural per realm) at 800-block spacing;
+- persistent named roster per settlement; aggregate population for demographic scale;
+- goods chain without FOOD mill fountain; construction keys only via materializer / FOREIGN_ADOPTED;
+- SettlementTransfer on capture/rebellion; capital war targets; tokenized dialogue;
+- settlement streets, sidewalks, denser housing, Waystones, F12/M/K, 134-species ecology;
+- long deterministic soak and migration gates.
 
 ### Important release status
 
-**RC4 is still a release candidate, not a final production release.**
+Release-ready when core suite, release-audit, linked NeoForge build, and HEAD-matching manifest are green.
 
 Before declaring the mod production-complete, the project still requires the real linked/runtime verification matrix to be clean, including:
 
@@ -690,3 +681,6 @@ A kingdom should be able to rise, change and fall.
 And if the player intervenes, history should genuinely take a different path.
 
 **That is Living Realms.**
+
+## Geschiedenis
+- Earlier README pins used schema 16–17, ContentRevision 11, 32/realm (~380+) density, and 2000-block spacing.

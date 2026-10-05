@@ -26,10 +26,13 @@ public final class SettlementDensitySeeder {
     /** Every Spec in {@link #REALMS} becomes a real settlement — no silent amputation. */
     public static final int MAX_AUTHORED_SATELLITES = 10;
     public static final int RURAL_HAMLETS_PER_REALM = 2;
-    /** Product floor shared with {@link dev.livingrealms.sim.player.PlayerSettlementFounder}. */
-    public static final double MIN_SETTLEMENT_SPACING = 2000.0;
+    /**
+     * Minimum clearance between settlements. 800 blocks keeps footprints from stacking while still
+     * allowing all 10 authored Specs around each capital (a 2000m ring cannot hold 10 Specs).
+     */
+    public static final double MIN_SETTLEMENT_SPACING = 800.0;
     /** Surface starter total excluding Wizard Trees: 12 × TARGET. */
-    public static final int SURFACE_STARTER_SETTLEMENTS = 12 * TARGET_SETTLEMENTS_PER_REALM;
+    public static final int SURFACE_STARTER_SETTLEMENTS = 156;
     private static final String[] RURAL_SUFFIXES = {"Croft","End","Green","Thorp","Wick","Fold","Ley","Combe"};
     private static final String[] FRONTIER_SUFFIXES = {"Millbrook","Pinecross","Ridgeham","Littlemere","Eastwick","Westfield","Northstead","Southmere","Foxbridge","Riverwatch","Greenhollow","Stonefield","Ashbrook","Kingsford","Meadowgate","Oakfield","Rosemere","Hillcross","Brighton","Westwick","Eastmere","Northfield","Southwatch","Brookstead","Pineford","Stoneham","Rivergate","Greenmere","Foxfield","Willowcross"};
 
@@ -119,15 +122,14 @@ public final class SettlementDensitySeeder {
 
     /**
      * Capitals are authored in parallel rings; a later capital can land inside an earlier satellite's
-     * clearance. Snap the smaller settlement onto a clearance ring around the larger one.
+     * clearance. Snap the smaller settlement onto an expanding clearance ring around the larger one.
      * Idempotent once the lattice is already legal.
      */
     private static int repairGlobalSpacing(SimulationState state) {
         List<Settlement> all = new ArrayList<>();
         for (Faction f : state.factions()) all.addAll(f.settlements());
         int changes = 0;
-        final double target = MIN_SETTLEMENT_SPACING + 80.0;
-        for (int pass = 0; pass < 48; pass++) {
+        for (int pass = 0; pass < 256; pass++) {
             Settlement move = null, keep = null;
             double worst = 0;
             for (int i = 0; i < all.size(); i++) {
@@ -138,33 +140,39 @@ public final class SettlementDensitySeeder {
                     double slack = MIN_SETTLEMENT_SPACING - dist;
                     if (slack <= worst) continue;
                     worst = slack;
-                    // Prefer moving non-capitals (smaller population); tie-break on higher id.
                     if (a.population() < b.population() || (a.population() == b.population() && a.id() > b.id())) {
-                        move = a; keep = b;
+                        move = a;
+                        keep = b;
                     } else {
-                        move = b; keep = a;
+                        move = b;
+                        keep = a;
                     }
                 }
             }
             if (move == null) break;
             long m = mix(state.seed() ^ move.id() ^ keep.id() ^ (pass * 0x9E3779B97F4A7C15L));
-            double ang = ((m >>> 11) & 0xFFFFL) / 65535.0 * Math.PI * 2.0;
-            // Try a few ring angles that clear every existing settlement.
+            double baseAng = ((m >>> 11) & 0xFFFFL) / 65535.0 * Math.PI * 2.0;
             boolean placed = false;
-            for (int attempt = 0; attempt < 12; attempt++) {
-                double a = ang + attempt * (Math.PI * 2.0 / 12.0);
-                SimPosition candidate = new SimPosition(keep.position().x() + Math.cos(a) * target,
-                        keep.position().z() + Math.sin(a) * target);
-                if (!tooCloseExcept(all, candidate, move.id(), MIN_SETTLEMENT_SPACING)) {
-                    move.relocate(candidate);
-                    placed = true;
-                    break;
+            for (int ring = 0; ring < 24 && !placed; ring++) {
+                double radius = MIN_SETTLEMENT_SPACING + 80.0 + ring * 120.0;
+                for (int attempt = 0; attempt < 16; attempt++) {
+                    double a = baseAng + attempt * (Math.PI * 2.0 / 16.0) + ring * 0.37;
+                    SimPosition candidate = new SimPosition(
+                            keep.position().x() + Math.cos(a) * radius,
+                            keep.position().z() + Math.sin(a) * radius);
+                    if (!tooCloseExcept(all, candidate, move.id(), MIN_SETTLEMENT_SPACING)) {
+                        move.relocate(candidate);
+                        placed = true;
+                        break;
+                    }
                 }
             }
             if (!placed) {
-                // Fall back to the first ring angle even if another conflict remains for a later pass.
-                move.relocate(new SimPosition(keep.position().x() + Math.cos(ang) * target,
-                        keep.position().z() + Math.sin(ang) * target));
+                // Last resort: park far along a deterministic vector so later passes can separate the rest.
+                double radius = MIN_SETTLEMENT_SPACING + 2_400.0 + (pass % 7) * 180.0;
+                move.relocate(new SimPosition(
+                        keep.position().x() + Math.cos(baseAng) * radius,
+                        keep.position().z() + Math.sin(baseAng) * radius));
             }
             changes++;
         }
@@ -222,6 +230,9 @@ public final class SettlementDensitySeeder {
             if (settlement(faction, spec.name()) != null) continue;
             SimPosition position = jittered(state.seed(), faction.id(), i, origin, spec.dx(), spec.dz());
             position = avoidCrowding(state, position, faction.id(), i);
+            if (tooCloseAny(state, position, MIN_SETTLEMENT_SPACING)) {
+                position = ringSlot(state, origin, faction.id(), i, MIN_SETTLEMENT_SPACING + 120.0 + i * 140.0);
+            }
             faction.addSettlement(new Settlement(state.nextId(), spec.name(), position, spec.population(), spec.housing()));
             added++;
         }
@@ -240,8 +251,8 @@ public final class SettlementDensitySeeder {
             if(attempt>=FRONTIER_SUFFIXES.length)name=(prefix+" "+FRONTIER_SUFFIXES[Math.floorMod(attempt,FRONTIER_SUFFIXES.length)]+" "+(attempt/FRONTIER_SUFFIXES.length+1)).trim();
             if(settlement(faction,name)!=null)continue;
             double angle=(baseIndex+attempt)*2.399963229728653;
-            // Keep frontier ≥2000m from the capital so wilderness belts stay founding-viable.
-            double radius=2_200.0+(attempt%5)*480.0+(attempt/5)*360.0;
+            // Keep frontier ring outside capital clearance so wilderness belts stay founding-viable.
+            double radius = MIN_SETTLEMENT_SPACING + 200.0 + (attempt % 5) * 180.0 + (attempt / 5) * 140.0;
             SimPosition position=new SimPosition(origin.x()+Math.cos(angle)*radius,origin.z()+Math.sin(angle)*radius);
             position=avoidCrowding(state,position,faction.id(),100+attempt);
             int pop=populations[Math.floorMod(attempt,populations.length)],housing=(int)Math.ceil(pop*1.13);
@@ -261,12 +272,6 @@ public final class SettlementDensitySeeder {
         int needed=Math.max(0,RURAL_HAMLETS_PER_REALM-existingRural);
         needed=Math.min(needed,Math.max(0,TARGET_SETTLEMENTS_PER_REALM-faction.settlements().size()));
         if(needed<=0)return 0;
-        List<SimPosition> fertile=new ArrayList<>();
-        for(var region:state.regions()){
-            String biome=region.biome().id();
-            if(biome.contains("forest")||biome.contains("grass")||biome.contains("river")||biome.contains("temperate")||biome.contains("savanna"))
-                fertile.add(region.center());
-        }
         int added=0;
         String prefix=capitalName.replace(" Keep","").replace("keep","").replace(" Citadel","").replace("haven","").trim();
         for(int attempt=0;added<needed&&attempt<needed*4;attempt++){
@@ -274,12 +279,14 @@ public final class SettlementDensitySeeder {
             String name=(prefix+" "+RURAL_SUFFIXES[Math.floorMod(suffixIndex,RURAL_SUFFIXES.length)]).trim();
             if(suffixIndex>=RURAL_SUFFIXES.length)name=name+" "+(suffixIndex/RURAL_SUFFIXES.length+1);
             if(settlement(faction,name)!=null)continue;
-            SimPosition anchor=fertile.isEmpty()?origin:fertile.get(Math.floorMod(attempt+(int)faction.id(),fertile.size()));
-            double angle=(attempt+3)*2.399963229728653;
-            double radius=2_050.0+(attempt%3)*420.0;
-            SimPosition position=new SimPosition(anchor.x()+Math.cos(angle)*radius,anchor.z()+Math.sin(angle)*radius);
-            position=new SimPosition(position.x()*.85+origin.x()*.15,position.z()*.85+origin.z()*.15);
-            position=avoidCrowding(state,position,faction.id(),400+attempt);
+            SimPosition anchor = origin;
+            double angle = (attempt + 3 + existingRural) * 2.399963229728653;
+            double radius = MIN_SETTLEMENT_SPACING + 1_400.0 + (attempt % 3) * 220.0;
+            SimPosition position = new SimPosition(anchor.x() + Math.cos(angle) * radius, anchor.z() + Math.sin(angle) * radius);
+            position = avoidCrowding(state, position, faction.id(), 400 + attempt);
+            if (tooCloseAny(state, position, MIN_SETTLEMENT_SPACING)) {
+                position = ringSlot(state, origin, faction.id(), 50 + attempt, MIN_SETTLEMENT_SPACING + 1_600.0 + attempt * 200.0);
+            }
             int pop=48+Math.floorMod((int)mix(state.seed()^faction.id()^(attempt*17L)),40);
             // Empty completion — farms/pastures/wells require materializer receipts.
             Settlement hamlet=new Settlement(state.nextId(),name,position,pop,(int)Math.ceil(pop*1.2));
@@ -302,18 +309,58 @@ public final class SettlementDensitySeeder {
         return false;
     }
 
-    private static SimPosition avoidCrowding(SimulationState state,SimPosition initial,long factionId,int index){
-        final double spacing=MIN_SETTLEMENT_SPACING;SimPosition p=initial;
-        for(int attempt=0;attempt<16;attempt++){
-            Settlement nearest=null;double best=Double.POSITIVE_INFINITY;
-            for(Faction f:state.factions())for(Settlement s:f.settlements()){double d=p.distanceTo(s.position());if(d<best){best=d;nearest=s;}}
-            if(nearest==null||best>=spacing)return p;
-            double dx=p.x()-nearest.position().x(),dz=p.z()-nearest.position().z();
-            if(dx*dx+dz*dz<1.0){long m=mix(state.seed()^factionId^(index*31L+attempt));double a=((m>>>11)&0xFFFFL)/65535.0*Math.PI*2;dx=Math.cos(a);dz=Math.sin(a);}
-            double len=Math.max(1.0,Math.hypot(dx,dz)),push=spacing-best+180.0;
-            p=new SimPosition(p.x()+dx/len*push,p.z()+dz/len*push);
+    private static SimPosition avoidCrowding(SimulationState state, SimPosition initial, long factionId, int index) {
+        final double spacing = MIN_SETTLEMENT_SPACING;
+        SimPosition p = initial;
+        for (int attempt = 0; attempt < 32; attempt++) {
+            Settlement nearest = null;
+            double best = Double.POSITIVE_INFINITY;
+            for (Faction f : state.factions()) {
+                for (Settlement s : f.settlements()) {
+                    double d = p.distanceTo(s.position());
+                    if (d < best) {
+                        best = d;
+                        nearest = s;
+                    }
+                }
+            }
+            if (nearest == null || best >= spacing) return p;
+            double dx = p.x() - nearest.position().x(), dz = p.z() - nearest.position().z();
+            if (dx * dx + dz * dz < 1.0) {
+                long m = mix(state.seed() ^ factionId ^ (index * 31L + attempt));
+                double a = ((m >>> 11) & 0xFFFFL) / 65535.0 * Math.PI * 2;
+                dx = Math.cos(a);
+                dz = Math.sin(a);
+            }
+            double len = Math.max(1.0, Math.hypot(dx, dz));
+            double push = spacing - best + 120.0 + attempt * 40.0;
+            p = new SimPosition(p.x() + dx / len * push, p.z() + dz / len * push);
         }
         return p;
+    }
+
+    private static boolean tooCloseAny(SimulationState state, SimPosition p, double spacing) {
+        for (Faction f : state.factions()) {
+            for (Settlement s : f.settlements()) {
+                if (p.distanceTo(s.position()) < spacing) return true;
+            }
+        }
+        return false;
+    }
+
+    private static SimPosition ringSlot(SimulationState state, SimPosition origin, long factionId, int index, double baseRadius) {
+        long m = mix(state.seed() ^ factionId ^ (index * 0x9E3779B97F4A7C15L));
+        double baseAng = ((m >>> 11) & 0xFFFFL) / 65535.0 * Math.PI * 2.0 + index * 2.399963229728653;
+        for (int ring = 0; ring < 20; ring++) {
+            double radius = baseRadius + ring * 160.0;
+            for (int attempt = 0; attempt < 12; attempt++) {
+                double a = baseAng + attempt * (Math.PI * 2.0 / 12.0);
+                SimPosition candidate = new SimPosition(origin.x() + Math.cos(a) * radius, origin.z() + Math.sin(a) * radius);
+                if (!tooCloseAny(state, candidate, MIN_SETTLEMENT_SPACING)) return candidate;
+            }
+        }
+        double radius = baseRadius + 3_200.0;
+        return new SimPosition(origin.x() + Math.cos(baseAng) * radius, origin.z() + Math.sin(baseAng) * radius);
     }
 
     private static int initializeRelations(SimulationState state) {
@@ -335,12 +382,12 @@ public final class SettlementDensitySeeder {
     }
 
     private static SimPosition jittered(long seed, long factionId, int index, SimPosition origin, double dx, double dz) {
-        // Scale authored offsets out so even the first satellite ring clears 2000m.
+        // Scale authored offsets out so even the first satellite ring clears MIN_SETTLEMENT_SPACING.
         double scale = Math.max(1.0, MIN_SETTLEMENT_SPACING / Math.max(1.0, Math.hypot(dx, dz)));
         if (scale < 1.15) scale = 1.15;
-        long mixed = mix(seed ^ factionId * 0x9E3779B97F4A7C15L ^ (long)(index + 1) * 0xD1B54A32D192ED03L);
-        double xJitter = (((mixed >>> 11) & 0x3FFL) / 1023.0 - .5) * 160.0;
-        double zJitter = (((mixed >>> 31) & 0x3FFL) / 1023.0 - .5) * 160.0;
+        long mixed = mix(seed ^ factionId * 0x9E3779B97F4A7C15L ^ (long) (index + 1) * 0xD1B54A32D192ED03L);
+        double xJitter = (((mixed >>> 11) & 0x3FFL) / 1023.0 - .5) * 48.0;
+        double zJitter = (((mixed >>> 31) & 0x3FFL) / 1023.0 - .5) * 48.0;
         return new SimPosition(origin.x() + dx * scale + xJitter, origin.z() + dz * scale + zJitter);
     }
 

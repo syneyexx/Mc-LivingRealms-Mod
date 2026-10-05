@@ -178,6 +178,7 @@ required_suite={
     'dev.livingrealms.SingleProductionAuthorityTest',
     'dev.livingrealms.SiegeBreachAllKeysTest',
     'dev.livingrealms.DashboardActionExhaustivenessTest',
+    'dev.livingrealms.DocumentationPinTest',
     'dev.livingrealms.LongRunSoakTest',
 }
 missing_required=sorted(required_suite-set(canonical_tests))
