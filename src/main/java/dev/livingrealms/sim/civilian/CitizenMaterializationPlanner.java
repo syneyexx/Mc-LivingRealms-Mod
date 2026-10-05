@@ -26,6 +26,10 @@ public final class CitizenMaterializationPlanner {
         List<Candidate> candidates=new ArrayList<>();
         for(Faction faction:factions)for(Settlement settlement:faction.settlements()){
             double distance=nearest(settlement.position(),players);if(distance>radius)continue;
+            // Runtime entity LOD may reveal life only after physical identity exists. This does not
+            // affect the compatibility overload (state==null), and anchored foreign/legacy cores
+            // are already-real physical settlements even without LR construction receipts.
+            if(state!=null&&!physicalCorePresent(settlement))continue;
             // A physical citizen is still only a representative, but settlements should visibly
             // feel inhabited. Scale sub-linearly with population so cities look busy without
             // turning canonical population into thousands of entities.
@@ -65,6 +69,20 @@ public final class CitizenMaterializationPlanner {
             if(remaining<=0)break;
         }
         return List.copyOf(out);
+    }
+
+    static boolean physicalCorePresent(Settlement settlement){
+        Objects.requireNonNull(settlement,"settlement");
+        if(settlement.physicallyAnchored()
+                &&(settlement.origin()==SettlementOrigin.FOREIGN_ADOPTED
+                ||settlement.origin()==SettlementOrigin.LEGACY))return true;
+        for(String key:settlement.completedConstruction()){
+            if(key.startsWith("roadgraph:")||key.startsWith("road:")
+                    ||key.startsWith("house:")||key.startsWith("keep:")
+                    ||key.startsWith("town_hall:")||key.startsWith("market:")
+                    ||key.startsWith("wizard_hall:")||key.startsWith("foreign:adopted_footprint"))return true;
+        }
+        return false;
     }
 
     private static CitizenRole roleFor(Faction faction,Settlement settlement,int slot,int count){
