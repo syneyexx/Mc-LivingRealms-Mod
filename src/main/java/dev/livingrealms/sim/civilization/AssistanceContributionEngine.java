@@ -4,6 +4,7 @@ import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.industry.IndustrialSiteStatus;
+import dev.livingrealms.sim.player.PlayerAgencyConsequences;
 import dev.livingrealms.sim.player.PlayerStanding;
 import dev.livingrealms.sim.util.Mathx;
 import dev.livingrealms.sim.world.SimPosition;
@@ -78,8 +79,11 @@ public final class AssistanceContributionEngine {
 
         state.history().add(new WorldEvent(state.clock().day(), "assistance_contribution",
                 "task=" + task.id() + ", actor=" + actorKey + ", type=" + task.type()
+                        + ", settlement=" + settlement.id() + ", faction=" + faction.id()
                         + ", resource=" + resource + ", units=" + String.format(Locale.ROOT, "%.1f", delivered)
                         + ", status=" + task.status()));
+        // Observable feedback: mood, NPC memory, rumor subject, migration pressure.
+        PlayerAgencyConsequences.onAssistance(state, actorKey, settlement, faction, task, relief);
         return new Result(true, true, "contributed", task.id(), task.status(), relief);
     }
 

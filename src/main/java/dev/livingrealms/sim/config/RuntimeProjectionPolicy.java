@@ -2,6 +2,7 @@ package dev.livingrealms.sim.config;
 
 import dev.livingrealms.sim.logistics.projection.CaravanProjectionConfig;
 import dev.livingrealms.sim.materialization.MaterializationConfig;
+import dev.livingrealms.sim.runtime.ProjectionBudget;
 import java.util.Objects;
 
 /**
@@ -13,17 +14,12 @@ public final class RuntimeProjectionPolicy {
 
     public static MaterializationConfig wildlife(SimulationConfig config) {
         Objects.requireNonNull(config, "config");
-        int perGroup = Math.max(1, Math.min(32, Math.max(1, config.maxPhysicalWildlife())));
-        return new MaterializationConfig(
-                config.physicalRadiusBlocks(),
-                config.regionalRadiusBlocks(),
-                perGroup,
-                config.maxPhysicalWildlife());
+        return ProjectionBudget.healthy(config, 1).wildlifeMaterialization();
     }
 
     public static CaravanProjectionConfig caravans(SimulationConfig config) {
         Objects.requireNonNull(config, "config");
-        return new CaravanProjectionConfig(config.physicalRadiusBlocks(), config.maxPhysicalCaravans());
+        return ProjectionBudget.healthy(config, 1).caravans();
     }
 
     /** Aircraft are visible farther away than ground entities but share the military performance envelope. */
@@ -34,7 +30,7 @@ public final class RuntimeProjectionPolicy {
 
     public static int aircraftBudget(SimulationConfig config) {
         Objects.requireNonNull(config, "config");
-        return Math.max(0, Math.min(64, config.maxPhysicalMilitaryEntities() / 3));
+        return ProjectionBudget.healthy(config, 1).lane(ProjectionBudget.Lane.AIRCRAFT);
     }
 
     /** Ships need a slightly longer visual horizon, while still scaling with the selected profile. */
@@ -46,7 +42,7 @@ public final class RuntimeProjectionPolicy {
     /** Civilian projections are bounded independently from population size but follow the profile envelope. */
     public static int citizenBudget(SimulationConfig config) {
         Objects.requireNonNull(config, "config");
-        return Math.max(64, Math.min(160, config.maxPhysicalMilitaryEntities() + 48));
+        return ProjectionBudget.healthy(config, 1).lane(ProjectionBudget.Lane.CITIZENS);
     }
 
     /** Citizens remain visible somewhat farther than wildlife so an approaching town looks inhabited. */
@@ -65,7 +61,7 @@ public final class RuntimeProjectionPolicy {
     /** Sparse road travelers: one physical body per active CitizenJourney near players. */
     public static int journeyBudget(SimulationConfig config) {
         Objects.requireNonNull(config, "config");
-        return Math.max(4, Math.min(24, citizenBudget(config) / 8));
+        return ProjectionBudget.healthy(config, 1).lane(ProjectionBudget.Lane.JOURNEYS);
     }
 
     public static double journeyRadiusBlocks(SimulationConfig config) {

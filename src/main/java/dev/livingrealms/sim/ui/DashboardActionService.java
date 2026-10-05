@@ -138,6 +138,22 @@ public final class DashboardActionService {
             double paid=state.payFine(actorKey,factionId,offer);
             return new Result(paid>0,paid>0,paid>0?"fine_paid_"+Math.round(paid):"fine_failed");
         }
+        if(command.action()==DashboardActionCommand.Action.UNDERWORLD_ACCEPT){
+            var r=dev.livingrealms.sim.underworld.UnderworldActions.acceptContract(state,actorKey,command.targetId());
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
+        if(command.action()==DashboardActionCommand.Action.UNDERWORLD_BRIBE){
+            double offer=55;
+            if(!command.argument().isBlank()){
+                try{offer=Math.max(1,Double.parseDouble(command.argument()));}catch(NumberFormatException ignored){offer=55;}
+            }
+            var r=dev.livingrealms.sim.underworld.UnderworldActions.bribeOfficial(state,actorKey,command.targetId(),offer);
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
+        if(command.action()==DashboardActionCommand.Action.BLACK_MARKET_SELL){
+            var r=dev.livingrealms.sim.underworld.BlackMarketService.sell(state,actorKey,command.targetId());
+            return new Result(r.success(),r.success(),r.reason());
+        }
         if(isInfluenceAction(command.action())){
             if(command.action()==DashboardActionCommand.Action.REQUEST_MILITARY_SUPPORT){
                 var r=PlayerAgencyActions.requestMilitarySupportMission(state,actorKey,command.targetId());
@@ -165,7 +181,7 @@ public final class DashboardActionService {
         return switch(command.action()){
             case BOUNTY_ACCEPT -> {var r=state.acceptBounty(contract.id(),actorKey);yield new Result(r.success(),r.success(),r.reason());}
             case BOUNTY_ABANDON -> {var r=state.abandonBounty(contract.id(),actorKey);yield new Result(r.success(),r.success(),r.reason());}
-            case CONFIG_PERFORMANCE,CONFIG_BALANCED,CONFIG_IMMERSIVE,CONFIG_CINEMATIC,FACTION_JOIN_LOCAL,FACTION_LEAVE,TAX_LOWER,TAX_RAISE,SETTLEMENT_BALANCED,SETTLEMENT_FOOD,SETTLEMENT_HOUSING,SETTLEMENT_INDUSTRY,SETTLEMENT_DEFENSE,SET_DEVELOPMENT_MODE,REGISTER_BUILDING,MARKET_BUY,MARKET_SELL,REQUEST_AUDIENCE,PROPOSE_PROJECT,REQUEST_MILITARY_SUPPORT,PETITION_TRADE,PETITION_CLERGY,FOUND_SETTLEMENT,ABDICATE,PETITION_PEACE,PROPOSE_TRADE_PACT,DECLARE_WAR,ARMY_DEFEND_HOME,ARMY_RALLY,ARMY_STAND_DOWN,ARMY_CAPTURE,ARMY_SIEGE,ARMY_RAID,ARMY_ESCORT,ARMY_PATROL,SURRENDER,PAY_FINE -> new Result(false,false,"action_unreachable");
+            case CONFIG_PERFORMANCE,CONFIG_BALANCED,CONFIG_IMMERSIVE,CONFIG_CINEMATIC,FACTION_JOIN_LOCAL,FACTION_LEAVE,TAX_LOWER,TAX_RAISE,SETTLEMENT_BALANCED,SETTLEMENT_FOOD,SETTLEMENT_HOUSING,SETTLEMENT_INDUSTRY,SETTLEMENT_DEFENSE,SET_DEVELOPMENT_MODE,REGISTER_BUILDING,MARKET_BUY,MARKET_SELL,REQUEST_AUDIENCE,PROPOSE_PROJECT,REQUEST_MILITARY_SUPPORT,PETITION_TRADE,PETITION_CLERGY,FOUND_SETTLEMENT,ABDICATE,PETITION_PEACE,PROPOSE_TRADE_PACT,DECLARE_WAR,ARMY_DEFEND_HOME,ARMY_RALLY,ARMY_STAND_DOWN,ARMY_CAPTURE,ARMY_SIEGE,ARMY_RAID,ARMY_ESCORT,ARMY_PATROL,SURRENDER,PAY_FINE,UNDERWORLD_ACCEPT,UNDERWORLD_BRIBE,BLACK_MARKET_SELL -> new Result(false,false,"action_unreachable");
         };
     }
 

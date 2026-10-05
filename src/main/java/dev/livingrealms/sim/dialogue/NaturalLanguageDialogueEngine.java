@@ -115,6 +115,22 @@ public final class NaturalLanguageDialogueEngine {
     }
     private static String answerCrime(SimulationState state,SocialCitizen c,Settlement s,Faction f,String playerKey,String subject,long day){
         if("wanted".equals(subject)){var wanted=state.crimeLedger().findProfile(playerKey).flatMap(p->p.find(f.id()));if(wanted.isEmpty()||wanted.get().wantedLevel().name().equals("NONE"))return "As far as this realm's records show, the guards are not currently looking for you.";var w=wanted.get();return "Here, your status is "+pretty(w.wantedLevel().name())+" with a bounty of about "+Math.round(w.bounty())+" and heat "+Math.round(w.heat())+".";}
+        // Tavern / trader underworld contact: tip the contract board without fabricating crimes.
+        boolean tavernContact=c.role()==CitizenRole.TRADER||c.role()==CitizenRole.ARTISAN
+                ||has(s,"tavern:")||f.government().corruption()>.38;
+        if(tavernContact&&!authority(c)){
+            long openJobs=state.underworldContracts().stream()
+                    .filter(uc->uc.status()==dev.livingrealms.sim.underworld.UnderworldContract.Status.AVAILABLE
+                            &&uc.jurisdictionFactionId()==f.id()).count();
+            if(openJobs>0){
+                return "Quiet word from the tavern: there "
+                        +(openJobs==1?"is ":"are ")+openJobs+" underworld "
+                        +(openJobs==1?"job":"jobs")+" posted for this realm. Open the Underworld tab on your realm dashboard — jobs only clear when you commit a matching real crime.";
+            }
+            if(f.government().corruption()>.4){
+                return "If you know the right tavern corners, illicit work sometimes appears when the court looks the other way. Check the Underworld board when a town grows corrupt enough.";
+            }
+        }
         long active=state.justiceCases().stream().filter(JusticeCase::active).filter(j->j.settlementId()==s.id()).count();if(authority(c))return "There "+(active==1?"is":"are")+" "+active+" active local court "+(active==1?"case":"cases")+". Public order is "+level(s.publicOrder())+" and enforcement is "+level(f.government().lawEnforcement())+".";return s.publicOrder()<.42?"People are worried about crime here. The guards have more work than they can comfortably handle.":compose(c,day,"crime",List.of("Crime happens, but the guards usually keep order","I would not call this place lawless","Most people here still trust the streets well enough"))+".";
     }
     private static String answerWater(SimulationState state,SocialCitizen c,Settlement s,Faction f,long day){SettlementCivilizationState civ=state.ensureSettlementCivilization(s.id(),f.id());boolean well=has(s,"well:"),irrigation=has(s,"irrigation:"),aqueduct=has(s,"aqueduct:");String infrastructure=(aqueduct?"an aqueduct":well?"a public well":irrigation?"irrigation works":"no major dedicated waterworks");return compose(c,day,"water",List.of("Water security is "+level(civ.waterSecurity()),"Our access to clean water is "+level(civ.waterSecurity())))+". We have "+infrastructure+", and sanitation is "+level(civ.sanitation())+".";}

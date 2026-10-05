@@ -1,2 +1,54 @@
-package dev.livingrealms.minecraft.entity;import dev.livingrealms.minecraft.LivingRealmsSavedData;import dev.livingrealms.sim.aviation.*;import dev.livingrealms.sim.config.RuntimeProjectionPolicy;import dev.livingrealms.sim.util.DeterministicRng;import dev.livingrealms.sim.world.SimPosition;import java.util.*;import net.minecraft.core.BlockPos;import net.minecraft.server.MinecraftServer;import net.minecraft.server.level.ServerLevel;import net.minecraft.world.level.levelgen.Heightmap;
-public final class AircraftMaterializer{private AircraftMaterializer(){}public static void tick(MinecraftServer server,LivingRealmsSavedData data){ServerLevel level=server.overworld();List<SimPosition> players=level.players().stream().map(p->new SimPosition(p.getX(),p.getZ())).toList();var config=data.state().config();List<AircraftProjection> desired=AircraftMaterializationPlanner.plan(data.state().airWings(),players,RuntimeProjectionPolicy.aircraftRadiusBlocks(config),RuntimeProjectionPolicy.aircraftBudget(config));Set<String>wanted=new HashSet<>();for(AircraftProjection p:desired)wanted.add(p.projectionKey());Set<String>seen=new HashSet<>();for(LivingRealmsAircraftEntity e:AircraftProjectionIndex.loaded()){String k=e.wingId()+":"+e.projectionSlot();if(!wanted.contains(k)||!seen.add(k))e.dematerialize();}for(AircraftProjection p:desired){if(AircraftProjectionIndex.forSlot(p.wingId(),p.slot())!=null)continue;SimPosition q=position(data.state().seed(),p);int x=(int)Math.floor(q.x()),z=(int)Math.floor(q.z());BlockPos probe=new BlockPos(x,level.getSeaLevel(),z);if(!level.hasChunkAt(probe))continue;int y=level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,x,z)+45+Math.floorMod(p.slot()*7,22);LivingRealmsAircraftEntity e=ModEntities.AIRCRAFT.get().create(level);if(e==null)continue;e.initializeProjection(p.wingId(),p.factionId(),p.slot(),p.model());e.moveTo(x+.5,y,z+.5,level.random.nextFloat()*360,0);level.addFreshEntity(e);}}private static SimPosition position(long seed,AircraftProjection p){DeterministicRng r=new DeterministicRng(seed^p.wingId()*0xD1B54A32D192ED03L^p.slot()*0x94D049BB133111EBL);double rad=r.between(8,60),a=r.between(0,Math.PI*2);return new SimPosition(p.position().x()+Math.cos(a)*rad,p.position().z()+Math.sin(a)*rad);}}
+package dev.livingrealms.minecraft.entity;
+
+import dev.livingrealms.minecraft.LivingRealmsSavedData;
+import dev.livingrealms.sim.aviation.*;
+import dev.livingrealms.sim.config.RuntimeProjectionPolicy;
+import dev.livingrealms.sim.runtime.ProjectionBudget;
+import dev.livingrealms.sim.util.DeterministicRng;
+import dev.livingrealms.sim.world.SimPosition;
+import java.util.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.levelgen.Heightmap;
+
+public final class AircraftMaterializer {
+    private AircraftMaterializer() {}
+
+    public static void tick(MinecraftServer server, LivingRealmsSavedData data) {
+        ServerLevel level = server.overworld();
+        List<SimPosition> players = level.players().stream().map(p -> new SimPosition(p.getX(), p.getZ())).toList();
+        var config = data.state().config();
+        ProjectionBudget budget = ProjectionBudget.forPlayers(config, Math.max(1, players.size()));
+        List<AircraftProjection> desired = AircraftMaterializationPlanner.plan(
+                data.state().airWings(), players,
+                RuntimeProjectionPolicy.aircraftRadiusBlocks(config),
+                budget.lane(ProjectionBudget.Lane.AIRCRAFT));
+        Set<String> wanted = new HashSet<>();
+        for (AircraftProjection p : desired) wanted.add(p.projectionKey());
+        Set<String> seen = new HashSet<>();
+        for (LivingRealmsAircraftEntity e : AircraftProjectionIndex.loaded()) {
+            String k = e.wingId() + ":" + e.projectionSlot();
+            if (!wanted.contains(k) || !seen.add(k)) e.dematerialize();
+        }
+        for (AircraftProjection p : desired) {
+            if (AircraftProjectionIndex.forSlot(p.wingId(), p.slot()) != null) continue;
+            SimPosition q = position(data.state().seed(), p);
+            int x = (int) Math.floor(q.x()), z = (int) Math.floor(q.z());
+            BlockPos probe = new BlockPos(x, level.getSeaLevel(), z);
+            if (!level.hasChunkAt(probe)) continue;
+            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) + 45 + Math.floorMod(p.slot() * 7, 22);
+            LivingRealmsAircraftEntity e = ModEntities.AIRCRAFT.get().create(level);
+            if (e == null) continue;
+            e.initializeProjection(p.wingId(), p.factionId(), p.slot(), p.model());
+            e.moveTo(x + .5, y, z + .5, level.random.nextFloat() * 360, 0);
+            level.addFreshEntity(e);
+        }
+    }
+
+    private static SimPosition position(long seed, AircraftProjection p) {
+        DeterministicRng r = new DeterministicRng(seed ^ p.wingId() * 0xD1B54A32D192ED03L ^ p.slot() * 0x94D049BB133111EBL);
+        double rad = r.between(8, 60), a = r.between(0, Math.PI * 2);
+        return new SimPosition(p.position().x() + Math.cos(a) * rad, p.position().z() + Math.sin(a) * rad);
+    }
+}

@@ -52,6 +52,8 @@ dev.livingrealms.MobileCivilizationProjectionTest
 dev.livingrealms.WizardTreesTest
 dev.livingrealms.RuntimeSmokeTest
 dev.livingrealms.RuntimeSchedulerTest
+dev.livingrealms.ProjectionBudgetTest
+dev.livingrealms.ConstructionBudgetAdaptationTest
 dev.livingrealms.HousingAndProductionTruthTest
 dev.livingrealms.RegionalImpostorPlannerTest
 dev.livingrealms.PlayerAgencyTest
@@ -75,6 +77,7 @@ dev.livingrealms.ForeignSettlementSpacingTest
 dev.livingrealms.PlayerWarRoomTest
 dev.livingrealms.WarRoomOptionsBuilderTest
 dev.livingrealms.UnderworldGameplayTest
+dev.livingrealms.PlayerExperienceSurfaceTest
 dev.livingrealms.RoadLifeLayerTest
 dev.livingrealms.RoadLifeMaterializationTest
 dev.livingrealms.PlayerStructureRevalidationTest

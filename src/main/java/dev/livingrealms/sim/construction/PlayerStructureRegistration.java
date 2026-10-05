@@ -3,6 +3,7 @@ package dev.livingrealms.sim.construction;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.player.FactionRank;
+import dev.livingrealms.sim.player.PlayerAgencyConsequences;
 import dev.livingrealms.sim.player.PlayerStanding;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.WorldEvent;
@@ -74,7 +75,8 @@ public final class PlayerStructureRegistration {
         HousingCapacity.reconcileCanonical(settlement, state);
         state.history().add(new WorldEvent(state.clock().day(), "player_structure_registered",
                 "actor=" + actorKey + ", settlement=" + settlementId + ", role=" + role
-                        + ", capacity=" + validation.capacity()));
+                        + ", capacity=" + validation.capacity() + ", faction=" + owner.id()));
+        PlayerAgencyConsequences.onBuildingRegistered(state, settlement, owner, role, validation.capacity());
         return Result.ok(structure.id(), validation.capacity());
     }
 
@@ -84,9 +86,16 @@ public final class PlayerStructureRegistration {
         RegisteredPlayerStructure structure = state.findRegisteredPlayerStructure(structureId).orElse(null);
         if (structure == null) return Result.fail("structure_missing");
         structure.markInvalid(state.clock().day());
-        state.findSettlement(structure.settlementId()).ifPresent(s -> HousingCapacity.reconcileCanonical(s, state));
+        Settlement settlement = state.findSettlement(structure.settlementId()).orElse(null);
+        Faction owner = settlement == null ? null : state.findSettlementOwner(settlement.id()).orElse(null);
+        if (settlement != null) HousingCapacity.reconcileCanonical(settlement, state);
         state.history().add(new WorldEvent(state.clock().day(), "player_structure_invalidated",
-                "structure=" + structureId + ", reason=" + (reason == null ? "revalidation" : reason)));
+                "structure=" + structureId + ", settlement=" + structure.settlementId()
+                        + ", role=" + structure.role()
+                        + ", reason=" + (reason == null ? "revalidation" : reason)));
+        if (settlement != null) {
+            PlayerAgencyConsequences.onBuildingInvalidated(state, settlement, owner, structure.role());
+        }
         return Result.ok(structureId, 0);
     }
 

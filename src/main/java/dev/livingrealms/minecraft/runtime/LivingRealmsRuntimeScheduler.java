@@ -4,6 +4,7 @@ import dev.livingrealms.minecraft.SimulationRuntime;
 import dev.livingrealms.minecraft.SpeciesDataRegistry;
 import dev.livingrealms.sim.runtime.RuntimeBudgetController;
 import dev.livingrealms.sim.runtime.RuntimeDeferTracker;
+import dev.livingrealms.sim.runtime.RuntimePressureBridge;
 import dev.livingrealms.sim.runtime.RuntimeTelemetryRegistry;
 import dev.livingrealms.sim.runtime.SimulationTickBudget;
 import java.util.ArrayList;
@@ -37,6 +38,7 @@ public final class LivingRealmsRuntimeScheduler {
         speciesReloadState.reset();
         deferTracker.clearAll();
         budgetController.reset();
+        RuntimePressureBridge.reset();
         telemetry.resetAll();
     }
 
@@ -47,6 +49,7 @@ public final class LivingRealmsRuntimeScheduler {
         tickCounter++;
         SimulationTickBudget budget = SimulationTickBudget.forHealthyTick();
         budgetController.beginTick(budget);
+        RuntimePressureBridge.publish(budgetController.pressure());
         var data = SimulationRuntime.data(server);
         RuntimeTaskContext ctx = new RuntimeTaskContext(server, data, tickCounter, budget);
 

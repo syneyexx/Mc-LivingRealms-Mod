@@ -6,6 +6,7 @@ import dev.livingrealms.sim.faction.Army;
 import dev.livingrealms.sim.military.MilitaryMaterializationPlanner;
 import dev.livingrealms.sim.military.MilitaryProjection;
 import dev.livingrealms.sim.military.MilitaryUnitClass;
+import dev.livingrealms.sim.runtime.ProjectionBudget;
 import dev.livingrealms.sim.util.DeterministicRng;
 import dev.livingrealms.sim.world.SimPosition;
 import java.util.HashSet;
@@ -26,10 +27,11 @@ public final class MilitaryUnitMaterializer {
     public static void tick(MinecraftServer server, LivingRealmsSavedData data) {
         ServerLevel level = server.overworld();
         List<SimPosition> players = level.players().stream().map(p -> new SimPosition(p.getX(), p.getZ())).toList();
+        ProjectionBudget budget = ProjectionBudget.forPlayers(data.state().config(), Math.max(1, players.size()));
         List<MilitaryProjection> desired = MilitaryMaterializationPlanner.plan(
                 data.state().factions(), players,
                 RuntimeProjectionPolicy.militaryRadiusBlocks(data.state().config()),
-                data.state().config().maxPhysicalMilitaryEntities());
+                budget.lane(ProjectionBudget.Lane.MILITARY));
         Set<String> wanted = new HashSet<>();
         for (MilitaryProjection p : desired) wanted.add(p.projectionKey());
         Set<String> seen = new HashSet<>();

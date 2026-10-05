@@ -7,6 +7,7 @@ import dev.livingrealms.sim.faction.Army;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.military.SiegeState;
 import dev.livingrealms.sim.underworld.UnderworldActions;
+import dev.livingrealms.sim.underworld.UnderworldBoardEngine;
 import dev.livingrealms.sim.util.DeterministicRng;
 import java.util.ArrayList;
 
@@ -73,6 +74,7 @@ public final class SimulationEngine {
             state.aviationEngine().simulateDay(state, new DeterministicRng(seed ^ day ^ 0x3C6EF372FE94F82BL));
             state.navalEngine().simulateDay(state, new DeterministicRng(seed ^ day ^ 0x510E527FADE682D1L));
             state.crimeEngine().simulateDay(state, state.config().crimeHeatDecayPerDay(), state.config().reputationDecayPerDay());
+            UnderworldBoardEngine.simulateDay(state, new DeterministicRng(seed ^ day ^ 0x55DD3B20L));
             UnderworldActions.expireDue(state);
             if (day % 7 == 0) UnderworldActions.pruneClosedContracts(state);
             state.bountyOfficeEngine().simulateDay(state);

@@ -28,6 +28,7 @@ import dev.livingrealms.sim.compat.ModCompatibilityPolicy;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.economy.primary.PrimaryEconomyPlanner;
+import dev.livingrealms.sim.runtime.ProjectionBudget;
 import dev.livingrealms.sim.world.WizardTreesSeeder;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -78,7 +79,8 @@ public final class SettlementConstructionMaterializer {
         if(catchup>0)requestCatchup(catchup);
         refreshPresentationScope(level,data);
         discoverLoadedWork(level,data);
-        int operationBudget=Math.max(320,data.state().config().constructionBlockOpsPerTick());
+        int operationBudget=ProjectionBudget.forPlayers(data.state().config(),Math.max(1,level.players().size()))
+                .constructionBlockOpsPerTick();
         if(catchupTicks>0){
             // Soft-ramp catch-up ops to avoid a 960 ops/tick hitch with many nearby settlements/players.
             int players=Math.max(1,level.players().size());
