@@ -276,6 +276,16 @@ public final class SettlementStreetGraph {
 
     private static SimPosition p(double x,double z){return new SimPosition(x,z);}
 
+    /** Return a new graph with additional graph-authored segments; existing topology is preserved. */
+    public SettlementStreetGraph withAdditionalSegments(List<RoadSegment> additional) {
+        Objects.requireNonNull(additional, "additional");
+        if (additional.isEmpty()) return this;
+        BuilderRaw b = new BuilderRaw(settlementId);
+        for (RoadSegment segment : segments) b.add(segment);
+        for (RoadSegment segment : additional) b.add(Objects.requireNonNull(segment, "segment"));
+        return b.build();
+    }
+
     /** Compatibility import for legacy tests/tools; new production planning must use {@link #plan}. */
     public static SettlementStreetGraph fromRoadIntents(long settlementId, List<ConstructionIntent> roadIntents) {
         Objects.requireNonNull(roadIntents, "roadIntents");
