@@ -1,0 +1,99 @@
+{
+  "id": "solenne",
+  "displayName": "Kingdom of Solenne",
+  "rulerSeedName": "Queen Maris III",
+  "capitalName": "Solspire",
+  "x": 1430,
+  "z": -7040,
+  "capitalPopulation": 3850,
+  "capitalHousing": 4250,
+  "technology": 0.36,
+  "treasury": 9800,
+  "armyInfantry": 165,
+  "namingHints": [
+    "Sol",
+    "Bright",
+    "Sun",
+    "Vale",
+    "Amber",
+    "High",
+    "Dawn",
+    "Lark",
+    "South",
+    "Cinder",
+    "Quiet"
+  ],
+  "satellites": [
+    {
+      "name": "Brightwater",
+      "dx": 480,
+      "dz": -360,
+      "population": 520,
+      "housing": 610
+    },
+    {
+      "name": "Sunford",
+      "dx": -610,
+      "dz": 380,
+      "population": 170,
+      "housing": 225
+    },
+    {
+      "name": "Valecross",
+      "dx": 870,
+      "dz": 500,
+      "population": 1260,
+      "housing": 1430
+    },
+    {
+      "name": "Amberfield",
+      "dx": -960,
+      "dz": -510,
+      "population": 310,
+      "housing": 380
+    },
+    {
+      "name": "Highsun",
+      "dx": 1300,
+      "dz": -720,
+      "population": 1520,
+      "housing": 1730
+    },
+    {
+      "name": "Dawnwatch",
+      "dx": 1440,
+      "dz": 290,
+      "population": 470,
+      "housing": 555
+    },
+    {
+      "name": "Larkbrook",
+      "dx": 390,
+      "dz": 940,
+      "population": 110,
+      "housing": 150
+    },
+    {
+      "name": "Southgate",
+      "dx": -1390,
+      "dz": 740,
+      "population": 700,
+      "housing": 815
+    },
+    {
+      "name": "Cinderfield",
+      "dx": 1710,
+      "dz": 1010,
+      "population": 245,
+      "housing": 310
+    },
+    {
+      "name": "Quietmere",
+      "dx": -1810,
+      "dz": -880,
+      "population": 65,
+      "housing": 92
+    }
+  ],
+  "cultureId": "solenne_sunfield"
+}

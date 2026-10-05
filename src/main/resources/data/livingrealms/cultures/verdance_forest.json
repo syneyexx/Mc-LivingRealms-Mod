@@ -1,0 +1,21 @@
+{
+  "id": "verdance_forest",
+  "displayName": "Verdance Forestfolk",
+  "architectureFamily": "TIMBER_PAVILION",
+  "namingStyle": "greenwood",
+  "dialectStyle": "forest speech",
+  "materialPalette": [
+    "oak",
+    "mossy_cobble",
+    "vines"
+  ],
+  "economicTendency": 0.5,
+  "martialTendency": 0.3,
+  "artisticTendency": 0.6,
+  "districtTendencies": [
+    "RURAL_FRINGE",
+    "RESIDENTIAL",
+    "RELIGIOUS"
+  ],
+  "relatedFamily": "MEDIEVAL_FACHWERK"
+}

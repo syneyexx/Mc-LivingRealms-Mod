@@ -19,6 +19,7 @@ public final class SettlementStreetGraphTest {
     public static void main(String[] args) {
         connectedCoreAndParcels();
         housesFaceFrontage();
+        housesCarryParcelBindings();
         System.out.println("PASS settlement street graph: connected roads, parcels, frontage-facing houses");
     }
 
@@ -74,6 +75,23 @@ public final class SettlementStreetGraphTest {
             if (matched >= 3) break;
         }
         check(matched >= 3, "houses must inherit parcel frontage facing (matched=" + matched + ")");
+    }
+
+    private static void housesCarryParcelBindings() {
+        Faction faction = new Faction(9, "Bound Realm", "Steward");
+        Settlement town = new Settlement(90, "Boundtown", new SimPosition(200, 200), 900, 850);
+        faction.addSettlement(town);
+        List<ConstructionIntent> plan = SettlementPlanner.plan(faction, town);
+        List<ConstructionIntent> houses = plan.stream().filter(h -> h.role() == StructureRole.HOUSE).toList();
+        check(!houses.isEmpty(), "bound town must plan houses");
+        long bound = houses.stream().filter(ConstructionIntent::hasParcel).count();
+        check(bound >= 3, "planned houses must bind parcelId (bound=" + bound + ")");
+        for (ConstructionIntent house : houses) {
+            if (!house.hasParcel()) continue;
+            check(house.parcelId().startsWith("parcel:"), "parcel id format: " + house.parcelId());
+            check(house.parcelWidth() >= house.width(), "parcel width must cover house");
+            check(house.parcelDepth() >= house.depth(), "parcel depth must cover house");
+        }
     }
 
     private static void check(boolean cond, String message) {

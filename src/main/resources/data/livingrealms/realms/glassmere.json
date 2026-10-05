@@ -1,0 +1,99 @@
+{
+  "id": "glassmere",
+  "displayName": "Kingdom of Glassmere",
+  "rulerSeedName": "King Caelan II",
+  "capitalName": "Glasskeep",
+  "x": -5500,
+  "z": 15840,
+  "capitalPopulation": 3500,
+  "capitalHousing": 3980,
+  "technology": 0.43,
+  "treasury": 11000,
+  "armyInfantry": 170,
+  "namingHints": [
+    "Glass",
+    "Clear",
+    "Mirror",
+    "Crystal",
+    "Silver",
+    "High",
+    "Prism",
+    "Blue",
+    "West",
+    "Shard",
+    "Quiet"
+  ],
+  "satellites": [
+    {
+      "name": "Clearwater",
+      "dx": 520,
+      "dz": -410,
+      "population": 650,
+      "housing": 750
+    },
+    {
+      "name": "Mirrorfen",
+      "dx": -650,
+      "dz": 400,
+      "population": 180,
+      "housing": 240
+    },
+    {
+      "name": "Crystal Gate",
+      "dx": 940,
+      "dz": 510,
+      "population": 1380,
+      "housing": 1570
+    },
+    {
+      "name": "Silverfield",
+      "dx": -990,
+      "dz": -550,
+      "population": 340,
+      "housing": 415
+    },
+    {
+      "name": "Highglass",
+      "dx": 1370,
+      "dz": -720,
+      "population": 1610,
+      "housing": 1830
+    },
+    {
+      "name": "Prismwatch",
+      "dx": 1490,
+      "dz": 320,
+      "population": 520,
+      "housing": 610
+    },
+    {
+      "name": "Bluebrook",
+      "dx": 420,
+      "dz": 970,
+      "population": 118,
+      "housing": 162
+    },
+    {
+      "name": "Westmirror",
+      "dx": -1440,
+      "dz": 780,
+      "population": 750,
+      "housing": 865
+    },
+    {
+      "name": "Shardfield",
+      "dx": 1760,
+      "dz": 1040,
+      "population": 270,
+      "housing": 340
+    },
+    {
+      "name": "Quietglass",
+      "dx": -1880,
+      "dz": -920,
+      "population": 74,
+      "housing": 104
+    }
+  ],
+  "cultureId": "glassmere_scholar"
+}

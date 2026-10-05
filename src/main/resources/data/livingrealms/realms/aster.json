@@ -1,0 +1,99 @@
+{
+  "id": "aster",
+  "displayName": "Kingdom of Aster",
+  "rulerSeedName": "Queen Elara I",
+  "capitalName": "Asterhold",
+  "x": 0,
+  "z": 0,
+  "capitalPopulation": 3300,
+  "capitalHousing": 3700,
+  "technology": 0.28,
+  "treasury": 8500,
+  "armyInfantry": 150,
+  "namingHints": [
+    "Aster",
+    "Willow",
+    "Thorn",
+    "Grey",
+    "Sun",
+    "High",
+    "Oak",
+    "Brook",
+    "Stone",
+    "Dawn",
+    "Raven"
+  ],
+  "satellites": [
+    {
+      "name": "Willowmere",
+      "dx": 460,
+      "dz": -310,
+      "population": 430,
+      "housing": 500
+    },
+    {
+      "name": "Thornfield",
+      "dx": -560,
+      "dz": 360,
+      "population": 95,
+      "housing": 130
+    },
+    {
+      "name": "Greyford",
+      "dx": 860,
+      "dz": 470,
+      "population": 920,
+      "housing": 1050
+    },
+    {
+      "name": "Sunreach",
+      "dx": -980,
+      "dz": -470,
+      "population": 210,
+      "housing": 270
+    },
+    {
+      "name": "Highmere",
+      "dx": 1280,
+      "dz": -690,
+      "population": 1420,
+      "housing": 1600
+    },
+    {
+      "name": "Oakwatch",
+      "dx": 1390,
+      "dz": 250,
+      "population": 520,
+      "housing": 610
+    },
+    {
+      "name": "Brookhollow",
+      "dx": 420,
+      "dz": 910,
+      "population": 82,
+      "housing": 115
+    },
+    {
+      "name": "Stonebridge",
+      "dx": -1380,
+      "dz": 780,
+      "population": 760,
+      "housing": 860
+    },
+    {
+      "name": "Dawnfield",
+      "dx": 1760,
+      "dz": 930,
+      "population": 310,
+      "housing": 380
+    },
+    {
+      "name": "Ravenwood",
+      "dx": -1820,
+      "dz": -850,
+      "population": 62,
+      "housing": 88
+    }
+  ],
+  "cultureId": "aster_riverborn"
+}

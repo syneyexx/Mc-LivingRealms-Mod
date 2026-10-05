@@ -1,0 +1,14 @@
+{
+  "id": "house_generic_lr",
+  "cultureId": "generic",
+  "architectureFamily": "MEDIEVAL_FACHWERK",
+  "role": "HOUSE",
+  "tier": "HAMLET",
+  "district": "RESIDENTIAL",
+  "wealthMin": 0.0,
+  "wealthMax": 1.0,
+  "footprintWidth": 9,
+  "footprintDepth": 9,
+  "displayName": "Living Realms Cottage",
+  "genericFallback": true
+}

@@ -2,6 +2,8 @@ package dev.livingrealms.sim.social;
 
 import dev.livingrealms.sim.civilian.*;
 import dev.livingrealms.sim.civilization.FactionCivilizationState;
+import dev.livingrealms.sim.content.CultureDefinition;
+import dev.livingrealms.sim.content.SettlementIdentityProfile;
 import dev.livingrealms.sim.faction.*;
 import dev.livingrealms.sim.util.*;
 import dev.livingrealms.sim.world.*;
@@ -79,7 +81,9 @@ public final class SocialPopulationEngine {
         if(existing!=null){if(existing.role()!=role)existing.setRole(role);return existing;}
         Faction faction=state.findFaction(factionId).orElseThrow(()->new IllegalArgumentException("unknown faction"));
         Settlement settlement=state.findSettlement(settlementId).orElseThrow(()->new IllegalArgumentException("unknown settlement"));
-        long id=state.nextId();CitizenIdentity identity=CitizenIdentity.forAgent(state.seed(),id,factionId,settlementId,slot,role);
+        long id=state.nextId();
+        CultureDefinition culture=SettlementIdentityProfile.cultureOf(faction).orElse(null);
+        CitizenIdentity identity=CitizenIdentity.forAgent(state.seed(),id,factionId,settlementId,slot,role,culture);
         DeterministicRng rng=new DeterministicRng(state.seed()^id*0x9E3779B97F4A7C15L);
         int ageYears=18+rng.nextInt(role==CitizenRole.GUARD?35:53); long birthDay=state.clock().day()-(long)ageYears*365L-rng.nextInt(365);
         CitizenPersonality personality=new CitizenPersonality(rng.between(.05,.95),rng.between(.05,.95),rng.between(.05,.95),rng.between(.05,.95),rng.between(.05,.95),rng.between(.02,.75));
@@ -87,7 +91,8 @@ public final class SocialPopulationEngine {
         var appearance=dev.livingrealms.sim.civilian.AppearanceProfile.forCitizen(state.seed(),id,role,ageYears,factionId);
         created.restoreAppearance(appearance.pack());
         FactionCivilizationState civ=state.findFactionCivilization(factionId).orElse(null);
-        if(civ!=null){created.setCultureKey(civ.cultureName());created.setFaithKey(civ.faithName());}
+        if(civ!=null){created.setCultureKey(culture!=null?culture.displayName():civ.cultureName());created.setFaithKey(civ.faithName());}
+        else if(culture!=null)created.setCultureKey(culture.displayName());
         created.needs().restore(settlement.foodSecurity(),settlement.publicOrder(),.55+.35*settlement.prosperity(),.35+.5*settlement.prosperity(),Math.min(1,.35+.35*settlement.infrastructure()+.3*Math.min(1,(double)settlement.housing()/Math.max(1,settlement.population()))));
         state.addSocialCitizen(created);return created;
     }

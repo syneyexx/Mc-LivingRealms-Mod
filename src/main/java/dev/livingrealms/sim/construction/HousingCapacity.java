@@ -1,6 +1,7 @@
 package dev.livingrealms.sim.construction;
 
 import dev.livingrealms.sim.faction.DevelopmentMode;
+import dev.livingrealms.sim.faction.DevelopmentModeGuard;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
 import dev.livingrealms.sim.player.PlayerSettlementFounder;
@@ -160,6 +161,6 @@ public final class HousingCapacity {
 
     /** True when PLAYER_LED must not receive ordinary auto housing generation. */
     public static boolean blocksAutoHousing(Settlement settlement) {
-        return settlement != null && settlement.developmentMode() == DevelopmentMode.PLAYER_LED;
+        return settlement != null && !DevelopmentModeGuard.allowsAutoHousing(settlement);
     }
 }

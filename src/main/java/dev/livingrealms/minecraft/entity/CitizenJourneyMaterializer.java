@@ -4,6 +4,7 @@ import dev.livingrealms.minecraft.LivingRealmsSavedData;
 import dev.livingrealms.sim.civilian.CitizenIdentity;
 import dev.livingrealms.sim.civilian.CitizenRole;
 import dev.livingrealms.sim.config.RuntimeProjectionPolicy;
+import dev.livingrealms.sim.runtime.ProjectionBudget;
 import dev.livingrealms.sim.social.SocialCitizen;
 import dev.livingrealms.sim.world.CitizenJourney;
 import dev.livingrealms.sim.world.SimPosition;
@@ -31,9 +32,10 @@ public final class CitizenJourneyMaterializer {
         List<SimPosition> players = level.players().stream()
                 .map(p -> new SimPosition(p.getX(), p.getZ()))
                 .toList();
+        ProjectionBudget budget = ProjectionBudget.forPlayers(state.config(), Math.max(1, players.size()));
         CitizenJourneyMaterializationPlanner planner = new CitizenJourneyMaterializationPlanner(
                 RuntimeProjectionPolicy.journeyRadiusBlocks(state.config()),
-                RuntimeProjectionPolicy.journeyBudget(state.config()));
+                budget.lane(ProjectionBudget.Lane.JOURNEYS));
         List<CitizenJourneyProjection> desired = planner.plan(state, players);
 
         List<CitizenJourneyMaterializationPlanner.Snapshot> actual = FactionCitizenIndex.loadedJourneys().stream()

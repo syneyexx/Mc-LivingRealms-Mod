@@ -1,5 +1,17 @@
 package dev.livingrealms.sim.ui;
 
+import dev.livingrealms.sim.ui.dashboard.EcologySnapshot;
+import dev.livingrealms.sim.ui.dashboard.EconomySnapshot;
+import dev.livingrealms.sim.ui.dashboard.ForcesSnapshot;
+import dev.livingrealms.sim.ui.dashboard.LawSnapshot;
+import dev.livingrealms.sim.ui.dashboard.MapSnapshot;
+import dev.livingrealms.sim.ui.dashboard.OverviewSnapshot;
+import dev.livingrealms.sim.ui.dashboard.PoliticsSnapshot;
+import dev.livingrealms.sim.ui.dashboard.SettingsSnapshot;
+import dev.livingrealms.sim.ui.dashboard.SettlementSnapshot;
+import dev.livingrealms.sim.ui.dashboard.SocietySnapshot;
+import dev.livingrealms.sim.ui.dashboard.UnderworldSnapshot;
+import dev.livingrealms.sim.ui.dashboard.WarSnapshot;
 import java.util.List;
 import java.util.Map;
 
@@ -26,7 +38,9 @@ public record RealmDashboardSnapshot(
         PoliticsView politics,
         ForcesView forces,
         StrategicMapView map,
-        List<HistoryView> history
+        List<HistoryView> history,
+        UnderworldView underworld,
+        WarRoomView warRoom
 ) {
     public static final int PROTOCOL_VERSION = 20;
 
@@ -49,6 +63,46 @@ public record RealmDashboardSnapshot(
         forces = forces == null ? ForcesView.empty() : forces;
         map = map == null ? StrategicMapView.empty() : map;
         history = List.copyOf(history == null ? List.of() : history);
+        underworld = underworld == null ? UnderworldView.empty() : underworld;
+        warRoom = warRoom == null ? WarRoomView.empty() : warRoom;
+    }
+
+    /** Domain projections for modular codec/builder consumers (protocol 20 wire unchanged). */
+    public OverviewSnapshot overviewSection() {
+        return new OverviewSnapshot(day, worldSummary, jurisdiction, player, realm, settings, factions, history);
+    }
+    public EconomySnapshot economySection() {
+        return new EconomySnapshot(realm, operations);
+    }
+    public SocietySnapshot societySection() {
+        return new SocietySnapshot(settlements);
+    }
+    public PoliticsSnapshot politicsSection() {
+        return new PoliticsSnapshot(politics);
+    }
+    public WarSnapshot warSection() {
+        return new WarSnapshot(wars, warfare);
+    }
+    public LawSnapshot lawSection() {
+        return new LawSnapshot(bounties);
+    }
+    public SettlementSnapshot settlementSection() {
+        return new SettlementSnapshot(settlements);
+    }
+    public EcologySnapshot ecologySection() {
+        return new EcologySnapshot(ecology);
+    }
+    public SettingsSnapshot settingsSection() {
+        return new SettingsSnapshot(settings);
+    }
+    public ForcesSnapshot forcesSection() {
+        return new ForcesSnapshot(forces);
+    }
+    public MapSnapshot mapSection() {
+        return new MapSnapshot(map);
+    }
+    public UnderworldSnapshot underworldSection() {
+        return new UnderworldSnapshot(underworld);
     }
 
     private static String safe(String value) { return value == null ? "" : value; }
@@ -237,6 +291,62 @@ public record RealmDashboardSnapshot(
 
     public record HistoryView(long day,String type,String message){
         public HistoryView{if(day<0)throw new IllegalArgumentException("history day");type=safe(type);message=safe(message);}
+    }
+
+    /** Wave 13: player-facing underworld board (protocol 20 compatible optional section). */
+    public record UnderworldView(double streetCred,double briberySkill,int contractsCompleted,boolean blackMarketEligible,
+                                 List<UnderworldContractView> contracts,List<StolenLotView> stolenLots){
+        public UnderworldView{
+            streetCred=Math.max(0,finite(streetCred));briberySkill=Math.max(0,finite(briberySkill));
+            contractsCompleted=Math.max(0,contractsCompleted);
+            contracts=List.copyOf(contracts==null?List.of():contracts);
+            stolenLots=List.copyOf(stolenLots==null?List.of():stolenLots);
+        }
+        public static UnderworldView empty(){return new UnderworldView(0,0,0,false,List.of(),List.of());}
+    }
+    public record UnderworldContractView(long id,String type,String jurisdiction,String target,double reward,
+                                         long daysLeft,String status,boolean acceptedByYou){
+        public UnderworldContractView{
+            if(id<=0)throw new IllegalArgumentException("contract id");
+            type=safe(type);jurisdiction=safe(jurisdiction);target=safe(target);status=safe(status);
+            reward=Math.max(0,finite(reward));daysLeft=Math.max(0,daysLeft);
+        }
+    }
+    public record StolenLotView(long id,String goodKey,double value){
+        public StolenLotView{if(id<=0)throw new IllegalArgumentException("lot id");goodKey=safe(goodKey);value=Math.max(0,finite(value));}
+    }
+
+    /** Wave 14: war-room options + army identity for the Wars tab. */
+    public record WarRoomView(List<DeclareEnemyView> enemies,List<ArmyDetailView> armies,
+                              List<EscortTargetView> escortTargets,List<Long> hostileSettlementIds,
+                              long defaultHostileSettlementId,long defaultEscortTargetId,long defaultPatrolSettlementId){
+        public WarRoomView{
+            enemies=List.copyOf(enemies==null?List.of():enemies);
+            armies=List.copyOf(armies==null?List.of():armies);
+            escortTargets=List.copyOf(escortTargets==null?List.of():escortTargets);
+            hostileSettlementIds=List.copyOf(hostileSettlementIds==null?List.of():hostileSettlementIds);
+        }
+        public static WarRoomView empty(){return new WarRoomView(List.of(),List.of(),List.of(),List.of(),0,0,0);}
+    }
+    public record DeclareEnemyView(long factionId,String name,List<String> validGoals,long suggestedTargetSettlementId,
+                                   String suggestedTargetName,boolean canDeclare,boolean petitionOnly,String denyReason){
+        public DeclareEnemyView{
+            if(factionId<=0)throw new IllegalArgumentException("factionId");
+            name=safe(name);denyReason=safe(denyReason);suggestedTargetName=safe(suggestedTargetName);
+            validGoals=List.copyOf(validGoals==null?List.of():validGoals);
+        }
+    }
+    public record ArmyDetailView(long id,int personnel,double morale,double supply,double combatPower,
+                                 double x,double z,String homeSettlement,String objective){
+        public ArmyDetailView{
+            if(id<=0)throw new IllegalArgumentException("army id");
+            personnel=Math.max(0,personnel);morale=bounded(morale);supply=bounded(supply);
+            combatPower=Math.max(0,finite(combatPower));x=finite(x);z=finite(z);
+            homeSettlement=safe(homeSettlement);objective=safe(objective);
+        }
+    }
+    public record EscortTargetView(long id,String kind,String label){
+        public EscortTargetView{if(id<=0)throw new IllegalArgumentException("escort id");kind=safe(kind);label=safe(label);}
     }
 
     private static double finite(double value){return Double.isFinite(value)?value:0;}

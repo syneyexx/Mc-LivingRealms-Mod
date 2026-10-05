@@ -8,7 +8,7 @@ The goal is not to make Minecraft feel like a map with a few extra NPCs. The goa
 
 Living Realms is designed primarily for **offline singleplayer**. The integrated Minecraft server remains authoritative for simulation state, while the client renders and interacts with bounded physical projections of that world.
 
-Current development checkpoint: save schema **20**, dashboard protocol **20**, network **16**, ContentRevision **15**, surface starter **36** settlements (12×3) at **2000**-block spacing plus Wizard Trees. See `PROJECT_STATE.md` and `COMPLETION_MATRIX.md`.
+Current development checkpoint: save schema **20**, dashboard protocol **20**, network **16**, ContentRevision **15**, surface starter **36** settlements (12×3) at **2000**-block spacing plus Wizard Trees. Feature depth uses maturity levels (FOUNDATION→POLISHED) in `COMPLETION_MATRIX.md`; release claims follow `docs/RELEASE_GATES.md`. Architecture pass status: `docs/ARCHITECTURE_PASS_STATUS.md`.
 
 > **End-product vision:** a persistent living world where kingdoms, settlements, people, wildlife, economy, politics, law, culture and history continue to evolve as one connected system instead of as isolated features.
 

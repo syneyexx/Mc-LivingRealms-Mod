@@ -1,0 +1,99 @@
+{
+  "id": "aurenthal",
+  "displayName": "Kingdom of Aurenthal",
+  "rulerSeedName": "Queen Seraphine II",
+  "capitalName": "Aurora Keep",
+  "x": 5940,
+  "z": 14300,
+  "capitalPopulation": 4100,
+  "capitalHousing": 4600,
+  "technology": 0.39,
+  "treasury": 10200,
+  "armyInfantry": 190,
+  "namingHints": [
+    "Aur",
+    "Gold",
+    "Sun",
+    "Bright",
+    "Amber",
+    "Lion",
+    "East",
+    "Rose",
+    "West",
+    "Summer",
+    "Dew"
+  ],
+  "satellites": [
+    {
+      "name": "Goldmere",
+      "dx": 520,
+      "dz": -420,
+      "population": 760,
+      "housing": 870
+    },
+    {
+      "name": "Suncrest",
+      "dx": -650,
+      "dz": 390,
+      "population": 210,
+      "housing": 270
+    },
+    {
+      "name": "Brightgate",
+      "dx": 940,
+      "dz": 520,
+      "population": 1520,
+      "housing": 1720
+    },
+    {
+      "name": "Amberbrook",
+      "dx": -980,
+      "dz": -560,
+      "population": 360,
+      "housing": 430
+    },
+    {
+      "name": "Lionswatch",
+      "dx": 1380,
+      "dz": -730,
+      "population": 1740,
+      "housing": 1960
+    },
+    {
+      "name": "Eastcrown",
+      "dx": 1510,
+      "dz": 330,
+      "population": 570,
+      "housing": 660
+    },
+    {
+      "name": "Rosefield",
+      "dx": 430,
+      "dz": 980,
+      "population": 140,
+      "housing": 185
+    },
+    {
+      "name": "Westlight",
+      "dx": -1450,
+      "dz": 790,
+      "population": 820,
+      "housing": 930
+    },
+    {
+      "name": "Summerford",
+      "dx": 1790,
+      "dz": 1060,
+      "population": 300,
+      "housing": 370
+    },
+    {
+      "name": "Dewhollow",
+      "dx": -1900,
+      "dz": -940,
+      "population": 82,
+      "housing": 112
+    }
+  ],
+  "cultureId": "aurenthal_mercantile"
+}

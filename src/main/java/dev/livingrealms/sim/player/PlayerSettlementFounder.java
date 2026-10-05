@@ -81,7 +81,9 @@ public final class PlayerSettlementFounder {
         state.requestConstructionCatchup(20);
         capital.requestLandmark("town_hall:0");
         state.history().add(new WorldEvent(state.clock().day(),"player_realm_founded",
-                player+" founded founding camp "+realmName+" at "+settlement+" (HYBRID development)"));
+                player+" founded founding camp "+realmName+" at "+settlement+" (HYBRID development), faction="+factionId+", settlement="+settlementId));
+        dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.SettlementFounded(
+                state.clock().day(),factionId,settlementId,settlement,SettlementOrigin.PLAYER_FOUNDED.name()));
         return new Result(true,"ok",factionId,settlementId,realmName,settlement);
     }
 

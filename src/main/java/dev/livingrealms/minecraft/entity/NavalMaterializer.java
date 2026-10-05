@@ -3,6 +3,7 @@ package dev.livingrealms.minecraft.entity;
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
 import dev.livingrealms.sim.config.RuntimeProjectionPolicy;
 import dev.livingrealms.sim.naval.*;
+import dev.livingrealms.sim.runtime.ProjectionBudget;
 import dev.livingrealms.sim.util.DeterministicRng;
 import dev.livingrealms.sim.world.SimPosition;
 import java.util.*;
@@ -16,7 +17,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 public final class NavalMaterializer {
     private NavalMaterializer(){}
     public static void tick(MinecraftServer server,LivingRealmsSavedData data){
-        ServerLevel level=server.overworld();List<SimPosition> players=level.players().stream().map(p->new SimPosition(p.getX(),p.getZ())).toList();var config=data.state().config();List<FleetProjection> desired=NavalMaterializationPlanner.plan(data.state().fleets(),players,RuntimeProjectionPolicy.navalRadiusBlocks(config),config.maxPhysicalNavalEntities());
+        ServerLevel level=server.overworld();List<SimPosition> players=level.players().stream().map(p->new SimPosition(p.getX(),p.getZ())).toList();var config=data.state().config();ProjectionBudget budget=ProjectionBudget.forPlayers(config,Math.max(1,players.size()));List<FleetProjection> desired=NavalMaterializationPlanner.plan(data.state().fleets(),players,RuntimeProjectionPolicy.navalRadiusBlocks(config),budget.lane(ProjectionBudget.Lane.SHIPS));
         Set<String>wanted=new HashSet<>();for(FleetProjection p:desired)wanted.add(p.projectionKey());Set<String>seen=new HashSet<>();for(LivingRealmsShipEntity e:ShipProjectionIndex.loaded()){String k=e.fleetId()+":"+e.projectionSlot();if(!wanted.contains(k)||!seen.add(k))e.dematerialize();}
         for(FleetProjection p:desired){if(ShipProjectionIndex.forSlot(p.fleetId(),p.slot())!=null)continue;SimPosition q=position(data.state().seed(),p);BlockPos spawn=findWaterSurface(level,(int)Math.floor(q.x()),(int)Math.floor(q.z()));if(spawn==null)continue;LivingRealmsShipEntity e=ModEntities.SHIP.get().create(level);if(e==null)continue;e.initializeProjection(p.fleetId(),p.factionId(),p.slot(),p.shipClass(),p.representedShips());e.moveTo(spawn.getX()+.5,spawn.getY()+.6,spawn.getZ()+.5,level.random.nextFloat()*360,0);level.addFreshEntity(e);}
     }

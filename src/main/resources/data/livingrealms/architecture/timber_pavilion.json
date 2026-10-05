@@ -1,0 +1,14 @@
+{
+  "id": "timber_pavilion",
+  "architectureFamily": "TIMBER_PAVILION",
+  "slots": {
+    "FOUNDATION": "cobblestone",
+    "FLOOR": "oak_planks",
+    "WALL": "oak_planks",
+    "BEAM": "stripped_oak_log",
+    "ROOF": "oak_stairs",
+    "GLASS": "glass_pane",
+    "DOOR": "oak_door",
+    "PATH": "dirt_path"
+  }
+}

@@ -16,6 +16,9 @@ import dev.livingrealms.sim.player.PlayerStanding;
 import dev.livingrealms.sim.society.SocietyDiagnostics;
 import dev.livingrealms.sim.society.WorldCauseExplainer;
 import dev.livingrealms.sim.territory.*;
+import dev.livingrealms.sim.underworld.BlackMarketService;
+import dev.livingrealms.sim.underworld.UnderworldContract;
+import dev.livingrealms.sim.underworld.UnderworldProfile;
 import dev.livingrealms.sim.world.*;
 import java.util.*;
 
@@ -56,6 +59,11 @@ public final class RealmDashboardBuilder {
     public static final int MAX_FORCE_PORTS=24;
     public static final int MAX_POLITICS_RELATIONS=24;
     public static final int MAX_POLITICS_TREATIES=24;
+    public static final int MAX_UNDERWORLD_CONTRACTS=24;
+    public static final int MAX_STOLEN_LOTS=16;
+    public static final int MAX_WAR_ROOM_ENEMIES=8;
+    public static final int MAX_WAR_ROOM_ARMIES=12;
+    public static final int MAX_WAR_ROOM_ESCORTS=16;
 
     private RealmDashboardBuilder() {}
 
@@ -105,8 +113,87 @@ public final class RealmDashboardBuilder {
 
         List<RealmDashboardSnapshot.HistoryView> history=state.history().recent(MAX_HISTORY).stream()
                 .map(e->new RealmDashboardSnapshot.HistoryView(e.day(),e.type(),e.message())).toList();
+        RealmDashboardSnapshot.UnderworldView underworld=underworldView(state,actorKey);
+        RealmDashboardSnapshot.WarRoomView warRoom=warRoomView(state,actorKey,memberId);
 
-        return new RealmDashboardSnapshot(RealmDashboardSnapshot.PROTOCOL_VERSION,state.clock().day(),state.summary(),jurisdictionView,playerView,realmView,settingsView,factions,settlements,wars,warfare,bounties,operations,ecology,politics,forces,map,history);
+        return new RealmDashboardSnapshot(RealmDashboardSnapshot.PROTOCOL_VERSION,state.clock().day(),state.summary(),jurisdictionView,playerView,realmView,settingsView,factions,settlements,wars,warfare,bounties,operations,ecology,politics,forces,map,history,underworld,warRoom);
+    }
+
+    private static RealmDashboardSnapshot.UnderworldView underworldView(SimulationState state,String actorKey){
+        UnderworldProfile profile=state.findUnderworldProfile(actorKey).orElse(null);
+        double cred=profile==null?0:profile.streetCred();
+        double bribe=profile==null?0:profile.briberySkill();
+        int completed=profile==null?0:profile.contractsCompleted();
+        boolean market=profile!=null&&profile.isBlackMarketEligible();
+        List<RealmDashboardSnapshot.UnderworldContractView> contracts=state.underworldContracts().stream()
+                .filter(c->c.status()==UnderworldContract.Status.AVAILABLE
+                        ||(c.status()==UnderworldContract.Status.ACCEPTED&&actorKey.equals(c.acceptorActorKey()))
+                        ||(c.status()==UnderworldContract.Status.COMPLETED&&actorKey.equals(c.acceptorActorKey())
+                        &&c.closedDay()>=state.clock().day()-14))
+                .sorted(Comparator.comparing((UnderworldContract c)->c.status()==UnderworldContract.Status.ACCEPTED?0:c.status()==UnderworldContract.Status.AVAILABLE?1:2)
+                        .thenComparingLong(UnderworldContract::id))
+                .limit(MAX_UNDERWORLD_CONTRACTS)
+                .map(c->{
+                    String jurisdiction=nameOf(state,c.jurisdictionFactionId());
+                    // Non-secret target label only — never acceptor of AVAILABLE contracts.
+                    String target=c.targetVictimKey().isBlank()?"any mark":c.targetVictimKey();
+                    long daysLeft=Math.max(0,c.expiresDay()-state.clock().day());
+                    boolean mine=actorKey.equals(c.acceptorActorKey());
+                    return new RealmDashboardSnapshot.UnderworldContractView(
+                            c.id(),c.type().name(),jurisdiction,target,c.reward(),daysLeft,c.status().name(),mine);
+                }).toList();
+        List<RealmDashboardSnapshot.StolenLotView> lots=BlackMarketService.listUnsold(state,actorKey).stream()
+                .limit(MAX_STOLEN_LOTS)
+                .map(e->new RealmDashboardSnapshot.StolenLotView(e.id(),e.goodKey(),e.value()))
+                .toList();
+        return new RealmDashboardSnapshot.UnderworldView(cred,bribe,completed,market,contracts,lots);
+    }
+
+    private static RealmDashboardSnapshot.WarRoomView warRoomView(SimulationState state,String actorKey,long memberId){
+        if(memberId<=0)return RealmDashboardSnapshot.WarRoomView.empty();
+        Faction self=state.findFaction(memberId).orElse(null);
+        if(self==null)return RealmDashboardSnapshot.WarRoomView.empty();
+        List<RealmDashboardSnapshot.DeclareEnemyView> enemies=new ArrayList<>();
+        for(Faction other:state.factions()){
+            if(other.id()==memberId)continue;
+            if(enemies.size()>=MAX_WAR_ROOM_ENEMIES)break;
+            var options=WarRoomOptionsBuilder.declareOptions(state,actorKey,other.id());
+            if(!options.canDeclareUnilateral()&&!options.canPetitionOnly()&&options.validGoals().isEmpty())continue;
+            // Skip already-at-war for the declare slate (army orders still appear below).
+            if("already_at_war".equals(options.denyReason()))continue;
+            List<String> goals=options.validGoals().stream().map(Enum::name).toList();
+            if(goals.isEmpty()&&!options.canDeclareUnilateral()&&!options.canPetitionOnly())continue;
+            String targetName=options.suggestedTargetSettlementId()>0
+                    ?settlementName(state,options.suggestedTargetSettlementId()):"";
+            enemies.add(new RealmDashboardSnapshot.DeclareEnemyView(
+                    other.id(),other.name(),goals,options.suggestedTargetSettlementId(),targetName,
+                    options.canDeclareUnilateral(),options.canPetitionOnly(),options.denyReason()));
+        }
+        var armyOpts=WarRoomOptionsBuilder.armyOrderOptions(state,actorKey);
+        List<RealmDashboardSnapshot.ArmyDetailView> armies=new ArrayList<>();
+        for(long armyId:armyOpts.armyIds()){
+            if(armies.size()>=MAX_WAR_ROOM_ARMIES)break;
+            Army army=state.findArmy(armyId).orElse(null);
+            if(army==null||army.destroyed())continue;
+            Settlement home=self.settlements().stream()
+                    .min(Comparator.comparingDouble(s->s.position().distanceTo(army.position())))
+                    .orElse(null);
+            String objective=state.objectives().stream()
+                    .filter(o->!o.complete()&&o.armyId()==armyId)
+                    .max(Comparator.comparingInt(MilitaryObjective::priority))
+                    .map(o->o.type().name()+" → "+objectiveTargetName(state,o))
+                    .orElse("STANDING");
+            armies.add(new RealmDashboardSnapshot.ArmyDetailView(
+                    army.id(),army.totalPersonnel(),army.morale(),army.supply(),army.combatPower(),
+                    army.position().x(),army.position().z(),
+                    home==null?"":home.name(),objective));
+        }
+        List<RealmDashboardSnapshot.EscortTargetView> escorts=armyOpts.escortTargets().stream()
+                .limit(MAX_WAR_ROOM_ESCORTS)
+                .map(t->new RealmDashboardSnapshot.EscortTargetView(t.id(),t.kind().name(),t.label()))
+                .toList();
+        return new RealmDashboardSnapshot.WarRoomView(enemies,armies,escorts,armyOpts.hostileSettlementIds(),
+                armyOpts.defaultHostileSettlementId(),armyOpts.defaultEscortTargetId(),armyOpts.defaultPatrolSettlementId());
     }
 
 

@@ -17,12 +17,12 @@ public final class CivilizationEngine {
 
     public void simulateDay(SimulationState state,DeterministicRng rng){
         Objects.requireNonNull(state);Objects.requireNonNull(rng);ensureProfilesAndClaims(state);updateSettlements(state);
-        simulateSettlementAttraction(state);updateNamedPeople(state,rng);updateMilitaryAndBanditry(state,rng);advanceRaids(state);
+        DemographyEngine.simulateSettlementAttraction(state);DemographyEngine.updateNamedPeople(state,rng);updateMilitaryAndBanditry(state,rng);advanceRaids(state);
         BanditEconomyEngine.spawnFromPressures(state,rng);
         BanditEconomyEngine.extortRoutes(state,rng);
         long day=state.clock().day();
         if(day%7==0)lifecycleEngine.considerMigration(state);
-        if(day%30==0){simulateDemography(state);simulateFamilies(state);simulateClaims(state);simulateInformationAndTribute(state);promoteLegends(state);BanditEconomyEngine.promoteOutlawLegends(state);}
+        if(day%30==0){DemographyEngine.simulateMonthlyDemography(state);simulateFamilies(state);simulateClaims(state);simulateInformationAndTribute(state);promoteLegends(state);BanditEconomyEngine.promoteOutlawLegends(state);}
         lifecycleEngine.simulateDay(state,rng);
     }
 
@@ -76,57 +76,6 @@ public final class CivilizationEngine {
             c.approach(sanitation,disease,education,water,refugees,bandits,cohesion,assimilationTarget,resource,.08);
             if(c.heritageFactionId()!=owner.id()&&c.assimilation()>.94&&c.culturalCohesion()>.48){long old=c.heritageFactionId();c.setHeritageFactionId(owner.id());c.adjustAssimilation(-1);state.history().add(new WorldEvent(day,"cultural_assimilation","settlement="+s.id()+", fromFaction="+old+", toFaction="+owner.id()));}
         }
-    }
-
-    /**
-     * Healthy settlements with spare housing attract a small bounded stream of ordinary settlers.
-     * This preserves LivingRealms' existing "hamlet becomes a village" behavior while keeping
-     * CivilizationEngine as the single demographic authority in integrated worlds.
-     */
-    private static void simulateSettlementAttraction(SimulationState state){
-        long day=state.clock().day();
-        for(Faction owner:state.factions())for(Settlement s:owner.settlements()){
-            int free=s.housing()-s.population();
-            if(free<8||s.foodSecurity()<=.62||s.publicOrder()<=.45)continue;
-            SettlementCivilizationState c=state.ensureSettlementCivilization(s.id(),owner.id());
-            if(c.diseasePressure()>=.60||Math.floorMod(day+s.id(),5L)!=0L)continue;
-            int arrivals=Math.min(4,Math.max(1,free/24));
-            arrivals=Math.min(arrivals,free);
-            if(arrivals<=0)continue;
-            s.addPopulation(arrivals);
-            c.adjustRefugeePressure(-.01);
-            state.history().add(new WorldEvent(day,"settlers_arrived","settlement="+s.id()+", people="+arrivals));
-        }
-    }
-
-    private static void simulateDemography(SimulationState state){
-        long day=state.clock().day();
-        for(Faction owner:state.factions())for(Settlement s:owner.settlements()){
-            if(s.population()<=0)continue;SettlementCivilizationState c=state.ensureSettlementCivilization(s.id(),owner.id());double freeHousing=Mathx.clamp((s.housing()-s.population())/(double)Math.max(20,s.population()),0,1);
-            double monthlyBirthRate=.0010+.0014*s.foodSecurity()+.0008*Math.min(.5,freeHousing)+.00045*c.culturalCohesion()-.0012*c.diseasePressure();
-            double monthlyDeathRate=.00045+.0022*c.diseasePressure()+.0016*(1-s.foodSecurity())+.0006*(1-c.waterSecurity());
-            int births=(int)Math.floor(s.population()*Math.max(0,monthlyBirthRate));int deaths=(int)Math.floor(s.population()*Math.max(0,monthlyDeathRate));
-            if(s.housingShortage()>0)births=Math.min(births,Math.max(0,deaths));births=Math.min(births,Math.max(0,s.housing()-s.population()+deaths));
-            int delta=births-deaths;if(delta!=0)s.addPopulation(delta);
-            if(births+deaths>0)state.history().add(new WorldEvent(day,"demography","settlement="+s.id()+", births="+births+", deaths="+deaths+", population="+s.population()));
-            if(c.education()>.55)owner.advanceTechnology(.00015*c.education()*Math.sqrt(Math.max(1,s.population())));
-        }
-    }
-
-    private static void updateNamedPeople(SimulationState state,DeterministicRng rng){
-        long day=state.clock().day();List<SocialCitizen> deaths=new ArrayList<>();
-        for(SocialCitizen p:state.socialCitizens())if(p.alive()){
-            Faction owner=state.findSettlementOwner(p.settlementId()).orElse(null);if(owner==null)continue;SettlementCivilizationState c=state.ensureSettlementCivilization(p.settlementId(),owner.id());boolean healer=p.role()==CitizenRole.HEALER||specialistShare(state,p.settlementId(),CitizenRole.HEALER)>0;
-            p.adjustHealth(-c.diseasePressure()*.00055+(healer?.00018:0)+c.sanitation()*.00008);
-            if(day%30==Math.floorMod(p.id(),30L)){int age=p.ageYears(day);double oldAge=Math.max(0,age-68)*.0008+Math.max(0,age-82)*.003;double illness=c.diseasePressure()*.012*(1-p.health());if(p.health()<=.02||rng.chance(oldAge+illness))deaths.add(p);}
-        }
-        for(SocialCitizen p:deaths)dieNamedCitizen(state,p,"age_or_illness");
-    }
-
-    private static void dieNamedCitizen(SimulationState state,SocialCitizen person,String cause){
-        if(!person.alive())return;String key="citizen:"+person.id();SocialCitizen heir=null;for(var e:person.relationships().entrySet())if(e.getValue().familyBond()==FamilyBond.PARTNER||e.getValue().familyBond()==FamilyBond.CHILD||e.getValue().familyBond()==FamilyBond.ADOPTED_CHILD){long id=parseCitizenKey(e.getKey());if(id>0){heir=state.findSocialCitizen(id).filter(SocialCitizen::alive).orElse(null);if(heir!=null)break;}}
-        if(heir!=null&&person.money()>0){double inherited=person.money()*.8;person.addMoney(-inherited);heir.addMoney(inherited);heir.remember(new CitizenMemory(state.clock().day(),MemoryType.FAMILY_EVENT,key,"self","I inherited possessions after "+person.name()+" died.",state.findSettlement(person.settlementId()).orElseThrow().position(),.7,1));}
-        state.recordPhysicalCitizenDeath(person.settlementId(),person.id(),cause);
     }
 
     private static void simulateFamilies(SimulationState state){
@@ -208,9 +157,9 @@ public final class CivilizationEngine {
                     if(attacker!=null){attacker.stockpile().add(ResourceType.FOOD,food);attacker.stockpile().add(ResourceType.GOLD,gold);}
                 }
                 state.ensureSettlementCivilization(target.id(),defender.id()).adjustBanditPressure(.04);
-                state.history().add(new WorldEvent(day,"raid_success","raid="+raid.id()+", target="+target.id()+", casualties="+casualties+", food="+Math.round(food)+", gold="+Math.round(gold)+(raid.bandit()?", bandit=true":"")));
+                state.history().add(new WorldEvent(day,"raid_success","raid="+raid.id()+", target="+target.id()+", casualties="+casualties+", food="+Math.round(food)+", gold="+Math.round(gold)+(raid.bandit()?", bandit=true":"")+(raid.attackerFactionId()>0?", faction="+raid.attackerFactionId():"")));
             }
-            else{target.adjustUnrest(-.006);state.history().add(new WorldEvent(day,"raid_repelled","raid="+raid.id()+", target="+target.id()+", defendersHeld=true"));}
+            else{target.adjustUnrest(-.006);state.history().add(new WorldEvent(day,"raid_repelled","raid="+raid.id()+", target="+target.id()+", settlement="+target.id()+", defendersHeld=true"+(raid.attackerFactionId()>0?", faction="+raid.attackerFactionId():"")));}
             raid.finish();
         }
         state.pruneRaids();
@@ -248,6 +197,5 @@ public final class CivilizationEngine {
     private static double specialistShare(SimulationState state,long settlementId,CitizenRole role){long total=state.socialCitizens().stream().filter(SocialCitizen::alive).filter(c->c.settlementId()==settlementId).count();if(total==0)return 0;long count=state.socialCitizens().stream().filter(SocialCitizen::alive).filter(c->c.settlementId()==settlementId&&c.role()==role).count();return count/(double)total;}
     private static double religiousBuildingShare(Faction f){if(f.settlements().isEmpty())return 0;long n=f.settlements().stream().filter(s->has(s,"temple:")).count();return n/(double)f.settlements().size();}
     private static boolean has(Settlement s,String prefix){return s.completedConstruction().stream().anyMatch(k->k.startsWith(prefix));}
-    private static long parseCitizenKey(String key){if(key==null||!key.startsWith("citizen:"))return 0;try{return Long.parseLong(key.substring(8));}catch(NumberFormatException ignored){return 0;}}
     private static long extractLong(String text,String marker){int p=text.indexOf(marker);if(p<0)return 0;p+=marker.length();int end=p;while(end<text.length()&&Character.isDigit(text.charAt(end)))end++;if(end==p)return 0;try{return Long.parseLong(text.substring(p,end));}catch(NumberFormatException ignored){return 0;}}
 }

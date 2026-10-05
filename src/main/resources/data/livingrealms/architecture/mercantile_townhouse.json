@@ -1,0 +1,14 @@
+{
+  "id": "mercantile_townhouse",
+  "architectureFamily": "MERCANTILE_TOWNHOUSE",
+  "slots": {
+    "FOUNDATION": "polished_andesite",
+    "FLOOR": "jungle_planks",
+    "WALL": "jungle_planks",
+    "BEAM": "stripped_jungle_log",
+    "ROOF": "jungle_stairs",
+    "GLASS": "glass_pane",
+    "DOOR": "jungle_door",
+    "PATH": "andesite"
+  }
+}

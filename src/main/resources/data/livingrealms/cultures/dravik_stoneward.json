@@ -1,0 +1,21 @@
+{
+  "id": "dravik_stoneward",
+  "displayName": "Dravik Stoneward",
+  "architectureFamily": "NORDIC_FORTRESS",
+  "namingStyle": "forge_dwarven",
+  "dialectStyle": "highland speech",
+  "materialPalette": [
+    "cobbled_deepslate",
+    "spruce",
+    "basalt"
+  ],
+  "economicTendency": 0.55,
+  "martialTendency": 0.8,
+  "artisticTendency": 0.25,
+  "districtTendencies": [
+    "INDUSTRIAL",
+    "MILITARY",
+    "CRAFTS"
+  ],
+  "relatedFamily": "NORDIC_FORTRESS"
+}

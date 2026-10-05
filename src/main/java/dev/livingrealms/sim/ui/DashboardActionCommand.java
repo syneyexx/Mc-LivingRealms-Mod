@@ -25,7 +25,13 @@ public record DashboardActionCommand(Action action, long targetId, long secondar
         ARMY_DEFEND_HOME, ARMY_RALLY, ARMY_STAND_DOWN,
         ARMY_CAPTURE, ARMY_SIEGE, ARMY_RAID, ARMY_ESCORT, ARMY_PATROL,
         /** Crime mitigation: targetId = local faction id. */
-        SURRENDER, PAY_FINE
+        SURRENDER, PAY_FINE,
+        /** Underworld: targetId = contract id. */
+        UNDERWORLD_ACCEPT,
+        /** Underworld bribe: targetId = jurisdiction faction id. argument = offer amount. */
+        UNDERWORLD_BRIBE,
+        /** Black market: targetId = stolen-goods lot id. */
+        BLACK_MARKET_SELL
     }
 
     public DashboardActionCommand(Action action, long targetId) {

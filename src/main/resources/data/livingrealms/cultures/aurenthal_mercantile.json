@@ -1,0 +1,21 @@
+{
+  "id": "aurenthal_mercantile",
+  "displayName": "Aurenthal Mercantile",
+  "architectureFamily": "MERCANTILE_TOWNHOUSE",
+  "namingStyle": "golden_court",
+  "dialectStyle": "market cant",
+  "materialPalette": [
+    "polished_andesite",
+    "jungle",
+    "gold"
+  ],
+  "economicTendency": 0.85,
+  "martialTendency": 0.45,
+  "artisticTendency": 0.55,
+  "districtTendencies": [
+    "MARKET",
+    "WEALTHY_QUARTER",
+    "HARBOR"
+  ],
+  "relatedFamily": "MERCANTILE_TOWNHOUSE"
+}

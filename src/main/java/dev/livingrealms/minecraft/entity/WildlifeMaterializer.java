@@ -2,7 +2,7 @@ package dev.livingrealms.minecraft.entity;
 
 import dev.livingrealms.LivingRealms;
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
-import dev.livingrealms.sim.config.RuntimeProjectionPolicy;
+import dev.livingrealms.sim.runtime.ProjectionBudget;
 import dev.livingrealms.sim.ecology.*;
 import dev.livingrealms.sim.materialization.*;
 import dev.livingrealms.sim.world.SimPosition;
@@ -23,7 +23,8 @@ public final class WildlifeMaterializer {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) if (player.serverLevel() == level) players.add(new SimPosition(player.getX(), player.getZ()));
         var state = data.state();
         var groups = state.regions().stream().flatMap(region -> region.populations().stream()).toList();
-        MaterializationPlanner planner = new MaterializationPlanner(RuntimeProjectionPolicy.wildlife(state.config()));
+        ProjectionBudget budget = ProjectionBudget.forPlayers(state.config(), Math.max(1, players.size()));
+        MaterializationPlanner planner = new MaterializationPlanner(budget.wildlifeMaterialization());
         List<MaterializationRequest> requests = planner.plan(groups, state.species(), players);
         ProjectionPlan delta = MaterializationReconciler.reconcile(requests, WildlifeProjectionIndex.snapshots());
         for (ProjectionDespawn removal : delta.despawns()) {LivingRealmsAnimalEntity entity = WildlifeProjectionIndex.byEntityKey(removal.entityKey());if (entity != null && !entity.isRemoved()) entity.dematerialize();}

@@ -1,0 +1,21 @@
+{
+  "id": "stormcoast_coastal",
+  "displayName": "Stormcoast Seaborn",
+  "architectureFamily": "COASTAL_VILLA",
+  "namingStyle": "maritime",
+  "dialectStyle": "coastal common",
+  "materialPalette": [
+    "prismarine",
+    "mangrove",
+    "weathered_copper"
+  ],
+  "economicTendency": 0.7,
+  "martialTendency": 0.5,
+  "artisticTendency": 0.45,
+  "districtTendencies": [
+    "HARBOR",
+    "MARKET",
+    "RESIDENTIAL"
+  ],
+  "relatedFamily": "COASTAL_VILLA"
+}

@@ -33,7 +33,7 @@ import java.util.*;
 
 /** Canonical authoritative state. Minecraft entities are projections of this model, never the source of truth. */
 public final class SimulationState {
-    public static final int MAX_RESOURCE_CLAIMS=8_000, MAX_RAIDS=256, MAX_LEGENDS=512, MAX_HOUSEHOLDS=100_000, MAX_EPIDEMICS=512, MAX_MIGRATIONS=512, MAX_JUSTICE_CASES=2_048, MAX_HIDDEN_CACHES=512, MAX_PIRATE_BANDS=128, MAX_DIPLOMATIC_MARRIAGES=512, MAX_CIVIC_EVENTS=512, MAX_INTELLIGENCE_OPERATIONS=512, MAX_PROPAGANDA_CAMPAIGNS=256, MAX_RUIN_SITES=512, MAX_ASSISTANCE_TASKS=2_048, MAX_PIRATE_HIDEOUTS=128, MAX_DEBTS=512, MAX_GRAND_PROJECTS=256, MAX_CAMPAIGN_PLANS=256, MAX_OUTLYING_SITES=2_048, MAX_CITIZEN_JOURNEYS=1_024, MAX_ROADSIDE_SITES=1_024, MAX_UNDERWORLD_PROFILES=4_096, MAX_REGISTERED_PLAYER_STRUCTURES=4_096, MAX_UNDERWORLD_CONTRACTS=2_048, MAX_ACCEPTED_CONTRACTS_PER_ACTOR=8;
+    public static final int MAX_RESOURCE_CLAIMS=8_000, MAX_RAIDS=256, MAX_LEGENDS=512, MAX_HOUSEHOLDS=100_000, MAX_EPIDEMICS=512, MAX_MIGRATIONS=512, MAX_JUSTICE_CASES=2_048, MAX_HIDDEN_CACHES=512, MAX_PIRATE_BANDS=128, MAX_DIPLOMATIC_MARRIAGES=512, MAX_CIVIC_EVENTS=512, MAX_INTELLIGENCE_OPERATIONS=512, MAX_PROPAGANDA_CAMPAIGNS=256, MAX_RUIN_SITES=512, MAX_ASSISTANCE_TASKS=2_048, MAX_PIRATE_HIDEOUTS=128, MAX_DEBTS=512, MAX_GRAND_PROJECTS=256, MAX_CAMPAIGN_PLANS=256, MAX_OUTLYING_SITES=2_048, MAX_CITIZEN_JOURNEYS=1_024, MAX_ROADSIDE_SITES=1_024, MAX_UNDERWORLD_PROFILES=4_096, MAX_REGISTERED_PLAYER_STRUCTURES=4_096, MAX_UNDERWORLD_CONTRACTS=2_048, MAX_ACCEPTED_CONTRACTS_PER_ACTOR=8, MAX_SHIPMENTS=4_096;
     private final long seed;
     private final SimClock clock=new SimClock();
     private SimulationConfig config;
@@ -184,7 +184,22 @@ public final class SimulationState {
         if(nextId<=max)nextId=max+1;
     }
 
-    public void addRegion(EcosystemRegion r){EcosystemRegion v=Objects.requireNonNull(r);observeCanonicalId(v.id());for(PopulationGroup p:v.populations())observeCanonicalId(p.id());regions.add(v);} public void addFaction(Faction f){Faction v=Objects.requireNonNull(f);observeCanonicalId(v.id());for(Settlement st:v.settlements())observeCanonicalId(st.id());for(Army a:v.armies())observeCanonicalId(a.id());factions.add(v);} public void addShipment(TradeShipment s){TradeShipment v=Objects.requireNonNull(s);observeCanonicalId(v.id());shipments.add(v);}
+    public void addRegion(EcosystemRegion r){EcosystemRegion v=Objects.requireNonNull(r);observeCanonicalId(v.id());for(PopulationGroup p:v.populations())observeCanonicalId(p.id());regions.add(v);} public void addFaction(Faction f){Faction v=Objects.requireNonNull(f);observeCanonicalId(v.id());for(Settlement st:v.settlements())observeCanonicalId(st.id());for(Army a:v.armies())observeCanonicalId(a.id());factions.add(v);}
+    /** Wave 28/29 — soft-cap in-flight shipments; prefer dropping arrived/total-loss before refusing new dispatch. */
+    public void addShipment(TradeShipment s){
+        TradeShipment v=Objects.requireNonNull(s);
+        if(shipments.size()>=MAX_SHIPMENTS){
+            List<Long> drop=new ArrayList<>();
+            for(TradeShipment existing:shipments){
+                if(existing.arrived()||existing.lossState()==TradeShipment.LossState.TOTAL)drop.add(existing.id());
+                if(shipments.size()-drop.size()<MAX_SHIPMENTS)break;
+            }
+            for(Long id:drop)removeShipment(id);
+        }
+        if(shipments.size()>=MAX_SHIPMENTS)return;
+        observeCanonicalId(v.id());
+        shipments.add(v);
+    }
     public void addTreaty(Treaty v){Treaty value=Objects.requireNonNull(v);observeCanonicalId(value.id());treaties.add(value);} public void addWar(WarState v){WarState value=Objects.requireNonNull(v);observeCanonicalId(value.id());wars.add(value);} public void addRoute(TransportRoute v){TransportRoute value=Objects.requireNonNull(v);observeCanonicalId(value.id());routes.add(value);} public void addObjective(MilitaryObjective v){MilitaryObjective value=Objects.requireNonNull(v);observeCanonicalId(value.id());objectives.add(value);} public void addSiege(SiegeState v){SiegeState value=Objects.requireNonNull(v);observeCanonicalId(value.id());sieges.add(value);} public void addAirWing(AirWing v){AirWing value=Objects.requireNonNull(v);observeCanonicalId(value.id());airWings.add(value);} public void addBounty(BountyContract v){BountyContract value=Objects.requireNonNull(v);observeCanonicalId(value.id());bounties.add(value);} public void addCustody(CustodyRecord v){CustodyRecord value=Objects.requireNonNull(v);observeCanonicalId(value.id());custody.add(value);} public void addPort(PortState v){PortState value=Objects.requireNonNull(v);observeCanonicalId(value.id());ports.add(value);} public void addFleet(Fleet v){Fleet value=Objects.requireNonNull(v);observeCanonicalId(value.id());fleets.add(value);} public void addIndustrialSite(IndustrialSite v){IndustrialSite value=Objects.requireNonNull(v);observeCanonicalId(value.id());industrialSites.add(value);} public void addSocialCitizen(SocialCitizen v){SocialCitizen value=Objects.requireNonNull(v);observeCanonicalId(value.id());socialCitizens.add(value);}
     public void restoreSettlementCivilization(SettlementCivilizationState value){Objects.requireNonNull(value);settlementCivilizations.put(value.settlementId(),value);} public void restoreFactionCivilization(FactionCivilizationState value){Objects.requireNonNull(value);factionCivilizations.put(value.factionId(),value);}
     public SettlementCivilizationState ensureSettlementCivilization(long settlementId,long ownerFactionId){return settlementCivilizations.computeIfAbsent(settlementId,k->new SettlementCivilizationState(settlementId,ownerFactionId));}
@@ -233,7 +248,19 @@ public final class SimulationState {
         if(justiceCases.size()>=MAX_JUSTICE_CASES)return;
         observeCanonicalId(value.id());justiceCases.add(value);
     }
+    /** Wave 28 — prune inactive (completed/dismissed) justice cases opened before cutoff. Active cases retained. */
+    public int pruneInactiveJusticeCases(long olderThanDay){
+        int before=justiceCases.size();
+        justiceCases.removeIf(c->!c.active()&&c.openedDay()<olderThanDay);
+        return before-justiceCases.size();
+    }
     public void addHiddenCache(HiddenCache value){Objects.requireNonNull(value);if(hiddenCaches.size()>=MAX_HIDDEN_CACHES)hiddenCaches.removeIf(HiddenCache::recovered);if(hiddenCaches.size()>=MAX_HIDDEN_CACHES)return;observeCanonicalId(value.id());hiddenCaches.add(value);}
+    /** Wave 28 — prune recovered caches created before cutoff. Unrecovered caches retained. */
+    public int pruneRecoveredHiddenCaches(long olderThanDay){
+        int before=hiddenCaches.size();
+        hiddenCaches.removeIf(c->c.recovered()&&c.createdDay()<olderThanDay);
+        return before-hiddenCaches.size();
+    }
     public void addPirateBand(PirateBand value){
         Objects.requireNonNull(value);
         if(pirateBands.size()>=MAX_PIRATE_BANDS){
@@ -318,6 +345,9 @@ public final class SimulationState {
     public Optional<AssistanceTask> activeAssistanceTask(long settlementId,AssistanceTaskType type){return assistanceTasks.stream().filter(AssistanceTask::active).filter(t->t.settlementId()==settlementId&&t.type()==type).findFirst();}
 
     public DynastyState ensureDynasty(long factionId,long foundedDay,String houseName){return dynasties.computeIfAbsent(factionId,k->new DynastyState(factionId,foundedDay,houseName));} public void restoreDynasty(DynastyState value){Objects.requireNonNull(value);dynasties.put(value.factionId(),value);}
+    public boolean removeSettlementCivilization(long settlementId){return settlementCivilizations.remove(settlementId)!=null;}
+    public boolean removeFactionCivilization(long factionId){return factionCivilizations.remove(factionId)!=null;}
+    public boolean removeDynasty(long factionId){return dynasties.remove(factionId)!=null;}
     public IndustrialSite removeIndustrialSite(long id){for(var it=industrialSites.iterator();it.hasNext();){IndustrialSite site=it.next();if(site.id()==id){it.remove();return site;}}return null;}
     public Optional<IndustrialSite> findIndustrialSite(long id){return industrialSites.stream().filter(s->s.id()==id).findFirst();}
     public Optional<SocialCitizen> findSocialCitizen(long id){return socialCitizens.stream().filter(c->c.id()==id).findFirst();}
@@ -342,64 +372,33 @@ public final class SimulationState {
     public Optional<PlayerStanding> findPlayerStanding(String actorKey){return Optional.ofNullable(playerStandings.get(actorKey));} public Optional<PlayerStanding> playerRuler(long factionId){return playerStandings.values().stream().filter(p->p.isRulerOf(factionId)).findFirst();}
     public void restorePlayerStanding(PlayerStanding standing){PlayerStanding v=Objects.requireNonNull(standing);playerStandings.put(v.actorKey(),v);}
 
-    public boolean recordPhysicalShipmentLoss(long id,String cause){TradeShipment shipment=removeShipment(id);if(shipment==null)return false;history.add(new WorldEvent(clock.day(),"trade_caravan_lost","shipment="+id+", resource="+shipment.resource()+", amount="+shipment.amount()+", cause="+Objects.requireNonNullElse(cause,"unknown")));return true;}
+    public boolean recordPhysicalShipmentLoss(long id,String cause){return PhysicalLossService.recordPhysicalShipmentLoss(this,id,cause);}
     public Optional<PopulationGroup> findPopulationGroup(long groupId){for(EcosystemRegion region:regions)for(PopulationGroup group:region.populations())if(group.id()==groupId)return Optional.of(group);return Optional.empty();}
-    public boolean recordPhysicalAnimalDeath(long groupId,double count,String cause){if(count<=0||!Double.isFinite(count))throw new IllegalArgumentException("count");PopulationGroup group=findPopulationGroup(groupId).orElse(null);if(group==null||group.extinct())return false;double before=group.population();group.addPopulation(-Math.min(count,before));history.add(new WorldEvent(clock.day(),"wildlife_death","group="+groupId+", species="+group.speciesId()+", count="+count+", cause="+Objects.requireNonNullElse(cause,"unknown")));return true;}
-    public boolean recordIndustrialDamage(long siteId,double damage,int downtime,String cause){IndustrialSite site=findIndustrialSite(siteId).orElse(null);if(site==null)return false;site.damage(damage,downtime);history.add(new WorldEvent(clock.day(),"industry_damaged","site="+siteId+", kind="+site.kind()+", damage="+damage+", cause="+Objects.requireNonNullElse(cause,"unknown")));return true;}
-    public boolean recordPhysicalCitizenDeath(long settlementId,String cause){return recordPhysicalCitizenDeath(settlementId,0,cause);}
-    public boolean recordPhysicalCitizenDeath(long settlementId,long socialCitizenId,String cause){Settlement settlement=findSettlement(settlementId).orElse(null);if(settlement==null||settlement.population()<=0)return false;SocialCitizen citizen=socialCitizenId>0?findSocialCitizen(socialCitizenId).orElse(null):null;if(citizen!=null&&!citizen.alive())return false;if(citizen!=null)citizen.markDead();settlement.addPopulation(-1);settlement.adjustUnrest(.0025);settlement.setPublicOrder(settlement.publicOrder()-.001);history.add(new WorldEvent(clock.day(),"citizen_death","settlement="+settlementId+(citizen==null?"":", citizen="+citizen.id()+", name="+citizen.name())+", cause="+Objects.requireNonNullElse(cause,"unknown")));return true;}
-    public boolean recordPhysicalArmyLoss(long armyId,int representedPersonnel,String cause){Army army=findArmy(armyId).orElse(null);if(army==null||army.destroyed())return false;army.recordRepresentativeLoss(representedPersonnel);history.add(new WorldEvent(clock.day(),"military_loss","army="+armyId+", represented="+representedPersonnel+", cause="+Objects.requireNonNullElse(cause,"unknown")));return true;}
-    public boolean recordPhysicalAircraftLoss(long wingId,int count,String cause){AirWing wing=airWings.stream().filter(w->w.id()==wingId).findFirst().orElse(null);if(wing==null||wing.destroyed())return false;wing.loseAircraft(count);history.add(new WorldEvent(clock.day(),"aircraft_loss","wing="+wingId+", count="+count+", cause="+Objects.requireNonNullElse(cause,"unknown")));removeDestroyedAirWings();return true;}
-    public boolean recordPhysicalShipLoss(long fleetId,ShipClass shipClass,int count,String cause){if(count<=0)throw new IllegalArgumentException("count");Fleet fleet=findFleet(fleetId).orElse(null);if(fleet==null||fleet.destroyed()||fleet.count(shipClass)<=0)return false;int before=fleet.count(shipClass);fleet.loseShips(shipClass,count);int lost=before-fleet.count(shipClass);history.add(new WorldEvent(clock.day(),"ship_loss","fleet="+fleetId+", class="+shipClass+", count="+lost+", cause="+Objects.requireNonNullElse(cause,"unknown")));removeDestroyedFleets();return lost>0;}
-    public boolean recordPhysicalMigrationLoss(long groupId,int representedPeople,String cause){if(representedPeople<=0)throw new IllegalArgumentException("representedPeople");MigrationGroup group=findMigrationGroup(groupId).orElse(null);if(group==null||!group.active()||group.people()<=0)return false;int before=group.people();group.losePeople(Math.min(representedPeople,before));int lost=before-group.people();history.add(new WorldEvent(clock.day(),"migration_group_loss","group="+groupId+", people="+lost+", cause="+Objects.requireNonNullElse(cause,"unknown")));return lost>0;}
-    public boolean recordPhysicalPirateLoss(long bandId,int representedPirates,String cause){if(representedPirates<=0)throw new IllegalArgumentException("representedPirates");PirateBand band=findPirateBand(bandId).orElse(null);if(band==null||!band.active())return false;int before=band.strength();band.loseStrength(Math.min(representedPirates,before));int lost=before-band.strength();history.add(new WorldEvent(clock.day(),"pirate_loss","band="+bandId+", pirates="+lost+", cause="+Objects.requireNonNullElse(cause,"unknown")));return lost>0;}
-    /**
-     * Maps a physical traveler death onto the canonical journey exactly once.
-     * Dematerialization / LOD despawn must never call this — only real entity death.
-     */
-    public boolean recordPhysicalJourneyDeath(long journeyId,String cause){
-        CitizenJourney journey=findCitizenJourney(journeyId).orElse(null);
-        if(journey==null||!journey.active())return false;
-        journey.abort();
-        history.add(new WorldEvent(clock.day(),"citizen_journey_killed",
-                "journey="+journeyId+", purpose="+journey.purpose().name()
-                        +", cause="+Objects.requireNonNullElse(cause,"unknown")));
-        return true;
-    }
+    public boolean recordPhysicalAnimalDeath(long groupId,double count,String cause){return PhysicalLossService.recordPhysicalAnimalDeath(this,groupId,count,cause);}
+    public boolean recordIndustrialDamage(long siteId,double damage,int downtime,String cause){return PhysicalLossService.recordIndustrialDamage(this,siteId,damage,downtime,cause);}
+    public boolean recordPhysicalCitizenDeath(long settlementId,String cause){return PhysicalLossService.recordPhysicalCitizenDeath(this,settlementId,0,cause);}
+    public boolean recordPhysicalCitizenDeath(long settlementId,long socialCitizenId,String cause){return PhysicalLossService.recordPhysicalCitizenDeath(this,settlementId,socialCitizenId,cause);}
+    public boolean recordPhysicalArmyLoss(long armyId,int representedPersonnel,String cause){return PhysicalLossService.recordPhysicalArmyLoss(this,armyId,representedPersonnel,cause);}
+    public boolean recordPhysicalAircraftLoss(long wingId,int count,String cause){return PhysicalLossService.recordPhysicalAircraftLoss(this,wingId,count,cause);}
+    public boolean recordPhysicalShipLoss(long fleetId,ShipClass shipClass,int count,String cause){return PhysicalLossService.recordPhysicalShipLoss(this,fleetId,shipClass,count,cause);}
+    public boolean recordPhysicalMigrationLoss(long groupId,int representedPeople,String cause){return PhysicalLossService.recordPhysicalMigrationLoss(this,groupId,representedPeople,cause);}
+    public boolean recordPhysicalPirateLoss(long bandId,int representedPirates,String cause){return PhysicalLossService.recordPhysicalPirateLoss(this,bandId,representedPirates,cause);}
+    public boolean recordPhysicalJourneyDeath(long journeyId,String cause){return PhysicalLossService.recordPhysicalJourneyDeath(this,journeyId,cause);}
 
-    public CrimeResult reportCrime(String actorKey,long jurisdictionFactionId,CrimeType type,double value,SimPosition position,boolean witnessed,int witnessCount,String victimKey,String evidence){
-        CrimeIncident incident=new CrimeIncident(nextId(),clock.day(),actorKey,jurisdictionFactionId,type,value,position,witnessed,witnessCount,victimKey,evidence);
-        CrimeResult result=crimeEngine.report(this,incident);
-        reputationEngine.onCrime(this,incident,result);
-        // Only match contracts / deposit stolen goods when the crime was actually registered.
-        if(result.registered())UnderworldActions.observeCrime(this,incident);
-        return result;
-    }
-    public double captureCriminal(String actorKey,long factionId){return crimeEngine.capture(this,actorKey,factionId);} public double payFine(String actorKey,long factionId,double amount){return crimeEngine.payFine(this,actorKey,factionId,amount);}
-    public LawResponse lawResponse(String actorKey,long factionId){return lawEnforcementEngine.response(this,actorKey,factionId);}
-    public ArrestOutcome arrestCriminal(String actorKey,long factionId,String reason){return lawEnforcementEngine.arrest(this,actorKey,factionId,reason);}
-    public BountyClaim claimBounty(long contractId,String hunterKey){return bountyOfficeEngine.claim(this,contractId,hunterKey);}
-    public BountyAssignment acceptBounty(long contractId,String hunterKey){return bountyOfficeEngine.accept(this,contractId,hunterKey);}
-    public BountyAssignment abandonBounty(long contractId,String hunterKey){return bountyOfficeEngine.abandon(this,contractId,hunterKey);}
-    public BountyClaim captureBountyAlive(long contractId,String hunterKey,String reason){
-        BountyContract contract=bounties.stream().filter(b->b.id()==contractId).findFirst().orElse(null);
-        if(contract==null)return new BountyClaim(false,contractId,"",hunterKey,0,0,0,"unknown_contract");
-        LawResponse response=lawResponse(contract.actorKey(),contract.issuerFactionId());
-        if(response.action()!=EnforcementAction.ARREST&&response.action()!=EnforcementAction.LETHAL_FORCE)return new BountyClaim(false,contract.id(),contract.actorKey(),hunterKey,contract.issuerFactionId(),contract.reward(),0,"no_capture_warrant");
-        double bountyBefore=crimeLedger.findProfile(contract.actorKey()).flatMap(p->p.find(contract.issuerFactionId())).map(JurisdictionWanted::bounty).orElse(0.0);
-        BountyClaim claim=bountyOfficeEngine.claim(this,contractId,hunterKey);
-        if(!claim.claimed())return claim;
-        int sentence=Math.max(1,response.sentenceDays());
-        CustodyRecord record=new CustodyRecord(nextId(),contract.actorKey(),contract.issuerFactionId(),clock.day(),clock.day()+sentence,bountyBefore,reason);
-        addCustody(record);
-        history.add(new WorldEvent(clock.day(),"bounty_target_captured_alive","contract="+contractId+", actor="+contract.actorKey()+", hunter="+hunterKey+", days="+sentence));
-        return claim;
-    }
-    public Optional<CustodyRecord> activeCustody(String actorKey,long factionId){return custody.stream().filter(CustodyRecord::active).filter(c->c.actorKey().equals(actorKey)&&c.factionId()==factionId).findFirst();}
-    public FactionJoinResult joinFaction(String actorKey,long factionId){return reputationEngine.join(this,actorKey,factionId);}
-    public boolean leaveFaction(String actorKey){return reputationEngine.leave(this,actorKey);}
-    public void grantFactionService(String actorKey,long factionId,double points){reputationEngine.grantService(this,actorKey,factionId,points);}
-    public boolean pardonCriminal(String actorKey,long factionId){WantedProfile profile=crimeLedger.findProfile(actorKey).orElse(null);if(profile==null)return false;JurisdictionWanted wanted=profile.find(factionId).orElse(null);if(wanted==null)return false;wanted.pardon();history.add(new WorldEvent(clock.day(),"criminal_pardoned","actor="+actorKey+", faction="+factionId));for(BountyContract b:bounties)if(b.actorKey().equals(actorKey)&&b.issuerFactionId()==factionId&&b.status()!=BountyContract.Status.CLAIMED)b.cancel();return true;}
+    public CrimeResult reportCrime(String actorKey,long jurisdictionFactionId,CrimeType type,double value,SimPosition position,boolean witnessed,int witnessCount,String victimKey,String evidence){return PlayerLawService.reportCrime(this,actorKey,jurisdictionFactionId,type,value,position,witnessed,witnessCount,victimKey,evidence);}
+    public double captureCriminal(String actorKey,long factionId){return PlayerLawService.captureCriminal(this,actorKey,factionId);}
+    public double payFine(String actorKey,long factionId,double amount){return PlayerLawService.payFine(this,actorKey,factionId,amount);}
+    public LawResponse lawResponse(String actorKey,long factionId){return PlayerLawService.lawResponse(this,actorKey,factionId);}
+    public ArrestOutcome arrestCriminal(String actorKey,long factionId,String reason){return PlayerLawService.arrestCriminal(this,actorKey,factionId,reason);}
+    public BountyClaim claimBounty(long contractId,String hunterKey){return PlayerLawService.claimBounty(this,contractId,hunterKey);}
+    public BountyAssignment acceptBounty(long contractId,String hunterKey){return PlayerLawService.acceptBounty(this,contractId,hunterKey);}
+    public BountyAssignment abandonBounty(long contractId,String hunterKey){return PlayerLawService.abandonBounty(this,contractId,hunterKey);}
+    public BountyClaim captureBountyAlive(long contractId,String hunterKey,String reason){return PlayerLawService.captureBountyAlive(this,contractId,hunterKey,reason);}
+    public Optional<CustodyRecord> activeCustody(String actorKey,long factionId){return PlayerLawService.activeCustody(this,actorKey,factionId);}
+    public FactionJoinResult joinFaction(String actorKey,long factionId){return PlayerLawService.joinFaction(this,actorKey,factionId);}
+    public boolean leaveFaction(String actorKey){return PlayerLawService.leaveFaction(this,actorKey);}
+    public void grantFactionService(String actorKey,long factionId,double points){PlayerLawService.grantFactionService(this,actorKey,factionId,points);}
+    public boolean pardonCriminal(String actorKey,long factionId){return PlayerLawService.pardonCriminal(this,actorKey,factionId);}
 
     public void replaceSpeciesCatalog(Map<String,SpeciesDefinition> replacement){
         Objects.requireNonNull(replacement,"replacement");
@@ -438,71 +437,42 @@ public final class SimulationState {
         return delta;
     }
 
+    /** Package accessors for {@link SimulationEngine} day orchestration (engines stay owned here). */
+    EcologyEngine ecologyEngine(){return ecology;}
+    FactionEngine factionEngine(){return this.factionEngine;}
+    PrimaryEconomyEngine primaryEconomyEngine(){return this.primaryEconomyEngine;}
+    SettlementEconomyEngine settlementEconomyEngine(){return this.settlementEconomyEngine;}
+    IndustryEngine industryEngine(){return this.industryEngine;}
+    SocietyEngine societyEngine(){return this.societyEngine;}
+    SocialPopulationEngine socialPopulationEngine(){return this.socialPopulationEngine;}
+    SocialMobilityEngine socialMobilityEngine(){return this.socialMobilityEngine;}
+    CivilizationEngine civilizationEngine(){return this.civilizationEngine;}
+    GovernmentEngine governmentEngine(){return this.governmentEngine;}
+    SovereignDebtEngine sovereignDebtEngine(){return this.sovereignDebtEngine;}
+    GrandProjectEngine grandProjectEngine(){return this.grandProjectEngine;}
+    HeroEngine heroEngine(){return this.heroEngine;}
+    MilitaryCommandEngine militaryCommandEngine(){return this.militaryCommandEngine;}
+    DiplomacyEngine diplomacyEngine(){return this.diplomacyEngine;}
+    TradeEngine tradeEngine(){return this.tradeEngine;}
+    TransportNetworkEngine transportEngine(){return this.transportEngine;}
+    AviationEngine aviationEngine(){return this.aviationEngine;}
+    NavalEngine navalEngine(){return this.navalEngine;}
+    CrimeEngine crimeEngine(){return this.crimeEngine;}
+    BountyOfficeEngine bountyOfficeEngine(){return this.bountyOfficeEngine;}
+    LawEnforcementEngine lawEnforcementEngine(){return this.lawEnforcementEngine;}
+    ReputationEngine reputationEngine(){return this.reputationEngine;}
+    RebellionEngine rebellionEngine(){return this.rebellionEngine;}
+
     /**
      * Safe mid-day presentation pulse: shipment progress + migration column crawl.
      * Does <em>not</em> run full {@link #advanceDays} engines or advance the world clock.
      */
     public void advancePresentationPulse(double dayFraction){
-        if(!(dayFraction>0)||!Double.isFinite(dayFraction))return;
-        double frac=Math.min(1.0,dayFraction);
-        long day=clock.day();
-        tradeEngine.presentationPulse(this,new DeterministicRng(seed^day^0x51ED0015EL^(Double.doubleToLongBits(frac))),frac);
-        for(MigrationGroup group:migrationGroups){
-            if(group.status()!=MigrationStatus.TRAVELING)continue;
-            group.advance(frac*.12);
-        }
-        // Subtle siege pressure presentation: nudge attacker armies a few blocks toward the target.
-        for(SiegeState siege:sieges){
-            if(!siege.active())continue;
-            findFaction(siege.attackerFactionId()).ifPresent(attacker->{
-                findSettlement(siege.settlementId()).ifPresent(target->{
-                    for(Army army:attacker.armies()){
-                        if(army.destroyed())continue;
-                        double dist=army.position().distanceTo(target.position());
-                        if(dist<8||dist>400)continue;
-                        army.moveToward(target.position(),Math.min(dist*.08,18*frac));
-                    }
-                });
-            });
-        }
+        SimulationEngine.advancePresentationPulse(this,dayFraction);
     }
 
     public void advanceDays(int days){
-        if(days<0)throw new IllegalArgumentException("days");
-        for(int d=0;d<days;d++){
-            long day=clock.day();
-            for(EcosystemRegion r:regions)ecology.simulate(r,1,new DeterministicRng(seed^(day*0x9E3779B97F4A7C15L)^r.id()));
-            factionEngine.simulateDay(this,new DeterministicRng(seed^day^0xC0FFEE1234L));
-            primaryEconomyEngine.simulateDay(this);
-            // Local farms/workshops/consumption/tithe after primary industry so mines/fisheries enter settlement stores before levy.
-            settlementEconomyEngine.simulateDay(this);
-            industryEngine.simulateDay(this,new DeterministicRng(seed^day^0x243F6A8885A308D3L));
-            for(Faction faction:new ArrayList<>(factions))societyEngine.simulateDay(faction);
-            socialPopulationEngine.simulateDay(this);
-            socialMobilityEngine.simulateDay(this,new DeterministicRng(seed^day^0xA5A5A5A5A5A5A5A5L));
-            civilizationEngine.simulateDay(this,new DeterministicRng(seed^day^0xD1B54A32D192ED03L));
-            governmentEngine.simulateDay(this,new DeterministicRng(seed^day^0x6A09E667F3BCC909L));
-            sovereignDebtEngine.simulateDay(this,new DeterministicRng(seed^day^0x243F6A8885A308D3L^0x51L));
-            grandProjectEngine.simulateDay(this,new DeterministicRng(seed^day^0x85EBCA77C2B2AE63L));
-            heroEngine.simulateDay(this);
-            militaryCommandEngine.simulateDay(this);
-            diplomacyEngine.simulateDay(this,new DeterministicRng(seed^day^0xBB67AE8584CAA73BL));
-            tradeEngine.simulateDay(this,new DeterministicRng(seed^day^0x7A4DE5B19L));
-            transportEngine.simulateDay(this);
-            aviationEngine.simulateDay(this,new DeterministicRng(seed^day^0x3C6EF372FE94F82BL));
-            navalEngine.simulateDay(this,new DeterministicRng(seed^day^0x510E527FADE682D1L));
-            crimeEngine.simulateDay(this,config.crimeHeatDecayPerDay(),config.reputationDecayPerDay());
-            UnderworldActions.expireDue(this);
-            if(day%7==0)UnderworldActions.pruneClosedContracts(this);
-            bountyOfficeEngine.simulateDay(this);
-            lawEnforcementEngine.releaseExpired(this);
-            reputationEngine.simulateDay(this);
-            rebellionEngine.simulateDay(this,new DeterministicRng(seed^day^0xA54FF53A5F1D36F1L),config.rebellionThreshold());
-            RoadLifeEngine.simulateDay(this,new DeterministicRng(seed^day^0xC2B2AE3D27D4EB4FL));
-            if(day%30==15)SettlementExpansionEngine.simulateDay(this,new DeterministicRng(seed^day^0xCA05A15L));
-            clock.advance(SimClock.TICKS_PER_DAY);
-            if(day%30==0)history.add(new WorldEvent(day,"monthly_snapshot",summary()));
-        }
+        SimulationEngine.advanceDays(this,days);
     }
 
     public String summary(){long animalGroups=regions.stream().mapToLong(r->r.populations().size()).sum();double animals=regions.stream().flatMap(r->r.populations().stream()).mapToDouble(PopulationGroup::population).sum();int people=factions.stream().mapToInt(Faction::population).sum();long activeWars=wars.stream().filter(WarState::active).count();long activeRaids=raids.stream().filter(RaidParty::active).count();long openBounties=bounties.stream().filter(b->b.status()==BountyContract.Status.OPEN||b.status()==BountyContract.Status.ASSIGNED).count();return "day="+clock.day()+", factions="+factions.size()+", people="+people+", industry="+industrialSites.size()+", animalGroups="+animalGroups+", animals≈"+(long)animals+", wars="+activeWars+", raids="+activeRaids+", shipments="+shipments.size()+", fleets="+fleets.size()+", members="+playerStandings.values().stream().filter(PlayerStanding::isMember).count()+", bounties="+openBounties;}

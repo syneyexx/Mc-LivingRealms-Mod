@@ -1,0 +1,13 @@
+{
+  "id": "house_fachwerk_t2",
+  "cultureId": "aster_riverborn",
+  "architectureFamily": "MEDIEVAL_FACHWERK",
+  "role": "HOUSE",
+  "tier": "VILLAGE",
+  "district": "RESIDENTIAL",
+  "wealthMin": 0.35,
+  "wealthMax": 0.75,
+  "footprintWidth": 11,
+  "footprintDepth": 11,
+  "displayName": "Fachwerk Town House"
+}

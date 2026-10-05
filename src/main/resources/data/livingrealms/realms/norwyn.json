@@ -1,0 +1,99 @@
+{
+  "id": "norwyn",
+  "displayName": "High Kingdom of Norwyn",
+  "rulerSeedName": "Queen Astrid II",
+  "capitalName": "Northcrown",
+  "x": -8140,
+  "z": -6270,
+  "capitalPopulation": 3050,
+  "capitalHousing": 3480,
+  "technology": 0.29,
+  "treasury": 8400,
+  "armyInfantry": 160,
+  "namingHints": [
+    "Nor",
+    "Frost",
+    "Pine",
+    "Raven",
+    "Snow",
+    "High",
+    "Wolf",
+    "Ice",
+    "West",
+    "Winter",
+    "Fir"
+  ],
+  "satellites": [
+    {
+      "name": "Frostford",
+      "dx": 480,
+      "dz": -390,
+      "population": 520,
+      "housing": 610
+    },
+    {
+      "name": "Pinewatch",
+      "dx": -620,
+      "dz": 390,
+      "population": 145,
+      "housing": 200
+    },
+    {
+      "name": "Ravenpass",
+      "dx": 890,
+      "dz": 520,
+      "population": 1100,
+      "housing": 1260
+    },
+    {
+      "name": "Snowmere",
+      "dx": -970,
+      "dz": -540,
+      "population": 295,
+      "housing": 365
+    },
+    {
+      "name": "Highcliff",
+      "dx": 1310,
+      "dz": -710,
+      "population": 1380,
+      "housing": 1570
+    },
+    {
+      "name": "Wolfgate",
+      "dx": 1450,
+      "dz": 300,
+      "population": 430,
+      "housing": 510
+    },
+    {
+      "name": "Icebrook",
+      "dx": 410,
+      "dz": 950,
+      "population": 98,
+      "housing": 138
+    },
+    {
+      "name": "Westwatch",
+      "dx": -1400,
+      "dz": 760,
+      "population": 670,
+      "housing": 780
+    },
+    {
+      "name": "Winterfield",
+      "dx": 1730,
+      "dz": 1030,
+      "population": 235,
+      "housing": 300
+    },
+    {
+      "name": "Firhollow",
+      "dx": -1840,
+      "dz": -910,
+      "population": 68,
+      "housing": 94
+    }
+  ],
+  "cultureId": "norwyn_highland"
+}

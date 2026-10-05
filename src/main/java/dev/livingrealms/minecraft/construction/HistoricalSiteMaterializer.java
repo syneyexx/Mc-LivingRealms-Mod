@@ -60,6 +60,13 @@ public final class HistoricalSiteMaterializer {
             if(!ruin.active()||!nearPlayer(level,ruin.position().x(),ruin.position().z()))continue;
             if(materializeRuin(level,ledger,ruin)){budget--;}
         }
+        for(dev.livingrealms.sim.civilization.LegendRecord legend:data.state().legends()){
+            if(budget<=0)break;
+            if(legend.settlementId()<=0)continue;
+            var settlement=data.state().findSettlement(legend.settlementId()).orElse(null);
+            if(settlement==null||!nearPlayer(level,settlement.position().x(),settlement.position().z()))continue;
+            if(materializeLegendTrace(level,ledger,legend,settlement.position().x(),settlement.position().z()))budget--;
+        }
     }
 
     public static OptionalLong cacheIdAt(BlockPos pos){Long id=pos==null?null:CACHE_AT_POS.get(pos.asLong());return id==null?OptionalLong.empty():OptionalLong.of(id);}
@@ -105,6 +112,8 @@ public final class HistoricalSiteMaterializer {
         int[][] offsets={{0,0},{1,0},{-1,0},{0,1},{0,-1},{2,1},{-2,-1},{1,-2},{-1,2},{3,0},{0,3}};
         int target=Math.max(3,Math.min(offsets.length,(int)Math.round(3+ruin.preservation()*8)));
         boolean touched=false;int placed=0;
+        boolean wartime=ruin.cause()!=null&&ruin.cause().startsWith("war:");
+        boolean abandoned=ruin.cause()!=null&&ruin.cause().startsWith("abandoned_raid:");
         for(int i=0;i<offsets.length&&placed<target;i++){
             int idx=Math.floorMod(i+Long.hashCode(ruin.id()),offsets.length);int x=cx+offsets[idx][0],z=cz+offsets[idx][1];
             BlockPos probe=new BlockPos(x,level.getSeaLevel(),z);if(!level.hasChunkAt(probe))continue;
@@ -112,7 +121,7 @@ public final class HistoricalSiteMaterializer {
             if(surface<=level.getMinBuildHeight()+1||surface>=level.getMaxBuildHeight()-5)continue;
             BlockState groundState=level.getBlockState(ground),current=level.getBlockState(pos);
             if(!naturalGround(groundState)||groundState.hasBlockEntity()||current.hasBlockEntity())continue;
-            BlockState desired=ruinBlock(ruin.id(),i);
+            BlockState desired=ruinBlock(ruin.id(),i,wartime,abandoned);
             if(ledger.ownerType(pos.getX(),pos.getY(),pos.getZ())==AuthoredOwnerType.HISTORICAL_RUIN
                     && (current.equals(desired)||isRuinMaterial(current))){
                 RUIN_AT_POS.put(pos.asLong(),ruin.id());placed++;continue;
@@ -151,8 +160,56 @@ public final class HistoricalSiteMaterializer {
         return touched||placed>0;
     }
 
-    private static BlockState ruinBlock(long id,int index){int pick=Math.floorMod(Long.hashCode(id*31L+index*17L),4);return switch(pick){case 0->Blocks.MOSSY_COBBLESTONE.defaultBlockState();case 1->Blocks.CRACKED_STONE_BRICKS.defaultBlockState();case 2->Blocks.COBBLESTONE.defaultBlockState();default->Blocks.MOSSY_STONE_BRICKS.defaultBlockState();};}
-    private static boolean isRuinMaterial(BlockState s){return s.is(Blocks.MOSSY_COBBLESTONE)||s.is(Blocks.CRACKED_STONE_BRICKS)||s.is(Blocks.COBBLESTONE)||s.is(Blocks.MOSSY_STONE_BRICKS);}
+    private static boolean materializeLegendTrace(ServerLevel level,AuthoredBlockLedger ledger,
+                                                 dev.livingrealms.sim.civilization.LegendRecord legend,double sx,double sz){
+        String key=legend.subjectKey()==null?"":legend.subjectKey();
+        TraceKind kind;
+        if(key.startsWith("grave:"))kind=TraceKind.GRAVE;
+        else if(key.startsWith("battle_marker:")||key.startsWith("raid_scar:"))kind=TraceKind.BATTLE_MARKER;
+        else if(legend.monumented()||key.startsWith("capture_memorial:")||key.contains("monument"))kind=TraceKind.MEMORIAL;
+        else return false;
+        int salt=Long.hashCode(legend.id());
+        int cx=(int)Math.floor(sx)+(kind==TraceKind.GRAVE?6:kind==TraceKind.BATTLE_MARKER?-5:3);
+        int cz=(int)Math.floor(sz)+(kind==TraceKind.GRAVE?-4:kind==TraceKind.BATTLE_MARKER?7:-2);
+        cx+=Math.floorMod(salt,5)-2;cz+=Math.floorMod(salt/7,5)-2;
+        BlockPos probe=new BlockPos(cx,level.getSeaLevel(),cz);if(!level.hasChunkAt(probe))return false;
+        int surface=level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,cx,cz)-1;
+        if(surface<=level.getMinBuildHeight()+1||surface>=level.getMaxBuildHeight()-6)return false;
+        BlockPos ground=new BlockPos(cx,surface,cz),pos=ground.above();
+        BlockState groundState=level.getBlockState(ground),current=level.getBlockState(pos);
+        if(!naturalGround(groundState)||groundState.hasBlockEntity()||current.hasBlockEntity())return false;
+        BlockState desired=switch(kind){
+            case GRAVE->Blocks.STONE_BRICK_WALL.defaultBlockState();
+            case BATTLE_MARKER->Blocks.COBBLESTONE_WALL.defaultBlockState();
+            case MEMORIAL->Blocks.CHISELED_STONE_BRICKS.defaultBlockState();
+        };
+        if(ledger.ownerType(pos.getX(),pos.getY(),pos.getZ())==AuthoredOwnerType.HISTORICAL_RUIN
+                &&(current.equals(desired)||isRuinMaterial(current)||current.is(Blocks.STONE_BRICK_WALL)||current.is(Blocks.COBBLESTONE_WALL)||current.is(Blocks.CHISELED_STONE_BRICKS))){
+            RUIN_AT_POS.put(pos.asLong(),legend.id());
+            return true;
+        }
+        if(!current.isAir()&&!current.canBeReplaced())return false;
+        if(!WorldMutationGuard.trySetAuthored(level,pos,desired,ledger,AuthoredOwnerType.HISTORICAL_RUIN,false,false))return false;
+        RUIN_AT_POS.put(pos.asLong(),legend.id());
+        if(kind==TraceKind.MEMORIAL||kind==TraceKind.BATTLE_MARKER){
+            BlockPos top=pos.above();
+            if(level.getBlockState(top).isAir()||level.getBlockState(top).canBeReplaced()){
+                BlockState accent=kind==TraceKind.MEMORIAL?Blocks.TORCH.defaultBlockState():Blocks.WHITE_BANNER.defaultBlockState();
+                WorldMutationGuard.trySetAuthored(level,top,accent,ledger,AuthoredOwnerType.HISTORICAL_RUIN,false,false);
+            }
+        }
+        return true;
+    }
+
+    private enum TraceKind{GRAVE,BATTLE_MARKER,MEMORIAL}
+
+    private static BlockState ruinBlock(long id,int index,boolean wartime,boolean abandoned){
+        int pick=Math.floorMod(Long.hashCode(id*31L+index*17L),4);
+        if(wartime)return switch(pick){case 0->Blocks.CRACKED_STONE_BRICKS.defaultBlockState();case 1->Blocks.COBBLESTONE.defaultBlockState();case 2->Blocks.BLACKSTONE.defaultBlockState();default->Blocks.MOSSY_COBBLESTONE.defaultBlockState();};
+        if(abandoned)return switch(pick){case 0->Blocks.OAK_FENCE.defaultBlockState();case 1->Blocks.COBBLESTONE.defaultBlockState();case 2->Blocks.MOSSY_COBBLESTONE.defaultBlockState();default->Blocks.CAMPFIRE.defaultBlockState();};
+        return switch(pick){case 0->Blocks.MOSSY_COBBLESTONE.defaultBlockState();case 1->Blocks.CRACKED_STONE_BRICKS.defaultBlockState();case 2->Blocks.COBBLESTONE.defaultBlockState();default->Blocks.MOSSY_STONE_BRICKS.defaultBlockState();};
+    }
+    private static boolean isRuinMaterial(BlockState s){return s.is(Blocks.MOSSY_COBBLESTONE)||s.is(Blocks.CRACKED_STONE_BRICKS)||s.is(Blocks.COBBLESTONE)||s.is(Blocks.MOSSY_STONE_BRICKS)||s.is(Blocks.BLACKSTONE)||s.is(Blocks.OAK_FENCE)||s.is(Blocks.CAMPFIRE)||s.is(Blocks.STONE_BRICK_WALL)||s.is(Blocks.COBBLESTONE_WALL)||s.is(Blocks.CHISELED_STONE_BRICKS);}
     private static boolean naturalCover(BlockState s){return naturalGround(s)||s.is(BlockTags.LEAVES)||s.is(Blocks.SNOW);}
     private static boolean naturalExcavatable(BlockState s){return naturalGround(s)||s.is(BlockTags.BASE_STONE_OVERWORLD);}
     private static boolean naturalGround(BlockState s){return WorldMutationGuard.isNaturalTerrain(s)||s.is(Blocks.TUFF)||s.is(BlockTags.BASE_STONE_OVERWORLD);}

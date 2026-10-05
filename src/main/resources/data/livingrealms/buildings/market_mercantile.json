@@ -1,0 +1,13 @@
+{
+  "id": "market_mercantile",
+  "cultureId": "aurenthal_mercantile",
+  "architectureFamily": "MERCANTILE_TOWNHOUSE",
+  "role": "MARKET",
+  "tier": "TOWN",
+  "district": "MARKET",
+  "wealthMin": 0.4,
+  "wealthMax": 1.0,
+  "footprintWidth": 15,
+  "footprintDepth": 13,
+  "displayName": "Mercantile Exchange"
+}

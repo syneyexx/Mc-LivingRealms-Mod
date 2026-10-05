@@ -2,12 +2,15 @@ package dev.livingrealms.sim.construction;
 
 import dev.livingrealms.sim.civilization.FactionCivilizationState;
 import dev.livingrealms.sim.civilization.SettlementCivilizationState;
+import dev.livingrealms.sim.content.CultureDefinition;
+import dev.livingrealms.sim.content.SettlementIdentityProfile;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementGeographyProfile;
 import dev.livingrealms.sim.faction.SettlementSpecialization;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -65,12 +68,20 @@ public final class CultureArchitectureProfile {
         if (settlementCiv != null) {
             education = Math.max(education, settlementCiv.education());
         }
-        return derive(mercantile, martial, agrarian, artistic, education, faction.technology(),
+        CultureArchitectureProfile scored = derive(mercantile, martial, agrarian, artistic, education, faction.technology(),
                 settlement.prosperity(), geo, settlement.specialization(
                         faction.settlements().stream().max((a, b) -> Integer.compare(a.population(), b.population()))
                                 .map(s -> s.id() == settlement.id()).orElse(false),
                         faction.technology()),
                 settlement.id() ^ faction.id());
+        // Authored culture packs (Wave 8/9) pin the architectural era when present.
+        Optional<CultureDefinition> pack = SettlementIdentityProfile.cultureOf(faction);
+        if (pack.isPresent()) {
+            CultureArchitecture pinned = pack.get().architectureFamily();
+            return new CultureArchitectureProfile(pinned,
+                    scored.rationale() + " culturePack=" + pack.get().id() + "->" + pinned.name().toLowerCase(Locale.ROOT));
+        }
+        return scored;
     }
 
     public static CultureArchitectureProfile derive(

@@ -1,0 +1,14 @@
+{
+  "id": "desert_courtyard",
+  "architectureFamily": "DESERT_COURTYARD",
+  "slots": {
+    "FOUNDATION": "sandstone",
+    "FLOOR": "birch_planks",
+    "WALL": "smooth_sandstone",
+    "BEAM": "stripped_birch_log",
+    "ROOF": "sandstone_stairs",
+    "GLASS": "glass_pane",
+    "DOOR": "birch_door",
+    "PATH": "sandstone"
+  }
+}

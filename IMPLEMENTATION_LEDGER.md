@@ -26,7 +26,7 @@ CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 - Named roster seeding via SocialPopulationEngine; aggregate population for scale.
 
 ## Status
-Subsystem completeness in `COMPLETION_MATRIX.md` tracks feature wiring. Overall release claim must follow `docs/RELEASE_GATES.md` vocabulary (`core-green` … `release-ready`) with matching evidence — not core suite alone.
+Subsystem maturity in `COMPLETION_MATRIX.md` uses FOUNDATION / CANONICAL / PLAYABLE / PHYSICALIZED / DEEP / POLISHED (not blanket done labels). Overall release claim must follow `docs/RELEASE_GATES.md` vocabulary (`core-green` … `release-ready`) with matching evidence — not core suite alone.
 
 ## Geschiedenis
 - Earlier ledger rows used schema 16–17, ContentRevision 10–11, 32/realm density, 2000-block spacing, and COMPLETE (core) / EXTERNAL GATE labels. Obsolete for current pins.

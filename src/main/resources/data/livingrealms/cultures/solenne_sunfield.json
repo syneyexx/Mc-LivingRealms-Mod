@@ -1,0 +1,21 @@
+{
+  "id": "solenne_sunfield",
+  "displayName": "Solenne Sunfield",
+  "architectureFamily": "DESERT_COURTYARD",
+  "namingStyle": "solar_roman",
+  "dialectStyle": "court speech",
+  "materialPalette": [
+    "sandstone",
+    "terracotta",
+    "birch"
+  ],
+  "economicTendency": 0.6,
+  "martialTendency": 0.4,
+  "artisticTendency": 0.5,
+  "districtTendencies": [
+    "MARKET",
+    "WEALTHY_QUARTER",
+    "GOVERNMENT"
+  ],
+  "relatedFamily": "DESERT_COURTYARD"
+}

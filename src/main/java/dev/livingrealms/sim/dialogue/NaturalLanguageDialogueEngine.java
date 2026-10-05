@@ -1,215 +1,121 @@
 package dev.livingrealms.sim.dialogue;
 
-import dev.livingrealms.sim.civilian.CitizenRole;
-import dev.livingrealms.sim.civilization.*;
+import dev.livingrealms.sim.content.SettlementIdentityProfile;
 import dev.livingrealms.sim.faction.*;
-import dev.livingrealms.sim.economy.LocalMarketEngine;
-import dev.livingrealms.sim.economy.MarketEngine;
-import dev.livingrealms.sim.transport.TransportRoute;
 import dev.livingrealms.sim.social.*;
-import dev.livingrealms.sim.society.WorldCauseExplainer;
 import dev.livingrealms.sim.world.*;
-import java.text.Normalizer;
 import java.util.*;
 
 /**
  * Deterministic no-LLM conversation engine. Free text is normalized into intents/topics/entities,
  * short context resolves follow-ups, and every factual answer is grounded in canonical state or
  * the individual citizen's bounded knowledge.
+ *
+ * <p>Answer bodies live in {@link DialogueAnswerCatalog} (Wave residual extraction).
  */
 public final class NaturalLanguageDialogueEngine {
-    public DialogueResult respond(SimulationState state,SocialCitizen citizen,String playerKey,String input,DialogueContext context){
-        Objects.requireNonNull(state);Objects.requireNonNull(citizen);if(playerKey==null||playerKey.isBlank())throw new IllegalArgumentException("playerKey");if(input==null)input="";if(context==null)context=new DialogueContext();
-        Parsed parsed=parse(input,context);long day=state.clock().day();Faction faction=state.findFaction(citizen.factionId()).orElse(null);Settlement settlement=state.findSettlement(citizen.settlementId()).orElse(null);
-        if(faction==null||settlement==null)return new DialogueResult(parsed.intent,parsed.topic,"I don't know where I belong anymore.",List.of());
-        List<DialogueAction> actions=new ArrayList<>();String response=switch(parsed.intent){
-            case GREET -> compose(citizen,day,"greet",List.of("Hello","Good to see another face","Greetings")) + ", traveler.";
-            case ASK_SELF -> answerSelf(state,citizen,settlement,faction,day);
-            case ASK_AGE -> answerAge(citizen,day);
-            case ASK_JOB -> answerJob(citizen,settlement,day);
-            case ASK_FAMILY -> answerFamily(state,citizen,day);
-            case ASK_HEALTH -> answerHealth(state,citizen,settlement,day);
-            case ASK_RULER -> answerRuler(state,citizen,faction,day);
-            case ASK_DYNASTY -> answerDynasty(state,citizen,faction,day);
-            case ASK_SETTLEMENT -> answerSettlement(state,citizen,settlement,faction,day);
-            case ASK_FACTION -> answerFaction(state,citizen,faction,day);
-            case ASK_POLITICS -> answerPolitics(state,citizen,faction,day);
-            case ASK_LAW -> answerLaw(citizen,settlement,faction,day);
-            case ASK_CRIME -> answerCrime(state,citizen,settlement,faction,playerKey,parsed.subject,day);
-            case ASK_TAX -> answerTax(citizen,faction,day);
-            case ASK_FOOD -> answerFood(state,citizen,settlement,faction,day,actions);
-            case ASK_WATER -> answerWater(state,citizen,settlement,faction,day);
-            case ASK_RESOURCES -> answerResources(state,citizen,settlement,faction,day);
-            case ASK_TRADE -> answerTradeState(citizen,settlement,faction,day);
-            case ASK_PRICE -> answerPrice(citizen,faction,settlement,parsed.subject,day);
-            case ASK_TECHNOLOGY -> answerTechnology(state,citizen,faction,day);
-            case ASK_SCHOOL -> answerSchool(state,citizen,settlement,faction,day);
-            case ASK_WAR -> answerWar(state,citizen,faction,day,actions);
-            case ASK_ARMY -> answerArmy(state,citizen,faction,day);
-            case ASK_GUARDS -> answerGuards(state,citizen,settlement,faction,day);
-            case ASK_ROUTE -> answerRoute(state,citizen,settlement,day,actions);
-            case ASK_MIGRATION -> answerMigration(state,citizen,settlement,faction,day);
-            case ASK_CULTURE -> answerCulture(state,citizen,faction,day);
-            case ASK_RELIGION -> answerReligion(state,citizen,faction,day);
-            case ASK_HISTORY -> answerHistory(state,citizen,faction,settlement,day);
-            case ASK_RUMOR -> answerRumor(citizen,day);
-            case ASK_CALENDAR -> answerCalendar(citizen,day);
-            case ASK_DANGER -> answerDanger(state,citizen,settlement,parsed.topic,day,actions);
-            case ASK_DIRECTION -> answerDirection(state,citizen,context,parsed.subject,settlement,day,actions);
-            case ASK_SOURCE -> answerSource(citizen,context,day);
-            case ASK_RECENT_EVENT -> answerRecent(state,citizen,settlement,day);
-            case ASK_OPINION -> answerOpinion(citizen,playerKey,day);
-            case ASK_HELP -> answerHelp(state,citizen,settlement,faction,day,actions);
-            case TRADE -> {actions.add(new DialogueAction(DialogueActionType.OPEN_TRADE,"settlement:"+settlement.id(),settlement.position(),0));yield compose(citizen,day,"trade",List.of("We can talk prices","If you have coin or goods, we can trade","Let's see what the market will bear"))+".";}
-            case GIVE_GIFT -> {actions.add(new DialogueAction(DialogueActionType.ACCEPT_GIFT,playerKey,null,1));yield "If that is for me, hand it over and I will remember it.";}
-            case COMPLIMENT -> interaction(state,citizen,playerKey,MemoryType.CONVERSATION,.08,-.03,1.5,"That's kind of you to say.",actions);
-            case APOLOGIZE -> interaction(state,citizen,playerKey,MemoryType.CONVERSATION,.04,-.08,.8,"I hear your apology. What happens next will matter more than the words.",actions);
-            case REPORT_CRIME -> reportInformation(state,citizen,playerKey,MemoryType.RUMOR,"reported-crime","The player reported a crime nearby.",.72,actions,true);
-            case REPORT_DANGER -> reportInformation(state,citizen,playerKey,MemoryType.RUMOR,"reported-danger","The player reported a nearby danger.",.72,actions,true);
-            case PROVIDE_INFORMATION -> reportInformation(state,citizen,playerKey,MemoryType.RUMOR,"player-information",summarizeInput(input),.58,actions,false);
-            case THREATEN -> interaction(state,citizen,playerKey,MemoryType.THREAT,-.15,.22,-5.0,"Threats travel quickly here.",actions);
-            case INSULT -> interaction(state,citizen,playerKey,MemoryType.INSULT,-.09,.12,-2.0,"I won't forget the way you speak to people.",actions);
-            case GOODBYE -> compose(citizen,day,"bye",List.of("Safe travels","Until next time","Go carefully"))+".";
-            case UNKNOWN -> unknown(citizen,day);
-        };
-        citizen.remember(new CitizenMemory(day,MemoryType.CONVERSATION,playerKey,"self",summarizeInput(input),settlement.position(),.12,1));
-        DialogueTopic topic=parsed.topic==DialogueTopic.NONE?inferTopic(parsed.intent):parsed.topic;String subject=parsed.subject.isBlank()?subjectFor(topic):parsed.subject;context.update(parsed.intent,topic,subject,day);
-        return new DialogueResult(parsed.intent,topic,response,actions);
-    }
+    private final DialogueInterpreter interpreter = new DialogueInterpreter();
+    private final DialogueKnowledgeService knowledgeService = new DialogueKnowledgeService();
+    private final DialoguePlanner planner = new DialoguePlanner();
+    private final DialogueStyleProfile styleProfile = new DialogueStyleProfile();
+    private final DialogueRealizer realizer = new DialogueRealizer();
 
-    public Parsed parse(String raw,DialogueContext context){
-        Objects.requireNonNull(context);String s=normalize(raw);Set<String> tokens=new LinkedHashSet<>(s.isBlank()?List.of():Arrays.asList(s.split(" ")));
-        if(any(s,"wie vertelde","van wie hoorde","wat is je bron","who told","where did you hear")||s.equals("source"))return p(DialogueIntent.ASK_SOURCE,context.lastTopic(),context.lastSubject());
-        if(any(s,"waar gingen ze heen","where did they go","waar gingen ze","waar zijn ze","waarheen gingen","where did they","where are they","which way did they"))
-            return p(DialogueIntent.ASK_DIRECTION,context.lastTopic()==DialogueTopic.NONE?DialogueTopic.LOCATION:context.lastTopic(),context.lastSubject());
-        String where=afterAny(s,"waar is ","waar ligt ","waar vind ik ","where is ","where can i find ");if(!where.isBlank())return p(DialogueIntent.ASK_DIRECTION,DialogueTopic.LOCATION,where);
-        DialoguePhraseTable.Match match=DialoguePhraseTable.longest(s);
-        if(match!=null){
-            String subject=match.dynamicResource()?resourceSubject(s):match.subject();
-            return p(match.intent(),match.topic(),subject);
+    public DialogueResult respond(SimulationState state, SocialCitizen citizen, String playerKey, String input, DialogueContext context) {
+        Objects.requireNonNull(state);
+        Objects.requireNonNull(citizen);
+        if (playerKey == null || playerKey.isBlank()) throw new IllegalArgumentException("playerKey");
+        if (input == null) input = "";
+        if (context == null) context = new DialogueContext();
+        DialogueInterpreter.Interpreted interpreted = interpreter.interpret(input, context);
+        Parsed parsed = new Parsed(interpreted.intent(), interpreted.topic(), interpreted.subject());
+        long day = state.clock().day();
+        Faction faction = state.findFaction(citizen.factionId()).orElse(null);
+        Settlement settlement = state.findSettlement(citizen.settlementId()).orElse(null);
+        if (faction == null || settlement == null) {
+            return new DialogueResult(parsed.intent, parsed.topic, "I don't know where I belong anymore.", List.of());
         }
-        if(tokens.size()<=2&&tokens.contains("hi"))return p(DialogueIntent.GREET,DialogueTopic.NONE,"");
-        return p(DialogueIntent.UNKNOWN,DialogueTopic.NONE,"");
+        List<DialogueAction> actions = new ArrayList<>();
+        DialogueKnowledge knowledge = switch (parsed.intent) {
+            case ASK_ARMY -> knowledgeService.army(state, citizen, faction, day);
+            case ASK_POLITICS -> knowledgeService.politics(state, citizen, faction, day);
+            case ASK_TECHNOLOGY -> knowledgeService.technology(state, citizen, faction, day);
+            case ASK_FOOD -> knowledgeService.food(state, citizen, settlement, faction, day, actions);
+            default -> null;
+        };
+        String legacyBody = knowledge != null ? null : switch (parsed.intent) {
+            case GREET -> DialogueAnswerCatalog.compose(citizen, day, "greet",
+                    List.of("Hello", "Good to see another face", "Greetings")) + ", traveler.";
+            case ASK_SELF -> DialogueAnswerCatalog.answerSelf(state, citizen, settlement, faction, day);
+            case ASK_AGE -> DialogueAnswerCatalog.answerAge(citizen, day);
+            case ASK_JOB -> DialogueAnswerCatalog.answerJob(citizen, settlement, day);
+            case ASK_FAMILY -> DialogueAnswerCatalog.answerFamily(state, citizen, day);
+            case ASK_HEALTH -> DialogueAnswerCatalog.answerHealth(state, citizen, settlement, day);
+            case ASK_RULER -> DialogueAnswerCatalog.answerRuler(state, citizen, faction, day);
+            case ASK_DYNASTY -> DialogueAnswerCatalog.answerDynasty(state, citizen, faction, day);
+            case ASK_SETTLEMENT -> DialogueAnswerCatalog.answerSettlement(state, citizen, settlement, faction, day);
+            case ASK_FACTION -> DialogueAnswerCatalog.answerFaction(state, citizen, faction, day);
+            case ASK_LAW -> DialogueAnswerCatalog.answerLaw(citizen, settlement, faction, day);
+            case ASK_CRIME -> DialogueAnswerCatalog.answerCrime(state, citizen, settlement, faction, playerKey, parsed.subject, day);
+            case ASK_TAX -> DialogueAnswerCatalog.answerTax(citizen, faction, day);
+            case ASK_WATER -> DialogueAnswerCatalog.answerWater(state, citizen, settlement, faction, day);
+            case ASK_RESOURCES -> DialogueAnswerCatalog.answerResources(state, citizen, settlement, faction, day);
+            case ASK_TRADE -> DialogueAnswerCatalog.answerTradeState(citizen, settlement, faction, day);
+            case ASK_PRICE -> DialogueAnswerCatalog.answerPrice(citizen, faction, settlement, parsed.subject, day);
+            case ASK_SCHOOL -> DialogueAnswerCatalog.answerSchool(state, citizen, settlement, faction, day);
+            case ASK_WAR -> DialogueAnswerCatalog.answerWar(state, citizen, faction, day, actions);
+            case ASK_GUARDS -> DialogueAnswerCatalog.answerGuards(state, citizen, settlement, faction, day);
+            case ASK_ROUTE -> DialogueAnswerCatalog.answerRoute(state, citizen, settlement, day, actions);
+            case ASK_MIGRATION -> DialogueAnswerCatalog.answerMigration(state, citizen, settlement, faction, day);
+            case ASK_CULTURE -> DialogueAnswerCatalog.answerCulture(state, citizen, faction, settlement, day);
+            case ASK_RELIGION -> DialogueAnswerCatalog.answerReligion(state, citizen, faction, day);
+            case ASK_HISTORY -> DialogueAnswerCatalog.answerHistory(state, citizen, faction, settlement, day);
+            case ASK_RUMOR -> DialogueAnswerCatalog.answerRumor(citizen, day);
+            case ASK_CALENDAR -> DialogueAnswerCatalog.answerCalendar(citizen, day);
+            case ASK_DANGER -> DialogueAnswerCatalog.answerDanger(state, citizen, settlement, parsed.topic, day, actions);
+            case ASK_DIRECTION -> DialogueAnswerCatalog.answerDirection(state, citizen, context, parsed.subject, settlement, day, actions);
+            case ASK_SOURCE -> DialogueAnswerCatalog.answerSource(citizen, context, day);
+            case ASK_RECENT_EVENT -> DialogueAnswerCatalog.answerRecent(state, citizen, settlement, day);
+            case ASK_OPINION -> DialogueAnswerCatalog.answerOpinion(citizen, playerKey, day);
+            case ASK_HELP -> DialogueAnswerCatalog.answerHelp(state, citizen, settlement, faction, day, actions);
+            case TRADE -> {
+                actions.add(new DialogueAction(DialogueActionType.OPEN_TRADE, "settlement:" + settlement.id(), settlement.position(), 0));
+                yield DialogueAnswerCatalog.compose(citizen, day, "trade",
+                        List.of("We can talk prices", "If you have coin or goods, we can trade", "Let's see what the market will bear")) + ".";
+            }
+            case GIVE_GIFT -> {
+                actions.add(new DialogueAction(DialogueActionType.ACCEPT_GIFT, playerKey, null, 1));
+                yield "If that is for me, hand it over and I will remember it.";
+            }
+            case COMPLIMENT -> DialogueAnswerCatalog.interaction(state, citizen, playerKey, MemoryType.CONVERSATION, .08, -.03, 1.5, "That's kind of you to say.", actions);
+            case APOLOGIZE -> DialogueAnswerCatalog.interaction(state, citizen, playerKey, MemoryType.CONVERSATION, .04, -.08, .8, "I hear your apology. What happens next will matter more than the words.", actions);
+            case REPORT_CRIME -> DialogueAnswerCatalog.reportInformation(state, citizen, playerKey, MemoryType.RUMOR, "reported-crime", "The player reported a crime nearby.", .72, actions, true);
+            case REPORT_DANGER -> DialogueAnswerCatalog.reportInformation(state, citizen, playerKey, MemoryType.RUMOR, "reported-danger", "The player reported a nearby danger.", .72, actions, true);
+            case PROVIDE_INFORMATION -> DialogueAnswerCatalog.reportInformation(state, citizen, playerKey, MemoryType.RUMOR, "player-information", DialogueAnswerCatalog.summarizeInput(input), .58, actions, false);
+            case THREATEN -> DialogueAnswerCatalog.interaction(state, citizen, playerKey, MemoryType.THREAT, -.15, .22, -5.0, "Threats travel quickly here.", actions);
+            case INSULT -> DialogueAnswerCatalog.interaction(state, citizen, playerKey, MemoryType.INSULT, -.09, .12, -2.0, "I won't forget the way you speak to people.", actions);
+            case GOODBYE -> DialogueAnswerCatalog.compose(citizen, day, "bye", List.of("Safe travels", "Until next time", "Go carefully")) + ".";
+            case UNKNOWN -> DialogueAnswerCatalog.unknown(citizen, day);
+            case ASK_ARMY, ASK_POLITICS, ASK_TECHNOLOGY, ASK_FOOD -> "";
+        };
+        if (knowledge == null) knowledge = knowledgeService.wrapGrounded(legacyBody);
+        DialogueResponsePlan plan = planner.plan(parsed.intent, knowledge, citizen, day);
+        var culturePack = SettlementIdentityProfile.cultureOf(faction).orElse(null);
+        plan = styleProfile.apply(plan, citizen, day, faction, culturePack);
+        String response = realizer.realize(plan);
+        citizen.remember(new CitizenMemory(day, MemoryType.CONVERSATION, playerKey, "self",
+                DialogueAnswerCatalog.summarizeInput(input), settlement.position(), .12, 1));
+        DialogueTopic topic = parsed.topic == DialogueTopic.NONE
+                ? DialogueAnswerCatalog.inferTopic(parsed.intent) : parsed.topic;
+        String subject = parsed.subject.isBlank()
+                ? DialogueAnswerCatalog.subjectFor(topic) : parsed.subject;
+        context.update(parsed.intent, topic, subject, day);
+        return new DialogueResult(parsed.intent, topic, response, actions);
     }
 
-    private static String answerAge(SocialCitizen c,long day){int age=c.ageYears(day);return compose(c,day,"age",List.of("I am "+age+" years old","I've seen "+age+" years","I am "+age+" now"))+".";}
-    private static String answerDynasty(SimulationState state,SocialCitizen c,Faction f,long day){
-        DynastyState dynasty=state.dynasties().get(f.id());if(dynasty==null)return compose(c,day,"dynasty_none",List.of("There is no established ruling house I can name","Our government is not recorded as a hereditary house","I don't know of a recognized dynasty here"))+".";
-        if(!authority(c)&&c.role()!=CitizenRole.SCHOLAR&&c.role()!=CitizenRole.PRIEST)return "The ruling house is House "+dynasty.houseName()+", and "+f.rulerName()+" rules us.";
-        String heir=dynasty.heirCitizenId()>0?state.findSocialCitizen(dynasty.heirCitizenId()).map(SocialCitizen::name).orElse("an unnamed heir"):"no confirmed heir";
-        String regency=dynasty.regency()?state.findSocialCitizen(dynasty.regentCitizenId()).map(x->" A regency is being held by "+x.name()+".").orElse(" A regency is currently in force."):"";
-        String crisis=dynasty.successionCrisis()?" The succession is disputed.":"";
-        return "House "+dynasty.houseName()+" is in generation "+dynasty.generation()+". The recognized succession currently has "+heir+"."+regency+crisis;
+    public Parsed parse(String raw, DialogueContext context) {
+        DialogueInterpreter.Interpreted interpreted = interpreter.interpret(raw, context);
+        return new Parsed(interpreted.intent(), interpreted.topic(), interpreted.subject());
     }
-    private static String answerCrime(SimulationState state,SocialCitizen c,Settlement s,Faction f,String playerKey,String subject,long day){
-        if("wanted".equals(subject)){var wanted=state.crimeLedger().findProfile(playerKey).flatMap(p->p.find(f.id()));if(wanted.isEmpty()||wanted.get().wantedLevel().name().equals("NONE"))return "As far as this realm's records show, the guards are not currently looking for you.";var w=wanted.get();return "Here, your status is "+pretty(w.wantedLevel().name())+" with a bounty of about "+Math.round(w.bounty())+" and heat "+Math.round(w.heat())+".";}
-        long active=state.justiceCases().stream().filter(JusticeCase::active).filter(j->j.settlementId()==s.id()).count();if(authority(c))return "There "+(active==1?"is":"are")+" "+active+" active local court "+(active==1?"case":"cases")+". Public order is "+level(s.publicOrder())+" and enforcement is "+level(f.government().lawEnforcement())+".";return s.publicOrder()<.42?"People are worried about crime here. The guards have more work than they can comfortably handle.":compose(c,day,"crime",List.of("Crime happens, but the guards usually keep order","I would not call this place lawless","Most people here still trust the streets well enough"))+".";
-    }
-    private static String answerWater(SimulationState state,SocialCitizen c,Settlement s,Faction f,long day){SettlementCivilizationState civ=state.ensureSettlementCivilization(s.id(),f.id());boolean well=has(s,"well:"),irrigation=has(s,"irrigation:"),aqueduct=has(s,"aqueduct:");String infrastructure=(aqueduct?"an aqueduct":well?"a public well":irrigation?"irrigation works":"no major dedicated waterworks");return compose(c,day,"water",List.of("Water security is "+level(civ.waterSecurity()),"Our access to clean water is "+level(civ.waterSecurity())))+". We have "+infrastructure+", and sanitation is "+level(civ.sanitation())+".";}
-    private static String answerArmy(SimulationState state,SocialCitizen c,Faction f,long day){int personnel=f.armies().stream().mapToInt(Army::totalPersonnel).sum();double morale=f.armies().stream().mapToDouble(Army::morale).average().orElse(.5);if(!authority(c)&&c.role()!=CitizenRole.SCHOLAR)return personnel<=0?"I don't know of a standing field army here.":compose(c,day,"army_common",List.of("We have soldiers in the realm, but I don't know the exact strength","The realm keeps armed forces, though troop numbers are not something people like me are told"))+".";return "The realm currently has about "+personnel+" represented personnel across "+f.armies().size()+" field formations. Their average morale is "+level(morale)+".";}
-    private static String answerGuards(SimulationState state,SocialCitizen c,Settlement s,Faction f,long day){long named=state.socialCitizens().stream().filter(SocialCitizen::alive).filter(x->x.settlementId()==s.id()&&x.role()==CitizenRole.GUARD).count();boolean barracks=has(s,"barracks:");String presence=level(Math.min(1,.25+f.government().lawEnforcement()*.55+(barracks?.15:0)));if(authority(c))return "Guard presence here is "+presence+". We currently track "+named+" named guard representatives"+(barracks?" and have barracks support.":".");return compose(c,day,"guards",List.of("The guard presence feels "+presence,"Patrol coverage here is "+presence))+".";}
-    private static String answerRoute(SimulationState state,SocialCitizen c,Settlement s,long day,List<DialogueAction> actions){List<TransportRoute> routes=state.routes().stream().filter(TransportRoute::operational).filter(r->r.fromSettlementId()==s.id()||r.toSettlementId()==s.id()).sorted(Comparator.comparingDouble(TransportRoute::quality).reversed()).toList();if(routes.isEmpty())return "I don't know of an established operational route leaving this settlement.";TransportRoute r=routes.getFirst();long otherId=r.fromSettlementId()==s.id()?r.toSettlementId():r.fromSettlementId();Settlement other=state.findSettlement(otherId).orElse(null);if(other==null)return "There is a route from here, but I cannot give you a reliable destination.";if(c.role()!=CitizenRole.TRADER&&!authority(c)&&c.role()!=CitizenRole.SAILOR&&c.role()!=CitizenRole.DOCKWORKER&&c.role()!=CitizenRole.SCHOLAR)return "There is a recognized road or route toward "+other.name()+", but a trader, scholar or guard would know its condition better.";double precision=CartographicKnowledgeEngine.localPrecision(state,c.factionId(),other.position());actions.add(new DialogueAction(DialogueActionType.MARK_LOCATION,"settlement:"+other.id(),other.position(),Math.min(r.security(),precision)));String mapNote=precision<.45?" Our maps of the far end are rough.":precision>.78?" Our maps of that route are considered reliable.":"";return "The "+pretty(r.mode().name())+" route to "+other.name()+" is about "+Math.round(r.distanceBlocks())+" blocks long. Its security is "+level(r.security())+" and quality is "+level(r.quality())+"."+mapNote;}
-    private static String answerPrice(SocialCitizen c,Faction f,Settlement s,String subject,long day){ResourceType resource=parseResource(subject);if(resource==null)return compose(c,day,"price_unknown",List.of("Tell me which good you mean","Name the resource and I can tell you the market rate","Which price are you asking about"))+".";var quote=LocalMarketEngine.quote(f,s,resource,day);String certainty=c.role()==CitizenRole.TRADER||c.role()==CitizenRole.OFFICIAL?"":"Roughly, ";int weekday=Math.floorMod((int)day,7);String marketNote=(weekday==0||weekday==3)?" Market day is pushing prices a little.":(weekday==6?" It's the quiet day, so stalls are thinner.":"");return certainty+pretty(resource.name())+" is trading around "+String.format(Locale.ROOT,"%.2f",quote.unitPrice())+" per unit here in "+s.name()+". Local supply is "+(quote.supplyDays()<2?"very tight":quote.supplyDays()<6?"limited":"comfortable")+"."+marketNote;}
-    private static String answerSchool(SimulationState state,SocialCitizen c,Settlement s,Faction f,long day){SettlementCivilizationState civ=state.ensureSettlementCivilization(s.id(),f.id());boolean school=has(s,"school:");long teachers=state.socialCitizens().stream().filter(SocialCitizen::alive).filter(x->x.settlementId()==s.id()&&(x.role()==CitizenRole.TEACHER||x.role()==CitizenRole.SCHOLAR)).count();if(school)return "There is a school here. Education is "+level(civ.education())+", with "+teachers+" named teacher or scholar representatives passing on knowledge.";return compose(c,day,"school_none",List.of("There is no proper school here yet","Education here is mostly passed through families and apprenticeships","We do not have a dedicated school building"))+". Local education is "+level(civ.education())+".";}
-    private static String answerCalendar(SocialCitizen c,long day){return compose(c,day,"calendar",List.of("By our calendar it is ","The date is "))+CivilizationCalendar.dateLabel(day)+".";}
-    private static String reportInformation(SimulationState state,SocialCitizen c,String playerKey,MemoryType type,String subject,String summary,double confidence,List<DialogueAction> actions,boolean alert){Settlement s=state.findSettlement(c.settlementId()).orElseThrow();c.remember(new CitizenMemory(state.clock().day(),type,subject,playerKey,summary,s.position(),.42,confidence));if(alert)actions.add(new DialogueAction(DialogueActionType.NOTIFY_GUARDS,subject,s.position(),confidence));return alert?"I will pass that report to the local guards. They will treat it as a report, not proven fact.":"I'll remember that you told me. Until someone confirms it, I will treat it as information from you rather than established fact.";}
-    private static String answerSelf(SimulationState state,SocialCitizen c,Settlement s,Faction f,long day){
-        var dynasty=state.dynasties().get(f.id());
-        if(dynasty!=null&&c.id()==dynasty.rulerCitizenId())return "I am "+f.rulerName()+", ruler of "+f.name()+". This is my court in "+s.name()+".";
-        if(dynasty!=null&&c.id()==dynasty.heirCitizenId())return "I am "+c.name()+", heir of House "+dynasty.houseName()+" in "+f.name()+".";
-        if(dynasty!=null&&c.id()==dynasty.regentCitizenId()&&dynasty.regency())return "I am "+c.name()+", regent for "+f.name()+" while succession is unsettled.";
-        return compose(c,day,"self",List.of("I'm "+c.name()+", a "+roleName(c.role())+" from "+s.name()+".","My name is "+c.name()+". I serve as "+article(roleName(c.role()))+" "+roleName(c.role())+" in "+f.name()+".","People call me "+c.name()+". I live here in "+s.name()+"."));
-    }
-    private static String answerJob(SocialCitizen c,Settlement s,long day){String work=switch(c.role()){case FARMER->"I work the fields and help keep the settlement fed.";case MINER->"I work the mines and bring stone and ore into the settlement.";case LUMBERJACK->"I cut timber for homes, workshops and roads.";case HUNTER->"I hunt for food and keep an eye on dangerous wildlife.";case FISHER->"I fish the local waters for food.";case ARTISAN->"I turn raw materials into useful goods.";case TRADER->"I buy, sell and follow the roads where goods are needed.";case BUILDER->"I build and repair the settlement as it grows.";case GUARD->"I patrol, keep order and answer threats.";case OFFICIAL->"I deal with administration, law and the affairs of the realm.";case HEALER->"I treat injuries and sickness when I can.";case PRIEST->"I tend to faith, rites and the community.";case SCHOLAR->"I study and preserve knowledge.";case BUTCHER->"I process livestock and game into food for the settlement.";case CARPENTER->"I turn timber into buildings, furniture and repairs.";case TEACHER->"I teach younger people and pass on useful knowledge.";case SAILOR->"I work the waterways, moving people and goods by boat.";case DOCKWORKER->"I load cargo and keep the docks moving.";case SPY->"I do discreet work for people who prefer not to be named.";};String experience=GuildRank.guildedRole(c.role())?" In the craft I am a "+GuildRank.of(c).titleFor(c.role())+".":c.professionSkill()>.78?" I am considered highly skilled at it.":c.professionSkill()>.48?" I know the trade well.":c.professionSkill()<.25?" I am still learning the trade.":"";return compose(c,day,"job",List.of(work+experience,"My work? "+work+experience,"Around "+s.name()+", "+work.toLowerCase(Locale.ROOT)+experience));}
-    private static String answerFamily(SimulationState state,SocialCitizen c,long day){List<String> family=new ArrayList<>();for(CitizenRelationship r:c.relationships().values())if(r.familyBond()!=FamilyBond.NONE){long id=parseCitizenKey(r.targetKey());String name=id>0?state.findSocialCitizen(id).map(SocialCitizen::name).orElse(r.targetKey()):r.targetKey();family.add(familyLabel(r.familyBond())+" "+name);}if(family.isEmpty())return compose(c,day,"family_none",List.of("I don't have close family here that I talk about.","No close household ties that matter here right now.","I mostly keep to myself when it comes to family."));return "My family here includes "+String.join(", ",family.subList(0,Math.min(4,family.size())))+".";}
-    private static String answerHealth(SimulationState state,SocialCitizen c,Settlement s,long day){Faction owner=state.findSettlementOwner(s.id()).orElseThrow();SettlementCivilizationState civ=state.ensureSettlementCivilization(s.id(),owner.id());String personal=c.health()>.75?"I feel well enough":c.health()>.45?"I've been better":"I'm not well";String local=civ.diseasePressure()>.65?"There is serious sickness going around.":civ.diseasePressure()>.35?"There has been some sickness lately.":"There is no major outbreak that I know of.";return compose(c,day,"health",List.of(personal+". "+local,local+" As for me, "+personal.toLowerCase(Locale.ROOT)+"."));}
-    private static String answerRuler(SimulationState state,SocialCitizen c,Faction f,long day){
-        var dynasty=state.dynasties().get(f.id());
-        if(dynasty!=null&&c.id()==dynasty.rulerCitizenId())return "You are speaking with me. I rule "+f.name()+" from this court.";
-        if(dynasty!=null&&c.id()==dynasty.heirCitizenId())return "Our ruler is "+f.rulerName()+". I am the heir of House "+dynasty.houseName()+".";
-        if(dynasty!=null&&c.id()==dynasty.regentCitizenId()&&dynasty.regency())return "I speak for the realm as regent. The named ruler is "+f.rulerName()+" of "+f.name()+".";
-        String relation=c.role()==CitizenRole.OFFICIAL||c.role()==CitizenRole.GUARD?"I serve under ":"Our ruler is ";
-        return compose(c,day,"ruler",List.of(relation,"The realm is ruled by "))+f.rulerName()+" of "+f.name()+".";
-    }
-    private static String answerSettlement(SimulationState state,SocialCitizen c,Settlement s,Faction f,long day){SettlementCivilizationState civ=state.ensureSettlementCivilization(s.id(),f.id());String size=s.tier().name().toLowerCase(Locale.ROOT);String mood=s.unrest()>.55?"People are angry and tense":s.prosperity()>.68?"Business is good and the place is growing":"Life is fairly ordinary";String detail=(c.role()==CitizenRole.OFFICIAL||c.role()==CitizenRole.TRADER||c.role()==CitizenRole.SCHOLAR)?" We have roughly "+roundPopulation(s.population())+" people, and water security is "+level(civ.waterSecurity())+".":"";String why=" "+WorldCauseExplainer.settlementPressureCause(state,f,s);return compose(c,day,"settlement",List.of("This is "+s.name()+", a "+size+" of "+f.name()+". "+mood+".","You're in "+s.name()+". "+mood+"."))+detail+why;}
-    private static String answerFaction(SimulationState state,SocialCitizen c,Faction f,long day){FactionCivilizationState civ=state.ensureFactionCivilization(f.id());String extra=authority(c)?" Government: "+pretty(f.government().type().name())+"; stability is "+level(f.government().stability())+".":"";return compose(c,day,"faction",List.of("We belong to "+f.name()+", ruled by "+f.rulerName()+".","This land is part of "+f.name()+". Our people call our culture "+civ.cultureName()+"."))+extra;}
-    private static String answerPolitics(SimulationState state,SocialCitizen c,Faction f,long day){if(!authority(c)&&c.role()!=CitizenRole.SCHOLAR)return compose(c,day,"politics_common",List.of("I leave court politics to people with cleaner clothes than mine","I know who rules us, but not every bargain made at court","Ask an official if you want the details of government"))+". "+f.rulerName()+" rules "+f.name()+".";FactionCivilizationState civ=state.ensureFactionCivilization(f.id());return "The government is "+pretty(f.government().type().name())+" under "+f.rulerName()+". Stability is "+level(f.government().stability())+", legitimacy "+level(f.government().legitimacy())+", and public propaganda pressure "+level(civ.propaganda())+".";}
-    private static String answerLaw(SocialCitizen c,Settlement s,Faction f,long day){boolean court=has(s,"courthouse:"),prison=has(s,"prison:");if(authority(c))return "Law enforcement here is "+level(f.government().lawEnforcement())+". "+(court?"There is a court here. ":"")+(prison?"Serious offenders can be imprisoned.":"Serious cases are handled by the realm's authorities.");return compose(c,day,"law",List.of("Stealing, assault and murder will bring the guards down on you","Keep your hands off what isn't yours and you should have little trouble","The guards enforce the local law; serious crimes can follow you through the realm"))+".";}
-    private static String answerTax(SocialCitizen c,Faction f,long day){double tax=f.government().taxRate();if(authority(c)||c.role()==CitizenRole.TRADER)return "The current realm tax rate is about "+Math.round(tax*100)+" percent. People would call that "+(tax>.30?"heavy":tax>.18?"noticeable":"fairly light")+".";return compose(c,day,"tax",List.of(tax>.30?"Taxes feel heavy right now":tax>.18?"The tax collectors take a noticeable share":"Taxes are not especially harsh at the moment","Ask an official for the exact rate"))+".";}
-    private static String answerFood(SimulationState state,SocialCitizen c,Settlement s,Faction f,long day,List<DialogueAction> actions){actions.add(new DialogueAction(DialogueActionType.MARK_LOCATION,"market:"+s.id(),s.position(),0));double localFood=s.edibleStock();String why=WorldCauseExplainer.settlementPressureCause(state,f,s);if(s.foodSecurity()<.35||localFood<s.population()*.8){if(c.role()==CitizenRole.FARMER&&s.foodSecurity()<0.3)return "The fields are not keeping us fed. "+why+" The granary is "+stockLevel(localFood)+".";return compose(c,day,"food_low",List.of("Food is scarce","We're short on food","The stores are running thin"))+". "+why+" Try the market in "+s.name()+", but expect high prices.";}return compose(c,day,"food",List.of("Try the market","You should find food at the market","The traders usually have provisions"))+" here in "+s.name()+". The granary looks "+stockLevel(localFood)+". "+why;}
-    private static String answerResources(SimulationState state,SocialCitizen c,Settlement s,Faction f,long day){List<ResourceClaim> claims=state.resourceClaims().stream().filter(ResourceClaim::active).filter(x->x.settlementId()==s.id()).toList();if(claims.isEmpty())return "I don't know of any important claimed resources around here.";String types=claims.stream().map(x->pretty(x.type().name())).distinct().limit(5).reduce((a,b)->a+", "+b).orElse("resources");boolean contested=claims.stream().anyMatch(x->x.contestedByFactionId()>0);String stock="";if(c.role()==CitizenRole.MINER||c.role()==CitizenRole.TRADER||c.role()==CitizenRole.OFFICIAL)stock=" Local iron is "+stockLevel(s.stockpile().get(ResourceType.IRON)+f.stockpile().get(ResourceType.IRON))+" and the granary is "+stockLevel(s.stockpile().get(ResourceType.FOOD))+".";return "This settlement claims access to "+types+"."+(contested?" Some of those claims are disputed.":"")+stock;}
-    private static String answerTradeState(SocialCitizen c,Settlement s,Faction f,long day){String state=s.prosperity()>.7?"Trade is lively":s.prosperity()<.35?"Trade is struggling":"Trade is steady";var foodQuote=LocalMarketEngine.quote(f,s,ResourceType.FOOD,day);String detail=c.role()==CitizenRole.TRADER||c.role()==CitizenRole.OFFICIAL?". Food stock is "+stockLevel(s.stockpile().get(ResourceType.FOOD))+" at about "+String.format(Locale.ROOT,"%.2f",foodQuote.unitPrice())+" a unit, and tools are "+stockLevel(s.stockpile().get(ResourceType.TOOLS)+f.stockpile().get(ResourceType.TOOLS)):"";return compose(c,day,"trade_state",List.of(state+" in "+s.name(),"The market here is "+(s.prosperity()>.65?"busy":"functioning")))+detail+".";}
-    private static String answerTechnology(SimulationState state,SocialCitizen c,Faction f,long day){FactionCivilizationState civ=state.ensureFactionCivilization(f.id());if(c.role()!=CitizenRole.SCHOLAR&&c.role()!=CitizenRole.ARTISAN&&c.role()!=CitizenRole.OFFICIAL)return compose(c,day,"tech_common",List.of("Scholars and craftspeople know more about that than I do","New techniques spread when traders, schools and workers carry them between towns","I only know the methods used in my own work"))+".";return "Our technical development is "+level(Math.min(1,f.technology()))+" and education is "+level(civ.education())+". Schools, scholars, craftspeople and trade help knowledge spread.";}
-    private static String answerWar(SimulationState state,SocialCitizen c,Faction f,long day,List<DialogueAction> actions){List<dev.livingrealms.sim.diplomacy.WarState> wars=state.wars().stream().filter(w->w.active()&&(w.attackerFactionId()==f.id()||w.defenderFactionId()==f.id())).toList();if(wars.isEmpty())return compose(c,day,"peace",List.of("Our realm is not in an open war right now","There is no declared war involving us at the moment","For now, there is no open war for our realm"))+".";var war=wars.getFirst();long enemyId=war.attackerFactionId()==f.id()?war.defenderFactionId():war.attackerFactionId();String enemy=state.findFaction(enemyId).map(Faction::name).orElse("another realm");if(authority(c)||c.role()==CitizenRole.TRADER){if(war.targetSettlementId()>0)state.findSettlement(war.targetSettlementId()).ifPresent(s->actions.add(new DialogueAction(DialogueActionType.MARK_LOCATION,"war_target:"+s.id(),s.position(),0)));return "We are at war with "+enemy+". War exhaustion is "+level(war.attackerFactionId()==f.id()?war.attackerExhaustion():war.defenderExhaustion())+" and the fighting has lasted "+Math.max(0,day-war.startDay())+" days.";}return "Yes. We're at war with "+enemy+". I know what reaches the streets, not every military plan.";}
-    private static String answerMigration(SimulationState state,SocialCitizen c,Settlement s,Faction f,long day){SettlementCivilizationState civ=state.ensureSettlementCivilization(s.id(),f.id());String local=civ.refugeePressure()>.62?"Many people are thinking of leaving or seeking safety elsewhere":civ.refugeePressure()>.32?"Some families have been moving because of local pressure":"There is no large movement of people here right now";if(c.role()==CitizenRole.OFFICIAL||c.role()==CitizenRole.TRADER)return local+". Refugee pressure is "+level(civ.refugeePressure())+"; food, safety, disease and war all affect where people go.";return local+".";}
-    private static String answerCulture(SimulationState state,SocialCitizen c,Faction f,long day){FactionCivilizationState civ=state.ensureFactionCivilization(f.id());return compose(c,day,"culture",List.of("Our culture is known as "+civ.cultureName(),"Around here people follow "+civ.cultureName()+" customs"))+". You'll hear "+civ.dialectName()+" in everyday speech. Cultural cohesion is "+level(civ.culturalInfluence())+".";}
-    private static String answerReligion(SimulationState state,SocialCitizen c,Faction f,long day){
-        FactionCivilizationState civ=state.ensureFactionCivilization(f.id());
-        FaithCatalog.FaithProfile faith=FaithCatalog.of(civ.faithName());
-        String calendar=faith.isHolyDay(day)?" Today is a holy day of "+faith.primaryDeity()+".":faith.isFastingDay(day)?" Today is a fasting day under "+faith.name()+".":"";
-        if(c.role()==CitizenRole.PRIEST)
-            return "I serve "+faith.name()+", whose primary devotion is "+faith.primaryDeity()+". Our teaching: "+faith.dogma()+". The "+faith.scripture()+" and the mark of the "+faith.symbol()+" guide us. The "+faith.holyOrder()+" keep the vows. Religious influence here is "+level(civ.religiousInfluence())+"."+calendar;
-        return "The dominant faith of "+f.name()+" is "+faith.name()+" (honoring "+faith.primaryDeity()+"). Priests speak of the "+faith.scripture()+"; temples show the "+faith.symbol()+"."+calendar;
-    }
-    private static String answerHistory(SimulationState state,SocialCitizen c,Faction f,Settlement s,long day){List<LegendRecord> local=state.legends().stream().filter(l->l.factionId()==f.id()&&(l.settlementId()==0||l.settlementId()==s.id())).sorted(Comparator.comparingLong(LegendRecord::day).reversed()).toList();if(!local.isEmpty()&&(c.role()==CitizenRole.SCHOLAR||c.role()==CitizenRole.PRIEST||c.role()==CitizenRole.OFFICIAL)){LegendRecord l=local.getFirst();return "One remembered story is '"+l.title()+"'. "+l.description()+(l.monumented()?" There is a monument tied to that memory.":"");}Optional<CitizenMemory> memory=c.latestMemory(m->m.type()==MemoryType.LOCAL_EVENT||m.type()==MemoryType.WAR_NEWS||m.type()==MemoryType.FAMILY_EVENT);return memory.map(value->"What I remember personally is this: "+value.summary()).orElseGet(()->compose(c,day,"history_unknown",List.of("A scholar would know the old stories better than I do","I know local stories, but nothing I would swear is proper history","Ask at a school, temple or official hall if you want recorded history"))+".");}
-    private static String answerRumor(SocialCitizen c,long day){Optional<CitizenMemory> rumor=c.latestMemory(m->m.type()==MemoryType.RUMOR||m.type()==MemoryType.WAR_NEWS||m.type()==MemoryType.LOCAL_EVENT);if(rumor.isEmpty())return compose(c,day,"rumor_none",List.of("I haven't heard anything worth repeating","No rumor I trust enough to pass on","Nothing useful has reached me lately"))+".";CitizenMemory m=rumor.get();String uncertainty=m.confidence()<.5?"I wouldn't swear it's true, but ":m.sourceKey().equals("self")?"I saw this myself: ":"I heard that ";return uncertainty+m.summary();}
-    private static String answerDanger(SimulationState state,SocialCitizen c,Settlement s,DialogueTopic topic,long day,List<DialogueAction> actions){Optional<CitizenMemory> known=c.latestMemory(m->m.type()==MemoryType.CRIME_WITNESS||m.type()==MemoryType.WAR_NEWS||m.type()==MemoryType.RUMOR||m.type()==MemoryType.LOCAL_EVENT);if(known.isPresent()){CitizenMemory m=known.get();if(m.position()!=null)actions.add(new DialogueAction(DialogueActionType.MARK_LOCATION,m.subjectKey(),m.position(),0));return prefixKnowledge(m)+m.summary();}Faction owner=state.findSettlementOwner(s.id()).orElse(null);SettlementCivilizationState civ=owner==null?null:state.ensureSettlementCivilization(s.id(),owner.id());boolean authority=authority(c);boolean atWar=state.wars().stream().anyMatch(w->w.active()&&(w.attackerFactionId()==c.factionId()||w.defenderFactionId()==c.factionId()));if(authority&&atWar)return compose(c,day,"war",List.of("The realm is at war","There is fighting beyond our roads","The guards are watching for enemy forces"))+". Stay near the roads and gates.";if(civ!=null&&civ.banditPressure()>.55)return "Bandit pressure around this settlement is high. Travel in a group and stay near guarded roads.";if(topic==DialogueTopic.BANDITS)return compose(c,day,"no_bandit",List.of("I haven't seen bandits myself","I haven't heard anything reliable about bandits","No bandits that I can honestly confirm"))+".";return s.publicOrder()<.45?"People here are uneasy. I would avoid traveling alone at night.":"I don't know of any immediate danger nearby.";}
-    private static String answerDirection(SimulationState state,SocialCitizen c,DialogueContext context,String parsedSubject,Settlement s,long day,List<DialogueAction> actions){String subject=parsedSubject==null||parsedSubject.isBlank()?context.lastSubject():parsedSubject;Optional<CitizenMemory> memory=c.latestMemory(m->!subject.isBlank()&&(m.subjectKey().toLowerCase(Locale.ROOT).contains(subject.toLowerCase(Locale.ROOT))||m.summary().toLowerCase(Locale.ROOT).contains(subject.toLowerCase(Locale.ROOT))));if(memory.isPresent()){CitizenMemory m=memory.get();actions.add(new DialogueAction(DialogueActionType.MARK_LOCATION,m.subjectKey(),m.position(),0));return "Last I heard, "+direction(s.position(),m.position())+". "+m.summary();}Settlement place=findKnownSettlement(state,c,subject);if(place!=null){actions.add(new DialogueAction(DialogueActionType.MARK_LOCATION,"settlement:"+place.id(),place.position(),0));return place.name()+" is "+directionPhrase(s.position(),place.position())+".";}return compose(c,day,"where_unknown",List.of("I don't know where that is","I couldn't point you there honestly","I don't know enough to give you a direction"))+".";}
-    private static String answerSource(SocialCitizen c,DialogueContext context,long day){Optional<CitizenMemory> memory=c.latestMemory(m->!context.lastSubject().isBlank()&&(m.subjectKey().contains(context.lastSubject())||m.summary().toLowerCase(Locale.ROOT).contains(context.lastSubject().toLowerCase(Locale.ROOT))));if(memory.isEmpty())return "I can't give you a source for that.";String source=memory.get().sourceKey();if(source.isBlank()||source.equals("self"))return "I saw or experienced it myself.";return compose(c,day,"source",List.of("I heard it from ","The word came from ","I was told by "))+source+".";}
-    private static String answerRecent(SimulationState state,SocialCitizen c,Settlement s,long day){CivicEvent event=state.civicEvents().stream().filter(CivicEvent::active).filter(e->e.settlementId()==s.id()&&e.startDay()<=day&&e.endDay()>=day).max(Comparator.comparingDouble(CivicEvent::intensity).thenComparingLong(CivicEvent::id)).orElse(null);if(event!=null)return "Today people are gathering for "+event.title()+". Attendance is "+level(event.attendance())+" and the event is part of normal life here, not a scripted quest.";Optional<CitizenMemory> m=c.latestMemory(x->x.day()>=Math.max(0,day-7)&&x.type()!=MemoryType.CONVERSATION);if(m.isEmpty())return "Nothing important that I personally know about.";long ago=Math.max(0,day-m.get().day());String when=ago==0?"today":ago==1?"yesterday":ago+" days ago";return "I heard this "+when+": "+m.get().summary();}
-    private static String answerOpinion(SocialCitizen c,String playerKey,long day){CitizenRelationship r=c.relationship(playerKey);double score=r.sentiment();if(score>.45)return compose(c,day,"like",List.of("I trust you","You've treated me well","I think well of you"))+".";if(score<-.35)return compose(c,day,"dislike",List.of("I don't trust you","You've given me reason to be wary","I'd rather keep my distance from you"))+".";return compose(c,day,"neutral",List.of("I haven't made up my mind about you","I don't know you well enough yet","You're still a stranger to me"))+".";}
-    private static String answerHelp(SimulationState state,SocialCitizen c,Settlement s,Faction f,long day,List<DialogueAction> actions){
-        Optional<AssistanceTask> task=state.assistanceTasks().stream().filter(AssistanceTask::active).filter(t->t.settlementId()==s.id()).max(Comparator.comparingDouble(AssistanceTask::remainingPressure));
-        if(task.isPresent()){AssistanceTask t=task.get();actions.add(new DialogueAction(DialogueActionType.OFFER_TASK,"task:"+t.id(),s.position(),t.remainingPressure()));
-            String deliver=" Deliver verified goods nearby with /livingrealms assist deliver (task #"+t.id()+"); talk alone cannot complete it.";
-            return switch(t.type()){
-            case MEDICAL_AID -> "There is a real medical shortage here. Cloth and medical supplies would help our healers."+deliver;
-            case SECURITY_SUPPORT -> "The roads and homes are under real pressure from bandits or disorder. Iron for the guard and clearing threats would help."+deliver;
-            case REFUGEE_SUPPORT -> "Displaced families are arriving faster than we can support them. They need food, safety and shelter."+deliver;
-            case FOOD_RELIEF -> "Our food stores are genuinely short. Bring bread or provisions to the settlement."+deliver;
-            case WATER_SUPPLY -> "Clean water is our immediate problem. Cloth, sanitation supplies or safer water infrastructure would help."+deliver;
-            case HOUSING_SUPPLIES -> "We are short on housing. Builders need timber to put roofs over people."+deliver;
-            case TRADE_ESCORT -> "Trade is being hurt by unsafe routes. Iron for escorts or clearing threats along the road would matter."+deliver;
-            case INFRASTRUCTURE_REPAIR -> "Roads, mills or walls are wearing down. Stone for repairs would keep the settlement standing."+deliver;
-            case BANDIT_BOUNTY -> "Outlaws are troubling this region. Iron for the hunt — or bringing them to justice — would ease the roads."+deliver;
-            case BRIDGE_REPAIR -> "The river crossing needs work. Timber for a proper bridge would reconnect our roads."+deliver;
-            case MILITARY_SUPPLY -> "The army needs provisions. Food delivered here keeps the campaign supplied."+deliver;
-            case RECONSTRUCTION_AID -> "War and unrest left scars. Stone for reconstruction would help us rebuild."+deliver;
-            case MISSING_CARAVAN -> "A caravan went missing on the road. Iron for a recovery party — or word of the cargo — would matter."+deliver;
-        };}
-        SettlementCivilizationState civ=state.ensureSettlementCivilization(s.id(),f.id());String need;double pressure;if(civ.diseasePressure()>.58){need="medical:"+s.id();pressure=civ.diseasePressure();}else if(civ.banditPressure()>.50){need="security:"+s.id();pressure=civ.banditPressure();}else if(civ.refugeePressure()>.50){need="refugees:"+s.id();pressure=civ.refugeePressure();}else{double min=Math.min(c.needs().hunger(),Math.min(c.needs().safety(),c.needs().comfort()));need=(min==c.needs().hunger()?"food":min==c.needs().safety()?"safety":"supplies")+":"+s.id();pressure=1-min;}actions.add(new DialogueAction(DialogueActionType.OFFER_TASK,need,s.position(),pressure));if(need.startsWith("medical"))return "Sickness is putting pressure on people here. Medicine, clean water or help for healers would matter.";if(need.startsWith("security"))return "Banditry and disorder are becoming a problem. The roads and homes need protection.";if(need.startsWith("refugees"))return "Displaced people need food, safety and somewhere to settle.";if(need.startsWith("food"))return "If you want to help, food would matter more than words right now.";if(need.startsWith("safety"))return "The roads and homes need to be safer. Help the guards or deal with nearby threats.";return "Builders and families could use supplies. Ask around the settlement.";
-    }
-    private static String interaction(SimulationState state,SocialCitizen c,String playerKey,MemoryType type,double friendship,double hostility,double reputation,String response,List<DialogueAction> actions){CitizenRelationship rel=c.relationship(playerKey);rel.adjust(friendship,hostility,0,hostility*.35,friendship-hostility*.5);c.remember(new CitizenMemory(state.clock().day(),type,playerKey,playerKey,response,state.findSettlement(c.settlementId()).orElseThrow().position(),Math.min(1,Math.abs(friendship)+Math.abs(hostility)+.25),1));double value=state.playerStanding(playerKey).adjustReputation(c.factionId(),reputation);actions.add(new DialogueAction(DialogueActionType.REPUTATION_CHANGED,"faction:"+c.factionId(),null,value));if(type==MemoryType.THREAT&&c.role()==CitizenRole.GUARD)actions.add(new DialogueAction(DialogueActionType.ALERT_GUARDS,playerKey,null,1));return response;}
 
-    private static String unknown(SocialCitizen c,long day){return compose(c,day,"unknown",List.of("I'm not sure what you're asking","I don't know enough about that","I can talk about this place, my work, family, trade, law, war, culture, rumors or danger"))+".";}
-    private static String prefixKnowledge(CitizenMemory m){if(m.confidence()<.45)return "I only heard a rumor, but ";if(m.sourceKey().equals("self"))return "I saw it myself: ";return "What I heard is this: ";}
-    private static DialogueTopic inferTopic(DialogueIntent intent){return switch(intent){
-        case ASK_SELF->DialogueTopic.SELF;case ASK_AGE->DialogueTopic.AGE;case ASK_JOB->DialogueTopic.JOB;case ASK_FAMILY->DialogueTopic.FAMILY;case ASK_HEALTH->DialogueTopic.HEALTH;
-        case ASK_RULER->DialogueTopic.RULER;case ASK_DYNASTY->DialogueTopic.DYNASTY;case ASK_SETTLEMENT->DialogueTopic.SETTLEMENT;case ASK_FACTION->DialogueTopic.FACTION;case ASK_POLITICS->DialogueTopic.POLITICS;case ASK_LAW->DialogueTopic.LAW;case ASK_CRIME,REPORT_CRIME->DialogueTopic.CRIME;case ASK_TAX->DialogueTopic.TAX;
-        case ASK_FOOD->DialogueTopic.FOOD;case ASK_WATER->DialogueTopic.WATER;case ASK_RESOURCES->DialogueTopic.RESOURCES;case ASK_TRADE,TRADE->DialogueTopic.TRADE;case ASK_PRICE->DialogueTopic.PRICE;case ASK_TECHNOLOGY->DialogueTopic.TECHNOLOGY;case ASK_SCHOOL->DialogueTopic.SCHOOL;
-        case ASK_WAR->DialogueTopic.WAR;case ASK_ARMY->DialogueTopic.ARMY;case ASK_GUARDS->DialogueTopic.GUARDS;case ASK_ROUTE->DialogueTopic.ROUTE;case ASK_MIGRATION->DialogueTopic.MIGRATION;case ASK_CULTURE->DialogueTopic.CULTURE;case ASK_RELIGION->DialogueTopic.RELIGION;case ASK_HISTORY->DialogueTopic.HISTORY;case ASK_RUMOR,PROVIDE_INFORMATION->DialogueTopic.RUMOR;case ASK_CALENDAR->DialogueTopic.CALENDAR;
-        case ASK_DANGER,REPORT_DANGER->DialogueTopic.DANGER;case ASK_DIRECTION->DialogueTopic.LOCATION;case ASK_RECENT_EVENT,ASK_HELP->DialogueTopic.EVENT;case ASK_OPINION,GIVE_GIFT,COMPLIMENT,APOLOGIZE,THREATEN,INSULT->DialogueTopic.PLAYER;default->DialogueTopic.NONE;};}
-    private static String subjectFor(DialogueTopic topic){return switch(topic){case BANDITS->"bandits";case RULER->"ruler";case DYNASTY->"dynasty";case FOOD->"food";case WATER->"water";case TRADE->"market";case PRICE->"price";case PLAYER->"player";case DANGER->"danger";case EVENT->"recent";case LOCATION->"location";case SELF->"self";case AGE->"age";case JOB->"job";case FAMILY->"family";case HEALTH->"health";case SETTLEMENT->"settlement";case FACTION->"faction";case POLITICS->"politics";case LAW->"law";case CRIME->"crime";case TAX->"tax";case RESOURCES->"resources";case TECHNOLOGY->"technology";case SCHOOL->"school";case WAR->"war";case ARMY->"army";case GUARDS->"guards";case ROUTE->"route";case MIGRATION->"migration";case CULTURE->"culture";case RELIGION->"religion";case HISTORY->"history";case RUMOR->"rumor";case CALENDAR->"calendar";default->"";};}
-    private static Settlement findKnownSettlement(SimulationState state,SocialCitizen c,String subject){String needle=normalize(subject);if(needle.isBlank()||needle.equals("location"))return null;Settlement home=state.findSettlement(c.settlementId()).orElse(null);for(Faction f:state.factions())for(Settlement s:f.settlements()){String name=normalize(s.name());if(!name.equals(needle)&&!name.contains(needle)&&!needle.contains(name))continue;boolean local=f.id()==c.factionId()||home!=null&&home.position().distanceTo(s.position())<1400||c.role()==CitizenRole.TRADER||authority(c);if(local)return s;}return null;}
-    private static boolean authority(SocialCitizen c){return c.role()==CitizenRole.GUARD||c.role()==CitizenRole.OFFICIAL;}
-    private static String familyLabel(FamilyBond bond){return switch(bond){case PARENT->"parent";case CHILD->"child";case SIBLING->"sibling";case PARTNER->"partner";case ADOPTIVE_PARENT->"adoptive parent";case ADOPTED_CHILD->"adopted child";case NONE->"relative";};}
-    private static String roleName(CitizenRole role){return pretty(role.name());}
-    private static String article(String word){if(word==null||word.isEmpty())return "a";return "aeiou".indexOf(Character.toLowerCase(word.charAt(0)))>=0?"an":"a";}
-    private static String level(double v){return v>=.8?"very high":v>=.62?"high":v>=.42?"moderate":v>=.22?"low":"very low";}
-    private static String stockLevel(double v){return v>=1000?"abundant":v>=250?"healthy":v>=60?"limited":"scarce";}
-    private static String roundPopulation(int population){if(population<100)return Integer.toString(population);if(population<1000)return (Math.round(population/25.0)*25)+"";return (Math.round(population/100.0)*100)+"";}
-    private static boolean has(Settlement s,String prefix){return s.completedConstruction().stream().anyMatch(k->k.startsWith(prefix));}
-    private static String compose(SocialCitizen c,long day,String key,List<String> options){int idx=Math.floorMod(Objects.hash(c.id(),day,key),options.size());return options.get(idx);}
-    private static String direction(SimPosition from,SimPosition to){return "they were "+directionPhrase(from,to);}
-    private static String directionPhrase(SimPosition from,SimPosition to){double dx=to.x()-from.x(),dz=to.z()-from.z();String ns=dz<-8?"north":dz>8?"south":"";String ew=dx>8?"east":dx<-8?"west":"";String d=(ns+ew).isEmpty()?"nearby":ns+ew;long blocks=Math.round(from.distanceTo(to));return d+" of here, roughly "+blocks+" blocks away";}
-    private static boolean any(String s,String...needles){for(String n:needles)if(s.contains(n))return true;return false;}
-    private static String afterAny(String s,String...prefixes){for(String p:prefixes){int i=s.indexOf(p);if(i>=0){String x=s.substring(i+p.length()).trim();if(!x.isBlank())return x;}}return "";}
-    private static String resourceSubject(String s){ResourceType r=parseResource(s);return r==null?"resource":r.name().toLowerCase(Locale.ROOT);} 
-    private static ResourceType parseResource(String s){String n=normalize(s);if(any(n,"brood","bread"))return ResourceType.BREAD;if(any(n,"graan","grain","wheat","meel","flour"))return ResourceType.GRAIN;if(any(n,"vlees","meat","beef","pork"))return ResourceType.MEAT;if(any(n,"bier","ale","beer"))return ResourceType.ALE;if(any(n,"wol","wool"))return ResourceType.WOOL;if(any(n,"eten","voedsel","food"))return ResourceType.FOOD;if(any(n,"hout","wood","timber"))return ResourceType.WOOD;if(any(n,"steen","stone"))return ResourceType.STONE;if(any(n,"ijzer","iron"))return ResourceType.IRON;if(any(n,"kolen","coal"))return ResourceType.COAL;if(any(n,"koper","copper"))return ResourceType.COPPER;if(any(n,"goud","gold"))return ResourceType.GOLD;if(any(n,"brandstof","fuel"))return ResourceType.FUEL;if(any(n,"munitie","ammunition","ammo"))return ResourceType.AMMUNITION;if(any(n,"gereedschap","tools"))return ResourceType.TOOLS;if(any(n,"machines","machinery"))return ResourceType.MACHINERY;if(any(n,"textiel","textiles","cloth"))return ResourceType.TEXTILES;try{return ResourceType.valueOf(n.toUpperCase(Locale.ROOT));}catch(IllegalArgumentException ignored){return null;}}
-    private static String normalize(String s){return Normalizer.normalize(Objects.requireNonNullElse(s,"").toLowerCase(Locale.ROOT),Normalizer.Form.NFD).replaceAll("\\p{M}","").replaceAll("[^a-z0-9' ]"," ").replaceAll("\\s+"," ").trim();}
-    private static String summarizeInput(String input){String s=input.trim();return s.length()<=160?s:s.substring(0,160);}
-    private static String pretty(String value){String x=value.toLowerCase(Locale.ROOT).replace('_',' ');return x.isBlank()?x:Character.toUpperCase(x.charAt(0))+x.substring(1);}
-    private static long parseCitizenKey(String key){if(key==null||!key.startsWith("citizen:"))return 0;try{return Long.parseLong(key.substring(8));}catch(NumberFormatException ignored){return 0;}}
-    private static Parsed p(DialogueIntent intent,DialogueTopic topic,String subject){return new Parsed(intent,topic,Objects.requireNonNullElse(subject,""));}
-    public record Parsed(DialogueIntent intent,DialogueTopic topic,String subject){}
+    public record Parsed(DialogueIntent intent, DialogueTopic topic, String subject) {}
 }

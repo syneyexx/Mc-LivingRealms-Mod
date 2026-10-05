@@ -1,6 +1,7 @@
 package dev.livingrealms.sim.law;
 
 import dev.livingrealms.sim.faction.Faction;
+import dev.livingrealms.sim.player.PlayerAgencyConsequences;
 import dev.livingrealms.sim.world.*;
 import java.util.Objects;
 
@@ -10,7 +11,12 @@ public final class CrimeEngine {
         Objects.requireNonNull(state);Objects.requireNonNull(incident);
         if(state.findFaction(incident.jurisdictionFactionId()).isEmpty()) return new CrimeResult(false,0,0,WantedLevel.NONE,"unknown_jurisdiction");
         if(!incident.witnessed()||incident.witnessCount()==0) {
-            state.history().add(new WorldEvent(incident.day(),"crime_unreported",incident.type()+" actor="+incident.actorKey()));
+            // Unwitnessed theft still drains local property — heat/bounty require witnesses.
+            PlayerAgencyConsequences.onCrime(state,incident);
+        state.history().add(new WorldEvent(incident.day(),"crime_unreported",incident.type()+" actor="+incident.actorKey()
+                    +", faction="+incident.jurisdictionFactionId()+", settlement_loss=1"));
+            dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.CrimeCommitted(
+                    incident.day(),incident.jurisdictionFactionId(),incident.actorKey(),incident.type().name(),false,0));
             return new CrimeResult(false,0,0,state.crimeLedger().profile(incident.actorKey()).find(incident.jurisdictionFactionId()).map(JurisdictionWanted::wantedLevel).orElse(WantedLevel.NONE),"no_witness");
         }
         Faction jurisdiction=state.findFaction(incident.jurisdictionFactionId()).orElseThrow();
@@ -26,6 +32,10 @@ public final class CrimeEngine {
         profile.addInfamy(notoriety*(incident.type().violent()?0.65:0.30));
         state.crimeLedger().record(incident);
         state.history().add(new WorldEvent(incident.day(),"crime_reported","actor="+incident.actorKey()+", crime="+incident.type()+", faction="+incident.jurisdictionFactionId()+", bounty+="+Math.round(bounty)));
+        // Property loss, victim/witness memory, public order — underworld observe stays in SimulationState.
+        PlayerAgencyConsequences.onCrime(state,incident);
+        dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.CrimeCommitted(
+                incident.day(),incident.jurisdictionFactionId(),incident.actorKey(),incident.type().name(),true,bounty));
         return new CrimeResult(true,bounty,notoriety,wanted.wantedLevel(),"witnessed");
     }
 

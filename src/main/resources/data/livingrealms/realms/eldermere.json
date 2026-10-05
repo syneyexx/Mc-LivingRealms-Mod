@@ -1,0 +1,99 @@
+{
+  "id": "eldermere",
+  "displayName": "Kingdom of Eldermere",
+  "rulerSeedName": "King Aldren II",
+  "capitalName": "Elderkeep",
+  "x": -6600,
+  "z": 1870,
+  "capitalPopulation": 3150,
+  "capitalHousing": 3550,
+  "technology": 0.24,
+  "treasury": 7900,
+  "armyInfantry": 135,
+  "namingHints": [
+    "Elder",
+    "Moss",
+    "Bell",
+    "Kings",
+    "Low",
+    "White",
+    "Rose",
+    "Alder",
+    "West",
+    "Gold",
+    "Dun"
+  ],
+  "satellites": [
+    {
+      "name": "Mossford",
+      "dx": 520,
+      "dz": -380,
+      "population": 460,
+      "housing": 540
+    },
+    {
+      "name": "Bellwater",
+      "dx": -630,
+      "dz": 410,
+      "population": 150,
+      "housing": 210
+    },
+    {
+      "name": "Kingsmead",
+      "dx": 900,
+      "dz": 520,
+      "population": 1180,
+      "housing": 1330
+    },
+    {
+      "name": "Lowfen",
+      "dx": -980,
+      "dz": -560,
+      "population": 280,
+      "housing": 350
+    },
+    {
+      "name": "Whitegrove",
+      "dx": 1320,
+      "dz": -740,
+      "population": 780,
+      "housing": 910
+    },
+    {
+      "name": "Rosewatch",
+      "dx": 1460,
+      "dz": 320,
+      "population": 390,
+      "housing": 470
+    },
+    {
+      "name": "Alderbrook",
+      "dx": 420,
+      "dz": 980,
+      "population": 105,
+      "housing": 145
+    },
+    {
+      "name": "Westmere",
+      "dx": -1450,
+      "dz": 760,
+      "population": 640,
+      "housing": 740
+    },
+    {
+      "name": "Goldfield",
+      "dx": 1740,
+      "dz": 1040,
+      "population": 220,
+      "housing": 285
+    },
+    {
+      "name": "Dunhollow",
+      "dx": -1880,
+      "dz": -920,
+      "population": 72,
+      "housing": 98
+    }
+  ],
+  "cultureId": "eldermere_deepwood"
+}

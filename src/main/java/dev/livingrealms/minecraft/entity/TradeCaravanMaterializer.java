@@ -1,9 +1,9 @@
 package dev.livingrealms.minecraft.entity;
 
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
-import dev.livingrealms.sim.config.RuntimeProjectionPolicy;
 import dev.livingrealms.sim.logistics.TradeShipment;
 import dev.livingrealms.sim.logistics.projection.*;
+import dev.livingrealms.sim.runtime.ProjectionBudget;
 import dev.livingrealms.sim.world.SimPosition;
 import java.util.*;
 import net.minecraft.core.BlockPos;
@@ -17,7 +17,8 @@ public final class TradeCaravanMaterializer {
     public static void tick(ServerLevel level,LivingRealmsSavedData data){
         var state=data.state();
         List<SimPosition> players=level.players().stream().map(p->new SimPosition(p.getX(),p.getZ())).toList();
-        CaravanMaterializationPlanner planner=new CaravanMaterializationPlanner(RuntimeProjectionPolicy.caravans(state.config()));
+        CaravanMaterializationPlanner planner=new CaravanMaterializationPlanner(
+                ProjectionBudget.forPlayers(state.config(),Math.max(1,players.size())).caravans());
         List<CaravanProjectionRequest> desired=planner.plan(state.shipments(),players);
 
         Collection<TradeCaravanEntity> loaded=TradeCaravanIndex.loaded();

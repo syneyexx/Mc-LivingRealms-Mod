@@ -1,0 +1,21 @@
+{
+  "id": "wizard_trees",
+  "displayName": "Wizard Trees Arcana",
+  "architectureFamily": "FANTASY_MANOR",
+  "namingStyle": "arcane_grove",
+  "dialectStyle": "deep speech",
+  "materialPalette": [
+    "amethyst",
+    "dark_oak",
+    "mushroom"
+  ],
+  "economicTendency": 0.35,
+  "martialTendency": 0.25,
+  "artisticTendency": 0.9,
+  "districtTendencies": [
+    "RELIGIOUS",
+    "OLD_TOWN",
+    "GOVERNMENT"
+  ],
+  "relatedFamily": "FANTASY_MANOR"
+}

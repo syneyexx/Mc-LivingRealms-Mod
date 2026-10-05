@@ -1,0 +1,21 @@
+{
+  "id": "redmarch_martial",
+  "displayName": "Redmarch Martial",
+  "architectureFamily": "NORDIC_FORTRESS",
+  "namingStyle": "march_war",
+  "dialectStyle": "frontier common",
+  "materialPalette": [
+    "stone_bricks",
+    "spruce",
+    "crimson"
+  ],
+  "economicTendency": 0.45,
+  "martialTendency": 0.85,
+  "artisticTendency": 0.3,
+  "districtTendencies": [
+    "MILITARY",
+    "GOVERNMENT",
+    "WORKERS_QUARTER"
+  ],
+  "relatedFamily": "MEDIEVAL_FACHWERK"
+}

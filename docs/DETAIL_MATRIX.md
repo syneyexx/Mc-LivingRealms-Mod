@@ -2,28 +2,32 @@
 
 CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
-Source wins over docs. Status values for current work: EXISTS · IMPLEMENTING · COMPLETE.
+Source wins over docs. Status values for current work use maturity levels:
+FOUNDATION · CANONICAL · PLAYABLE · PHYSICALIZED · DEEP · POLISHED (see `COMPLETION_MATRIX.md`).
 
-| Detail | Authority | Status | Notes |
+| Detail | Authority | Maturity | Notes |
 |---|---|---|---|
-| Dual world (canonical ↔ MC) | SimulationState + materializers | COMPLETE | Projection budgets enforced |
-| LOD PHYSICAL/REGIONAL/ABSTRACT | planners + budgets | COMPLETE | ProjectionStressTest |
-| City streets + sidewalks | SettlementPlanner + morphology | COMPLETE | Geography-derived layouts |
-| Intercity terrain corridor | TerrainCorridorPlanner | COMPLETE | No straight-road fallback |
-| Real doors + entrance access | FactionBlockPalette + EntranceAccessPlanner | COMPLETE | Stairs ±3 / switchback ±8 |
-| Physical catch-up /setday | PhysicalDevelopmentReconciler | COMPLETE | Backlog roads/houses first; ≤2 sim-days/tick spread |
-| Spawn capital | densifier + planner | COMPLETE | Same planner/economy as authored towns |
-| Waystone 1/settlement + provenance | WaystoneSettlementRuntime | COMPLETE | LR-authored only |
-| Locate city/mine/kingdom/market/port/wizardtrees/ruin | LocateQuery | COMPLETE | Port after discovery |
-| NPC dialogue | NaturalLanguageDialogueEngine + token phrases | COMPLETE | Word-boundary parse; profession knowledge |
-| UI blur removed | clearBackground overrides | COMPLETE | M / dialogue / dashboard |
-| M-map terrain | RealmWorldMapScreen + ClientTerrainMapCache | COMPLETE | |
-| Named roster | SocialPopulationEngine | COMPLETE | hamlet6…capital64; no projection required |
-| Goods chains | ResourceType + SettlementEconomyEngine | COMPLETE | schema 20; no FOOD×mill fountain |
-| Farms/pastures/hinterland keys | completion keys + receipts | COMPLETE | No seeder phantoms |
-| Settlement transfer | SettlementTransfer | COMPLETE | Capture + rebellion |
-| War capital targets | DiplomacyEngine | COMPLETE | Typed goals |
-| Density | SettlementDensitySeeder | COMPLETE | 13/realm, 36 surface, spacing 2000 |
+| Dual world (canonical ↔ MC) | SimulationState + materializers | DEEP | Projection budgets enforced |
+| LOD PHYSICAL/REGIONAL/ABSTRACT | planners + budgets | DEEP | ProjectionStressTest |
+| City streets + sidewalks | SettlementPlanner + morphology | PHYSICALIZED | Geography-derived layouts |
+| Intercity terrain corridor | TerrainCorridorPlanner | PHYSICALIZED | No straight-road fallback |
+| Real doors + entrance access | FactionBlockPalette + EntranceAccessPlanner | PHYSICALIZED | Stairs ±3 / switchback ±8 |
+| Physical catch-up /setday | PhysicalDevelopmentReconciler | PHYSICALIZED | Backlog roads/houses first; ≤2 sim-days/tick spread |
+| Spawn capital | densifier + planner | DEEP | Same planner/economy as authored towns |
+| Waystone 1/settlement + provenance | WaystoneSettlementRuntime | PHYSICALIZED | LR-authored only |
+| Locate city/mine/kingdom/market/port/wizardtrees/ruin | LocateQuery | PLAYABLE | Port after discovery |
+| NPC dialogue | interpreter/knowledge/planner/style/realizer | DEEP | Word-boundary parse; profession knowledge |
+| UI blur removed | clearBackground overrides | POLISHED | M / dialogue / dashboard |
+| M-map terrain | RealmWorldMapScreen + ClientTerrainMapCache | POLISHED | |
+| Named roster | SocialPopulationEngine | DEEP | hamlet6…capital64; no projection required |
+| Goods chains | ResourceType + SettlementEconomyEngine | DEEP | schema 20; no FOOD×mill fountain |
+| Farms/pastures/hinterland keys | completion keys + receipts | CANONICAL | No seeder phantoms |
+| Settlement transfer | SettlementTransfer | DEEP | Capture + rebellion |
+| War capital targets | DiplomacyEngine | DEEP | Typed goals |
+| Density | SettlementDensitySeeder | POLISHED | 3/realm, 36 surface, spacing 2000 |
+| Runtime scheduler | RuntimeBudgetController | DEEP | Soft/hard deferral + starvation |
+| Domain persistence codecs | sim/persistence/codec/* | DEEP | Schema 20 envelope |
 
 ## Geschiedenis
 - Older detail rows cited schema 16–17, 32/realm (~380+), FOOD mill proxies, COMPLETE (core), and EXTERNAL GATE. Historical only.
+- Wave 23/40 replaced blanket COMPLETE status with maturity levels.

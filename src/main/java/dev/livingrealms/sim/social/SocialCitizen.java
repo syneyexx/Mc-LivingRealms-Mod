@@ -37,12 +37,22 @@ public final class SocialCitizen {
     public void setRole(CitizenRole value){CitizenRole next=Objects.requireNonNull(value);if(role!=next){if(!professionHistoryKey.isBlank())professionHistoryKey=professionHistoryKey+">";professionHistoryKey=(professionHistoryKey+role.name()).length()>96?role.name():professionHistoryKey+role.name();role=next;professionSkill=Math.max(.12,professionSkill*.72);socialClass=classForRole(next);}}
     public void practiceProfession(double amount){if(!Double.isFinite(amount)||amount<0)throw new IllegalArgumentException("profession practice");professionSkill=Mathx.clamp(professionSkill+amount*(1-professionSkill),0,1);if(professionSkill>=.72&&employmentStatus==EmploymentStatus.EMPLOYED)employmentStatus=EmploymentStatus.MASTER;if(professionSkill>=.35&&employmentStatus==EmploymentStatus.APPRENTICE)employmentStatus=EmploymentStatus.EMPLOYED;}
     public void migrateTo(long factionId,long settlementId){if(factionId<=0||settlementId<=0)throw new IllegalArgumentException("citizen destination");this.factionId=factionId;this.settlementId=settlementId;}
-    void rebindProjectionSlot(int slot){if(slot<0)throw new IllegalArgumentException("projectionSlot");projectionSlot=slot;}
+    public void rebindProjectionSlot(int slot){if(slot<0)throw new IllegalArgumentException("projectionSlot");projectionSlot=slot;}
     public void setHouseholdId(long value){if(value<0)throw new IllegalArgumentException("householdId");householdId=value;}
     public void addMoney(double delta){if(!Double.isFinite(delta))throw new IllegalArgumentException("money");money=Math.max(0,money+delta);refreshWealthClass();}
     public void adjustHealth(double delta){if(!Double.isFinite(delta))throw new IllegalArgumentException("health");health=Mathx.clamp(health+delta,0,1);if(health<=0)alive=false;}
     public void markDead(){alive=false;health=0;}
     public void remember(CitizenMemory memory){Objects.requireNonNull(memory);memories.addLast(memory);while(memories.size()>MAX_MEMORIES)memories.removeFirst();}
+    /** Wave 28 — replace memory deque after retention compaction / summarization. */
+    public void replaceMemories(java.util.Collection<CitizenMemory> next){
+        memories.clear();
+        if(next==null)return;
+        for(CitizenMemory memory:next){
+            if(memory==null)continue;
+            memories.addLast(memory);
+            if(memories.size()>=MAX_MEMORIES)break;
+        }
+    }
     public Optional<CitizenMemory> latestMemory(java.util.function.Predicate<CitizenMemory> predicate){Iterator<CitizenMemory> it=memories.descendingIterator();while(it.hasNext()){CitizenMemory m=it.next();if(predicate.test(m))return Optional.of(m);}return Optional.empty();}
     public CitizenRelationship relationship(String targetKey){CitizenRelationship existing=relationships.get(targetKey);if(existing!=null)return existing;while(relationships.size()>=MAX_RELATIONSHIPS){String first=relationships.keySet().iterator().next();relationships.remove(first);}CitizenRelationship created=new CitizenRelationship(targetKey);relationships.put(targetKey,created);return created;}
     public void restoreCore(CitizenRole role,double health,double money,boolean alive){this.role=Objects.requireNonNull(role);this.health=Mathx.clamp(health,0,1);this.money=Math.max(0,money);this.alive=alive&&this.health>0;refreshWealthClass();}

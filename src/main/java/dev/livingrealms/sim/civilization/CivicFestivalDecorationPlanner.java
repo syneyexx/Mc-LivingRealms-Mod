@@ -1,5 +1,7 @@
 package dev.livingrealms.sim.civilization;
 
+import dev.livingrealms.sim.content.CultureDefinition;
+import dev.livingrealms.sim.content.SettlementIdentityProfile;
 import dev.livingrealms.sim.construction.SettlementPlanner;
 import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.faction.Faction;
@@ -9,11 +11,14 @@ import dev.livingrealms.sim.world.SimulationState;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Pure planner for temporary festival decorations.
  * Positions are deterministic from event id so reload/cleanup never invents orphan geometry.
+ * Wave 30 — culture material palettes bias decoration kinds.
  */
 public final class CivicFestivalDecorationPlanner {
     public enum Kind { BANNER, TORCH, CARPET, FLOWER, STALL }
@@ -43,8 +48,9 @@ public final class CivicFestivalDecorationPlanner {
             Settlement settlement = state.findSettlement(event.settlementId()).orElse(null);
             Faction faction = state.findFaction(event.factionId()).orElse(null);
             if (settlement == null || faction == null) continue;
+            Optional<CultureDefinition> culture = SettlementIdentityProfile.cultureOf(faction);
             SimPosition anchor = festivalAnchor(faction, settlement, event.type());
-            int budget = decorationBudget(event);
+            int budget = decorationBudget(event, culture.orElse(null));
             int[][] ring = {
                     {2, 0}, {-2, 0}, {0, 2}, {0, -2},
                     {3, 2}, {-3, -2}, {2, -3}, {-2, 3},
@@ -53,7 +59,7 @@ public final class CivicFestivalDecorationPlanner {
             };
             for (int i = 0; i < budget && i < ring.length; i++) {
                 int idx = Math.floorMod(i + Long.hashCode(event.id()), ring.length);
-                Kind kind = kindFor(event.type(), i);
+                Kind kind = kindFor(event.type(), i, culture.orElse(null));
                 out.add(new Decoration(event.id(), settlement.id(), event.type(), kind,
                         (int) Math.floor(anchor.x()) + ring[idx][0] - (int) Math.floor(settlement.position().x()),
                         (int) Math.floor(anchor.z()) + ring[idx][1] - (int) Math.floor(settlement.position().z()),
@@ -88,16 +94,30 @@ public final class CivicFestivalDecorationPlanner {
                 .orElse(settlement.position());
     }
 
-    private static int decorationBudget(CivicEvent event) {
+    private static int decorationBudget(CivicEvent event, CultureDefinition culture) {
         int base = switch (event.type()) {
             case RELIGIOUS_RITUAL, CORONATION -> 10;
             case MARKET_FAIR, HARVEST_FESTIVAL, VICTORY_FEAST, WEDDING_FEAST -> 12;
             case MOURNING -> 6;
         };
+        if (culture != null && culture.artisticTendency() > 0.6) base += 2;
+        if (culture != null && culture.economicTendency() > 0.7 && event.type() == CivicEventType.MARKET_FAIR) base += 1;
         return Math.max(4, Math.min(16, (int) Math.round(base * (.55 + .45 * event.intensity()))));
     }
 
-    private static Kind kindFor(CivicEventType type, int slot) {
+    private static Kind kindFor(CivicEventType type, int slot, CultureDefinition culture) {
+        if (culture != null && !culture.materialPalette().isEmpty()) {
+            String material = culture.materialPalette().get(slot % culture.materialPalette().size()).toLowerCase(Locale.ROOT);
+            if (material.contains("gold") || material.contains("silk") || material.contains("banner")) {
+                if (slot % 2 == 0) return Kind.BANNER;
+            }
+            if (material.contains("flower") || material.contains("thatch") || material.contains("oak")) {
+                if (slot % 3 == 0) return Kind.FLOWER;
+            }
+            if (material.contains("torch") || material.contains("basalt") || material.contains("coal")) {
+                if (slot % 3 == 1) return Kind.TORCH;
+            }
+        }
         if (type == CivicEventType.MOURNING) {
             return switch (slot % 3) { case 0 -> Kind.TORCH; case 1 -> Kind.FLOWER; default -> Kind.CARPET; };
         }

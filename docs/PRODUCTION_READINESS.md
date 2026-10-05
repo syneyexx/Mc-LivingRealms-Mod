@@ -8,9 +8,12 @@ Provenance for this HEAD should use the release-state vocabulary in `docs/RELEAS
 Do not claim `release-ready` from headless core alone. `RELEASE_MANIFEST.json` must match HEAD.
 `runtimeSmoke` may only be recorded as **pass** after a real client run — never guessed.
 
+Subsystem feature depth uses maturity levels in `COMPLETION_MATRIX.md`
+(FOUNDATION / CANONICAL / PLAYABLE / PHYSICALIZED / DEEP / POLISHED). Maturity ≠ release readiness.
+
 ## Green automated gates
-- Java 21 `-Xlint:all -Werror` core suite including schema **20** goods, densifier Specs, SettlementTransfer, war capital goals, dialogue tokens, roster-without-projection.
-- Save migration schemas **1→20**, integrity, 768 fuzz cases, 3650-day soak.
+- Java 21 `-Xlint:all -Werror` core suite including schema **20** goods, densifier Specs, SettlementTransfer, war capital goals, dialogue tokens, roster-without-projection, documentation pins, deterministic refactor proof.
+- Save migration schemas **1→20**, integrity recovery, 768 fuzz cases, 3650-day soak.
 - Static release-audit for blur suppression, Create hard-dep, Guns++ player-only, version pins.
 
 ## Geschiedenis

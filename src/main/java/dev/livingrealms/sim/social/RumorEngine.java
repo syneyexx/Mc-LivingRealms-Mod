@@ -44,14 +44,14 @@ public final class RumorEngine {
 
     private static boolean canKnow(SocialCitizen c,WorldEvent e){
         String m=e.message();if(refersToSettlement(m,c.settlementId())||m.contains("faction="+c.factionId())||m.contains("toFaction="+c.factionId())||m.contains("fromFaction="+c.factionId()))return true;
-        String t=e.type().toLowerCase(Locale.ROOT);if(institutional(c.role()))return containsAny(t,"war","crime","bounty","treaty","faction","siege","raid","desert","migrat","epidemic","tribute","spy","assimilat","rebell","capture");
+        String t=e.type().toLowerCase(Locale.ROOT);if(institutional(c.role()))return containsAny(t,"war","crime","bounty","treaty","faction","siege","raid","desert","migrat","epidemic","tribute","spy","assimilat","rebell","capture","assist","structure","underworld","black_market");
         return switch(c.role()){
-            case TRADER -> containsAny(t,"trade","shipment","route","migrat","refugee","raid","tribute","market","price");
-            case HEALER -> containsAny(t,"epidemic","disease","death","demograph");
-            case PRIEST -> containsAny(t,"festival","culture","assimilat","death","succession","legend");
-            case SCHOLAR -> containsAny(t,"legend","history","succession","assimilat","technology","education","astronom","cartograph");
+            case TRADER -> containsAny(t,"trade","shipment","route","migrat","refugee","raid","tribute","market","price","assist","underworld","black_market");
+            case HEALER -> containsAny(t,"epidemic","disease","death","demograph","assist","medical");
+            case PRIEST -> containsAny(t,"festival","culture","assimilat","death","succession","legend","assist");
+            case SCHOLAR -> containsAny(t,"legend","history","succession","assimilat","technology","education","astronom","cartograph","structure");
             case GUARD,OFFICIAL -> true;
-            default -> false;
+            default -> containsAny(t,"assist","structure","crime","migrat");
         };
     }
 
@@ -68,9 +68,9 @@ public final class RumorEngine {
     private static boolean refersToSettlement(String message,long id){return message.contains("settlement="+id)||message.contains("from="+id)||message.contains("to="+id)||message.contains("target="+id);}
     private static boolean institutional(CitizenRole role){return role==CitizenRole.GUARD||role==CitizenRole.OFFICIAL;}
     private static double professionConfidence(CitizenRole role,String type){String t=type.toLowerCase(Locale.ROOT);if(role==CitizenRole.HEALER&&containsAny(t,"epidemic","disease"))return .88;if(role==CitizenRole.TRADER&&containsAny(t,"trade","route","shipment"))return .84;if(role==CitizenRole.SCHOLAR&&containsAny(t,"legend","history","technology"))return .83;if(role==CitizenRole.PRIEST&&containsAny(t,"festival","culture"))return .8;return .66;}
-    private static MemoryType memoryType(String type){String t=type.toLowerCase(Locale.ROOT);if(containsAny(t,"war","siege","battle","raid","desert"))return MemoryType.WAR_NEWS;if(containsAny(t,"crime","bounty","arrest"))return MemoryType.CRIME_WITNESS;return MemoryType.RUMOR;}
-    private static String subject(WorldEvent e){String t=e.type().toLowerCase(Locale.ROOT);if(containsAny(t,"war","siege","battle"))return "war";if(t.contains("raid"))return "raids";if(containsAny(t,"trade","shipment","market"))return "trade";if(containsAny(t,"crime","bounty"))return "crime";if(containsAny(t,"death","epidemic","disease"))return "health";if(containsAny(t,"migrat","refugee"))return "migration";if(containsAny(t,"festival","culture","assimilat"))return "culture";if(t.contains("tribute"))return "tribute";if(t.contains("spy"))return "politics";if(containsAny(t,"legend","memorial"))return "history";return t;}
-    private static double importance(String type){String t=type.toLowerCase(Locale.ROOT);if(containsAny(t,"war","siege","rebell","conquer","capture","epidemic"))return .9;if(containsAny(t,"death","crime","bounty","raid","desert"))return .74;if(containsAny(t,"migration","tribute","spy","assimilat"))return .62;if(containsAny(t,"trade","faction","festival"))return .52;return .4;}
+    private static MemoryType memoryType(String type){String t=type.toLowerCase(Locale.ROOT);if(containsAny(t,"war","siege","battle","raid","desert"))return MemoryType.WAR_NEWS;if(containsAny(t,"crime","bounty","arrest"))return MemoryType.CRIME_WITNESS;if(containsAny(t,"assist"))return MemoryType.HELPED_BY;return MemoryType.RUMOR;}
+    private static String subject(WorldEvent e){String t=e.type().toLowerCase(Locale.ROOT);if(containsAny(t,"war","siege","battle"))return "war";if(t.contains("raid"))return "raids";if(containsAny(t,"trade","shipment","market"))return "trade";if(containsAny(t,"crime","bounty","underworld","black_market"))return "crime";if(containsAny(t,"assist"))return "aid";if(containsAny(t,"structure"))return "building";if(containsAny(t,"death","epidemic","disease"))return "health";if(containsAny(t,"migrat","refugee"))return "migration";if(containsAny(t,"festival","culture","assimilat"))return "culture";if(t.contains("tribute"))return "tribute";if(t.contains("spy"))return "politics";if(containsAny(t,"legend","memorial"))return "history";return t;}
+    private static double importance(String type){String t=type.toLowerCase(Locale.ROOT);if(containsAny(t,"war","siege","rebell","conquer","capture","epidemic"))return .9;if(containsAny(t,"death","crime","bounty","raid","desert","underworld"))return .74;if(containsAny(t,"migration","tribute","spy","assimilat","assist","structure"))return .62;if(containsAny(t,"trade","faction","festival"))return .52;return .4;}
     private static String humanize(WorldEvent e){String t=e.type().replace('_',' ');return "People are talking about "+t+". "+e.message();}
     private static boolean containsAny(String text,String...parts){for(String p:parts)if(text.contains(p))return true;return false;}
 }

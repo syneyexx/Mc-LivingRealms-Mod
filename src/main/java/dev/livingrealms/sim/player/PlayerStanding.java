@@ -71,6 +71,16 @@ public final class PlayerStanding {
         reputationByFaction.put(factionId,Mathx.clamp(value,-100,100));
     }
 
+    /** Drops a reputation row for a missing/stale faction id (projection index repair only). */
+    public boolean clearReputation(long factionId){
+        return reputationByFaction.remove(factionId)!=null;
+    }
+
+    /** Drops influence rows for a missing/stale faction id (projection index repair only). */
+    public boolean clearInfluence(long factionId){
+        return influenceByFaction.remove(factionId)!=null;
+    }
+
     public void join(long factionId,long day){
         if(factionId<=0||day<0||isMember()) throw new IllegalStateException("membership");
         memberFactionId=factionId;rank=FactionRank.CITIZEN;joinedDay=day;servicePoints=0;

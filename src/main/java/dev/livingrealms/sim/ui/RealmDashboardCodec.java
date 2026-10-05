@@ -1,9 +1,11 @@
 package dev.livingrealms.sim.ui;
 
 import dev.livingrealms.sim.data.MiniJson;
+import dev.livingrealms.sim.ui.dashboard.DashboardSectionCodec;
 import java.util.*;
 
-/** Strict, size-bounded JSON codec for the read-only dashboard network payload. */
+/** Strict, size-bounded JSON codec for the read-only dashboard network payload (protocol 20).
+ * Encode path is composed from domain section codecs; decode remains wire-compatible. */
 public final class RealmDashboardCodec {
     public static final int MAX_JSON_CHARS=262_144;
     private RealmDashboardCodec() {}
@@ -11,19 +13,19 @@ public final class RealmDashboardCodec {
     public static String encode(RealmDashboardSnapshot s){
         Objects.requireNonNull(s,"snapshot");
         Map<String,Object> root=new LinkedHashMap<>();
-        root.put("v",s.protocolVersion());root.put("day",s.day());root.put("summary",s.worldSummary());
-        root.put("jurisdiction",jurisdiction(s.jurisdiction()));root.put("player",player(s.player()));root.put("realm",realm(s.realm()));root.put("settings",settings(s.settings()));
-        root.put("factions",s.factions().stream().map(RealmDashboardCodec::faction).toList());
-        root.put("settlements",s.settlements().stream().map(RealmDashboardCodec::settlement).toList());
-        root.put("wars",s.wars().stream().map(RealmDashboardCodec::war).toList());
-        root.put("warfare",warfare(s.warfare()));
-        root.put("bounties",s.bounties().stream().map(RealmDashboardCodec::bounty).toList());
-        root.put("operations",operations(s.operations()));
-        root.put("ecology",ecology(s.ecology()));
-        root.put("politics",politics(s.politics()));
-        root.put("forces",forces(s.forces()));
-        root.put("map",mapView(s.map()));
-        root.put("history",s.history().stream().map(RealmDashboardCodec::history).toList());
+        root.put("v",s.protocolVersion());
+        DashboardSectionCodec.putOverview(root, s.overviewSection());
+        DashboardSectionCodec.putSettlements(root, s.settlementSection());
+        DashboardSectionCodec.putWar(root, s.warSection());
+        DashboardSectionCodec.putLaw(root, s.lawSection());
+        DashboardSectionCodec.putEconomy(root, s.economySection());
+        DashboardSectionCodec.putEcology(root, s.ecologySection());
+        DashboardSectionCodec.putPolitics(root, s.politicsSection());
+        DashboardSectionCodec.putForces(root, s.forcesSection());
+        DashboardSectionCodec.putMap(root, s.mapSection());
+        DashboardSectionCodec.putHistory(root, s.overviewSection());
+        DashboardSectionCodec.putUnderworld(root, s.underworldSection());
+        DashboardSectionCodec.putWarRoom(root, s.warRoom());
         String json=MiniJson.stringify(root);if(json.length()>MAX_JSON_CHARS)throw new IllegalStateException("Dashboard payload too large: "+json.length());return json;
     }
 
@@ -42,71 +44,16 @@ public final class RealmDashboardCodec {
         RealmDashboardSnapshot.ForcesView forces=decodeForces(obj(r.get("forces")));
         RealmDashboardSnapshot.StrategicMapView map=decodeMap(obj(r.get("map")));
         List<RealmDashboardSnapshot.HistoryView> history=list(r.get("history")).stream().limit(RealmDashboardBuilder.MAX_HISTORY).map(x->decodeHistory(obj(x))).toList();
+        // Protocol 20 compatible: older payloads omit underworld/warRoom → empty defaults.
+        RealmDashboardSnapshot.UnderworldView underworld=r.containsKey("underworld")
+                ?decodeUnderworld(obj(r.get("underworld"))):RealmDashboardSnapshot.UnderworldView.empty();
+        RealmDashboardSnapshot.WarRoomView warRoom=r.containsKey("warRoom")
+                ?decodeWarRoom(obj(r.get("warRoom"))):RealmDashboardSnapshot.WarRoomView.empty();
         return new RealmDashboardSnapshot(v,longNum(r,"day"),str(r,"summary"),
                 new RealmDashboardSnapshot.JurisdictionView(longNum(j,"primaryId"),str(j,"primaryName"),longNum(j,"secondaryId"),str(j,"secondaryName"),bool(j,"claimed"),bool(j,"contested")),
                 decodePlayer(p),
-                decodeRealm(realm),decodeSettings(settings),factions,settlements,wars,warfare,bounties,operations,ecology,politics,forces,map,history);
+                decodeRealm(realm),decodeSettings(settings),factions,settlements,wars,warfare,bounties,operations,ecology,politics,forces,map,history,underworld,warRoom);
     }
-
-    private static Map<String,Object> jurisdiction(RealmDashboardSnapshot.JurisdictionView v){return map("primaryId",v.primaryFactionId(),"primaryName",v.primaryName(),"secondaryId",v.secondaryFactionId(),"secondaryName",v.secondaryName(),"claimed",v.claimed(),"contested",v.contested());}
-    private static Map<String,Object> player(RealmDashboardSnapshot.PlayerView v){return map("actor",v.actorKey(),"memberFactionId",v.memberFactionId(),"memberFactionName",v.memberFactionName(),"rank",v.rank(),"service",v.servicePoints(),"reputation",v.localReputation(),"infamy",v.globalInfamy(),"wanted",v.wantedLevel(),"bounty",v.bounty(),"notoriety",v.notoriety(),"heat",v.heat(),"custody",v.inCustody(),"releaseDay",v.custodyReleaseDay(),"careerTrack",v.careerTrack(),"careerRank",v.careerRank(),"influence",new LinkedHashMap<>(v.influence()));}
-    private static Map<String,Object> realm(RealmDashboardSnapshot.RealmView v){return map("id",v.factionId(),"name",v.name(),"ruler",v.ruler(),"government",v.governmentType(),"succession",v.successionLaw(),"population",v.population(),"settlementCount",v.settlementCount(),"treasury",v.treasury(),"technology",v.technology(),"stability",v.stability(),"legitimacy",v.legitimacy(),"corruption",v.corruption(),"taxRate",v.taxRate(),"armyPersonnel",v.armyPersonnel(),"airframes",v.airframes(),"ships",v.ships(),"ports",v.ports(),"industry",v.industrialSites(),"shipments",v.activeShipments(),"wars",v.activeWars(),"treaties",v.activeTreaties(),"debts",v.activeDebts(),"grandProjects",v.grandProjects(),"campaignPlans",v.campaignPlans(),"resources",new LinkedHashMap<>(v.resources()),"marketPrices",new LinkedHashMap<>(v.marketPrices()),"marketBuyCosts",new LinkedHashMap<>(v.marketBuyCosts()),"marketSellPayouts",new LinkedHashMap<>(v.marketSellPayouts()));}
-    private static Map<String,Object> settings(RealmDashboardSnapshot.SettingsView v){return map("profile",v.profile(),"physicalRadius",v.physicalRadius(),"regionalRadius",v.regionalRadius(),"wildlife",v.wildlifeBudget(),"caravans",v.caravanBudget(),"military",v.militaryBudget(),"naval",v.navalBudget(),"constructionOps",v.constructionOpsPerTick());}
-    private static Map<String,Object> faction(RealmDashboardSnapshot.FactionSummary v){return map("id",v.id(),"name",v.name(),"ruler",v.ruler(),"population",v.population(),"settlements",v.settlements(),"treasury",v.treasury(),"technology",v.technology(),"local",v.localRealm(),"member",v.memberRealm());}
-    private static Map<String,Object> settlement(RealmDashboardSnapshot.SettlementView v){return map("id",v.id(),"name",v.name(),"tier",v.tier(),"developmentPriority",v.developmentPriority(),"developmentMode",v.developmentMode(),"origin",v.origin(),"population",v.population(),"housing",v.housing(),"verifiedHousing",v.verifiedHousing(),"housingDeficit",v.housingDeficit(),"registeredBuildings",v.registeredBuildings(),"prosperity",v.prosperity(),"unrest",v.unrest(),"food",v.foodSecurity(),"order",v.publicOrder(),"employment",v.employment(),"housingSat",v.housingSatisfaction(),"goods",v.goodsAccess(),"society",v.societySatisfaction(),"pressure",v.primaryPressure(),"pressureSeverity",v.pressureSeverity(),"cause",v.causeSummary(),"distance",v.distanceBlocks());}
-    private static Map<String,Object> war(RealmDashboardSnapshot.WarView v){return map("id",v.id(),"attackerId",v.attackerFactionId(),"attacker",v.attackerName(),"defenderId",v.defenderFactionId(),"defender",v.defenderName(),"goal",v.goal(),"targetSettlementId",v.targetSettlementId(),"targetSettlement",v.targetSettlementName(),"startDay",v.startDay(),"score",v.attackerScore(),"attackerExhaustion",v.attackerExhaustion(),"defenderExhaustion",v.defenderExhaustion());}
-
-
-
-    private static Map<String,Object> warfare(RealmDashboardSnapshot.WarfareView v){return map("objectives",v.objectives().stream().map(RealmDashboardCodec::objective).toList(),"sieges",v.sieges().stream().map(RealmDashboardCodec::siege).toList(),"campaigns",v.campaigns().stream().map(RealmDashboardCodec::campaign).toList());}
-    private static Map<String,Object> objective(RealmDashboardSnapshot.ObjectiveView v){return map("id",v.id(),"armyId",v.armyId(),"type",v.type(),"target",v.target(),"priority",v.priority(),"distance",v.distanceBlocks());}
-    private static Map<String,Object> siege(RealmDashboardSnapshot.SiegeView v){return map("id",v.id(),"attacker",v.attacker(),"defender",v.defender(),"settlement",v.settlement(),"startDay",v.startDay(),"progress",v.progress(),"blockade",v.blockade());}
-    private static Map<String,Object> campaign(RealmDashboardSnapshot.CampaignPlanView v){return map("id",v.id(),"type",v.type(),"target",v.target(),"priority",v.priority(),"active",v.active());}
-
-    private static Map<String,Object> operations(RealmDashboardSnapshot.OperationsView v){return map("shipments",v.shipments().stream().map(RealmDashboardCodec::shipment).toList(),"routes",v.routes().stream().map(RealmDashboardCodec::routeOps).toList(),"industry",v.industry().stream().map(RealmDashboardCodec::industryOps).toList(),"assistance",v.assistanceTasks().stream().map(RealmDashboardCodec::assistanceTask).toList());}
-    private static Map<String,Object> assistanceTask(RealmDashboardSnapshot.AssistanceTaskView v){return map("id",v.id(),"settlement",v.settlement(),"type",v.type(),"cause",v.cause(),"remaining",v.remainingPressure(),"progress",v.progress(),"expiresDay",v.expiresDay());}
-    private static Map<String,Object> shipment(RealmDashboardSnapshot.ShipmentView v){return map("id",v.id(),"seller",v.seller(),"buyer",v.buyer(),"resource",v.resource(),"amount",v.amount(),"value",v.value(),"progress",v.progress(),"distance",v.distanceBlocks());}
-    private static Map<String,Object> routeOps(RealmDashboardSnapshot.RouteOpsView v){return map("id",v.id(),"from",v.from(),"to",v.to(),"mode",v.mode(),"quality",v.quality(),"security",v.security(),"capacity",v.capacityPerDay(),"operational",v.operational());}
-    private static Map<String,Object> industryOps(RealmDashboardSnapshot.IndustryOpsView v){return map("id",v.id(),"settlement",v.settlement(),"kind",v.kind(),"level",v.level(),"status",v.status(),"condition",v.condition(),"starvedDays",v.starvedDays(),"downtimeDays",v.downtimeDays(),"cycles",v.cycles(),"utilization",v.utilization());}
-
-
-    private static Map<String,Object> ecology(RealmDashboardSnapshot.EcologyView v){return map("catalogSpecies",v.catalogSpecies(),"regionCount",v.regionCount(),"populationGroups",v.populationGroups(),"totalAnimals",v.totalAnimals(),"regions",v.regions().stream().map(RealmDashboardCodec::ecologyRegion).toList());}
-    private static Map<String,Object> ecologyRegion(RealmDashboardSnapshot.RegionEcologyView v){return map("id",v.id(),"biome",v.biome(),"x",v.x(),"z",v.z(),"distance",v.distanceBlocks(),"area",v.areaKm2(),"plants",v.plantBiomass(),"animals",v.animals(),"groups",v.groups(),"species",v.dominantSpecies().stream().map(RealmDashboardCodec::ecologySpecies).toList());}
-    private static Map<String,Object> ecologySpecies(RealmDashboardSnapshot.SpeciesPopulationView v){return map("id",v.speciesId(),"name",v.commonName(),"population",v.population(),"health",v.health(),"hunger",v.hunger(),"thirst",v.thirst(),"locomotion",v.locomotion(),"morphology",v.morphology());}
-
-    private static Map<String,Object> bounty(RealmDashboardSnapshot.BountyView v){return map("id",v.id(),"target",v.targetKey(),"issuerId",v.issuerFactionId(),"issuer",v.issuerName(),"reward",v.reward(),"status",v.status(),"assigned",v.assignedToYou());}
-
-
-    private static Map<String,Object> politics(RealmDashboardSnapshot.PoliticsView v){return map("relations",v.relations().stream().map(RealmDashboardCodec::relation).toList(),"treaties",v.treaties().stream().map(RealmDashboardCodec::treaty).toList());}
-    private static Map<String,Object> relation(RealmDashboardSnapshot.RelationView v){return map("factionId",v.factionId(),"name",v.factionName(),"status",v.status(),"opinion",v.opinion(),"trade",v.tradeAgreement());}
-    private static Map<String,Object> treaty(RealmDashboardSnapshot.TreatyView v){return map("id",v.id(),"otherFactionId",v.otherFactionId(),"other",v.otherFactionName(),"type",v.type(),"startDay",v.startDay(),"endDay",v.endDay());}
-
-
-    private static Map<String,Object> forces(RealmDashboardSnapshot.ForcesView v){return map("air",v.airWings().stream().map(RealmDashboardCodec::airWing).toList(),"fleets",v.fleets().stream().map(RealmDashboardCodec::fleet).toList(),"ports",v.ports().stream().map(RealmDashboardCodec::port).toList());}
-    private static Map<String,Object> airWing(RealmDashboardSnapshot.AirWingView v){return map("id",v.id(),"model",v.model(),"role",v.role(),"aircraft",v.aircraft(),"mission",v.mission(),"fuel",v.fuel(),"readiness",v.readiness(),"experience",v.experience(),"distance",v.distanceBlocks());}
-    private static Map<String,Object> fleet(RealmDashboardSnapshot.FleetView v){return map("id",v.id(),"ships",v.ships(),"composition",v.composition(),"mission",v.mission(),"fuel",v.fuel(),"readiness",v.readiness(),"supply",v.supply(),"experience",v.experience(),"embarked",v.embarkedPersonnel(),"power",v.combatPower(),"distance",v.distanceBlocks());}
-    private static Map<String,Object> port(RealmDashboardSnapshot.PortView v){return map("id",v.id(),"settlement",v.settlement(),"level",v.level(),"condition",v.condition(),"security",v.security(),"operational",v.operational(),"distance",v.distanceBlocks());}
-
-    private static Map<String,Object> mapView(RealmDashboardSnapshot.StrategicMapView v){return map("playerX",v.playerX(),"playerZ",v.playerZ(),"minX",v.minX(),"maxX",v.maxX(),"minZ",v.minZ(),"maxZ",v.maxZ(),"settlements",v.settlements().stream().map(RealmDashboardCodec::mapSettlement).toList(),"claims",v.claims().stream().map(RealmDashboardCodec::mapClaim).toList(),"routes",v.routes().stream().map(RealmDashboardCodec::mapRoute).toList(),"armies",v.armies().stream().map(RealmDashboardCodec::mapArmy).toList(),"fronts",v.fronts().stream().map(RealmDashboardCodec::mapFront).toList(),"resourceClaims",v.resourceClaims().stream().map(RealmDashboardCodec::mapResourceClaim).toList(),"shipments",v.shipments().stream().map(RealmDashboardCodec::mapShipment).toList(),"raids",v.raids().stream().map(RealmDashboardCodec::mapRaid).toList(),"migrations",v.migrations().stream().map(RealmDashboardCodec::mapMigration).toList(),"ports",v.ports().stream().map(RealmDashboardCodec::mapPort).toList(),"fleets",v.fleets().stream().map(RealmDashboardCodec::mapFleet).toList(),"airWings",v.airWings().stream().map(RealmDashboardCodec::mapAirWing).toList(),"pirates",v.pirates().stream().map(RealmDashboardCodec::mapPirate).toList(),"pirateHideouts",v.pirateHideouts().stream().map(RealmDashboardCodec::mapPirateHideout).toList(),"epidemics",v.epidemics().stream().map(RealmDashboardCodec::mapEpidemic).toList(),"caches",v.caches().stream().map(RealmDashboardCodec::mapCache).toList(),"ruins",v.ruins().stream().map(RealmDashboardCodec::mapRuin).toList());}
-    private static Map<String,Object> mapSettlement(RealmDashboardSnapshot.MapSettlement v){return map("id",v.id(),"factionId",v.factionId(),"name",v.name(),"tier",v.tier(),"x",v.x(),"z",v.z(),"population",v.population());}
-    private static Map<String,Object> mapClaim(RealmDashboardSnapshot.MapClaim v){return map("settlementId",v.settlementId(),"factionId",v.factionId(),"x",v.x(),"z",v.z(),"radius",v.radius());}
-    private static Map<String,Object> mapRoute(RealmDashboardSnapshot.MapRoute v){return map("id",v.id(),"factionId",v.factionId(),"fromSettlementId",v.fromSettlementId(),"toSettlementId",v.toSettlementId(),"mode",v.mode(),"fromX",v.fromX(),"fromZ",v.fromZ(),"toX",v.toX(),"toZ",v.toZ(),"quality",v.quality(),"security",v.security(),"operational",v.operational());}
-    private static Map<String,Object> mapArmy(RealmDashboardSnapshot.MapArmy v){return map("id",v.id(),"factionId",v.factionId(),"x",v.x(),"z",v.z(),"personnel",v.personnel(),"morale",v.morale(),"supply",v.supply());}
-    private static Map<String,Object> mapFront(RealmDashboardSnapshot.MapFront v){return map("warId",v.warId(),"attackerFactionId",v.attackerFactionId(),"defenderFactionId",v.defenderFactionId(),"fromX",v.fromX(),"fromZ",v.fromZ(),"toX",v.toX(),"toZ",v.toZ(),"goal",v.goal());}
-    private static Map<String,Object> mapResourceClaim(RealmDashboardSnapshot.MapResourceClaim v){return map("id",v.id(),"factionId",v.factionId(),"type",v.type(),"x",v.x(),"z",v.z(),"strength",v.strength(),"contestedByFactionId",v.contestedByFactionId());}
-    private static Map<String,Object> mapShipment(RealmDashboardSnapshot.MapShipment v){return map("id",v.id(),"sellerFactionId",v.sellerFactionId(),"buyerFactionId",v.buyerFactionId(),"resource",v.resource(),"x",v.x(),"z",v.z(),"progress",v.progress(),"value",v.value());}
-    private static Map<String,Object> mapRaid(RealmDashboardSnapshot.MapRaid v){return map("id",v.id(),"factionId",v.factionId(),"targetSettlementId",v.targetSettlementId(),"bandit",v.bandit(),"x",v.x(),"z",v.z(),"manpower",v.manpower(),"morale",v.morale(),"progress",v.progress());}
-    private static Map<String,Object> mapMigration(RealmDashboardSnapshot.MapMigration v){return map("id",v.id(),"factionId",v.factionId(),"reason",v.reason(),"status",v.status(),"x",v.x(),"z",v.z(),"people",v.people(),"health",v.health());}
-    private static Map<String,Object> mapPort(RealmDashboardSnapshot.MapPort v){return map("id",v.id(),"factionId",v.factionId(),"settlementId",v.settlementId(),"x",v.x(),"z",v.z(),"level",v.level(),"security",v.security(),"operational",v.operational());}
-    private static Map<String,Object> mapFleet(RealmDashboardSnapshot.MapFleet v){return map("id",v.id(),"factionId",v.factionId(),"x",v.x(),"z",v.z(),"ships",v.ships(),"mission",v.mission());}
-    private static Map<String,Object> mapAirWing(RealmDashboardSnapshot.MapAirWing v){return map("id",v.id(),"factionId",v.factionId(),"x",v.x(),"z",v.z(),"aircraft",v.aircraft(),"mission",v.mission());}
-    private static Map<String,Object> mapPirate(RealmDashboardSnapshot.MapPirate v){return map("id",v.id(),"x",v.x(),"z",v.z(),"strength",v.strength(),"morale",v.morale(),"loot",v.loot());}
-    private static Map<String,Object> mapPirateHideout(RealmDashboardSnapshot.MapPirateHideout v){return map("id",v.id(),"bandId",v.bandId(),"x",v.x(),"z",v.z(),"defense",v.defense(),"storedLoot",v.storedLoot(),"discovered",v.discovered());}
-    private static Map<String,Object> mapEpidemic(RealmDashboardSnapshot.MapEpidemic v){return map("id",v.id(),"settlementId",v.settlementId(),"disease",v.disease(),"x",v.x(),"z",v.z(),"severity",v.severity(),"infectedFraction",v.infectedFraction());}
-    private static Map<String,Object> mapCache(RealmDashboardSnapshot.MapCache v){return map("id",v.id(),"ownerFactionId",v.ownerFactionId(),"x",v.x(),"z",v.z(),"value",v.value(),"compromised",v.compromised());}
-    private static Map<String,Object> mapRuin(RealmDashboardSnapshot.MapRuin v){return map("id",v.id(),"originalFactionId",v.originalFactionId(),"name",v.name(),"cause",v.cause(),"x",v.x(),"z",v.z(),"preservation",v.preservation(),"looted",v.looted());}
-
-
 
     private static RealmDashboardSnapshot.WarfareView decodeWarfare(Map<String,Object> m){
         List<RealmDashboardSnapshot.ObjectiveView> objectives=list(m.get("objectives")).stream().limit(RealmDashboardBuilder.MAX_OBJECTIVES).map(x->decodeObjective(obj(x))).toList();
@@ -206,7 +153,40 @@ public final class RealmDashboardCodec {
     private static RealmDashboardSnapshot.MapCache decodeMapCache(Map<String,Object> m){return new RealmDashboardSnapshot.MapCache(longNum(m,"id"),longNum(m,"ownerFactionId"),dbl(m,"x"),dbl(m,"z"),dbl(m,"value"),bool(m,"compromised"));}
     private static RealmDashboardSnapshot.MapRuin decodeMapRuin(Map<String,Object> m){return new RealmDashboardSnapshot.MapRuin(longNum(m,"id"),longNum(m,"originalFactionId"),str(m,"name"),str(m,"cause"),dbl(m,"x"),dbl(m,"z"),dbl(m,"preservation"),bool(m,"looted"));}
 
-    private static Map<String,Object> history(RealmDashboardSnapshot.HistoryView v){return map("day",v.day(),"type",v.type(),"message",v.message());}
+    private static RealmDashboardSnapshot.UnderworldView decodeUnderworld(Map<String,Object> m){
+        List<RealmDashboardSnapshot.UnderworldContractView> contracts=list(m.get("contracts")).stream()
+                .limit(RealmDashboardBuilder.MAX_UNDERWORLD_CONTRACTS)
+                .map(x->{var c=obj(x);return new RealmDashboardSnapshot.UnderworldContractView(
+                        longNum(c,"id"),str(c,"type"),str(c,"jurisdiction"),str(c,"target"),dbl(c,"reward"),
+                        longNum(c,"daysLeft"),str(c,"status"),bool(c,"accepted"));})
+                .toList();
+        List<RealmDashboardSnapshot.StolenLotView> lots=list(m.get("lots")).stream()
+                .limit(RealmDashboardBuilder.MAX_STOLEN_LOTS)
+                .map(x->{var l=obj(x);return new RealmDashboardSnapshot.StolenLotView(longNum(l,"id"),str(l,"good"),dbl(l,"value"));})
+                .toList();
+        return new RealmDashboardSnapshot.UnderworldView(dbl(m,"streetCred"),dbl(m,"briberySkill"),intNum(m,"contractsCompleted"),
+                bool(m,"blackMarket"),contracts,lots);
+    }
+    private static RealmDashboardSnapshot.WarRoomView decodeWarRoom(Map<String,Object> m){
+        List<RealmDashboardSnapshot.DeclareEnemyView> enemies=list(m.get("enemies")).stream()
+                .limit(RealmDashboardBuilder.MAX_WAR_ROOM_ENEMIES)
+                .map(x->{var e=obj(x);List<String> goals=list(e.get("goals")).stream().map(g->String.valueOf(g)).toList();
+                    return new RealmDashboardSnapshot.DeclareEnemyView(longNum(e,"factionId"),str(e,"name"),goals,
+                            longNum(e,"targetId"),str(e,"target"),bool(e,"declare"),bool(e,"petition"),str(e,"deny"));})
+                .toList();
+        List<RealmDashboardSnapshot.ArmyDetailView> armies=list(m.get("armies")).stream()
+                .limit(RealmDashboardBuilder.MAX_WAR_ROOM_ARMIES)
+                .map(x->{var a=obj(x);return new RealmDashboardSnapshot.ArmyDetailView(longNum(a,"id"),intNum(a,"personnel"),
+                        dbl(a,"morale"),dbl(a,"supply"),dbl(a,"power"),dbl(a,"x"),dbl(a,"z"),str(a,"home"),str(a,"objective"));})
+                .toList();
+        List<RealmDashboardSnapshot.EscortTargetView> escorts=list(m.get("escorts")).stream()
+                .limit(RealmDashboardBuilder.MAX_WAR_ROOM_ESCORTS)
+                .map(x->{var t=obj(x);return new RealmDashboardSnapshot.EscortTargetView(longNum(t,"id"),str(t,"kind"),str(t,"label"));})
+                .toList();
+        List<Long> hostile=list(m.get("hostileSettlements")).stream().map(o->number(o).longValue()).toList();
+        return new RealmDashboardSnapshot.WarRoomView(enemies,armies,escorts,hostile,
+                longNum(m,"defaultHostile"),longNum(m,"defaultEscort"),longNum(m,"defaultPatrol"));
+    }
 
     private static RealmDashboardSnapshot.RealmView decodeRealm(Map<String,Object> m){Map<String,Double> resources=new LinkedHashMap<>();for(var e:obj(m.get("resources")).entrySet())resources.put(e.getKey(),number(e.getValue()).doubleValue());Map<String,Double> marketPrices=new LinkedHashMap<>();for(var e:obj(m.get("marketPrices")).entrySet())marketPrices.put(e.getKey(),number(e.getValue()).doubleValue());Map<String,Integer> buy=new LinkedHashMap<>();for(var e:obj(m.get("marketBuyCosts")).entrySet())buy.put(e.getKey(),number(e.getValue()).intValue());Map<String,Integer> sell=new LinkedHashMap<>();for(var e:obj(m.get("marketSellPayouts")).entrySet())sell.put(e.getKey(),number(e.getValue()).intValue());return new RealmDashboardSnapshot.RealmView(longNum(m,"id"),str(m,"name"),str(m,"ruler"),str(m,"government"),str(m,"succession"),intNum(m,"population"),intNum(m,"settlementCount"),dbl(m,"treasury"),dbl(m,"technology"),dbl(m,"stability"),dbl(m,"legitimacy"),dbl(m,"corruption"),dbl(m,"taxRate"),intNum(m,"armyPersonnel"),intNum(m,"airframes"),intNum(m,"ships"),intNum(m,"ports"),intNum(m,"industry"),intNum(m,"shipments"),intNum(m,"wars"),intNum(m,"treaties"),intNum(m,"debts"),intNum(m,"grandProjects"),intNum(m,"campaignPlans"),resources,marketPrices,buy,sell);}
     private static RealmDashboardSnapshot.SettingsView decodeSettings(Map<String,Object> m){return new RealmDashboardSnapshot.SettingsView(str(m,"profile"),dbl(m,"physicalRadius"),dbl(m,"regionalRadius"),intNum(m,"wildlife"),intNum(m,"caravans"),intNum(m,"military"),intNum(m,"naval"),intNum(m,"constructionOps"));}

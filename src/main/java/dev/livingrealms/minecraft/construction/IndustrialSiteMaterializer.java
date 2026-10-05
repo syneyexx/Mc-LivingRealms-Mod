@@ -1,6 +1,7 @@
 package dev.livingrealms.minecraft.construction;
 
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
+import dev.livingrealms.minecraft.compat.create.CreateIndustryAdapter;
 import dev.livingrealms.sim.construction.AuthoredBlockLedger;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.industry.*;
@@ -15,6 +16,7 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * Bounded physical Create-flavoured projection of canonical industrial sites.
  * The contraption is visual/world feedback only; canonical production remains server-side in IndustrialSite.
+ * Create access is isolated behind {@link CreateIndustryAdapter}.
  */
 public final class IndustrialSiteMaterializer {
     private IndustrialSiteMaterializer(){}
@@ -38,18 +40,18 @@ public final class IndustrialSiteMaterializer {
         BlockPos center=new BlockPos((int)Math.round(planned.center().x()),level.getSeaLevel(),(int)Math.round(planned.center().z()));if(!level.hasChunkAt(center))return 0;
         int y=level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,center.getX(),center.getZ())-1;if(y<=level.getMinBuildHeight()+1||y>=level.getMaxBuildHeight()-5)return 0;
         int used=0;BlockPos base=new BlockPos(center.getX(),y,center.getZ());
-        Block casing=CreateBlockLookup.orElse(site.kind()==IndustryKind.FUEL_REFINERY?"copper_casing":"andesite_casing",Blocks.IRON_BLOCK);
+        Block casing=CreateIndustryAdapter.INSTANCE.resolveBlock(site.kind()==IndustryKind.FUEL_REFINERY?"copper_casing":"andesite_casing",Blocks.IRON_BLOCK);
         for(int dx=-1;dx<=1&&used<budget;dx++)for(int dz=-1;dz<=1&&used<budget;dz++)used+=place(level,ledger,base.offset(dx,0,dz),casing.defaultBlockState());
         if(used>=budget)return used;
         used+=place(level,ledger,base.above(),machine(site.kind()).defaultBlockState());
         if(used>=budget)return used;
-        used+=place(level,ledger,base.offset(-2,1,0),CreateBlockLookup.orElse("large_cogwheel",Blocks.COPPER_BLOCK).defaultBlockState());
+        used+=place(level,ledger,base.offset(-2,1,0),CreateIndustryAdapter.INSTANCE.resolveBlock("large_cogwheel",Blocks.COPPER_BLOCK).defaultBlockState());
         if(used>=budget)return used;
-        used+=place(level,ledger,base.offset(-1,1,0),CreateBlockLookup.orElse("shaft",Blocks.IRON_BARS).defaultBlockState());
+        used+=place(level,ledger,base.offset(-1,1,0),CreateIndustryAdapter.INSTANCE.resolveBlock("shaft",Blocks.IRON_BARS).defaultBlockState());
         if(used>=budget)return used;
-        used+=place(level,ledger,base.offset(-2,1,1),CreateBlockLookup.orElse("gearbox",Blocks.IRON_BLOCK).defaultBlockState());
+        used+=place(level,ledger,base.offset(-2,1,1),CreateIndustryAdapter.INSTANCE.resolveBlock("gearbox",Blocks.IRON_BLOCK).defaultBlockState());
         if(used>=budget)return used;
-        used+=place(level,ledger,base.offset(1,1,0),CreateBlockLookup.orElse("cogwheel",Blocks.COPPER_BLOCK).defaultBlockState());
+        used+=place(level,ledger,base.offset(1,1,0),CreateIndustryAdapter.INSTANCE.resolveBlock("cogwheel",Blocks.COPPER_BLOCK).defaultBlockState());
         if(used>=budget)return used;
         // Status beacon: active=lit lamp, idle=unlit lamp, starved=red wool, damaged=orange wool, offline/broken=black wool.
         BlockState marker=statusMarker(site);
@@ -60,7 +62,7 @@ public final class IndustrialSiteMaterializer {
         }else if((site.status()==IndustrialSiteStatus.STARVED||site.status()==IndustrialSiteStatus.DAMAGED)&&used<budget){
             level.sendParticles(net.minecraft.core.particles.ParticleTypes.SMOKE,base.getX()+.5,base.getY()+2.4,base.getZ()+.5,2,0.2,0.15,0.2,0.0);
         }
-        if(site.level()>=2&&used<budget&&needsBasin(site.kind()))used+=place(level,ledger,base.offset(1,1,1),CreateBlockLookup.orElse("basin",Blocks.CAULDRON).defaultBlockState());
+        if(site.level()>=2&&used<budget&&needsBasin(site.kind()))used+=place(level,ledger,base.offset(1,1,1),CreateIndustryAdapter.INSTANCE.resolveBlock("basin",Blocks.CAULDRON).defaultBlockState());
         if(site.level()>=3&&used<budget)used+=place(level,ledger,base.offset(2,1,0),secondaryMachine(site.kind()).defaultBlockState());
         return used;
     }
@@ -76,18 +78,18 @@ public final class IndustrialSiteMaterializer {
     }
 
     private static Block machine(IndustryKind kind){return switch(kind){
-        case SAWMILL,TEXTILE_MILL->CreateBlockLookup.orElse("mechanical_saw",Blocks.STONECUTTER);
-        case STONEWORKS->CreateBlockLookup.orElse("millstone",Blocks.STONECUTTER);
-        case COKEWORKS->CreateBlockLookup.orElse("encased_fan",Blocks.BLAST_FURNACE);
-        case METALWORKS,TOOLWORKS,MUNITIONS->CreateBlockLookup.orElse("mechanical_press",Blocks.SMITHING_TABLE);
-        case FUEL_REFINERY->CreateBlockLookup.orElse("fluid_tank",Blocks.COPPER_BLOCK);
-        case MACHINERY_WORKS->CreateBlockLookup.orElse("mechanical_mixer",Blocks.CRAFTING_TABLE);
+        case SAWMILL,TEXTILE_MILL->CreateIndustryAdapter.INSTANCE.resolveBlock("mechanical_saw",Blocks.STONECUTTER);
+        case STONEWORKS->CreateIndustryAdapter.INSTANCE.resolveBlock("millstone",Blocks.STONECUTTER);
+        case COKEWORKS->CreateIndustryAdapter.INSTANCE.resolveBlock("encased_fan",Blocks.BLAST_FURNACE);
+        case METALWORKS,TOOLWORKS,MUNITIONS->CreateIndustryAdapter.INSTANCE.resolveBlock("mechanical_press",Blocks.SMITHING_TABLE);
+        case FUEL_REFINERY->CreateIndustryAdapter.INSTANCE.resolveBlock("fluid_tank",Blocks.COPPER_BLOCK);
+        case MACHINERY_WORKS->CreateIndustryAdapter.INSTANCE.resolveBlock("mechanical_mixer",Blocks.CRAFTING_TABLE);
     };}
     private static boolean needsBasin(IndustryKind kind){return kind==IndustryKind.METALWORKS||kind==IndustryKind.TOOLWORKS||kind==IndustryKind.MACHINERY_WORKS||kind==IndustryKind.MUNITIONS||kind==IndustryKind.FUEL_REFINERY;}
     private static Block secondaryMachine(IndustryKind kind){return switch(kind){
-        case FUEL_REFINERY->CreateBlockLookup.orElse("mechanical_pump",Blocks.COPPER_BLOCK);
-        case MACHINERY_WORKS,MUNITIONS,METALWORKS->CreateBlockLookup.orElse("depot",Blocks.HEAVY_WEIGHTED_PRESSURE_PLATE);
-        default->CreateBlockLookup.orElse("depot",Blocks.STONE_SLAB);
+        case FUEL_REFINERY->CreateIndustryAdapter.INSTANCE.resolveBlock("mechanical_pump",Blocks.COPPER_BLOCK);
+        case MACHINERY_WORKS,MUNITIONS,METALWORKS->CreateIndustryAdapter.INSTANCE.resolveBlock("depot",Blocks.HEAVY_WEIGHTED_PRESSURE_PLATE);
+        default->CreateIndustryAdapter.INSTANCE.resolveBlock("depot",Blocks.STONE_SLAB);
     };}
 
     private static int place(ServerLevel level,AuthoredBlockLedger ledger,BlockPos pos,BlockState target){

@@ -1,0 +1,98 @@
+{
+  "id": "redmarch",
+  "displayName": "Redmarch Crown",
+  "rulerSeedName": "King Garran III",
+  "capitalName": "Red Citadel",
+  "x": -18700,
+  "z": -4620,
+  "capitalPopulation": 3700,
+  "capitalHousing": 4150,
+  "technology": 0.37,
+  "treasury": 9700,
+  "armyInfantry": 205,
+  "namingHints": [
+    "Red",
+    "Crimson",
+    "March",
+    "War",
+    "Ash",
+    "Spear",
+    "Hearth",
+    "West",
+    "Banner",
+    "Boar"
+  ],
+  "satellites": [
+    {
+      "name": "Crimson Ford",
+      "dx": 500,
+      "dz": -380,
+      "population": 690,
+      "housing": 790
+    },
+    {
+      "name": "Marchfield",
+      "dx": -640,
+      "dz": 400,
+      "population": 185,
+      "housing": 245
+    },
+    {
+      "name": "Warwick",
+      "dx": 920,
+      "dz": 510,
+      "population": 1460,
+      "housing": 1650
+    },
+    {
+      "name": "Ashmere",
+      "dx": -1010,
+      "dz": -540,
+      "population": 330,
+      "housing": 405
+    },
+    {
+      "name": "Redwall",
+      "dx": 1370,
+      "dz": -720,
+      "population": 1680,
+      "housing": 1900
+    },
+    {
+      "name": "Spearwatch",
+      "dx": 1490,
+      "dz": 320,
+      "population": 540,
+      "housing": 625
+    },
+    {
+      "name": "Hearthbrook",
+      "dx": 420,
+      "dz": 970,
+      "population": 125,
+      "housing": 170
+    },
+    {
+      "name": "Westmarch",
+      "dx": -1440,
+      "dz": 780,
+      "population": 770,
+      "housing": 885
+    },
+    {
+      "name": "Bannerfield",
+      "dx": 1770,
+      "dz": 1040,
+      "population": 280,
+      "housing": 350
+    },
+    {
+      "name": "Boarhollow",
+      "dx": -1880,
+      "dz": -920,
+      "population": 78,
+      "housing": 108
+    }
+  ],
+  "cultureId": "redmarch_martial"
+}
