@@ -59,8 +59,7 @@ public final class SettlementParcelPlanner {
         /** True when the house footprint does not overlap the road rectangle of its frontage segment. */
         public boolean footprintClearsRoad(SettlementStreetGraph.RoadSegment segment) {
             Objects.requireNonNull(segment, "segment");
-            double houseRadius = Math.hypot(width / 2.0, depth / 2.0);
-            double required = segment.width() / 2.0 + 0.5 + Math.min(houseRadius, Math.max(width, depth) / 2.0);
+            double required = segment.width() / 2.0 + 0.5 + depth / 2.0;
             double nearest = Double.POSITIVE_INFINITY;
             for (int i = 1; i < segment.centerline().size(); i++) {
                 nearest = Math.min(nearest, distanceToSegment(center,
