@@ -111,13 +111,13 @@ public final class LivingRealmsStructureSurveyGameTests {
         var first = PlayerStructureRegistration.register(
                 state, actor, founded.settlementId(), RegisteredPlayerStructure.Role.HOUSE,
                 m.minX, m.minY, m.minZ, m.maxX, m.maxY, m.maxZ,
-                absDoor.getX(), absDoor.getY(), absDoor.getZ(), metrics, 0xD00R1L);
+                absDoor.getX(), absDoor.getY(), absDoor.getZ(), metrics, 0xD001L);
         helper.assertTrue(first.success(), "first register: " + first.reason());
 
         var dup = PlayerStructureRegistration.register(
                 state, actor, founded.settlementId(), RegisteredPlayerStructure.Role.HOUSE,
                 m.minX, m.minY, m.minZ, m.maxX, m.maxY, m.maxZ,
-                absDoor.getX(), absDoor.getY(), absDoor.getZ(), metrics, 0xD00R2L);
+                absDoor.getX(), absDoor.getY(), absDoor.getZ(), metrics, 0xD002L);
         helper.assertFalse(dup.success(), "duplicate registration must be rejected");
         helper.assertTrue(dup.reason() != null && dup.reason().toLowerCase().contains("already"),
                 "duplicate reason mentions already: " + dup.reason());

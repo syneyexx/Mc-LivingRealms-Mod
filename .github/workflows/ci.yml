@@ -65,17 +65,19 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - name: GameTests
+      - name: GameTests (NeoForge runGameTestServer)
         run: |
           set -euo pipefail
           chmod +x scripts/run-gametests.sh
           ./scripts/run-gametests.sh
-      - name: Upload GameTest logs
+      - name: Upload GameTest logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: livingrealms-gametest-logs
           path: |
-            runs/gameTestServer/logs/**
+            run/logs/**
+            runs/**/logs/**
             build/reports/**
+            **/crash-reports/**
           if-no-files-found: ignore
