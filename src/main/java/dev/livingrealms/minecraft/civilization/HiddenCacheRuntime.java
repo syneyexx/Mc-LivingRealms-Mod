@@ -52,8 +52,9 @@ public final class HiddenCacheRuntime {
     }
 
     private static Item itemFor(ResourceType resource){return switch(resource){
-        case FOOD->Items.BREAD;case WOOD->Items.OAK_LOG;case STONE->Items.COBBLESTONE;case IRON->Items.IRON_INGOT;
+        case FOOD,BREAD->Items.BREAD;case GRAIN,FLOUR->Items.WHEAT;case MEAT->Items.BEEF;case ALE->Items.HONEY_BOTTLE;
+        case WOOL,TEXTILES->Items.WHITE_WOOL;case WOOD->Items.OAK_LOG;case STONE->Items.COBBLESTONE;case IRON->Items.IRON_INGOT;
         case COAL->Items.COAL;case COPPER->Items.COPPER_INGOT;case GOLD->Items.GOLD_INGOT;case FUEL->Items.CHARCOAL;
-        case AMMUNITION->Items.ARROW;case TOOLS->Items.IRON_PICKAXE;case MACHINERY->Items.IRON_BLOCK;case TEXTILES->Items.WHITE_WOOL;
+        case AMMUNITION->Items.ARROW;case TOOLS->Items.IRON_PICKAXE;case MACHINERY->Items.IRON_BLOCK;
     };}
 }

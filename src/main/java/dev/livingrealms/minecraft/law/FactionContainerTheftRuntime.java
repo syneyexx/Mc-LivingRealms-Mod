@@ -157,7 +157,11 @@ public final class FactionContainerTheftRuntime {
 
     private static Item itemFor(ResourceType resource){
         return switch(resource){
-            case FOOD -> Items.BREAD;
+            case FOOD, BREAD -> Items.BREAD;
+            case GRAIN, FLOUR -> Items.WHEAT;
+            case MEAT -> Items.BEEF;
+            case ALE -> Items.HONEY_BOTTLE;
+            case WOOL, TEXTILES -> Items.WHITE_WOOL;
             case WOOD -> Items.OAK_LOG;
             case STONE -> Items.COBBLESTONE;
             case IRON -> Items.IRON_INGOT;
@@ -168,7 +172,6 @@ public final class FactionContainerTheftRuntime {
             case AMMUNITION -> Items.ARROW;
             case TOOLS -> Items.IRON_PICKAXE;
             case MACHINERY -> CreateBlockLookup.orElse("andesite_casing",Blocks.IRON_BLOCK).asItem();
-            case TEXTILES -> Items.WHITE_WOOL;
         };
     }
 
