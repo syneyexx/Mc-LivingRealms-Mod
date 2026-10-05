@@ -74,7 +74,7 @@ public final class DevelopmentModeGuardTest {
         settlement.stockpile().add(ResourceType.STONE, 200);
         state.addFaction(faction);
         int before = settlement.housing();
-        state.factionEngine().simulateDay(state, new DeterministicRng(0xABCDEFL));
+        new dev.livingrealms.sim.faction.FactionEngine().simulateDay(state, new DeterministicRng(0xABCDEFL));
         check(settlement.housing() == before,
                 "PLAYER_LED abstract housing unchanged: before=" + before + " after=" + settlement.housing());
     }

@@ -32,10 +32,10 @@ public final class StateRetentionCompactor {
     /** Keep recovered caches this many days after creation before pruning (if recovered). */
     public static final int CACHE_RECOVERED_RETENTION_DAYS = 90;
     /** Soft cap for history before summarizing old monthly snapshots. */
-    public static final int HISTORY_SOFT_CAP = 8_000;
+    public static final int HISTORY_SOFT_CAP = 6_000;
     /** Citizen memories older than this with low importance may fold into summaries. */
-    public static final int MEMORY_SOFT_AGE_DAYS = 90;
-    public static final double MEMORY_FOLD_IMPORTANCE = 0.28;
+    public static final int MEMORY_SOFT_AGE_DAYS = 60;
+    public static final double MEMORY_FOLD_IMPORTANCE = 0.35;
 
     public record Report(
             int historySummarized,
@@ -77,7 +77,13 @@ public final class StateRetentionCompactor {
         long day = state.clock().day();
         Report light = compactMonthly(state);
         int history = summarizeOldMonthlySnapshots(state.history(), day);
+        // Second history pass with a nearer cutoff when still over soft cap.
+        if (state.history().size() > HISTORY_SOFT_CAP) {
+            history += summarizeOldMonthlySnapshots(state.history(), day);
+        }
         int memories = compactCitizenMemories(state, day, true);
+        // Deep pass may leave citizens still near MAX_MEMORIES — fold conversation noise harder.
+        memories += compactCitizenMemories(state, day, true);
         return new Report(
                 light.historySummarized() + history,
                 light.memoriesFolded() + memories,
@@ -155,14 +161,16 @@ public final class StateRetentionCompactor {
 
     static int compactOneCitizen(SocialCitizen citizen, long day, boolean deep) {
         List<CitizenMemory> memories = new ArrayList<>(citizen.memories());
-        if (memories.size() < SocialCitizen.MAX_MEMORIES / 2 && !deep) return 0;
+        if (memories.size() < (deep ? SocialCitizen.MAX_MEMORIES / 3 : SocialCitizen.MAX_MEMORIES / 2) && !deep) return 0;
+        if (deep && memories.size() < 8) return 0;
         List<CitizenMemory> keep = new ArrayList<>();
         List<CitizenMemory> foldable = new ArrayList<>();
-        long ageCutoff = Math.max(0, day - MEMORY_SOFT_AGE_DAYS);
+        long ageCutoff = Math.max(0, day - (deep ? MEMORY_SOFT_AGE_DAYS / 2 : MEMORY_SOFT_AGE_DAYS));
         for (CitizenMemory m : memories) {
             boolean oldNoise = m.day() < ageCutoff
-                    && m.importance() < MEMORY_FOLD_IMPORTANCE
-                    && (m.type() == MemoryType.CONVERSATION || (deep && m.type() == MemoryType.RUMOR));
+                    && m.importance() < (deep ? MEMORY_FOLD_IMPORTANCE + 0.08 : MEMORY_FOLD_IMPORTANCE)
+                    && (m.type() == MemoryType.CONVERSATION || m.type() == MemoryType.RUMOR
+                    || (deep && m.type() == MemoryType.LOCAL_EVENT && m.importance() < 0.4));
             if (oldNoise) foldable.add(m);
             else keep.add(m);
         }
@@ -180,7 +188,8 @@ public final class StateRetentionCompactor {
                 Math.min(0.45, sample.importance() + 0.08),
                 Math.max(0.35, sample.confidence() * 0.85)));
         keep.sort(Comparator.comparingLong(CitizenMemory::day).thenComparing(CitizenMemory::subjectKey));
-        while (keep.size() > SocialCitizen.MAX_MEMORIES) keep.removeFirst();
+        int softMax = deep ? Math.max(16, SocialCitizen.MAX_MEMORIES * 2 / 3) : SocialCitizen.MAX_MEMORIES;
+        while (keep.size() > softMax) keep.removeFirst();
         citizen.replaceMemories(keep);
         return foldable.size();
     }

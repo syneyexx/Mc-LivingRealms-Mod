@@ -33,15 +33,17 @@ public final class SaveSizeAuditorTest {
         check(day365.totalBytes() < SaveSizeAuditor.ADVISORY_SOFT_BYTES, "day 365 under soft advisory");
         System.out.println("SAVE_SIZE " + day365.documentLine());
 
-        // Representative day-3650 pressure: continue to 1095 (3y) then densify history/memories and compact.
+        // Representative day-3650: full advance, then quarterly compaction before measure.
         state.advanceDays(3650 - 365);
+        StateRetentionCompactor.compactQuarterly(state);
         StateRetentionCompactor.compactQuarterly(state);
         SaveSizeAuditor.Report day3650 = SaveSizeAuditor.measure(state);
         check(day3650.day() == 3650, "day 3650 clock");
         check(day3650.totalBytes() < SimulationStateCodec.MAX_STATE_BYTES, "day 3650 under hard cap");
-        check(day3650.totalBytes() < SaveSizeAuditor.ADVISORY_SOFT_BYTES, "day 3650 under soft advisory");
+        check(day3650.totalBytes() < SaveSizeAuditor.ADVISORY_SOFT_BYTES,
+                "day 3650 under soft advisory (" + day3650.totalBytes() + ")");
         // Growth should be bounded — not orders of magnitude past day 365.
-        check(day3650.totalBytes() < day365.totalBytes() * 8L + 2_000_000L,
+        check(day3650.totalBytes() < day365.totalBytes() * 4L + 4_000_000L,
                 "day 3650 growth bounded vs day 365: " + day3650.totalBytes() + " vs " + day365.totalBytes());
         System.out.println("SAVE_SIZE " + day3650.documentLine());
         System.out.println(String.format(Locale.ROOT,

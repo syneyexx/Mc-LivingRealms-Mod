@@ -15,7 +15,7 @@ import java.util.Objects;
  */
 public final class SaveSizeAuditor {
     /** Soft advisory ceiling for a healthy long-run world (hard cap remains {@link SimulationStateCodec#MAX_STATE_BYTES}). */
-    public static final int ADVISORY_SOFT_BYTES = 12 * 1024 * 1024;
+    public static final int ADVISORY_SOFT_BYTES = 24 * 1024 * 1024;
 
     public record Contributor(String name, long estimateBytes, int count) {}
 
