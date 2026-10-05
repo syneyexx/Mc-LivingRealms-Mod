@@ -32,7 +32,7 @@ public final class WorldFabricActivationPolicyTest {
 
         String presentation = between(settlement,
                 "private static void refreshPresentationScope", "private static void creditHousingFromCompletedHouse");
-        check(presentation.contains("nearPlayer(level,settlement)"),
+        check(presentation.contains("nearPlayerForPresentation(level,settlement)"),
                 "presentation/entity scope should remain proximity bounded");
 
         check(!transport.contains("ACTIVATION_RADIUS"),
