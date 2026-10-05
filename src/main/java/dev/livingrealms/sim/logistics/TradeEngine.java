@@ -19,7 +19,7 @@ public final class TradeEngine {
     private static final double INTERCEPT_INSURANCE_RATE=.55;
     private static final List<ResourceType> TRADED=List.of(
             ResourceType.GRAIN,ResourceType.BREAD,ResourceType.MEAT,ResourceType.WOOL,
-            ResourceType.IRON,ResourceType.FUEL,ResourceType.TOOLS,ResourceType.TEXTILES,ResourceType.MACHINERY);
+            ResourceType.FOOD,ResourceType.IRON,ResourceType.FUEL,ResourceType.TOOLS,ResourceType.TEXTILES,ResourceType.MACHINERY);
 
     public void simulateDay(SimulationState state, DeterministicRng rng) {
         Objects.requireNonNull(state,"state");Objects.requireNonNull(rng,"rng");
