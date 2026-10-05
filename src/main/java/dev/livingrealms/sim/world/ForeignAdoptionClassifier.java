@@ -5,25 +5,23 @@ import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
+import dev.livingrealms.sim.faction.SettlementRole;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Classifies foreign physical villages/structures against the 2000-block settlement rule.
+ * Classifies foreign physical villages/structures against the type-aware settlement network.
  *
  * <ul>
- *   <li>Near existing footprint → bind into that settlement (no new settlement)</li>
- *   <li>≥ {@link SettlementDensitySeeder#MIN_SETTLEMENT_SPACING} from every settlement → new FOREIGN_ADOPTED</li>
- *   <li>Inside spacing belt → {@link OutlyingSite} attached to nearest settlement</li>
+ *   <li>Near existing footprint → bind into that settlement (no duplicate settlement)</li>
+ *   <li>Clears every role-pair exclusion floor → new FOREIGN_ADOPTED settlement</li>
+ *   <li>Violates a settlement floor → {@link OutlyingSite} attached to the nearest settlement</li>
  * </ul>
  */
 public final class ForeignAdoptionClassifier {
     /** Physical footprint radius for "already represented locally". */
     public static final double DUPLICATE_PHYSICAL_SITE_RADIUS = 190.0;
-    /** Canonical settlement spacing — same product constant as densifier/founder. */
-    public static final double CANONICAL_SETTLEMENT_SPACING = SettlementDensitySeeder.MIN_SETTLEMENT_SPACING;
-
     public enum Outcome { BOUND_EXISTING, NEW_SETTLEMENT, OUTLYING_SITE, IDEMPOTENT_SITE }
 
     public record Result(Outcome outcome, Settlement settlement, OutlyingSite site, String reason) {}
@@ -55,11 +53,13 @@ public final class ForeignAdoptionClassifier {
         double dist = nearest.get().position().distanceTo(pos);
         Faction owner = state.findSettlementOwner(nearest.get().id()).orElse(null);
         if (owner == null) return new Result(Outcome.BOUND_EXISTING, null, null, "owner_missing");
+        SettlementRole candidateRole = SettlementRole.fromPopulation(Math.max(1, population));
+        Settlement blocker = blockingSettlement(state, pos, candidateRole);
 
-        if (dist >= CANONICAL_SETTLEMENT_SPACING) {
+        if (blocker == null) {
             Settlement adopted = new Settlement(state.nextId(), uniqueName(state, name), pos,
                     Math.max(1, population), Math.max(1, housing),
-                    SettlementOrigin.FOREIGN_ADOPTED, true, DevelopmentMode.AUTO);
+                    SettlementOrigin.FOREIGN_ADOPTED, true, DevelopmentMode.AUTO, candidateRole);
             owner.addSettlement(adopted);
             softProvision(owner, population);
             state.history().add(new WorldEvent(state.clock().day(), "foreign_settlement_adopted",
@@ -72,10 +72,29 @@ public final class ForeignAdoptionClassifier {
                 OutlyingSite.defaultName(siteType, pos), Math.max(1, population),
                 Math.max(0, housing * 0.85), true);
         state.addOutlyingSite(site);
+        double required = blocker == null ? 0.0
+                : SettlementSpacingPolicy.minimumDistance(candidateRole, blocker.role());
         state.history().add(new WorldEvent(state.clock().day(), "foreign_outlying_site",
                 site.name() + " attached to " + nearest.get().name()
-                        + " (" + Math.round(dist) + "m < " + (int) CANONICAL_SETTLEMENT_SPACING + "m spacing)"));
+                        + " (" + Math.round(dist) + "m; blocked by " + (blocker == null ? "unknown" : blocker.name())
+                        + " floor=" + Math.round(required) + "m)"));
         return new Result(Outcome.OUTLYING_SITE, nearest.get(), site, "outlying_site");
+    }
+
+    private static Settlement blockingSettlement(SimulationState state, SimPosition pos, SettlementRole candidateRole) {
+        Settlement blocker = null;
+        double worstViolation = 0.0;
+        for (Faction faction : state.factions()) {
+            for (Settlement settlement : faction.settlements()) {
+                double floor = SettlementSpacingPolicy.minimumDistance(candidateRole, settlement.role());
+                double violation = floor - settlement.position().distanceTo(pos);
+                if (violation > worstViolation) {
+                    worstViolation = violation;
+                    blocker = settlement;
+                }
+            }
+        }
+        return blocker;
     }
 
     private static Optional<Settlement> nearestSettlement(SimulationState state, SimPosition pos, double maxDist) {
