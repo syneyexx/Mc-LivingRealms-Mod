@@ -48,8 +48,7 @@ public final class DialogueInterpreter {
 
     public static String normalize(String input) {
         return Normalizer.normalize(Objects.requireNonNullElse(input, "").toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
-                .replaceAll("\p{M}", "").replaceAll("[^a-z0-9' ]", " ").replaceAll("\s+", " ").trim();
-    }", "").replaceAll("[^a-z0-9' ]", " ").replaceAll("\s+", " ").trim();
+                .replaceAll("\\p{M}", "").replaceAll("[^a-z0-9' ]", " ").replaceAll("\\s+", " ").trim();
     }
 
     private static String afterAny(String s, java.util.List<String> prefixes) {

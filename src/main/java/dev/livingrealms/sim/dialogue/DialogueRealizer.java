@@ -17,7 +17,7 @@ public final class DialogueRealizer {
         if (parts.isEmpty()) return "I don't know enough about that.";
         String joined = String.join(" ", parts);
         if (!joined.endsWith(".") && !joined.endsWith("?") && !joined.endsWith("!")) joined = joined + ".";
-        return joined.replaceAll("\s+", " ").replace(" ,", ",").trim();
+        return joined.replaceAll("\\s+", " ").replace(" ,", ",").trim();
     }
 
     private static String trimPunct(String s) {
