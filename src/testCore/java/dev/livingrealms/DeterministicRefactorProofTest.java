@@ -44,19 +44,26 @@ public final class DeterministicRefactorProofTest {
     public static void main(String[] args) {
         SimulationState state = new SimulationState(SEED);
         DemoSeeder.seed(state);
-        assertSnapshot("day0-seed", state, 13, 39, 36, 52012, 52, 0, 0);
+        Snapshot day0 = snapshot(state);
 
         state.advanceDays(30);
-        assertSnapshot("day30", state,
-                DAY30_FACTIONS, DAY30_SETTLEMENTS, DAY30_SURFACE,
-                DAY30_PEOPLE, DAY30_POP_BAND, DAY30_WARS, DAY30_ROUTES);
+        Snapshot day30 = snapshot(state);
         check(state.clock().day() == 30, "clock day 30");
 
         state.advanceDays(335);
-        assertSnapshot("day365", state,
+        Snapshot day365 = snapshot(state);
+        check(state.clock().day() == 365, "clock day 365");
+
+        // Print all three actual snapshots before validating old/new goldens so one CI run can
+        // rebaseline an intentional architecture change without serial one-mismatch-at-a-time runs.
+        System.out.println("GOLDEN_CAPTURE day0=" + day0 + " day30=" + day30 + " day365=" + day365);
+        assertSnapshot("day0-seed", day0, 13, 39, 36, 52012, 52, 0, 0);
+        assertSnapshot("day30", day30,
+                DAY30_FACTIONS, DAY30_SETTLEMENTS, DAY30_SURFACE,
+                DAY30_PEOPLE, DAY30_POP_BAND, DAY30_WARS, DAY30_ROUTES);
+        assertSnapshot("day365", day365,
                 DAY365_FACTIONS, DAY365_SETTLEMENTS, DAY365_SURFACE,
                 DAY365_PEOPLE, DAY365_POP_BAND, DAY365_WARS, DAY365_ROUTES);
-        check(state.clock().day() == 365, "clock day 365");
 
         // Dual-run determinism: identical seed must match summary at day 365.
         SimulationState twin = new SimulationState(SEED);
@@ -67,9 +74,23 @@ public final class DeterministicRefactorProofTest {
         System.out.println("PASS deterministic refactor proof: seed=0xA4C417EC7F00D26 day30/365 goldens + dual-run: " + state.summary());
     }
 
+    private static Snapshot snapshot(SimulationState state) {
+        int people = state.factions().stream().mapToInt(Faction::population).sum();
+        return new Snapshot(
+                state.factions().size(),
+                state.factions().stream().mapToInt(f -> f.settlements().size()).sum(),
+                state.factions().stream()
+                        .filter(f -> !f.name().equals("Wizard Trees"))
+                        .mapToInt(f -> f.settlements().size()).sum(),
+                people,
+                people / 1000,
+                state.wars().stream().filter(w -> w.active()).count(),
+                state.routes().size());
+    }
+
     private static void assertSnapshot(
             String label,
-            SimulationState state,
+            Snapshot got,
             int factions,
             int settlements,
             int surface,
@@ -77,25 +98,17 @@ public final class DeterministicRefactorProofTest {
             int popBand,
             long wars,
             int routes) {
-        int gotFactions = state.factions().size();
-        int gotSettlements = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
-        int gotSurface = state.factions().stream()
-                .filter(f -> !f.name().equals("Wizard Trees"))
-                .mapToInt(f -> f.settlements().size())
-                .sum();
-        int gotPeople = state.factions().stream().mapToInt(Faction::population).sum();
-        int gotBand = gotPeople / 1000;
-        long gotWars = state.wars().stream().filter(w -> w.active()).count();
-        int gotRoutes = state.routes().size();
-
-        check(gotFactions == factions, label + " factions expected " + factions + " got " + gotFactions);
-        check(gotSettlements == settlements, label + " settlements expected " + settlements + " got " + gotSettlements);
-        check(gotSurface == surface, label + " surfaceSettlements expected " + surface + " got " + gotSurface);
-        check(gotPeople == people, label + " people expected " + people + " got " + gotPeople);
-        check(gotBand == popBand, label + " populationBand expected " + popBand + " got " + gotBand);
-        check(gotWars == wars, label + " activeWars expected " + wars + " got " + gotWars);
-        check(gotRoutes == routes, label + " routes expected " + routes + " got " + gotRoutes);
+        check(got.factions() == factions, label + " factions expected " + factions + " got " + got.factions());
+        check(got.settlements() == settlements, label + " settlements expected " + settlements + " got " + got.settlements());
+        check(got.surface() == surface, label + " surfaceSettlements expected " + surface + " got " + got.surface());
+        check(got.people() == people, label + " people expected " + people + " got " + got.people());
+        check(got.popBand() == popBand, label + " populationBand expected " + popBand + " got " + got.popBand());
+        check(got.wars() == wars, label + " activeWars expected " + wars + " got " + got.wars());
+        check(got.routes() == routes, label + " routes expected " + routes + " got " + got.routes());
     }
+
+    private record Snapshot(int factions, int settlements, int surface, int people,
+                            int popBand, long wars, int routes) {}
 
     private static void check(boolean ok, String message) {
         if (!ok) throw new AssertionError(message);
