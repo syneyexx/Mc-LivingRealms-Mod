@@ -36,7 +36,8 @@ public final class SettlementStreetGraphTest {
                 SettlementMorphology.RADIAL_CAPITAL,
                 SettlementMorphology.HILL_TOWN,
                 SettlementMorphology.RIVER_TOWN,
-                SettlementMorphology.COASTAL_PORT)) {
+                SettlementMorphology.COASTAL_PORT,
+                SettlementMorphology.PLANNED_BOULEVARD)) {
             SettlementStreetGraph graph = SettlementStreetGraph.plan(faction, city, morphology, 0);
             check(graph.hasConnectedCore(), morphology + " graph must be fully connected");
             check(graph.segments().stream().anyMatch(SettlementStreetGraph.RoadSegment::hasNonAxisGeometry),
