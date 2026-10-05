@@ -11,6 +11,7 @@ import dev.livingrealms.minecraft.ambience.SettlementAmbienceRuntime;
 import dev.livingrealms.minecraft.compat.waystones.WaystoneSettlementAdapter;
 import dev.livingrealms.minecraft.construction.CivicFestivalMaterializer;
 import dev.livingrealms.minecraft.construction.IndustrialSiteMaterializer;
+import dev.livingrealms.minecraft.construction.OutlyingSiteMaterializer;
 import dev.livingrealms.minecraft.construction.PlayerStructureRevalidationRuntime;
 import dev.livingrealms.minecraft.construction.RoadsideSiteMaterializer;
 import dev.livingrealms.minecraft.construction.SettlementConstructionMaterializer;
@@ -122,6 +123,9 @@ final class LivingRealmsRuntimeTaskCatalog {
         tasks.add(task("construction.roadside_site", RuntimeDomain.CONSTRUCTION, RuntimePriority.NORMAL, 20, 10,
                 phase(20, 15),
                 ctx -> RoadsideSiteMaterializer.tick(ctx.overworld(), ctx.data())));
+        tasks.add(task("construction.outlying_site", RuntimeDomain.CONSTRUCTION, RuntimePriority.NORMAL, 20, 10,
+                phase(20, 15),
+                ctx -> OutlyingSiteMaterializer.tick(ctx.overworld(), ctx.data())));
         tasks.add(task("construction.civic_festival", RuntimeDomain.CONSTRUCTION, RuntimePriority.LOW, 20, 6,
                 phase(20, 15),
                 ctx -> CivicFestivalMaterializer.tick(ctx.overworld(), ctx.data())));
