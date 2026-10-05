@@ -645,6 +645,12 @@ public final class CivilizationLifecycleEngine {
                 state.history().add(new WorldEvent(day,"pirate_band_disbanded","pirates="+band.id()+", reason=collapse"));
             }
         }
+        // Hideouts cannot outlive their band: prune orphaned active records after attrition/disband.
+        for(PirateHideout hideout:state.pirateHideouts()){
+            if(!hideout.active())continue;
+            PirateBand band=state.findPirateBand(hideout.bandId()).orElse(null);
+            if(band==null||!band.active())hideout.destroy();
+        }
     }
 
     private static boolean resolveFleetPirateEngagement(SimulationState state,PirateBand band,DeterministicRng rng){
