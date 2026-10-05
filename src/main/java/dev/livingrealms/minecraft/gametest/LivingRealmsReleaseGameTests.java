@@ -28,9 +28,11 @@ import net.minecraft.world.level.block.Blocks;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
+import net.neoforged.neoforge.gametest.GameTestHolder;
 
 /** Release-ready GameTests for Q2–Q5. */
-@EventBusSubscriber(modid = LivingRealms.MOD_ID)
+@GameTestHolder(LivingRealms.MOD_ID)
+@EventBusSubscriber(modid = LivingRealms.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 public final class LivingRealmsReleaseGameTests {
     private LivingRealmsReleaseGameTests() {}
 

@@ -11,12 +11,14 @@ import net.minecraft.world.level.block.Blocks;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
+import net.neoforged.neoforge.gametest.GameTestHolder;
 
 /**
  * Real Minecraft GameTests for construction/provenance safety.
  * Templates are created in-world; no prebaked structure NBT required.
  */
-@EventBusSubscriber(modid = LivingRealms.MOD_ID)
+@GameTestHolder(LivingRealms.MOD_ID)
+@EventBusSubscriber(modid = LivingRealms.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 public final class LivingRealmsGameTests {
     private LivingRealmsGameTests() {}
 
