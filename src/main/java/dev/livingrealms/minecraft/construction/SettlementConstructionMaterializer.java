@@ -9,6 +9,7 @@ import dev.livingrealms.sim.construction.BuildApplyResult;
 import dev.livingrealms.sim.construction.BuildOperation;
 import dev.livingrealms.sim.construction.BlockPlacement;
 import dev.livingrealms.sim.construction.ConstructionIntent;
+import dev.livingrealms.sim.construction.ConstructionIntentChunkSelector;
 import dev.livingrealms.sim.construction.ConstructionJob;
 import dev.livingrealms.sim.construction.ConstructionQueue;
 import dev.livingrealms.sim.construction.ConstructionRetryKey;
@@ -53,8 +54,9 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * operation budget. Canonical completion remains in the simulation save; the queue is disposable.
  */
 public final class SettlementConstructionMaterializer {
-    private static final double ACTIVATION_RADIUS=640.0D;
-    private static final double ACTIVATION_RADIUS_SQR=ACTIVATION_RADIUS*ACTIVATION_RADIUS;
+    /** Entity/presentation LOD only. This radius does not gate settlement block existence. */
+    private static final double PRESENTATION_RADIUS=640.0D;
+    private static final double PRESENTATION_RADIUS_SQR=PRESENTATION_RADIUS*PRESENTATION_RADIUS;
     private static final int MAX_QUEUED_JOBS=48;
     private static final int MAX_SETTLEMENTS_PER_DISCOVERY=12;
     private static final ConstructionQueue QUEUE=new ConstructionQueue();
@@ -162,29 +164,40 @@ public final class SettlementConstructionMaterializer {
         if(QUEUE.size()>=MAX_QUEUED_JOBS) return;
         boolean catchingUp=catchupTicks>0;
         long day=data.state().clock().day();
+
+        java.util.List<CivilizationFabricChunkQueue.ChunkRef> chunkHints =
+                CivilizationFabricChunkQueue.pollSettlement(level,16);
+        java.util.List<ConstructionIntentChunkSelector.ChunkWindow> windows=chunkHints.stream()
+                .map(c->new ConstructionIntentChunkSelector.ChunkWindow(c.x(),c.z())).toList();
+
         java.util.List<Faction> factions=new java.util.ArrayList<>(data.state().factions());
-        java.util.List<Settlement> loaded=new java.util.ArrayList<>();
+        java.util.List<Settlement> candidates=new java.util.ArrayList<>();
         java.util.Map<Long,Faction> owners=new HashMap<>();
         for(Faction faction:factions) for(Settlement settlement:faction.settlements()) {
-            // WORLD FABRIC is chunk-presence driven, never player-distance driven. hasChunkAt() is
-            // deliberately non-loading: only settlements whose core chunk already exists in memory
-            // participate in this bounded discovery pass.
-            BlockPos core=new BlockPos((int)Math.round(settlement.position().x()),level.getSeaLevel(),
-                    (int)Math.round(settlement.position().z()));
-            if(!level.hasChunkAt(core)) continue;
-            loaded.add(settlement);
+            candidates.add(settlement);
             owners.put(settlement.id(),faction);
         }
-        if(loaded.isEmpty()) return;
-        // Fair rotation: do not let one early settlement monopolize discovery forever.
-        settlementScanCursor=Math.floorMod(settlementScanCursor,loaded.size());
+        if(candidates.isEmpty()) return;
+
+        // Newly available chunks get priority so skyline/core fabric is queued as the chunk becomes
+        // usable. With no fresh hint, a fair global rotation reconciles any already-loaded chunk
+        // (important for player-founded settlements and routes created after a chunk was loaded).
+        if(!windows.isEmpty()){
+            candidates.sort(java.util.Comparator
+                    .comparingDouble((Settlement s)->hintDistanceSq(s,windows))
+                    .thenComparingLong(Settlement::id));
+        }else{
+            settlementScanCursor=Math.floorMod(settlementScanCursor,candidates.size());
+        }
+
         Set<Long> queuedSettlements=new HashSet<>();
         for(ConstructionJob job:QUEUE.jobs()) queuedSettlements.add(job.intent().settlementId());
         int scanned=0;
-        for(int n=0;n<loaded.size()&&scanned<MAX_SETTLEMENTS_PER_DISCOVERY&&QUEUE.size()<MAX_QUEUED_JOBS;n++){
-            Settlement settlement=loaded.get(Math.floorMod(settlementScanCursor+n,loaded.size()));
+        for(int n=0;n<candidates.size()&&scanned<MAX_SETTLEMENTS_PER_DISCOVERY&&QUEUE.size()<MAX_QUEUED_JOBS;n++){
+            Settlement settlement=windows.isEmpty()
+                    ?candidates.get(Math.floorMod(settlementScanCursor+n,candidates.size()))
+                    :candidates.get(n);
             scanned++;
-            // One active job per settlement keeps budgets fair across the realm.
             if(queuedSettlements.contains(settlement.id()) && !catchingUp) continue;
             Faction faction=owners.get(settlement.id());
             if(faction==null) continue;
@@ -200,15 +213,19 @@ public final class SettlementConstructionMaterializer {
                 pending.addAll(PrimaryEconomyPlanner.pending(data.state(),faction,settlement));
                 allow=catchingUp?PhysicalDevelopmentReconciler.catchupIntentsPerSettlement(catchupSimulatedDays,deficit):1;
             }
-            pending.sort(java.util.Comparator.comparingInt(ConstructionIntent::priority).reversed().thenComparing(ConstructionIntent::key));
+            pending.sort(java.util.Comparator.comparingInt(ConstructionIntent::priority).reversed()
+                    .thenComparing(ConstructionIntent::key));
             int enqueued=0;
             for(ConstructionIntent intent:pending) {
                 if(QUEUE.size()>=MAX_QUEUED_JOBS) break;
+                if(!windows.isEmpty() && !ConstructionIntentChunkSelector.intersectsAny(intent,windows)) continue;
                 String retryWire=ConstructionRetryKey.of(intent).wire();
                 Long retryAfter=RETRY_AFTER_DAY.get(retryWire);
                 if(retryAfter!=null && day<retryAfter) continue;
-                BlockPos center=new BlockPos((int)Math.round(intent.center().x()),level.getSeaLevel(),(int)Math.round(intent.center().z()));
-                // Unloaded high-priority intents must not starve later loaded work.
+                BlockPos center=new BlockPos((int)Math.round(intent.center().x()),level.getSeaLevel(),
+                        (int)Math.round(intent.center().z()));
+                // World fabric is load-driven: no player-distance check. We only mutate a chunk
+                // that the server already has available, and never force-load it.
                 if(!level.hasChunkAt(center)) continue;
                 ConstructionJob job=createTerrainAwareJob(level,intent);
                 if(job==null) {
@@ -224,13 +241,26 @@ public final class SettlementConstructionMaterializer {
                 if(enqueued>=allow) break;
             }
         }
-        settlementScanCursor=Math.floorMod(settlementScanCursor+Math.max(1,scanned),Math.max(1,loaded.size()));
+        if(windows.isEmpty()){
+            settlementScanCursor=Math.floorMod(settlementScanCursor+Math.max(1,scanned),candidates.size());
+        }
+    }
+
+    private static double hintDistanceSq(Settlement settlement,
+                                         java.util.List<ConstructionIntentChunkSelector.ChunkWindow> windows){
+        double best=Double.POSITIVE_INFINITY;
+        for(var window:windows){
+            double cx=(window.minX()+window.maxX())*.5,cz=(window.minZ()+window.maxZ())*.5;
+            double dx=settlement.position().x()-cx,dz=settlement.position().z()-cz;
+            best=Math.min(best,dx*dx+dz*dz);
+        }
+        return best;
     }
 
     private static void refreshPresentationScope(ServerLevel level,LivingRealmsSavedData data){
         java.util.Set<Long> activated=new HashSet<>();
         for(Faction faction:data.state().factions())for(Settlement settlement:faction.settlements()){
-            if(nearPlayer(level,settlement))activated.add(settlement.id());
+            if(nearPlayerForPresentation(level,settlement))activated.add(settlement.id());
         }
         data.state().presentationScope().setActivated(activated);
     }
@@ -512,9 +542,12 @@ public final class SettlementConstructionMaterializer {
 
     private record TerrainStats(int min,int max){}
 
-    private static boolean nearPlayer(ServerLevel level,Settlement settlement) {
+    private static boolean nearPlayerForPresentation(ServerLevel level,Settlement settlement) {
         double x=settlement.position().x(),z=settlement.position().z();
-        return level.players().stream().anyMatch(player->{double dx=player.getX()-x,dz=player.getZ()-z;return dx*dx+dz*dz<=ACTIVATION_RADIUS_SQR;});
+        return level.players().stream().anyMatch(player->{
+            double dx=player.getX()-x,dz=player.getZ()-z;
+            return dx*dx+dz*dz<=PRESENTATION_RADIUS_SQR;
+        });
     }
 
 
