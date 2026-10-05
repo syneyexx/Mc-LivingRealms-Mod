@@ -61,6 +61,7 @@ dev.livingrealms.RuntimeSmokeTest
 dev.livingrealms.RuntimeSchedulerTest
 dev.livingrealms.ApiLifecycleSmokeTest
 dev.livingrealms.ProjectionBudgetTest
+dev.livingrealms.EntityLodCorePresenceTest
 dev.livingrealms.ConstructionBudgetAdaptationTest
 dev.livingrealms.HousingAndProductionTruthTest
 dev.livingrealms.RegionalImpostorPlannerTest
