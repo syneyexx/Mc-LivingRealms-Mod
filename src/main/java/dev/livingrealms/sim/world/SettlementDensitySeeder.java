@@ -11,22 +11,25 @@ import java.util.Objects;
 /**
  * Idempotent starter-world/kingdom migration.
  *
- * <p>Twelve persistent kingdoms remain on a sparse 2000-block settlement lattice: each realm keeps
- * a capital plus a few distant satellites. Far-world continuity beyond the authored belt is handled
- * by {@link FrontierExplorationSeeder}. Physical construction remains chunk-local.</p>
+ * <p>Twelve persistent kingdoms each keep a capital plus every authored Spec satellite and a small
+ * rural top-up. Far-world continuity beyond the authored belt is handled by
+ * {@link FrontierExplorationSeeder}. Physical construction remains chunk-local. Completion keys are
+ * never written here — only the materializer (or explicit foreign adoption) may complete structures.</p>
  */
 public final class SettlementDensitySeeder {
     private SettlementDensitySeeder() {}
     /**
-     * Capital + 1 distant satellite + 1 rural. At 2000m clearance the authored belt cannot hold the
-     * old ~14/realm pack without collisions; far-world growth stays with FrontierExplorationSeeder.
+     * Capital + 10 authored Specs + 2 rural hamlets. Wizard Trees are separate and excluded from
+     * surface-density accounting.
      */
-    private static final int TARGET_SETTLEMENTS_PER_REALM = 3;
-    /** Authored near-capital satellites only — remaining slots come from farther frontier rings. */
-    private static final int MAX_AUTHORED_SATELLITES = 1;
-    private static final int RURAL_HAMLETS_PER_REALM = 1;
+    public static final int TARGET_SETTLEMENTS_PER_REALM = 13;
+    /** Every Spec in {@link #REALMS} becomes a real settlement — no silent amputation. */
+    public static final int MAX_AUTHORED_SATELLITES = 10;
+    public static final int RURAL_HAMLETS_PER_REALM = 2;
     /** Product floor shared with {@link dev.livingrealms.sim.player.PlayerSettlementFounder}. */
-    private static final double MIN_SETTLEMENT_SPACING = 2000.0;
+    public static final double MIN_SETTLEMENT_SPACING = 2000.0;
+    /** Surface starter total excluding Wizard Trees: 12 × TARGET. */
+    public static final int SURFACE_STARTER_SETTLEMENTS = 12 * TARGET_SETTLEMENTS_PER_REALM;
     private static final String[] RURAL_SUFFIXES = {"Croft","End","Green","Thorp","Wick","Fold","Ley","Combe"};
     private static final String[] FRONTIER_SUFFIXES = {"Millbrook","Pinecross","Ridgeham","Littlemere","Eastwick","Westfield","Northstead","Southmere","Foxbridge","Riverwatch","Greenhollow","Stonefield","Ashbrook","Kingsford","Meadowgate","Oakfield","Rosemere","Hillcross","Brighton","Westwick","Eastmere","Northfield","Southwatch","Brookstead","Pineford","Stoneham","Rivergate","Greenmere","Foxfield","Willowcross"};
 
@@ -102,7 +105,7 @@ public final class SettlementDensitySeeder {
         changes += initializeRelations(state);
         if (changes > 0) {
             state.history().add(new WorldEvent(state.clock().day(), "living_world_network_expanded",
-                    "Sparse twelve-realm network ensured (2000-block settlement spacing); realms=" + state.factions().size() + ", settlements="
+                    "Twelve-realm authored network ensured (capital+10 Specs+rural); realms=" + state.factions().size() + ", settlements="
                             + state.factions().stream().mapToInt(f -> f.settlements().size()).sum()));
         }
         return changes;
@@ -199,7 +202,6 @@ public final class SettlementDensitySeeder {
             changes += ensureCapital(capital, spec.capitalPopulation(), spec.capitalHousing());
         }
         int added = addSatellites(state, faction, capital.position(), spec.satellites());
-        // No dense frontier ring in the starter belt — keeps the 2000m lattice solvable.
         added += addRuralHamlets(state,faction,capital.position(),spec.capitalName());
         if (added > 0) { provision(faction, added); changes += added; }
         return changes;
@@ -253,12 +255,12 @@ public final class SettlementDensitySeeder {
      * Seed-deterministic and idempotent by settlement name; does not replace the authored realm list.
      */
     private static int addRuralHamlets(SimulationState state,Faction faction,SimPosition origin,String capitalName){
+        // Dense / already-migrated realms at or above target must not quietly grow.
+        if(faction.settlements().size()>=TARGET_SETTLEMENTS_PER_REALM)return 0;
         int existingRural=(int)faction.settlements().stream().filter(s->isRuralHamletName(s.name())).count();
         int needed=Math.max(0,RURAL_HAMLETS_PER_REALM-existingRural);
-        // Also top up any shortfall vs per-realm target (name collisions / prior migrations).
-        needed=Math.max(needed,Math.max(0,TARGET_SETTLEMENTS_PER_REALM-faction.settlements().size()));
+        needed=Math.min(needed,Math.max(0,TARGET_SETTLEMENTS_PER_REALM-faction.settlements().size()));
         if(needed<=0)return 0;
-        // Prefer fertile biome centers when present; otherwise spiral around the capital.
         List<SimPosition> fertile=new ArrayList<>();
         for(var region:state.regions()){
             String biome=region.biome().id();
@@ -276,14 +278,11 @@ public final class SettlementDensitySeeder {
             double angle=(attempt+3)*2.399963229728653;
             double radius=2_050.0+(attempt%3)*420.0;
             SimPosition position=new SimPosition(anchor.x()+Math.cos(angle)*radius,anchor.z()+Math.sin(angle)*radius);
-            // Soft pull toward capital while preserving ≥2000m clearance via avoidCrowding.
             position=new SimPosition(position.x()*.85+origin.x()*.15,position.z()*.85+origin.z()*.15);
             position=avoidCrowding(state,position,faction.id(),400+attempt);
-            int pop=48+Math.floorMod((int)mix(state.seed()^faction.id()^(attempt*17L)),40); // 48–87 hamlet
+            int pop=48+Math.floorMod((int)mix(state.seed()^faction.id()^(attempt*17L)),40);
+            // Empty completion — farms/pastures/wells require materializer receipts.
             Settlement hamlet=new Settlement(state.nextId(),name,position,pop,(int)Math.ceil(pop*1.2));
-            hamlet.markConstructionCompleted("farm:0");
-            hamlet.markConstructionCompleted("pasture:0");
-            hamlet.markConstructionCompleted("well:0");
             faction.addSettlement(hamlet);added++;
         }
         return added;
@@ -346,7 +345,8 @@ public final class SettlementDensitySeeder {
     }
 
     private static void provision(Faction faction, int scale) {
-        faction.stockpile().add(ResourceType.FOOD, scale * 700.0);
+        faction.stockpile().add(ResourceType.GRAIN, scale * 400.0);
+        faction.stockpile().add(ResourceType.BREAD, scale * 300.0);
         faction.stockpile().add(ResourceType.WOOD, scale * 330.0);
         faction.stockpile().add(ResourceType.STONE, scale * 500.0);
         faction.stockpile().add(ResourceType.IRON, scale * 95.0);
@@ -365,6 +365,16 @@ public final class SettlementDensitySeeder {
     private static long mix(long z) { z=(z^(z>>>30))*0xBF58476D1CE4E5B9L;z=(z^(z>>>27))*0x94D049BB133111EBL;return z^(z>>>31); }
     private static Spec s(String name,double dx,double dz,int population,int housing){return new Spec(name,dx,dz,population,housing);}
     private static RealmSpec realm(String realmName,String ruler,String capitalName,double x,double z,int capitalPopulation,int capitalHousing,double technology,double treasury,int armyInfantry,Spec... satellites){return new RealmSpec(realmName,ruler,capitalName,x,z,capitalPopulation,capitalHousing,technology,treasury,armyInfantry,List.of(satellites));}
+
+    /** Every authored capital + Spec name that must exist after densifier. */
+    public static List<String> authoredSettlementNames(){
+        List<String> names=new ArrayList<>();
+        for(RealmSpec realm:REALMS){
+            names.add(realm.capitalName());
+            for(Spec spec:realm.satellites())names.add(spec.name());
+        }
+        return List.copyOf(names);
+    }
 
     private record Spec(String name,double dx,double dz,int population,int housing) {}
     private record RealmSpec(String realmName,String ruler,String capitalName,double x,double z,int capitalPopulation,int capitalHousing,double technology,double treasury,int armyInfantry,List<Spec> satellites) {}

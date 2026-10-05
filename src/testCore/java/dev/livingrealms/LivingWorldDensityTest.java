@@ -33,7 +33,9 @@ public final class LivingWorldDensityTest {
         playerCanFoundARealGrowingRealm();
         citizenIdentityIsStableAndVaried();
         frontierExplorationSeedsFarWorld();
-        System.out.println("PASS living-world density: 12 kingdoms + Wizard Trees / 2000-block spacing + frontier continuity + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
+        System.out.println("PASS living-world density: 12 kingdoms + Wizard Trees / "
+                + SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS
+                + " surface settlements (capital+10 Specs+rural) + 2000-block spacing + frontier continuity + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
     }
 
     private static void denseStarterWorldIsHierarchicalAndIdempotent() {
@@ -41,8 +43,9 @@ public final class LivingWorldDensityTest {
         DemoSeeder.seed(state);
         check(state.factions().size() == 13, "starter world must contain twelve kingdoms plus Wizard Trees: " + state.factions().size());
         int settlements = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
-        // 12 realms × ~3 (capital+satellite+rural) + Wizard Trees ≈ 36–45
-        check(settlements >= 30 && settlements <= 80, "starter countryside should be sparse 2000m lattice: " + settlements);
+        int expected = SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS + 3; // Wizard Trees
+        check(settlements == expected, "starter settlements must equal surface target + Wizard Trees: expected "
+                + expected + " got " + settlements);
         long cities = state.factions().stream().flatMap(f -> f.settlements().stream())
                 .filter(s -> s.tier().ordinal() >= Settlement.Tier.CITY.ordinal()).count();
         long towns = state.factions().stream().flatMap(f -> f.settlements().stream())
@@ -51,7 +54,7 @@ public final class LivingWorldDensityTest {
                 .filter(s -> s.tier() == Settlement.Tier.VILLAGE).count();
         long hamlets = state.factions().stream().flatMap(f -> f.settlements().stream())
                 .filter(s -> s.tier() == Settlement.Tier.HAMLET).count();
-        check(cities >= 12 && (towns + villages + hamlets) >= 12,
+        check(cities >= 12 && (towns + villages + hamlets) >= 24,
                 "starter hierarchy lacks cities plus supporting towns/villages/hamlets: cities="+cities+" towns="+towns+" villages="+villages+" hamlets="+hamlets);
         long monarchies=state.factions().stream().filter(f->f.government().type()==GovernmentType.FEUDAL_MONARCHY).count();
         check(monarchies==12,"starter world must retain twelve ordinary kingdoms: "+monarchies);
@@ -59,7 +62,7 @@ public final class LivingWorldDensityTest {
         check(wizard.government().type()==GovernmentType.THEOCRACY&&wizard.settlements().size()==3,"Wizard Trees must be a distinct hidden theocratic faction");
         check(SettlementDensitySeeder.ensureStarterDensity(state) == 0, "density migration is not idempotent");
         state.advanceDays(1);
-        check(state.routes().size() >= 8 && state.routes().size() <= 160, "kingdom road graph density out of range: " + state.routes().size());
+        check(state.routes().size() >= 8 && state.routes().size() <= 400, "kingdom road graph density out of range: " + state.routes().size());
 
         Set<Long> ids = new HashSet<>();
         Set<String> names = new HashSet<>();

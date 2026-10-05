@@ -106,11 +106,11 @@ min_schema=int_const(codec,'MIN_SUPPORTED_SCHEMA')
 dashboard_protocol=int_const(snap,'PROTOCOL_VERSION')
 network_version=str_const(net,'NETWORK_VERSION')
 content_revision=int_const(saved_data_for_rev,'CONTENT_REVISION')
-require(schema_version==17,f'save schema must be 17 (source currently {schema_version})')
+require(schema_version==18,f'save schema must be 18 (source currently {schema_version})')
 require(min_schema==1,f'min supported schema must remain 1 (source {min_schema})')
-require(dashboard_protocol==17,f'dashboard protocol must be 17 (source {dashboard_protocol})')
+require(dashboard_protocol==18,f'dashboard protocol must be 18 (source {dashboard_protocol})')
 require(network_version=='14',f'network registration version must be 14 (source {network_version!r})')
-require(content_revision==11,f'content revision must be 11 (source {content_revision})')
+require(content_revision==14,f'content revision must be 14 (source {content_revision})')
 
 
 
@@ -167,6 +167,17 @@ required_suite={
     'dev.livingrealms.PlayerRulershipTest',
     'dev.livingrealms.MobileCivilizationProjectionTest',
     'dev.livingrealms.WizardTreesTest',
+    'dev.livingrealms.MigrationOrderTest',
+    'dev.livingrealms.AuthoredSettlementNamesTest',
+    'dev.livingrealms.GoodsChainTest',
+    'dev.livingrealms.NoPhantomConstructionTest',
+    'dev.livingrealms.SettlementTransferTest',
+    'dev.livingrealms.WarGoalAndCapitalTargetTest',
+    'dev.livingrealms.DialogueTokenTest',
+    'dev.livingrealms.RosterWithoutProjectionTest',
+    'dev.livingrealms.SingleProductionAuthorityTest',
+    'dev.livingrealms.SiegeBreachAllKeysTest',
+    'dev.livingrealms.DashboardActionExhaustivenessTest',
     'dev.livingrealms.LongRunSoakTest',
 }
 missing_required=sorted(required_suite-set(canonical_tests))
@@ -206,12 +217,12 @@ require(integrity_test.exists(),'SaveIntegrityTest.java must exist')
 require(fuzz_test.exists(),'SaveMutationFuzzTest.java must exist')
 require(hardening_test.exists(),'ProductionHardeningTest.java must exist')
 require(density_test.exists(),'LivingWorldDensityTest.java must exist')
-require('12 kingdoms + Wizard Trees / 380+ settlements' in density_test.read_text(),'living-world gate must retain twelve kingdoms plus the hidden Wizard Trees faction')
+require('12 kingdoms + Wizard Trees' in density_test.read_text() and 'SURFACE_STARTER_SETTLEMENTS' in density_test.read_text(),'living-world gate must retain twelve kingdoms plus Wizard Trees with the densifier surface target')
 founder=(root/'src/main/java/dev/livingrealms/sim/player/PlayerSettlementFounder.java').read_text()
 require('Realm of ' in founder and 'assumeRule' in founder and 'relationWith' in founder,'player-founded settlements must enter canonical government/membership/diplomacy as the actual ruler')
 saved_data=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java').read_text()
-require('ContentRevision' in saved_data and 'contentRevision < CONTENT_REVISION' in saved_data,'density content migration must remain one-shot and persisted')
-require('resetConstructionCompletion' in saved_data and 'contentRevision < 10' in saved_data and 'CONTENT_REVISION = 11' in saved_data,'content revision 11 keeps morphology rebuild gate from revision 10 and presentation/social migration without schema-only presentation debt')
+require('ContentRevision' in saved_data and 'ContentMigrationPolicy.shouldEnsureDensity' in saved_data,'density content migration must remain one-shot and persisted')
+require('resetConstructionCompletion' in saved_data and 'ContentMigrationPolicy.shouldResetMorphology' in saved_data and 'CONTENT_REVISION = 14' in saved_data,'content revision 14 keeps morphology rebuild gate via ContentMigrationPolicy and Spec densifier')
 require((root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').exists(),'geography-derived SettlementMorphology must exist')
 require('COASTAL_PORT' in (root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').read_text() and 'HILL_TOWN' in (root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').read_text(),'morphology catalog must include coastal/hill patterns')
 cause_explainer=root/'src/main/java/dev/livingrealms/sim/society/WorldCauseExplainer.java'
@@ -251,7 +262,7 @@ require('CivilianNpcAdoption' in events_text,'allowlisted foreign civilians must
 keymap=(root/'src/main/java/dev/livingrealms/minecraft/client/ui/LivingRealmsKeyMappings.java').read_text()
 require('GLFW.GLFW_KEY_F12' in keymap and 'GLFW.GLFW_KEY_M' in keymap,'dashboard must use F12 and world map must remain on M')
 world_map=(root/'src/main/java/dev/livingrealms/minecraft/client/ui/RealmWorldMapScreen.java').read_text()
-require('renderTerrainBase' in world_map and 'renderBackground(' not in world_map,'M map must render an always-visible terrain base without vanilla blur')
+require('renderTerrainBase' in world_map and 'renderBackground(' in world_map and 'LivingRealmsScreens.clearBackground' in world_map and 'super.renderBackground' not in world_map,'M map must render terrain base and override renderBackground via clearBackground without vanilla blur')
 require('ClientTerrainMapCache' in world_map,'M map must use cached client surface samples when chunks are loaded')
 waystone=(root/'src/main/java/dev/livingrealms/minecraft/compat/WaystoneSettlementRuntime.java').read_text()
 require('WaystonesAPI' in waystone and 'placeWaystone' in waystone and 'GLOBAL' in waystone,'settlements must retain optional named global Waystone integration')
@@ -264,7 +275,10 @@ require('Blocks.OAK_DOOR' in palette and 'doors come in detail pass later' not i
 require('PhysicalDevelopmentReconciler' in (root/'src/main/java/dev/livingrealms/minecraft/construction/SettlementConstructionMaterializer.java').read_text(),'day-jump catch-up must use physical development reconciliation')
 require('TerrainCorridorPlanner' in (root/'src/main/java/dev/livingrealms/minecraft/construction/TransportNetworkMaterializer.java').read_text(),'intercity roads must use terrain-cost corridor planning')
 dialogue_ui=(root/'src/main/java/dev/livingrealms/minecraft/client/ui/NpcDialogueScreen.java').read_text()
-require('renderBackground(' not in dialogue_ui,'NPC dialogue must not use vanilla world blur')
+require('renderBackground(' in dialogue_ui and 'LivingRealmsScreens.clearBackground' in dialogue_ui and 'super.renderBackground' not in dialogue_ui,'NPC dialogue must override renderBackground via clearBackground without vanilla blur')
+
+dashboard_ui=(root/'src/main/java/dev/livingrealms/minecraft/client/ui/RealmDashboardScreen.java').read_text()
+require('renderBackground(' in dashboard_ui and 'LivingRealmsScreens.clearBackground' in dashboard_ui and 'super.renderBackground' not in dashboard_ui,'dashboard must override renderBackground via clearBackground without vanilla blur')
 require('Trailing bytes after Living Realms state' in codec,'save decoder must reject trailing payload data')
 require('MAX_STATE_BYTES = 32 * 1024 * 1024' in codec and 'MAX_STRING_BYTES = 64 * 1024' in codec,'save codec must retain global payload/string resource ceilings')
 require('CodingErrorAction.REPORT' in codec,'save codec must reject malformed UTF-8 instead of replacement decoding')
@@ -287,7 +301,7 @@ require('Save contains live species missing from active catalog' in codec_text,'
 saved_data=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java').read_text()
 require('PayloadCrc32Plus1' in saved_data and 'SimulationStateCodec.integrityToken(payload)' in saved_data,'Minecraft SavedData must persist/verify a payload integrity token')
 require('innerSchema != outerSchema' in saved_data,'Minecraft SavedData must reject outer/inner schema mismatch')
-require('outerSchema != SimulationStateCodec.SCHEMA_VERSION || expectedIntegrity == 0L' in saved_data and 'loaded.setDirty()' in saved_data,'legacy/pre-checksum SavedData must be marked dirty for rewrite')
+require('ContentMigrationPolicy.isLegacyIntegrityPath' in saved_data and 'loaded.setDirty()' in saved_data,'legacy/pre-checksum SavedData must be marked dirty for rewrite')
 require('SimulationValidator.validate(state).throwIfInvalid()' in codec_text,'current state must be semantically validated before encoding')
 require('state.repairNextIdWatermark()' in codec_text,'save migration must repair stale canonical ID watermarks')
 

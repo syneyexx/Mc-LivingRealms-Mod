@@ -10,6 +10,7 @@ public final class DialogueTokenTest {
         NaturalLanguageDialogueEngine engine = new NaturalLanguageDialogueEngine();
         DialogueContext context = new DialogueContext();
 
+        check(engine.parse("who is the king?", context).intent() == DialogueIntent.ASK_RULER, "who is the king");
         check(engine.parse("welk koninkrijk is dit", context).intent() == DialogueIntent.ASK_FACTION, "welk koninkrijk before ruler");
         check(engine.parse("who is our trade partner", context).intent() == DialogueIntent.ASK_TRADE, "trade partner not family");
         check(engine.parse("tell me about the royal court", context).intent() == DialogueIntent.ASK_DYNASTY, "royal court not law");

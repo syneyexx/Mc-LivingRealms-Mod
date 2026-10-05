@@ -54,7 +54,7 @@ public final class HumanityLifecycleTest {
         AssistanceTask restoredTask=restored.assistanceTasks().stream().filter(t->t.id()==taskId).findFirst().orElseThrow();
         check(restoredTask.status()==AssistanceTaskStatus.RESOLVED,"assistance task lifecycle must persist");
         SimulationValidator.validate(restored).throwIfInvalid();
-        System.out.println("PASS humanity lifecycle: state-backed assistance + calendar/night/civic routines + grounded event dialogue + schema16 persistence");
+        System.out.println("PASS humanity lifecycle: state-backed assistance + calendar/night/civic routines + grounded event dialogue + schema18 persistence");
     }
     private static void check(boolean v,String m){if(!v)throw new AssertionError(m);}
 }

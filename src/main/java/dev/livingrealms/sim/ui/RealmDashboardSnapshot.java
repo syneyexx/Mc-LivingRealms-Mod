@@ -28,7 +28,7 @@ public record RealmDashboardSnapshot(
         StrategicMapView map,
         List<HistoryView> history
 ) {
-    public static final int PROTOCOL_VERSION = 17;
+    public static final int PROTOCOL_VERSION = 18;
 
     public RealmDashboardSnapshot {
         if (protocolVersion != PROTOCOL_VERSION) throw new IllegalArgumentException("protocolVersion");

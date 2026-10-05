@@ -84,7 +84,7 @@ public final class OrganicMorphologyAndCauseTest {
     }
 
     private static void causeExplainerAndDashboardProtocol15() {
-        check(RealmDashboardSnapshot.PROTOCOL_VERSION == 17, "dashboard protocol must be 17");
+        check(RealmDashboardSnapshot.PROTOCOL_VERSION == 18, "dashboard protocol must be 18");
         SimulationState state = new SimulationState(44L);
         DemoSeeder.seed(state);
         Faction faction = state.factions().getFirst();

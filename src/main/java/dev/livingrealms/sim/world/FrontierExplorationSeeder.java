@@ -52,10 +52,10 @@ public final class FrontierExplorationSeeder {
         String name = uniqueName(state, host, candidate);
         int pop = 54 + Math.floorMod((int) mix(state.seed() ^ host.id() ^ Math.round(candidate.x())), 70); // 54–123
         Settlement settlement = new Settlement(state.nextId(), name, candidate, pop, (int) Math.ceil(pop * 1.18));
-        settlement.markConstructionCompleted("well:0");
-        settlement.markConstructionCompleted("farm:0");
+        // Frontier outposts start without completion keys — materializer builds well/farm.
         host.addSettlement(settlement);
-        host.stockpile().add(ResourceType.FOOD, 420);
+        host.stockpile().add(ResourceType.GRAIN, 240);
+        host.stockpile().add(ResourceType.BREAD, 180);
         host.stockpile().add(ResourceType.WOOD, 180);
         host.stockpile().add(ResourceType.STONE, 220);
         host.addTreasury(160);

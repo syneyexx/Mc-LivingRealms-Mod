@@ -10,7 +10,7 @@ import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 
-/** Phase 2–3 local settlement economy: stockpile authority, seasonal farms, market-day prices, schema 16. */
+/** Phase 2–3 local settlement economy: stockpile authority, seasonal farms, market-day prices, schema 18. */
 public final class SettlementEconomyTest {
     private SettlementEconomyTest() {}
 
@@ -20,7 +20,7 @@ public final class SettlementEconomyTest {
         testLocalMarketDayPrices();
         testSchema16RoundTrip();
         testHousingSoftCapGrowth();
-        System.out.println("PASS settlement economy: local stockpile + seasonal farms + market day + schema16 + housing soft-cap");
+        System.out.println("PASS settlement economy: local stockpile + seasonal farms + market day + schema18 + housing soft-cap");
     }
 
     private static void testNoFreeFactionMinting() {
