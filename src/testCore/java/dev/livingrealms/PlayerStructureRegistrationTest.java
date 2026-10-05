@@ -46,7 +46,7 @@ public final class PlayerStructureRegistrationTest {
         byte[] bytes = SimulationStateCodec.encode(state);
         SimulationState loaded = SimulationStateCodec.decode(bytes);
         RegisteredPlayerStructure restored = loaded.findRegisteredPlayerStructure(house.id()).orElseThrow();
-        check(restored.valid() && restored.capacity() == 12, "registration survives schema 19");
+        check(restored.valid() && restored.capacity() == 12, "registration survives schema 20");
         check(restored.role() == RegisteredPlayerStructure.Role.HOUSE, "role preserved");
         System.out.println("PASS PlayerStructureRegistrationTest");
     }

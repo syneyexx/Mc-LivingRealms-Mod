@@ -185,6 +185,7 @@ public final class SaveMigrationMatrixTest {
             if (schema >= 17) writeFinalProduct(out);
             if (schema >= 18) writeGoodsOrigins(out);
             if (schema >= 19) writeProvenanceAndSites(out);
+            if (schema >= 20) writeUnderworldContractsV20(out);
             writeHistory(out);
         }
         return bytes.toByteArray();
@@ -237,6 +238,11 @@ public final class SaveMigrationMatrixTest {
         out.writeInt(0); // roadside sites
         out.writeInt(0); // underworld profiles
         out.writeInt(0); // registered player structures
+    }
+
+    private static void writeUnderworldContractsV20(DataOutputStream out) throws IOException {
+        out.writeInt(0); // underworld contracts
+        out.writeInt(0); // stolen goods
     }
 
     private static void writeRegions(DataOutputStream out, int schema) throws IOException {

@@ -19,6 +19,10 @@ import dev.livingrealms.sim.player.*;
 import dev.livingrealms.sim.social.*;
 import dev.livingrealms.sim.transport.*;
 import dev.livingrealms.sim.construction.RegisteredPlayerStructure;
+import dev.livingrealms.sim.underworld.StolenGoodsEntry;
+import dev.livingrealms.sim.underworld.StolenGoodsLedger;
+import dev.livingrealms.sim.underworld.UnderworldContract;
+import dev.livingrealms.sim.underworld.UnderworldContractType;
 import dev.livingrealms.sim.underworld.UnderworldProfile;
 import dev.livingrealms.sim.validation.SimulationValidator;
 import dev.livingrealms.sim.world.*;
@@ -34,7 +38,7 @@ import java.util.zip.CRC32;
 public final class SimulationStateCodec {
     private static final int MAGIC = 0x4C52534D; // LRSM
     public static final int MIN_SUPPORTED_SCHEMA = 1;
-    public static final int SCHEMA_VERSION = 19;
+    public static final int SCHEMA_VERSION = 20;
     /** Hard ceiling for one canonical world-state payload. Prevents corrupt/local saves from driving unbounded decode work. */
     public static final int MAX_STATE_BYTES = 32 * 1024 * 1024;
     /** Individual canonical text fields are metadata, identifiers or bounded event text; 64 KiB is intentionally generous. */
@@ -66,7 +70,7 @@ public final class SimulationStateCodec {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(bytes))) {
                 out.writeInt(MAGIC);out.writeInt(SCHEMA_VERSION);out.writeLong(state.seed());out.writeLong(state.clock().gameTicks());out.writeLong(state.peekNextId());
-                writeRegions(out,state);writeFactions(out,state);writeShipments(out,state);writeV4Strategic(out,state);writeV5Law(out,state);writeV6NavalAndPlayers(out,state);writeV7Industry(out,state);writeV9Config(out,state);writeV11Social(out,state);writeV12Civilization(out,state);writeV13Humanity(out,state);writeV14PirateHideouts(out,state);writeV15SiegeEquipment(out,state);writeV16SettlementEconomy(out,state);writeV17FinalProduct(out,state);writeV18GoodsAndOrigins(out,state);writeV19ProvenanceAndSites(out,state);writeHistory(out,state);
+                writeRegions(out,state);writeFactions(out,state);writeShipments(out,state);writeV4Strategic(out,state);writeV5Law(out,state);writeV6NavalAndPlayers(out,state);writeV7Industry(out,state);writeV9Config(out,state);writeV11Social(out,state);writeV12Civilization(out,state);writeV13Humanity(out,state);writeV14PirateHideouts(out,state);writeV15SiegeEquipment(out,state);writeV16SettlementEconomy(out,state);writeV17FinalProduct(out,state);writeV18GoodsAndOrigins(out,state);writeV19ProvenanceAndSites(out,state);writeV20UnderworldContracts(out,state);writeHistory(out,state);
             }
             byte[] payload=bytes.toByteArray();
             if(payload.length>MAX_STATE_BYTES)throw new IllegalStateException("Living Realms state exceeds hard size limit: "+payload.length);
@@ -263,7 +267,7 @@ public final class SimulationStateCodec {
             long seed=in.readLong();long ticks=in.readLong();long nextId=in.readLong();
             if(ticks<0)throw new IOException("Negative simulation clock: "+ticks);if(nextId<1)throw new IOException("Invalid nextId: "+nextId);
             SimulationState state=new SimulationState(seed,speciesCatalog);state.clock().restore(ticks);state.restoreNextId(nextId);
-            readRegions(in,state,version);readFactions(in,state,version);if(version>=3)readShipments(in,state,version);if(version>=4)readV4Strategic(in,state);if(version>=5)readV5Law(in,state);if(version>=6)readV6NavalAndPlayers(in,state);if(version>=7)readV7Industry(in,state);if(version>=9)readV9Config(in,state);if(version>=11)readV11Social(in,state);if(version>=12)readV12Civilization(in,state);if(version>=13)readV13Humanity(in,state,version);if(version>=14)readV14PirateHideouts(in,state);if(version>=15)readV15SiegeEquipment(in,state);if(version>=16)readV16SettlementEconomy(in,state,version);else migratePreV16SettlementEconomy(state);if(version>=17)readV17FinalProduct(in,state);else migratePreV17FinalProduct(state);if(version>=18)readV18GoodsAndOrigins(in,state);else migratePreV18Goods(state);if(version>=19)readV19ProvenanceAndSites(in,state);else migratePreV19Provenance(state);readHistory(in,state);if(in.read()!=-1)throw new IOException("Trailing bytes after Living Realms state");
+            readRegions(in,state,version);readFactions(in,state,version);if(version>=3)readShipments(in,state,version);if(version>=4)readV4Strategic(in,state);if(version>=5)readV5Law(in,state);if(version>=6)readV6NavalAndPlayers(in,state);if(version>=7)readV7Industry(in,state);if(version>=9)readV9Config(in,state);if(version>=11)readV11Social(in,state);if(version>=12)readV12Civilization(in,state);if(version>=13)readV13Humanity(in,state,version);if(version>=14)readV14PirateHideouts(in,state);if(version>=15)readV15SiegeEquipment(in,state);if(version>=16)readV16SettlementEconomy(in,state,version);else migratePreV16SettlementEconomy(state);if(version>=17)readV17FinalProduct(in,state);else migratePreV17FinalProduct(state);if(version>=18)readV18GoodsAndOrigins(in,state);else migratePreV18Goods(state);            if(version>=19)readV19ProvenanceAndSites(in,state);else migratePreV19Provenance(state);if(version>=20)readV20UnderworldContracts(in,state);readHistory(in,state);if(in.read()!=-1)throw new IOException("Trailing bytes after Living Realms state");
             state.repairNextIdWatermark();
             if(version==SCHEMA_VERSION){try{SimulationValidator.validate(state).throwIfInvalid();}catch(IllegalStateException invalid){throw new IOException("Current-schema Living Realms state failed semantic validation",invalid);}}
             return state;
@@ -621,6 +625,80 @@ public final class SimulationStateCodec {
             state.addRegisteredPlayerStructure(s);
         }
 
+    }
+
+    private static void writeV20UnderworldContracts(DataOutputStream out,SimulationState state)throws IOException{
+        List<UnderworldContract> contracts=new ArrayList<>(state.underworldContracts());
+        contracts.sort(Comparator.comparingLong(UnderworldContract::id));
+        out.writeInt(contracts.size());
+        for(UnderworldContract c:contracts){
+            out.writeLong(c.id());
+            out.writeInt(c.type().ordinal());
+            out.writeInt(c.status().ordinal());
+            out.writeLong(c.jurisdictionFactionId());
+            writeString(out,c.targetVictimKey());
+            out.writeDouble(c.minValue());
+            out.writeDouble(c.reward());
+            out.writeLong(c.createdDay());
+            out.writeLong(c.expiresDay());
+            writeString(out,c.acceptorActorKey());
+            out.writeLong(c.acceptedDay());
+            out.writeLong(c.closedDay());
+            out.writeLong(c.matchingCrimeId());
+        }
+        List<StolenGoodsEntry> goods=new ArrayList<>(state.stolenGoodsLedger().entries());
+        goods.sort(Comparator.comparingLong(StolenGoodsEntry::id));
+        out.writeInt(goods.size());
+        for(StolenGoodsEntry e:goods){
+            out.writeLong(e.id());
+            writeString(out,e.actorKey());
+            writeString(out,e.goodKey());
+            out.writeDouble(e.value());
+            out.writeInt(e.quantity());
+            out.writeLong(e.sourceCrimeId());
+            out.writeLong(e.acquiredDay());
+            out.writeBoolean(e.sold());
+            out.writeLong(e.soldDay());
+            out.writeDouble(e.salePrice());
+        }
+    }
+
+    private static void readV20UnderworldContracts(DataInputStream in,SimulationState state)throws IOException{
+        int n=checkedCount(in.readInt(),SimulationState.MAX_UNDERWORLD_CONTRACTS,"underworld contracts");
+        for(int i=0;i<n;i++){
+            long id=in.readLong();
+            UnderworldContractType type=UnderworldContractType.values()[enumOrdinal(in.readInt(),UnderworldContractType.values().length,"underworld contract type")];
+            UnderworldContract.Status status=UnderworldContract.Status.values()[enumOrdinal(in.readInt(),UnderworldContract.Status.values().length,"underworld contract status")];
+            long jurisdiction=in.readLong();
+            String target=readString(in);
+            double minValue=in.readDouble();
+            double reward=in.readDouble();
+            long created=in.readLong();
+            long expires=in.readLong();
+            String acceptor=readString(in);
+            long acceptedDay=in.readLong();
+            long closedDay=in.readLong();
+            long matchingCrime=in.readLong();
+            UnderworldContract contract=new UnderworldContract(id,type,jurisdiction,target,minValue,reward,created,expires);
+            contract.restore(status,acceptor,acceptedDay,closedDay,matchingCrime);
+            state.addUnderworldContract(contract);
+        }
+        n=checkedCount(in.readInt(),StolenGoodsLedger.DEFAULT_MAX_ENTRIES,"stolen goods");
+        for(int i=0;i<n;i++){
+            long id=in.readLong();
+            String actor=readString(in);
+            String goodKey=readString(in);
+            double value=in.readDouble();
+            int quantity=in.readInt();
+            long sourceCrime=in.readLong();
+            long acquired=in.readLong();
+            boolean sold=in.readBoolean();
+            long soldDay=in.readLong();
+            double salePrice=in.readDouble();
+            StolenGoodsEntry entry=new StolenGoodsEntry(id,actor,goodKey,value,quantity,sourceCrime,acquired);
+            entry.restore(sold,soldDay,salePrice);
+            state.stolenGoodsLedger().restore(entry);
+        }
     }
 
     /** Schema ≤18 settlements become LEGACY + physicallyAnchored — never assume they lack world geometry. */

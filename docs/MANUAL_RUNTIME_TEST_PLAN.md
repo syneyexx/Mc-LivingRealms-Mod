@@ -3,7 +3,7 @@
 Hand checklist after automated core suite, release-audit, and linked NeoForge build are green.
 This is a catch-net — it does **not** replace automated tests.
 
-CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 ## Environment
 1. JAR from `./build-production.sh` / `build/libs`.

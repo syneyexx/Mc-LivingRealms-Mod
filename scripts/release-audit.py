@@ -23,7 +23,7 @@ world_contract=root/'docs/WORLD_INTEGRATION_EXPANSION.md'
 require(world_contract.exists(),'buildfix10 world-integration acceptance contract must exist')
 if readiness.exists():
     readiness_text=readiness.read_text()
-    require('CURRENT PINS:' in readiness_text and 'schema 19' in readiness_text,'production readiness must carry CURRENT PINS with schema 19')
+    require('CURRENT PINS:' in readiness_text and 'schema 20' in readiness_text,'production readiness must carry CURRENT PINS with schema 20')
     require('contentRevision 15' in readiness_text,'production readiness must pin contentRevision 15')
     require('runtimeSmoke' in readiness_text and 'pass' in readiness_text.lower(),'readiness must document that runtimeSmoke pass requires a real client run')
     require('EXTERNAL GATE' not in readiness_text.split('## Geschiedenis')[0],'readiness current status must not claim EXTERNAL GATE')

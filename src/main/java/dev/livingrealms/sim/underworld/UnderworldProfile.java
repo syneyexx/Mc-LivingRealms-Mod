@@ -43,6 +43,11 @@ public final class UnderworldProfile {
         if (isBlackMarketEligible()) blackMarketAccess = true;
     }
 
+    public void recordFenceSale(double credGain) {
+        streetCred = Mathx.clamp(streetCred + Math.max(0, credGain), 0, 100);
+        if (isBlackMarketEligible()) blackMarketAccess = true;
+    }
+
     public void grantBlackMarketAccess() { blackMarketAccess = true; }
 
     public void restore(int contractsCompleted, double streetCred, double briberySkill,

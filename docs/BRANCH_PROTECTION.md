@@ -1,6 +1,6 @@
 # Branch protection for `main`
 
-CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 Living Realms expects `main` to be merge-gated. If repository administration rights are unavailable from the agent environment, apply the following manually in GitHub:
 

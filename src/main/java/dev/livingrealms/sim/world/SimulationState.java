@@ -24,13 +24,16 @@ import dev.livingrealms.sim.player.*;
 import dev.livingrealms.sim.society.*;
 import dev.livingrealms.sim.social.*;
 import dev.livingrealms.sim.transport.*;
+import dev.livingrealms.sim.underworld.StolenGoodsLedger;
+import dev.livingrealms.sim.underworld.UnderworldActions;
+import dev.livingrealms.sim.underworld.UnderworldContract;
 import dev.livingrealms.sim.underworld.UnderworldProfile;
 import dev.livingrealms.sim.util.*;
 import java.util.*;
 
 /** Canonical authoritative state. Minecraft entities are projections of this model, never the source of truth. */
 public final class SimulationState {
-    public static final int MAX_RESOURCE_CLAIMS=8_000, MAX_RAIDS=256, MAX_LEGENDS=512, MAX_HOUSEHOLDS=100_000, MAX_EPIDEMICS=512, MAX_MIGRATIONS=512, MAX_JUSTICE_CASES=2_048, MAX_HIDDEN_CACHES=512, MAX_PIRATE_BANDS=128, MAX_DIPLOMATIC_MARRIAGES=512, MAX_CIVIC_EVENTS=512, MAX_INTELLIGENCE_OPERATIONS=512, MAX_PROPAGANDA_CAMPAIGNS=256, MAX_RUIN_SITES=512, MAX_ASSISTANCE_TASKS=2_048, MAX_PIRATE_HIDEOUTS=128, MAX_DEBTS=512, MAX_GRAND_PROJECTS=256, MAX_CAMPAIGN_PLANS=256, MAX_OUTLYING_SITES=2_048, MAX_CITIZEN_JOURNEYS=1_024, MAX_ROADSIDE_SITES=1_024, MAX_UNDERWORLD_PROFILES=4_096, MAX_REGISTERED_PLAYER_STRUCTURES=4_096;
+    public static final int MAX_RESOURCE_CLAIMS=8_000, MAX_RAIDS=256, MAX_LEGENDS=512, MAX_HOUSEHOLDS=100_000, MAX_EPIDEMICS=512, MAX_MIGRATIONS=512, MAX_JUSTICE_CASES=2_048, MAX_HIDDEN_CACHES=512, MAX_PIRATE_BANDS=128, MAX_DIPLOMATIC_MARRIAGES=512, MAX_CIVIC_EVENTS=512, MAX_INTELLIGENCE_OPERATIONS=512, MAX_PROPAGANDA_CAMPAIGNS=256, MAX_RUIN_SITES=512, MAX_ASSISTANCE_TASKS=2_048, MAX_PIRATE_HIDEOUTS=128, MAX_DEBTS=512, MAX_GRAND_PROJECTS=256, MAX_CAMPAIGN_PLANS=256, MAX_OUTLYING_SITES=2_048, MAX_CITIZEN_JOURNEYS=1_024, MAX_ROADSIDE_SITES=1_024, MAX_UNDERWORLD_PROFILES=4_096, MAX_REGISTERED_PLAYER_STRUCTURES=4_096, MAX_UNDERWORLD_CONTRACTS=2_048, MAX_ACCEPTED_CONTRACTS_PER_ACTOR=8;
     private final long seed;
     private final SimClock clock=new SimClock();
     private SimulationConfig config;
@@ -72,6 +75,9 @@ public final class SimulationState {
     private final List<CitizenJourney> citizenJourneys=new ArrayList<>();
     private final List<RoadsideSite> roadsideSites=new ArrayList<>();
     private final List<RegisteredPlayerStructure> registeredPlayerStructures=new ArrayList<>();
+    /** Ephemeral dirty queue for player-structure revalidation (not persisted). */
+    private final java.util.ArrayDeque<Long> playerStructureRevalidationQueue=new java.util.ArrayDeque<>();
+    private final java.util.HashSet<Long> playerStructureRevalidationSet=new java.util.HashSet<>();
     private final List<AssistanceTask> assistanceTasks=new ArrayList<>();
     private final List<SovereignDebt> debts=new ArrayList<>();
     private final List<GrandProject> grandProjects=new ArrayList<>();
@@ -79,6 +85,8 @@ public final class SimulationState {
     private final Map<Long,DynastyState> dynasties=new LinkedHashMap<>();
     private final Map<String,PlayerStanding> playerStandings=new LinkedHashMap<>();
     private final Map<String,UnderworldProfile> underworldProfiles=new LinkedHashMap<>();
+    private final List<UnderworldContract> underworldContracts=new ArrayList<>();
+    private final StolenGoodsLedger stolenGoodsLedger=new StolenGoodsLedger();
     private final CrimeLedger crimeLedger=new CrimeLedger();
     private final WorldHistory history=new WorldHistory(20_000);
     private final LivenessCounters liveness=new LivenessCounters();
@@ -126,7 +134,7 @@ public final class SimulationState {
     public void requestConstructionCatchup(long days){if(days>0)pendingConstructionCatchupDays=Math.max(pendingConstructionCatchupDays,days);}
     public long consumeConstructionCatchup(){long d=pendingConstructionCatchupDays;pendingConstructionCatchupDays=0;return d;}
     public List<EcosystemRegion> regions(){return Collections.unmodifiableList(regions);} public List<Faction> factions(){return Collections.unmodifiableList(factions);} public List<TradeShipment> shipments(){return Collections.unmodifiableList(shipments);}
-    public List<Treaty> treaties(){return Collections.unmodifiableList(treaties);} public List<WarState> wars(){return Collections.unmodifiableList(wars);} public List<TransportRoute> routes(){return Collections.unmodifiableList(routes);} public List<MilitaryObjective> objectives(){return Collections.unmodifiableList(objectives);} public List<SiegeState> sieges(){return Collections.unmodifiableList(sieges);} public List<AirWing> airWings(){return Collections.unmodifiableList(airWings);} public List<BountyContract> bounties(){return Collections.unmodifiableList(bounties);} public List<CustodyRecord> custody(){return Collections.unmodifiableList(custody);} public List<PortState> ports(){return Collections.unmodifiableList(ports);} public List<Fleet> fleets(){return Collections.unmodifiableList(fleets);} public List<IndustrialSite> industrialSites(){return Collections.unmodifiableList(industrialSites);} public List<SocialCitizen> socialCitizens(){return Collections.unmodifiableList(socialCitizens);} public Map<Long,SettlementCivilizationState> settlementCivilizations(){return Collections.unmodifiableMap(settlementCivilizations);} public Map<Long,FactionCivilizationState> factionCivilizations(){return Collections.unmodifiableMap(factionCivilizations);} public List<ResourceClaim> resourceClaims(){return Collections.unmodifiableList(resourceClaims);} public List<RaidParty> raids(){return Collections.unmodifiableList(raids);} public List<LegendRecord> legends(){return Collections.unmodifiableList(legends);} public List<HouseholdState> households(){return Collections.unmodifiableList(households);} public List<EpidemicRecord> epidemics(){return Collections.unmodifiableList(epidemics);} public List<MigrationGroup> migrationGroups(){return Collections.unmodifiableList(migrationGroups);} public List<JusticeCase> justiceCases(){return Collections.unmodifiableList(justiceCases);} public List<HiddenCache> hiddenCaches(){return Collections.unmodifiableList(hiddenCaches);} public List<PirateBand> pirateBands(){return Collections.unmodifiableList(pirateBands);} public List<PirateHideout> pirateHideouts(){return Collections.unmodifiableList(pirateHideouts);} public List<DiplomaticMarriage> diplomaticMarriages(){return Collections.unmodifiableList(diplomaticMarriages);} public List<CivicEvent> civicEvents(){return Collections.unmodifiableList(civicEvents);} public List<IntelligenceOperation> intelligenceOperations(){return Collections.unmodifiableList(intelligenceOperations);} public List<PropagandaCampaign> propagandaCampaigns(){return Collections.unmodifiableList(propagandaCampaigns);} public List<RuinSite> ruinSites(){return Collections.unmodifiableList(ruinSites);} public List<OutlyingSite> outlyingSites(){return Collections.unmodifiableList(outlyingSites);} public List<CitizenJourney> citizenJourneys(){return Collections.unmodifiableList(citizenJourneys);} public List<RoadsideSite> roadsideSites(){return Collections.unmodifiableList(roadsideSites);} public List<RegisteredPlayerStructure> registeredPlayerStructures(){return Collections.unmodifiableList(registeredPlayerStructures);} public List<AssistanceTask> assistanceTasks(){return Collections.unmodifiableList(assistanceTasks);} public List<SovereignDebt> debts(){return Collections.unmodifiableList(debts);} public List<GrandProject> grandProjects(){return Collections.unmodifiableList(grandProjects);} public List<CampaignPlan> campaignPlans(){return Collections.unmodifiableList(campaignPlans);} public Map<Long,DynastyState> dynasties(){return Collections.unmodifiableMap(dynasties);} public Map<String,PlayerStanding> playerStandings(){return Collections.unmodifiableMap(playerStandings);} public Map<String,UnderworldProfile> underworldProfiles(){return Collections.unmodifiableMap(underworldProfiles);} public CrimeLedger crimeLedger(){return crimeLedger;} public WorldHistory history(){return history;} public LivenessCounters liveness(){return liveness;}
+    public List<Treaty> treaties(){return Collections.unmodifiableList(treaties);} public List<WarState> wars(){return Collections.unmodifiableList(wars);} public List<TransportRoute> routes(){return Collections.unmodifiableList(routes);} public List<MilitaryObjective> objectives(){return Collections.unmodifiableList(objectives);} public List<SiegeState> sieges(){return Collections.unmodifiableList(sieges);} public List<AirWing> airWings(){return Collections.unmodifiableList(airWings);} public List<BountyContract> bounties(){return Collections.unmodifiableList(bounties);} public List<CustodyRecord> custody(){return Collections.unmodifiableList(custody);} public List<PortState> ports(){return Collections.unmodifiableList(ports);} public List<Fleet> fleets(){return Collections.unmodifiableList(fleets);} public List<IndustrialSite> industrialSites(){return Collections.unmodifiableList(industrialSites);} public List<SocialCitizen> socialCitizens(){return Collections.unmodifiableList(socialCitizens);} public Map<Long,SettlementCivilizationState> settlementCivilizations(){return Collections.unmodifiableMap(settlementCivilizations);} public Map<Long,FactionCivilizationState> factionCivilizations(){return Collections.unmodifiableMap(factionCivilizations);} public List<ResourceClaim> resourceClaims(){return Collections.unmodifiableList(resourceClaims);} public List<RaidParty> raids(){return Collections.unmodifiableList(raids);} public List<LegendRecord> legends(){return Collections.unmodifiableList(legends);} public List<HouseholdState> households(){return Collections.unmodifiableList(households);} public List<EpidemicRecord> epidemics(){return Collections.unmodifiableList(epidemics);} public List<MigrationGroup> migrationGroups(){return Collections.unmodifiableList(migrationGroups);} public List<JusticeCase> justiceCases(){return Collections.unmodifiableList(justiceCases);} public List<HiddenCache> hiddenCaches(){return Collections.unmodifiableList(hiddenCaches);} public List<PirateBand> pirateBands(){return Collections.unmodifiableList(pirateBands);} public List<PirateHideout> pirateHideouts(){return Collections.unmodifiableList(pirateHideouts);} public List<DiplomaticMarriage> diplomaticMarriages(){return Collections.unmodifiableList(diplomaticMarriages);} public List<CivicEvent> civicEvents(){return Collections.unmodifiableList(civicEvents);} public List<IntelligenceOperation> intelligenceOperations(){return Collections.unmodifiableList(intelligenceOperations);} public List<PropagandaCampaign> propagandaCampaigns(){return Collections.unmodifiableList(propagandaCampaigns);} public List<RuinSite> ruinSites(){return Collections.unmodifiableList(ruinSites);} public List<OutlyingSite> outlyingSites(){return Collections.unmodifiableList(outlyingSites);} public List<CitizenJourney> citizenJourneys(){return Collections.unmodifiableList(citizenJourneys);} public List<RoadsideSite> roadsideSites(){return Collections.unmodifiableList(roadsideSites);} public List<RegisteredPlayerStructure> registeredPlayerStructures(){return Collections.unmodifiableList(registeredPlayerStructures);} public List<AssistanceTask> assistanceTasks(){return Collections.unmodifiableList(assistanceTasks);} public List<SovereignDebt> debts(){return Collections.unmodifiableList(debts);} public List<GrandProject> grandProjects(){return Collections.unmodifiableList(grandProjects);} public List<CampaignPlan> campaignPlans(){return Collections.unmodifiableList(campaignPlans);} public Map<Long,DynastyState> dynasties(){return Collections.unmodifiableMap(dynasties);} public Map<String,PlayerStanding> playerStandings(){return Collections.unmodifiableMap(playerStandings);}     public Map<String,UnderworldProfile> underworldProfiles(){return Collections.unmodifiableMap(underworldProfiles);} public List<UnderworldContract> underworldContracts(){return Collections.unmodifiableList(underworldContracts);} public StolenGoodsLedger stolenGoodsLedger(){return stolenGoodsLedger;} public CrimeLedger crimeLedger(){return crimeLedger;} public WorldHistory history(){return history;} public LivenessCounters liveness(){return liveness;}
     public UnderworldProfile underworldProfile(String actorKey){
         if(actorKey==null||actorKey.isBlank())throw new IllegalArgumentException("actorKey");
         UnderworldProfile existing=underworldProfiles.get(actorKey);
@@ -143,6 +151,23 @@ public final class SimulationState {
             throw new IllegalStateException("underworld profile limit");
         underworldProfiles.put(profile.actorKey(),profile);
     }
+    public Optional<UnderworldContract> findUnderworldContract(long id){
+        return underworldContracts.stream().filter(c->c.id()==id).findFirst();
+    }
+    public void addUnderworldContract(UnderworldContract contract){
+        UnderworldContract value=Objects.requireNonNull(contract,"contract");
+        if(underworldContracts.size()>=MAX_UNDERWORLD_CONTRACTS)throw new IllegalStateException("underworld contract limit");
+        observeCanonicalId(value.id());
+        underworldContracts.add(value);
+    }
+    public void replaceUnderworldContracts(List<UnderworldContract> next){
+        Objects.requireNonNull(next,"next");
+        underworldContracts.clear();
+        for(UnderworldContract c:next){
+            Objects.requireNonNull(c,"contract");
+            underworldContracts.add(c);
+        }
+    }
     public long nextId(){return nextId++;} public long peekNextId(){return nextId;} public void restoreNextId(long v){nextId=Math.max(1,v);}
 
     private void observeCanonicalId(long id){
@@ -154,7 +179,7 @@ public final class SimulationState {
         long max=0;
         for(EcosystemRegion r:regions){max=Math.max(max,r.id());for(PopulationGroup p:r.populations())max=Math.max(max,p.id());}
         for(Faction f:factions){max=Math.max(max,f.id());for(Settlement st:f.settlements())max=Math.max(max,st.id());for(Army a:f.armies())max=Math.max(max,a.id());}
-        for(TradeShipment v:shipments)max=Math.max(max,v.id());for(Treaty v:treaties)max=Math.max(max,v.id());for(WarState v:wars)max=Math.max(max,v.id());for(TransportRoute v:routes)max=Math.max(max,v.id());for(MilitaryObjective v:objectives)max=Math.max(max,v.id());for(SiegeState v:sieges)max=Math.max(max,v.id());for(AirWing v:airWings)max=Math.max(max,v.id());for(BountyContract v:bounties)max=Math.max(max,v.id());for(CustodyRecord v:custody)max=Math.max(max,v.id());for(PortState v:ports)max=Math.max(max,v.id());for(Fleet v:fleets)max=Math.max(max,v.id());for(IndustrialSite v:industrialSites)max=Math.max(max,v.id());for(SocialCitizen v:socialCitizens)max=Math.max(max,v.id());for(ResourceClaim v:resourceClaims)max=Math.max(max,v.id());for(RaidParty v:raids)max=Math.max(max,v.id());for(LegendRecord v:legends)max=Math.max(max,v.id());for(HouseholdState v:households){max=Math.max(max,v.id());for(DependentChild child:v.children())max=Math.max(max,child.id());}for(EpidemicRecord v:epidemics)max=Math.max(max,v.id());for(MigrationGroup v:migrationGroups)max=Math.max(max,v.id());for(JusticeCase v:justiceCases)max=Math.max(max,v.id());for(HiddenCache v:hiddenCaches)max=Math.max(max,v.id());for(PirateBand v:pirateBands)max=Math.max(max,v.id());for(PirateHideout v:pirateHideouts)max=Math.max(max,v.id());for(DiplomaticMarriage v:diplomaticMarriages)max=Math.max(max,v.id());for(CivicEvent v:civicEvents)max=Math.max(max,v.id());for(IntelligenceOperation v:intelligenceOperations)max=Math.max(max,v.id());for(PropagandaCampaign v:propagandaCampaigns)max=Math.max(max,v.id());        for(RuinSite v:ruinSites)max=Math.max(max,v.id());for(OutlyingSite v:outlyingSites)max=Math.max(max,v.id());for(CitizenJourney v:citizenJourneys)max=Math.max(max,v.id());for(RoadsideSite v:roadsideSites)max=Math.max(max,v.id());for(RegisteredPlayerStructure v:registeredPlayerStructures)max=Math.max(max,v.id());for(AssistanceTask v:assistanceTasks)max=Math.max(max,v.id());for(SovereignDebt v:debts)max=Math.max(max,v.id());for(GrandProject v:grandProjects)max=Math.max(max,v.id());for(CampaignPlan v:campaignPlans)max=Math.max(max,v.id());for(CrimeIncident v:crimeLedger.incidents())max=Math.max(max,v.id());
+        for(TradeShipment v:shipments)max=Math.max(max,v.id());for(Treaty v:treaties)max=Math.max(max,v.id());for(WarState v:wars)max=Math.max(max,v.id());for(TransportRoute v:routes)max=Math.max(max,v.id());for(MilitaryObjective v:objectives)max=Math.max(max,v.id());for(SiegeState v:sieges)max=Math.max(max,v.id());for(AirWing v:airWings)max=Math.max(max,v.id());for(BountyContract v:bounties)max=Math.max(max,v.id());for(CustodyRecord v:custody)max=Math.max(max,v.id());for(PortState v:ports)max=Math.max(max,v.id());for(Fleet v:fleets)max=Math.max(max,v.id());for(IndustrialSite v:industrialSites)max=Math.max(max,v.id());for(SocialCitizen v:socialCitizens)max=Math.max(max,v.id());for(ResourceClaim v:resourceClaims)max=Math.max(max,v.id());for(RaidParty v:raids)max=Math.max(max,v.id());for(LegendRecord v:legends)max=Math.max(max,v.id());for(HouseholdState v:households){max=Math.max(max,v.id());for(DependentChild child:v.children())max=Math.max(max,child.id());}for(EpidemicRecord v:epidemics)max=Math.max(max,v.id());for(MigrationGroup v:migrationGroups)max=Math.max(max,v.id());for(JusticeCase v:justiceCases)max=Math.max(max,v.id());for(HiddenCache v:hiddenCaches)max=Math.max(max,v.id());for(PirateBand v:pirateBands)max=Math.max(max,v.id());for(PirateHideout v:pirateHideouts)max=Math.max(max,v.id());for(DiplomaticMarriage v:diplomaticMarriages)max=Math.max(max,v.id());for(CivicEvent v:civicEvents)max=Math.max(max,v.id());for(IntelligenceOperation v:intelligenceOperations)max=Math.max(max,v.id());for(PropagandaCampaign v:propagandaCampaigns)max=Math.max(max,v.id());        for(RuinSite v:ruinSites)max=Math.max(max,v.id());for(OutlyingSite v:outlyingSites)max=Math.max(max,v.id());for(CitizenJourney v:citizenJourneys)max=Math.max(max,v.id());for(RoadsideSite v:roadsideSites)max=Math.max(max,v.id());for(RegisteredPlayerStructure v:registeredPlayerStructures)max=Math.max(max,v.id());for(AssistanceTask v:assistanceTasks)max=Math.max(max,v.id());for(SovereignDebt v:debts)max=Math.max(max,v.id());for(GrandProject v:grandProjects)max=Math.max(max,v.id());for(CampaignPlan v:campaignPlans)max=Math.max(max,v.id());for(CrimeIncident v:crimeLedger.incidents())max=Math.max(max,v.id());for(UnderworldContract v:underworldContracts)max=Math.max(max,v.id());for(var v:stolenGoodsLedger.entries())max=Math.max(max,v.id());
         if(max==Long.MAX_VALUE)throw new IllegalStateException("canonical id space exhausted");
         if(nextId<=max)nextId=max+1;
     }
@@ -258,6 +283,29 @@ public final class SimulationState {
     }
     public Optional<RegisteredPlayerStructure> findRegisteredPlayerStructure(long id){return registeredPlayerStructures.stream().filter(s->s.id()==id).findFirst();}
 
+    /** Enqueue a registered structure for bounded revalidation. Returns false if already queued or capped. */
+    public boolean enqueuePlayerStructureRevalidation(long structureId){
+        if(structureId<=0)return false;
+        if(playerStructureRevalidationSet.contains(structureId))return false;
+        if(playerStructureRevalidationQueue.size()>=dev.livingrealms.sim.construction.PlayerStructureRevalidation.MAX_QUEUE)return false;
+        playerStructureRevalidationSet.add(structureId);
+        playerStructureRevalidationQueue.addLast(structureId);
+        return true;
+    }
+    public long[] pollPlayerStructureRevalidation(int limit){
+        int n=Math.max(0,limit);
+        java.util.ArrayList<Long> out=new java.util.ArrayList<>(n);
+        while(out.size()<n && !playerStructureRevalidationQueue.isEmpty()){
+            long id=playerStructureRevalidationQueue.removeFirst();
+            playerStructureRevalidationSet.remove(id);
+            out.add(id);
+        }
+        long[] arr=new long[out.size()];
+        for(int i=0;i<out.size();i++)arr[i]=out.get(i);
+        return arr;
+    }
+    public int playerStructureRevalidationPending(){return playerStructureRevalidationQueue.size();}
+
     public Optional<OutlyingSite> findOutlyingNear(SimPosition pos,double radius){
         return outlyingSites.stream().filter(OutlyingSite::active)
                 .filter(s->s.position().distanceTo(pos)<=radius)
@@ -306,7 +354,14 @@ public final class SimulationState {
     public boolean recordPhysicalMigrationLoss(long groupId,int representedPeople,String cause){if(representedPeople<=0)throw new IllegalArgumentException("representedPeople");MigrationGroup group=findMigrationGroup(groupId).orElse(null);if(group==null||!group.active()||group.people()<=0)return false;int before=group.people();group.losePeople(Math.min(representedPeople,before));int lost=before-group.people();history.add(new WorldEvent(clock.day(),"migration_group_loss","group="+groupId+", people="+lost+", cause="+Objects.requireNonNullElse(cause,"unknown")));return lost>0;}
     public boolean recordPhysicalPirateLoss(long bandId,int representedPirates,String cause){if(representedPirates<=0)throw new IllegalArgumentException("representedPirates");PirateBand band=findPirateBand(bandId).orElse(null);if(band==null||!band.active())return false;int before=band.strength();band.loseStrength(Math.min(representedPirates,before));int lost=before-band.strength();history.add(new WorldEvent(clock.day(),"pirate_loss","band="+bandId+", pirates="+lost+", cause="+Objects.requireNonNullElse(cause,"unknown")));return lost>0;}
 
-    public CrimeResult reportCrime(String actorKey,long jurisdictionFactionId,CrimeType type,double value,SimPosition position,boolean witnessed,int witnessCount,String victimKey,String evidence){CrimeIncident incident=new CrimeIncident(nextId(),clock.day(),actorKey,jurisdictionFactionId,type,value,position,witnessed,witnessCount,victimKey,evidence);CrimeResult result=crimeEngine.report(this,incident);reputationEngine.onCrime(this,incident,result);return result;}
+    public CrimeResult reportCrime(String actorKey,long jurisdictionFactionId,CrimeType type,double value,SimPosition position,boolean witnessed,int witnessCount,String victimKey,String evidence){
+        CrimeIncident incident=new CrimeIncident(nextId(),clock.day(),actorKey,jurisdictionFactionId,type,value,position,witnessed,witnessCount,victimKey,evidence);
+        CrimeResult result=crimeEngine.report(this,incident);
+        reputationEngine.onCrime(this,incident,result);
+        // Only match contracts / deposit stolen goods when the crime was actually registered.
+        if(result.registered())UnderworldActions.observeCrime(this,incident);
+        return result;
+    }
     public double captureCriminal(String actorKey,long factionId){return crimeEngine.capture(this,actorKey,factionId);} public double payFine(String actorKey,long factionId,double amount){return crimeEngine.payFine(this,actorKey,factionId,amount);}
     public LawResponse lawResponse(String actorKey,long factionId){return lawEnforcementEngine.response(this,actorKey,factionId);}
     public ArrestOutcome arrestCriminal(String actorKey,long factionId,String reason){return lawEnforcementEngine.arrest(this,actorKey,factionId,reason);}
@@ -424,6 +479,8 @@ public final class SimulationState {
             aviationEngine.simulateDay(this,new DeterministicRng(seed^day^0x3C6EF372FE94F82BL));
             navalEngine.simulateDay(this,new DeterministicRng(seed^day^0x510E527FADE682D1L));
             crimeEngine.simulateDay(this,config.crimeHeatDecayPerDay(),config.reputationDecayPerDay());
+            UnderworldActions.expireDue(this);
+            if(day%7==0)UnderworldActions.pruneClosedContracts(this);
             bountyOfficeEngine.simulateDay(this);
             lawEnforcementEngine.releaseExpired(this);
             reputationEngine.simulateDay(this);

@@ -1,6 +1,6 @@
 # Living Realms delivery roadmap
 
-CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 ## Product scope
 - [x] Offline singleplayer only; integrated server authoritative.
@@ -9,7 +9,7 @@ CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 
 ## v3.0 — release-ready singleplayer
 - [x] Deterministic civilization/ecology core.
-- [x] Versioned persistent world state through schema **19** (schemas 1–18 readable).
+- [x] Versioned persistent world state through schema **20** (schemas 1–19 readable).
 - [x] Dashboard protocol **20**, network **16**, ContentRevision **15**.
 - [x] Surface density: 12 kingdoms × 3 settlements (capital + 1 Spec + 1 rural) = **36**, spacing **2000**, plus Wizard Trees (3).
 - [x] Goods chain GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL; construction keys only via materializer / FOREIGN_ADOPTED.

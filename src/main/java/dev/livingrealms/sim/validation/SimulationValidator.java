@@ -280,6 +280,19 @@ public final class SimulationValidator {
             id(canonicalIds,max,incident.id(),"crime incident",errors);
             if(!factionIds.contains(incident.jurisdictionFactionId())||incident.day()<0||!finiteNonNegative(incident.stolenOrDamageValue())||incident.witnessCount()<0||!position(incident.position().x(),incident.position().z()))errors.add("crime incident "+incident.id()+" invalid state");
         }
+        if(state.underworldContracts().size()>SimulationState.MAX_UNDERWORLD_CONTRACTS)errors.add("too many underworld contracts");
+        for(dev.livingrealms.sim.underworld.UnderworldContract c:state.underworldContracts()){
+            id(canonicalIds,max,c.id(),"underworld contract",errors);
+            if(!factionIds.contains(c.jurisdictionFactionId())||c.createdDay()<0||c.expiresDay()<c.createdDay()||!finiteNonNegative(c.minValue())||!finiteNonNegative(c.reward()))
+                errors.add("underworld contract "+c.id()+" invalid state");
+            if(c.status()==dev.livingrealms.sim.underworld.UnderworldContract.Status.ACCEPTED&&(c.acceptorActorKey()==null||c.acceptorActorKey().isBlank()))
+                errors.add("underworld contract "+c.id()+" accepted without actor");
+        }
+        for(dev.livingrealms.sim.underworld.StolenGoodsEntry e:state.stolenGoodsLedger().entries()){
+            id(canonicalIds,max,e.id(),"stolen goods",errors);
+            if(e.actorKey().isBlank()||e.goodKey().isBlank()||!finiteNonNegative(e.value())||e.quantity()<=0||e.acquiredDay()<0)
+                errors.add("stolen goods "+e.id()+" invalid state");
+        }
         if(state.peekNextId()<=max[0]) errors.add("nextId "+state.peekNextId()+" is not greater than max canonical id "+max[0]);
         return new Report(errors);
     }
