@@ -95,16 +95,6 @@ public final class LivingRealmsEvents {
     }
 
 
-
-    @SubscribeEvent
-    public void onChunkLoad(ChunkEvent.Load event) {
-        if (!(event.getLevel() instanceof ServerLevel level)) return;
-        if (level != level.getServer().overworld()) return;
-        // ChunkEvent.Load may fire before FULL. Queue only; world mutations occur on later scheduler ticks.
-        TransportNetworkMaterializer.onChunkLoaded(event.getChunk().getPos());
-    }
-
-
     @SubscribeEvent
     public void onEntityJoin(EntityJoinLevelEvent event) {
         ProjectionEntityLifecycleBridge.onEntityJoin(event);
