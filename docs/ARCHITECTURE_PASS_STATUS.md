@@ -16,6 +16,7 @@ Final checkpoint for this modular-monolith pass. Feature maturity ≠ release re
 | Final | `DemographyEngine` extraction for settlement attraction, aggregate births/deaths, named mortality | Done |
 | Final+ | `SettlementRoadPlanner` + `SettlementHousingPlanner`; `PhysicalLossService` + `PlayerLawService` | Done |
 | Final+ | `LivingRealmsCommands` + `ProjectionEntityLifecycleBridge` extracted from `LivingRealmsEvents` | Done |
+| Final+ | `ConstructionBlockApplier` extracted from `SettlementConstructionMaterializer` | Done |
 | 8–9 / 15.1 / 31 | Data-driven realm / culture / building content loaders | Done |
 | 10 | Parcel-bound build sites + access-gated completion | Done |
 | 11 | Dialogue interpreter / knowledge / planner / style / realizer | Done |
@@ -33,7 +34,7 @@ Final checkpoint for this modular-monolith pass. Feature maturity ≠ release re
 
 | Theme | Honest note |
 |---|---|
-| Further hotspot shrink | `SettlementPlanner`, `SimulationState`, and `LivingRealmsEvents` are reduced again in Final+; the remaining dominant hotspot is `SettlementConstructionMaterializer`, plus residual state/store density. Minecraft-side changes require linked-build proof. |
+| Further hotspot shrink | All four original residual hotspots were reduced in Final+: planner roads/housing, state physical/law bridges, event commands/projection lifecycle, and materializer block application. Further peeling is optional follow-up and must be justified by proof tests rather than LOC alone. |
 | Household/family split | Aggregate demography is now extracted; household formation remains in `CivilizationEngine` while household lifecycle/births live in `HouseholdLifecycleEngine`. This is a maintainability follow-up, not a correctness blocker. |
 | Linked / GameTest / runtime smoke | Must be taken from CI / real runtime evidence; headless core alone cannot claim them. |
 | Polish | Some player loops are CONSEQUENCE WIRED / DEEP without POLISHED UX. |

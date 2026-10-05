@@ -66,9 +66,9 @@ Approximate LOC (baseline `2180af6` → current):
 | `RealmDashboardScreen` | ~975 | thinner façade | Tab panels (e.g. `EconomyPanel`) own section UI |
 | `SimulationState` | ~509 | reduced façade/store | Physical-loss and player-law orchestration extracted; canonical stores + engine ownership remain |
 | `SettlementPlanner` | ~674 baseline / ~713 pre-Final+ | reduced orchestrator | Street topology moved to `SettlementRoadPlanner`; parcel housing moved to `SettlementHousingPlanner` |
-| `SettlementConstructionMaterializer` | still large (~699) | still large | Physical build; further peel deferred |
+| `SettlementConstructionMaterializer` | ~621 baseline / ~699 pre-Final+ | reduced runtime orchestrator | Provenance-aware block mutation, doors/beds, compatibility replacement moved to `ConstructionBlockApplier`; discovery/terrain/queue remain |
 
-Net: god-tick and god-codec split; remaining hotspots are construction + `SimulationState`.
+Net: god-tick and god-codec split; Final+ also splits planner roads/housing, physical/law state bridges, event commands/projection lifecycle, and construction block mutation. Remaining density is bounded orchestration/store code rather than the original mixed-responsibility god paths.
 
 ---
 
@@ -127,7 +127,7 @@ Honest matrix for this finalize pass:
 
 ## H Remaining limitations
 
-- `SettlementConstructionMaterializer` remains the main Minecraft-side hotspot; `LivingRealmsEvents`, `SettlementPlanner`, and `SimulationState` were reduced further in Final+ while retaining stable façades
+- All four residual hotspots received a behavior-preserving Final+ split. `SettlementConstructionMaterializer` still owns queue/discovery/terrain orchestration, and `SimulationState` still owns canonical stores/engines; further reduction is optional follow-up rather than an unfinished pass
 - Household-pair formation and several claims/raid helpers remain in `CivilizationEngine`; aggregate demography and named mortality are extracted to `DemographyEngine`
 - Linked build + GameTest + client runtime smoke need CI/agent with NeoForge deps
 - Some player loops are CONSEQUENCE WIRED / DEEP without POLISHED UX
