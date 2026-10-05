@@ -10,7 +10,6 @@ import java.util.Comparator;
 import java.util.List;
 
 import static dev.livingrealms.sim.construction.SettlementPlanner.addAtParcel;
-import static dev.livingrealms.sim.construction.SettlementPlanner.addRoad;
 import static dev.livingrealms.sim.construction.SettlementPlanner.houseFootprintFromTemplate;
 import static dev.livingrealms.sim.construction.SettlementPlanner.mix;
 
@@ -89,60 +88,67 @@ final class SettlementHousingPlanner {
     }
 
     /**
-     * When parcels are insufficient, extend short side lanes from existing streets, rebuild the
-     * street graph, and reserve additional frontage parcels. Never places free-floating houses.
+     * When parcels are insufficient, extend short graph-authored residential lanes from existing
+     * centerline vertices. ROAD intents are downstream projections of these new graph segments.
      */
     private static void extendSideStreetsForHousing(List<ConstructionIntent> out, Faction faction, Settlement settlement,
                                                    SettlementStreetGraph streetGraph, int baseRotation, int deficit,
                                                    CultureArchitecture culture) {
         if (deficit <= 0 || streetGraph == null || streetGraph.segmentByKey().isEmpty()) return;
-        int startIndex = (int) out.stream().filter(i -> i.role() == StructureRole.ROAD).count();
         int lanesNeeded = Math.min(24, Math.max(2, (int) Math.ceil(deficit / 3.0)));
         int lane = 0;
         List<SettlementStreetGraph.RoadSegment> spines = new ArrayList<>(streetGraph.segmentByKey().values());
         spines.sort(Comparator.comparingInt(SettlementStreetGraph.RoadSegment::priority).reversed()
                 .thenComparing(SettlementStreetGraph.RoadSegment::key));
+        List<SettlementStreetGraph.RoadSegment> additions = new ArrayList<>();
+
         for (int ring = 1; ring <= 4 && lane < lanesNeeded; ring++) {
-            for (SettlementStreetGraph.RoadSegment segment : spines) {
+            for (SettlementStreetGraph.RoadSegment spine : spines) {
                 if (lane >= lanesNeeded) break;
-                if (segment.length() < 12) continue;
-                double midX = (segment.start().x() + segment.end().x()) * 0.5;
-                double midZ = (segment.start().z() + segment.end().z()) * 0.5;
-                double dx = segment.end().x() - segment.start().x();
-                double dz = segment.end().z() - segment.start().z();
+                List<SimPosition> path = spine.centerline();
+                if (spine.length() < 12 || path.size() < 2) continue;
+
+                int attachIndex = path.size() >= 3
+                        ? 1 + Math.floorMod(lane + ring, path.size() - 2)
+                        : 0;
+                SimPosition attach = path.get(attachIndex);
+                SimPosition neighbor = path.get(Math.min(path.size() - 1, attachIndex + 1));
+                if (neighbor.distanceTo(attach) < 1.0e-6 && attachIndex > 0) neighbor = path.get(attachIndex - 1);
+                double dx = neighbor.x() - attach.x(), dz = neighbor.z() - attach.z();
                 double len = Math.hypot(dx, dz);
-                if (len < 1) continue;
-                double ux = dx / len;
-                double uz = dz / len;
-                double nx = -uz;
-                double nz = ux;
-                int side = (lane & 1) == 0 ? 1 : -1;
-                double offset = 14.0 * ring;
-                // Shift along the spine so successive rings do not stack on the same mid-point.
-                double alongShift = ((lane / 2) % 3 - 1) * 11.0;
-                SimPosition center = new SimPosition(
-                        midX + ux * alongShift + nx * offset * side,
-                        midZ + uz * alongShift + nz * offset * side);
-                int roadRot = Math.abs(dx) >= Math.abs(dz)
-                        ? baseRotation + ((lane & 1) == 0 ? 0 : 1)
-                        : baseRotation + ((lane & 1) == 0 ? 1 : 0);
-                int roadLen = Math.max(17, Math.min(41, (int) Math.round(segment.length() * 0.45)));
-                addRoad(out, faction, settlement, startIndex + lane, center, 5, roadLen, roadRot, 90, ring);
+                if (len < 1.0e-6) continue;
+                double tx = dx / len, tz = dz / len;
+                double nx = -tz, nz = tx;
+                double sign = (lane & 1) == 0 ? 1.0 : -1.0;
+                double laneLength = 24.0 + ring * 8.0;
+                double bend = ((Math.floorMod((int) (settlement.id() + lane * 17L), 7) - 3) * 1.5);
+                SimPosition mid = new SimPosition(
+                        attach.x() + nx * sign * laneLength * .52 + tx * bend,
+                        attach.z() + nz * sign * laneLength * .52 + tz * bend);
+                SimPosition endPoint = new SimPosition(
+                        attach.x() + nx * sign * laneLength,
+                        attach.z() + nz * sign * laneLength);
+                SettlementGrowthLayer layer = SettlementGrowthLayer.forRing(
+                        ring, morph, settlement.tier().ordinal());
+                String key = "roadgraph:housing:" + settlement.id() + ":" + lane;
+                additions.add(new SettlementStreetGraph.RoadSegment(
+                        key, StreetType.RESIDENTIAL_STREET, StreetType.RESIDENTIAL_STREET.width(),
+                        attach, endPoint, List.of(attach, mid, endPoint), 90, layer));
                 lane++;
             }
         }
-        if (lane == 0) return;
-        // Rebuild graph including the new lanes, then place houses on the fresh parcels only.
-        SettlementStreetGraph extended = SettlementStreetGraph.fromRoadIntents(settlement.id(),
-                out.stream().filter(i -> i.role() == StructureRole.ROAD).toList());
+        if (additions.isEmpty()) return;
+
+        SettlementStreetGraph extended = streetGraph.withAdditionalSegments(additions);
+        SettlementRoadPlanner.addRoadSegments(out, faction, settlement, additions);
+
         int alreadyHouses = (int) out.stream().filter(i -> i.role() == StructureRole.HOUSE).count();
         List<SettlementParcelPlanner.ParcelPlan> extraParcels = new ArrayList<>(
                 SettlementParcelPlanner.plan(extended, faction, settlement, alreadyHouses + deficit));
-        // Skip parcels that collide with already-emitted houses.
-        List<SimPosition> occupied = out.stream()
+        List<SimPosition> occupied = new ArrayList<>(out.stream()
                 .filter(i -> i.role() == StructureRole.HOUSE)
                 .map(ConstructionIntent::center)
-                .toList();
+                .toList());
         int houseIndex = 900;
         int placed = 0;
         int w = Math.max(9, culture.minHouseWidth());
@@ -162,6 +168,7 @@ final class SettlementHousingPlanner {
             addAtParcel(out, faction, settlement, StructureRole.HOUSE, houseIndex + placed, parcel,
                     Math.min(parcel.width(), w + 2), Math.min(parcel.depth(), d + 2),
                     parcel.orientationQuarterTurns(), 86);
+            occupied.add(parcel.center());
             placed++;
         }
     }
