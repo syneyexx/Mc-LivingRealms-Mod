@@ -115,6 +115,17 @@ public final class SettlementPlanner {
         return List.copyOf(out);
     }
 
+    /** Deterministic CITY+ boundary view for transport/world projection. */
+    public static Optional<SettlementBoundary> boundary(Faction faction, Settlement settlement) {
+        Objects.requireNonNull(faction, "faction");
+        Objects.requireNonNull(settlement, "settlement");
+        if (settlement.tier().ordinal() < Settlement.Tier.CITY.ordinal()) return Optional.empty();
+        SettlementMorphology morph = SettlementMorphology.derive(faction, settlement);
+        int baseRotation = Math.floorMod((int) mix(settlement.id() ^ 0x4F1BBCDCBFA54001L), 2);
+        SettlementStreetGraph base = SettlementRoadPlanner.planGraph(faction, settlement, morph, baseRotation);
+        return Optional.of(SettlementBoundary.plan(faction, settlement, base, baseRotation));
+    }
+
     public static List<ConstructionIntent> pending(Faction faction, Settlement settlement) {
         return plan(faction, settlement).stream().filter(i -> !settlement.isConstructionCompleted(i.key())).toList();
     }
