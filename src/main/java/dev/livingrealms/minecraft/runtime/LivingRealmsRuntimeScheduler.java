@@ -1,12 +1,16 @@
 package dev.livingrealms.minecraft.runtime;
 
+import dev.livingrealms.LivingRealms;
 import dev.livingrealms.minecraft.SimulationRuntime;
 import dev.livingrealms.minecraft.SpeciesDataRegistry;
 import dev.livingrealms.sim.runtime.RuntimeBudgetController;
 import dev.livingrealms.sim.runtime.RuntimeDeferTracker;
+import dev.livingrealms.sim.runtime.RuntimeFailureIsolator;
 import dev.livingrealms.sim.runtime.RuntimePressureBridge;
+import dev.livingrealms.sim.runtime.RuntimeTaskClass;
 import dev.livingrealms.sim.runtime.RuntimeTelemetryRegistry;
 import dev.livingrealms.sim.runtime.SimulationTickBudget;
+import dev.livingrealms.sim.runtime.StructuredErrorReporter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -19,6 +23,10 @@ public final class LivingRealmsRuntimeScheduler {
     private final RuntimeTelemetryRegistry telemetry = new RuntimeTelemetryRegistry();
     private final LivingRealmsRuntimeTaskCatalog.SpeciesReloadState speciesReloadState =
             new LivingRealmsRuntimeTaskCatalog.SpeciesReloadState();
+    private final RuntimeFailureIsolator failureIsolator = RuntimeFailureIsolator.withLogging(
+            200L,
+            100L,
+            message -> LivingRealms.LOGGER.warn("Living Realms runtime isolation: {}", message));
     private long tickCounter;
 
     public LivingRealmsRuntimeScheduler() {
@@ -27,6 +35,10 @@ public final class LivingRealmsRuntimeScheduler {
 
     public RuntimeTelemetryRegistry telemetry() {
         return telemetry;
+    }
+
+    public RuntimeFailureIsolator failureIsolator() {
+        return failureIsolator;
     }
 
     public long tickCounter() {
@@ -40,6 +52,7 @@ public final class LivingRealmsRuntimeScheduler {
         budgetController.reset();
         RuntimePressureBridge.reset();
         telemetry.resetAll();
+        failureIsolator.clear();
     }
 
     public void tick(MinecraftServer server) {
@@ -52,6 +65,7 @@ public final class LivingRealmsRuntimeScheduler {
         RuntimePressureBridge.publish(budgetController.pressure());
         var data = SimulationRuntime.data(server);
         RuntimeTaskContext ctx = new RuntimeTaskContext(server, data, tickCounter, budget);
+        long canonicalDay = data.state().clock().day();
 
         List<RuntimeTask> due = new ArrayList<>();
         for (RuntimeTask task : tasks) {
@@ -80,15 +94,32 @@ public final class LivingRealmsRuntimeScheduler {
                 }
             }
 
+            RuntimeTaskClass failureClass = task.failureClass();
+            StructuredErrorReporter.Context errorCtx = StructuredErrorReporter.Context
+                    .of(task.domain().name().toLowerCase(), task.id(),
+                            failureClass.swallowFailures() ? "disable_task_temporarily" : "none")
+                    .withDay(canonicalDay);
+
             long started = System.nanoTime();
-            task.execute(ctx);
+            RuntimeFailureIsolator.Outcome outcome = failureIsolator.execute(
+                    task.id(),
+                    failureClass,
+                    tickCounter,
+                    errorCtx,
+                    () -> task.execute(ctx));
+            if (outcome.skippedDisabled()) {
+                telemetry.domain(task.domain()).recordDeferred();
+                continue;
+            }
             long elapsed = System.nanoTime() - started;
             budget.recordSpent(elapsed);
             telemetry.domain(task.domain()).recordExecution(elapsed);
             if (starvation) {
                 telemetry.domain(task.domain()).recordStarvationRun();
             }
-            deferTracker.clearDefer(task.id());
+            if (!outcome.failed()) {
+                deferTracker.clearDefer(task.id());
+            }
         }
 
         budgetController.endTick(budget);

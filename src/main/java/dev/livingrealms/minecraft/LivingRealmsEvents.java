@@ -153,8 +153,8 @@ public final class LivingRealmsEvents {
         // Sneak-interact intentionally keeps the vanilla/modded trading interaction available.
         if(event.getTarget() instanceof AbstractVillager villager&&!player.isShiftKeyDown()){DialogueSessionRuntime.open(player,villager);event.setCanceled(true);return;}
         // Broader allowlisted civilian adapters (Better Villages / village-derived humanoids). Never hostiles.
-        if(!player.isShiftKeyDown()&&dev.livingrealms.minecraft.compat.CivilianNpcAdoption.isAdoptableCivilian(event.getTarget())){
-            DialogueSessionRuntime.openAdopted(player,event.getTarget(),dev.livingrealms.minecraft.compat.CivilianNpcAdoption.inferRole(event.getTarget()));
+        if(!player.isShiftKeyDown()&&dev.livingrealms.minecraft.compat.npc.CivilianNpcAdapter.INSTANCE.isAdoptable(event.getTarget())){
+            DialogueSessionRuntime.openAdopted(player,event.getTarget(),dev.livingrealms.minecraft.compat.npc.CivilianNpcAdapter.INSTANCE.inferRole(event.getTarget()));
             event.setCanceled(true);
         }
     }

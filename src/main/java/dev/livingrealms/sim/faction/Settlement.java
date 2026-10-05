@@ -102,9 +102,12 @@ public final class Settlement {
         return SettlementDevelopment.score(this,education,tradeConnectivity,administration,publicServices);
     }
     public Tier effectiveTier(double developmentScore){return SettlementDevelopment.effectiveTier(this,developmentScore);}
-    public void rename(String value){if(value==null||value.isBlank())throw new IllegalArgumentException("name");name=value;if(!geography.worldDiscovered())geography=SettlementGeographyProfile.fromNameHeuristic(name);} public void addPopulation(int n){population=Math.max(0,population+n);recalc();refreshStorageCapacity();} public void addHousing(int n){housing=Math.max(0,housing+n);recalc();refreshStorageCapacity();}
+    public void rename(String value){if(value==null||value.isBlank())throw new IllegalArgumentException("name");name=value;if(!geography.worldDiscovered())geography=SettlementGeographyProfile.fromNameHeuristic(name);}
+    public void addPopulation(int n){Tier before=tier;population=Math.max(0,population+n);recalc();refreshStorageCapacity();if(before!=tier)emitTierChanged(before,tier);}
+    public void addHousing(int n){Tier before=tier;housing=Math.max(0,housing+n);recalc();refreshStorageCapacity();if(before!=tier)emitTierChanged(before,tier);}
     /** Authoritative housing set when verified player/foreign capacity exceeds the canonical field. */
-    public void setHousing(int value){housing=Math.max(0,value);recalc();refreshStorageCapacity();}
+    public void setHousing(int value){Tier before=tier;housing=Math.max(0,value);recalc();refreshStorageCapacity();if(before!=tier)emitTierChanged(before,tier);}
+    private void emitTierChanged(Tier previous,Tier next){if(previous==null||next==null||previous==next)return;dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.SettlementTierChanged(0L,id,previous.name(),next.name(),population));}
     public void improveInfrastructure(double v){infrastructure=Math.max(0,infrastructure+v);refreshStorageCapacity();}
     public int housingShortage(){return Math.max(0,population-housing);}
     public Set<String> completedConstruction(){return Collections.unmodifiableSet(completedConstruction);}
@@ -117,8 +120,16 @@ public final class Settlement {
         if(changed){
             priorityLandmarks.remove(key);
             markPhysicallyAnchored();
+            dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.ConstructionCompleted(0L,id,key,ConstructionOrigin.MATERIALIZED.name()));
         }
         return changed;
+    }
+    /** Codec restore path — does not fire extension API events. */
+    public void restoreConstructionCompleted(String key){
+        if(key==null||key.isBlank())return;
+        completedConstruction.add(key);
+        constructionOrigins.putIfAbsent(key,ConstructionOrigin.MATERIALIZED);
+        refreshStorageCapacity();
     }
     /** Foreign village footprint credit — never counted as Living Realms farm/mine production. */
     public boolean markForeignAdopted(String key){return markConstruction(key,ConstructionOrigin.FOREIGN_ADOPTED);}

@@ -153,7 +153,7 @@ public final class FactionEngine {
 
     private static void resolveBattle(SimulationState state,Army a, Army b, DeterministicRng rng) {
         int beforeA=a.totalPersonnel(),beforeB=b.totalPersonnel();double pa = Math.max(.1, a.combatPower()) * rng.between(.85, 1.15);double pb = Math.max(.1, b.combatPower()) * rng.between(.85, 1.15);double total = pa + pb;double lossA = Mathx.clamp((pb / total) * rng.between(.10, .34), .02, .45);double lossB = Mathx.clamp((pa / total) * rng.between(.10, .34), .02, .45);a.applyLossFraction(lossA);b.applyLossFraction(lossB);if (a.combatPower() < b.combatPower() * .55) a.moveToward(a.position().lerp(b.position(), -0.15), 55);if (b.combatPower() < a.combatPower() * .55) b.moveToward(b.position().lerp(a.position(), -0.15), 55);
-        if(state!=null){int casualties=(beforeA-a.totalPersonnel())+(beforeB-b.totalPersonnel());state.history().add(new WorldEvent(state.clock().day(),"battle","army="+a.id()+" vs "+b.id()+", casualties="+Math.max(0,casualties)));state.activeWar(a.factionId(),b.factionId()).ifPresent(w->{w.addExhaustion(a.factionId(),lossA*.08);w.addExhaustion(b.factionId(),lossB*.08);w.adjustScore((lossA-lossB)*-20);});}
+        if(state!=null){int casualties=(beforeA-a.totalPersonnel())+(beforeB-b.totalPersonnel());long warId=state.activeWar(a.factionId(),b.factionId()).map(w->w.id()).orElse(0L);Settlement near=nearestSettlementAny(state,a.position().lerp(b.position(),.5));state.history().add(new WorldEvent(state.clock().day(),"battle","army="+a.id()+" vs "+b.id()+", casualties="+Math.max(0,casualties)+(warId>0?", war="+warId:"")+", faction="+a.factionId()+(near==null?"":", settlement="+near.id())));state.activeWar(a.factionId(),b.factionId()).ifPresent(w->{w.addExhaustion(a.factionId(),lossA*.08);w.addExhaustion(b.factionId(),lossB*.08);w.adjustScore((lossA-lossB)*-20);});}
     }
 
     private static boolean fortified(Settlement s){return s.completedConstruction().stream().anyMatch(k->k.startsWith("wall:")||k.startsWith("keep:"));}
@@ -187,12 +187,14 @@ public final class FactionEngine {
         if(siege.artilleryPieces()<Math.max(0,Math.min(6,army.artillery()/12))&&attacker.stockpile().get(ResourceType.IRON)>=8&&attacker.stockpile().get(ResourceType.MACHINERY)>=4){attacker.stockpile().take(ResourceType.IRON,8);attacker.stockpile().take(ResourceType.MACHINERY,4);siege.addEquipment(0,0,1);}
     }
     private static void capture(SimulationState state,Faction attacker,Faction defender,Army army,Settlement settlement){
+        long settlementId=settlement.id();
         Settlement captured=state==null?defender.removeSettlement(settlement.id()):transfer(state,settlement,defender,attacker);
         if(captured==null)return;
         if(state==null)attacker.addSettlement(captured);
         attacker.relationWith(defender.id()).adjust(-8);defender.relationWith(attacker.id()).adjust(-8);army.resupply(-.12);captured.adjustUnrest(.18);
-        if(state!=null){state.history().add(new WorldEvent(state.clock().day(),"settlement_captured",attacker.name()+" captured "+captured.name()+" from "+defender.name()));state.activeWar(attacker.id(),defender.id()).ifPresent(w->w.adjustScore(18));}
+        if(state!=null){long warId=state.activeWar(attacker.id(),defender.id()).map(w->w.id()).orElse(0L);state.history().add(new WorldEvent(state.clock().day(),"settlement_captured",attacker.name()+" captured "+captured.name()+" from "+defender.name()+", settlement="+settlementId+", toFaction="+attacker.id()+", fromFaction="+defender.id()+(warId>0?", war="+warId:""));state.activeWar(attacker.id(),defender.id()).ifPresent(w->w.adjustScore(18));dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.SettlementCaptured(state.clock().day(),settlementId,defender.id(),attacker.id(),warId));}
     }
+    private static Settlement nearestSettlementAny(SimulationState state,SimPosition pos){Settlement best=null;double bestD=Double.POSITIVE_INFINITY;for(Faction f:state.factions())for(Settlement s:f.settlements()){double d=s.position().distanceTo(pos);if(d<bestD){bestD=d;best=s;}}return best;}
 
     private static void resupplyNearFriendlySettlement(Faction owner, Army army) {for (Settlement settlement : owner.settlements()) if (army.position().distanceTo(settlement.position()) <= 120) {double food = owner.stockpile().take(ResourceType.FOOD, Math.max(1, army.totalPersonnel() * .01));if (food > 0) army.resupply(.08);return;}}
     private static EnemyTarget nearestTarget(Army army, List<Faction> enemies) {EnemyTarget best = null; double bestDistance = Double.POSITIVE_INFINITY;for (Faction enemy : enemies) for (Settlement settlement : enemy.settlements()) {double distance = army.position().distanceTo(settlement.position());if (distance < bestDistance) { bestDistance = distance; best = new EnemyTarget(enemy, settlement); }}return best;}

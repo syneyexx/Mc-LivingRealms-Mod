@@ -57,6 +57,21 @@ public final class CivilianNpcAdoption {
         ResourceLocation id=BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
         String path=id==null?"":id.getPath();
         String name=entity.hasCustomName()?entity.getCustomName().getString():"";
-        return CivilianRoleInference.fromSignals(path,name);
+        return inferRoleFromSignals(path,name);
+    }
+
+    /** Registry-id path helper for {@link dev.livingrealms.minecraft.compat.npc.CivilianNpcAdapter}. */
+    public static boolean isAdoptableCivilianType(String namespace,String path){
+        if(namespace==null||path==null)return false;
+        String ns=namespace.toLowerCase(Locale.ROOT);
+        String p=path.toLowerCase(Locale.ROOT);
+        for(String denied:DENIED_PATH_HINTS)if(p.contains(denied))return false;
+        if(!ALLOWED_NAMESPACES.contains(ns)&&!ns.contains("village")&&!ns.contains("town")&&!ns.contains("civil"))return false;
+        for(String hint:ALLOWED_PATH_HINTS)if(p.contains(hint))return true;
+        return ALLOWED_NAMESPACES.contains(ns)&&(p.contains("npc")||p.contains("person")||p.contains("human"));
+    }
+
+    public static CitizenRole inferRoleFromSignals(String path,String displayName){
+        return CivilianRoleInference.fromSignals(path==null?"":path,displayName==null?"":displayName);
     }
 }

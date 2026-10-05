@@ -101,7 +101,10 @@ public final class SettlementExpansionEngine {
         faction.addTreasury(-Math.min(faction.treasury() * .04, 120));
         state.history().add(new WorldEvent(state.clock().day(), "causal_settlement_founded",
                 faction.name() + " founded " + name + " from " + capital.name()
-                        + " (pressure=" + String.format(java.util.Locale.ROOT, "%.2f", pressure) + ")"));
+                        + " (pressure=" + String.format(java.util.Locale.ROOT, "%.2f", pressure) + ")"
+                        + ", faction=" + faction.id() + ", settlement=" + colony.id()));
+        dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.SettlementFounded(
+                state.clock().day(), faction.id(), colony.id(), name, SettlementOrigin.CAUSAL_EXPANSION.name()));
         return true;
     }
 

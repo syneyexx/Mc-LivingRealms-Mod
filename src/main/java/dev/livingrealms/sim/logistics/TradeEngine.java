@@ -64,6 +64,9 @@ public final class TradeEngine {
                     buyer.stockpile().add(shipment.resource(),strategic);
                     state.liveness().onShipmentDelivered();
                     state.history().add(new WorldEvent(state.clock().day(),"trade_delivered",describe(shipment)+(route==null?"":", route="+route.id())));
+                    dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.TradeCompleted(
+                            state.clock().day(),shipment.id(),shipment.sellerFactionId(),shipment.buyerFactionId(),
+                            shipment.resource().name(),shipment.amount(),shipment.value()));
                 }
                 remove.add(shipment.id());
             }

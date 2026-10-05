@@ -51,6 +51,7 @@ public final class PlayerAgencyActions {
                     default -> 1;
                 }).thenComparingLong(SocialCitizen::id))
                 .orElse(null);
+        String previous = faction.rulerName();
         String heirName = heir == null ? "the court" : heir.name();
         if (heir != null) {
             faction.setRulerName(heir.name());
@@ -60,6 +61,8 @@ public final class PlayerAgencyActions {
         standing.leave(true);
         state.history().add(new WorldEvent(state.clock().day(), "player_abdicated",
                 "actor=" + actorKey + ", faction=" + factionId + ", successor=" + heirName));
+        dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.RulerChanged(
+                state.clock().day(), factionId, previous, faction.rulerName(), "abdication"));
         return Result.ok("abdicated");
     }
 
@@ -225,8 +228,10 @@ public final class PlayerAgencyActions {
         standing.grantCareerService(CareerTrack.MILITARY, 15);
         state.history().add(new WorldEvent(state.clock().day(), "player_declare_war",
                 "actor=" + actorKey + ", vs=" + enemyFactionId + ", goal=" + chosen.name()
-                        + ", target=" + targetId
+                        + ", target=" + targetId + ", war=" + war.id()
                         + (legitimacyHit > 0 ? ", treaty_break_legitimacy=" + Math.round(legitimacyHit * 100) : "")));
+        dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.FactionWarStarted(
+                state.clock().day(), war.id(), selfId, enemyFactionId, chosen.name(), targetId));
         return Result.ok("war_declared");
     }
 

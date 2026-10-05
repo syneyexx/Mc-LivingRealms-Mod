@@ -21,7 +21,7 @@ public final class DiplomacyEngine {
             long target=capital==null?0:capital.id();
             WarGoalType goal=warGoalFor(a,def);
             WarState war=new WarState(state.nextId(),a.id(),b,goal,target,state.clock().day());state.addWar(war);
-            state.history().add(new WorldEvent(state.clock().day(),"war_started",a.name()+" vs "+def.name()+", goal="+war.goal()));
+            state.history().add(new WorldEvent(state.clock().day(),"war_started",a.name()+" vs "+def.name()+", goal="+war.goal()+", war="+war.id()+", attacker="+a.id()+", defender="+b+", settlement="+target));dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.FactionWarStarted(state.clock().day(),war.id(),a.id(),b,war.goal().name(),target));
         }
     }
     private static WarGoalType warGoalFor(Faction attacker, Faction defender) {
@@ -66,7 +66,7 @@ public final class DiplomacyEngine {
         Treaty peace=new Treaty(state.nextId(),a.id(),b.id(),TreatyType.PEACE_TREATY,state.clock().day(),state.clock().day()+180);state.addTreaty(peace);
         double reparations=war.attackerScore()>25?Math.min(b.treasury()*.12,250):war.attackerScore()<-25?-Math.min(a.treasury()*.12,250):0;
         if(reparations>0){b.addTreasury(-reparations);a.addTreasury(reparations);}else if(reparations<0){double amount=-reparations;a.addTreasury(-amount);b.addTreasury(amount);}
-        state.history().add(new WorldEvent(state.clock().day(),"peace_treaty",a.name()+" / "+b.name()+", score="+Math.round(war.attackerScore())));
+        state.history().add(new WorldEvent(state.clock().day(),"peace_treaty",a.name()+" / "+b.name()+", score="+Math.round(war.attackerScore())+", war="+war.id()));dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.FactionWarEnded(state.clock().day(),war.id(),war.attackerFactionId(),war.defenderFactionId(),war.attackerScore()));
     }
     private static double power(Faction f){return f.armies().stream().mapToDouble(Army::combatPower).sum()+f.population()*.02;}
     private static double armyDeficit(Faction f){double target=Math.max(20,f.population()*.025);double actual=f.armies().stream().mapToDouble(Army::totalPersonnel).sum();return Math.max(0,(target-actual)/target);}

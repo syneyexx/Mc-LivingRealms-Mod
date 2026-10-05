@@ -52,6 +52,7 @@ dev.livingrealms.MobileCivilizationProjectionTest
 dev.livingrealms.WizardTreesTest
 dev.livingrealms.RuntimeSmokeTest
 dev.livingrealms.RuntimeSchedulerTest
+dev.livingrealms.ApiLifecycleSmokeTest
 dev.livingrealms.ProjectionBudgetTest
 dev.livingrealms.ConstructionBudgetAdaptationTest
 dev.livingrealms.HousingAndProductionTruthTest

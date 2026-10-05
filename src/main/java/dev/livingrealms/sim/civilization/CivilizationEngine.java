@@ -208,9 +208,9 @@ public final class CivilizationEngine {
                     if(attacker!=null){attacker.stockpile().add(ResourceType.FOOD,food);attacker.stockpile().add(ResourceType.GOLD,gold);}
                 }
                 state.ensureSettlementCivilization(target.id(),defender.id()).adjustBanditPressure(.04);
-                state.history().add(new WorldEvent(day,"raid_success","raid="+raid.id()+", target="+target.id()+", casualties="+casualties+", food="+Math.round(food)+", gold="+Math.round(gold)+(raid.bandit()?", bandit=true":"")));
+                state.history().add(new WorldEvent(day,"raid_success","raid="+raid.id()+", target="+target.id()+", casualties="+casualties+", food="+Math.round(food)+", gold="+Math.round(gold)+(raid.bandit()?", bandit=true":"")+(raid.attackerFactionId()>0?", faction="+raid.attackerFactionId():"")));
             }
-            else{target.adjustUnrest(-.006);state.history().add(new WorldEvent(day,"raid_repelled","raid="+raid.id()+", target="+target.id()+", defendersHeld=true"));}
+            else{target.adjustUnrest(-.006);state.history().add(new WorldEvent(day,"raid_repelled","raid="+raid.id()+", target="+target.id()+", settlement="+target.id()+", defendersHeld=true"+(raid.attackerFactionId()>0?", faction="+raid.attackerFactionId():"")));}
             raid.finish();
         }
         state.pruneRaids();

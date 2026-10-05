@@ -8,7 +8,7 @@ import dev.livingrealms.minecraft.SpawnKingdomRuntime;
 import dev.livingrealms.minecraft.SpeciesDataRegistry;
 import dev.livingrealms.minecraft.ambience.FarPresenceRuntime;
 import dev.livingrealms.minecraft.ambience.SettlementAmbienceRuntime;
-import dev.livingrealms.minecraft.compat.WaystoneSettlementRuntime;
+import dev.livingrealms.minecraft.compat.waystones.WaystoneSettlementAdapter;
 import dev.livingrealms.minecraft.construction.CivicFestivalMaterializer;
 import dev.livingrealms.minecraft.construction.IndustrialSiteMaterializer;
 import dev.livingrealms.minecraft.construction.PlayerStructureRevalidationRuntime;
@@ -37,6 +37,7 @@ import dev.livingrealms.minecraft.presentation.CivicChoreographyRuntime;
 import dev.livingrealms.minecraft.presentation.SeasonalFarmPresentationRuntime;
 import dev.livingrealms.sim.runtime.RuntimeDomain;
 import dev.livingrealms.sim.runtime.RuntimePriority;
+import dev.livingrealms.sim.runtime.RuntimeTaskClass;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.LongPredicate;
@@ -55,7 +56,8 @@ final class LivingRealmsRuntimeTaskCatalog {
                 ctx -> SpawnKingdomRuntime.ensure(ctx.overworld(), ctx.data())));
         tasks.add(task("maintenance.waystone", RuntimeDomain.MAINTENANCE, RuntimePriority.NORMAL, 200, 12,
                 tick -> tick % 200L == 0,
-                ctx -> WaystoneSettlementRuntime.tick(ctx.overworld(), ctx.data())));
+                ctx -> WaystoneSettlementAdapter.tick(ctx.overworld(), ctx.data()),
+                RuntimeTaskClass.PROJECTION_RECOVERABLE));
         tasks.add(task("discovery.foreign_settlement", RuntimeDomain.DISCOVERY, RuntimePriority.NORMAL, 400, 16,
                 tick -> tick % 400L == 0,
                 ctx -> ForeignSettlementDiscoveryRuntime.tick(ctx.overworld(), ctx.data())));
@@ -151,11 +153,13 @@ final class LivingRealmsRuntimeTaskCatalog {
                         ctx.data().setDirty();
                         SettlementConstructionMaterializer.requestCatchup(drained);
                     }
-                }));
+                },
+                RuntimeTaskClass.CANONICAL_CRITICAL));
 
         tasks.add(task("construction.settlement", RuntimeDomain.CONSTRUCTION, RuntimePriority.HIGH, 4, 8,
                 tick -> (tick & 3L) == 0L,
-                ctx -> SettlementConstructionMaterializer.tick(ctx.overworld(), ctx.data())));
+                ctx -> SettlementConstructionMaterializer.tick(ctx.overworld(), ctx.data()),
+                RuntimeTaskClass.CANONICAL_CRITICAL));
         tasks.add(task("construction.transport", RuntimeDomain.CONSTRUCTION, RuntimePriority.HIGH, 4, 8,
                 tick -> (tick & 3L) == 1L,
                 ctx -> TransportNetworkMaterializer.tick(ctx.overworld(), ctx.data())));
@@ -172,13 +176,15 @@ final class LivingRealmsRuntimeTaskCatalog {
                     ctx.data().state().advanceDays(ctx.data().state().config().strategicDaysPerStep());
                     ctx.data().setDirty();
                     LivingRealms.LOGGER.debug("Simulation: {}", ctx.data().state().summary());
-                }));
+                },
+                RuntimeTaskClass.CANONICAL_CRITICAL));
         tasks.add(task("simulation.presentation_pulse", RuntimeDomain.SIMULATION, RuntimePriority.HIGH, 24000, 20,
                 tick -> tick % 24000L == 12000L,
                 ctx -> {
                     ctx.data().state().advancePresentationPulse(0.5);
                     ctx.data().setDirty();
-                }));
+                },
+                RuntimeTaskClass.RUNTIME_CRITICAL));
         return tasks;
     }
 
@@ -251,6 +257,18 @@ final class LivingRealmsRuntimeTaskCatalog {
             int maxDeferredTicks,
             LongPredicate due,
             TaskBody body) {
+        return task(id, domain, priority, intervalTicks, maxDeferredTicks, due, body, null);
+    }
+
+    private static RuntimeTask task(
+            String id,
+            RuntimeDomain domain,
+            RuntimePriority priority,
+            int intervalTicks,
+            int maxDeferredTicks,
+            LongPredicate due,
+            TaskBody body,
+            RuntimeTaskClass failureClassOverride) {
         return new RuntimeTask() {
             @Override
             public String id() {
@@ -275,6 +293,11 @@ final class LivingRealmsRuntimeTaskCatalog {
             @Override
             public int maxDeferredTicks() {
                 return maxDeferredTicks;
+            }
+
+            @Override
+            public RuntimeTaskClass failureClass() {
+                return failureClassOverride != null ? failureClassOverride : RuntimeTask.super.failureClass();
             }
 
             @Override
