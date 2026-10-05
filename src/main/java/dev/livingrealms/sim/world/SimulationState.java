@@ -33,7 +33,7 @@ import java.util.*;
 
 /** Canonical authoritative state. Minecraft entities are projections of this model, never the source of truth. */
 public final class SimulationState {
-    public static final int MAX_RESOURCE_CLAIMS=8_000, MAX_RAIDS=256, MAX_LEGENDS=512, MAX_HOUSEHOLDS=100_000, MAX_EPIDEMICS=512, MAX_MIGRATIONS=512, MAX_JUSTICE_CASES=2_048, MAX_HIDDEN_CACHES=512, MAX_PIRATE_BANDS=128, MAX_DIPLOMATIC_MARRIAGES=512, MAX_CIVIC_EVENTS=512, MAX_INTELLIGENCE_OPERATIONS=512, MAX_PROPAGANDA_CAMPAIGNS=256, MAX_RUIN_SITES=512, MAX_ASSISTANCE_TASKS=2_048, MAX_PIRATE_HIDEOUTS=128, MAX_DEBTS=512, MAX_GRAND_PROJECTS=256, MAX_CAMPAIGN_PLANS=256, MAX_OUTLYING_SITES=2_048, MAX_CITIZEN_JOURNEYS=1_024, MAX_ROADSIDE_SITES=1_024, MAX_UNDERWORLD_PROFILES=4_096, MAX_REGISTERED_PLAYER_STRUCTURES=4_096, MAX_UNDERWORLD_CONTRACTS=2_048, MAX_ACCEPTED_CONTRACTS_PER_ACTOR=8;
+    public static final int MAX_RESOURCE_CLAIMS=8_000, MAX_RAIDS=256, MAX_LEGENDS=512, MAX_HOUSEHOLDS=100_000, MAX_EPIDEMICS=512, MAX_MIGRATIONS=512, MAX_JUSTICE_CASES=2_048, MAX_HIDDEN_CACHES=512, MAX_PIRATE_BANDS=128, MAX_DIPLOMATIC_MARRIAGES=512, MAX_CIVIC_EVENTS=512, MAX_INTELLIGENCE_OPERATIONS=512, MAX_PROPAGANDA_CAMPAIGNS=256, MAX_RUIN_SITES=512, MAX_ASSISTANCE_TASKS=2_048, MAX_PIRATE_HIDEOUTS=128, MAX_DEBTS=512, MAX_GRAND_PROJECTS=256, MAX_CAMPAIGN_PLANS=256, MAX_OUTLYING_SITES=2_048, MAX_CITIZEN_JOURNEYS=1_024, MAX_ROADSIDE_SITES=1_024, MAX_UNDERWORLD_PROFILES=4_096, MAX_REGISTERED_PLAYER_STRUCTURES=4_096, MAX_UNDERWORLD_CONTRACTS=2_048, MAX_ACCEPTED_CONTRACTS_PER_ACTOR=8, MAX_SHIPMENTS=4_096;
     private final long seed;
     private final SimClock clock=new SimClock();
     private SimulationConfig config;
@@ -184,7 +184,22 @@ public final class SimulationState {
         if(nextId<=max)nextId=max+1;
     }
 
-    public void addRegion(EcosystemRegion r){EcosystemRegion v=Objects.requireNonNull(r);observeCanonicalId(v.id());for(PopulationGroup p:v.populations())observeCanonicalId(p.id());regions.add(v);} public void addFaction(Faction f){Faction v=Objects.requireNonNull(f);observeCanonicalId(v.id());for(Settlement st:v.settlements())observeCanonicalId(st.id());for(Army a:v.armies())observeCanonicalId(a.id());factions.add(v);} public void addShipment(TradeShipment s){TradeShipment v=Objects.requireNonNull(s);observeCanonicalId(v.id());shipments.add(v);}
+    public void addRegion(EcosystemRegion r){EcosystemRegion v=Objects.requireNonNull(r);observeCanonicalId(v.id());for(PopulationGroup p:v.populations())observeCanonicalId(p.id());regions.add(v);} public void addFaction(Faction f){Faction v=Objects.requireNonNull(f);observeCanonicalId(v.id());for(Settlement st:v.settlements())observeCanonicalId(st.id());for(Army a:v.armies())observeCanonicalId(a.id());factions.add(v);}
+    /** Wave 28/29 — soft-cap in-flight shipments; prefer dropping arrived/total-loss before refusing new dispatch. */
+    public void addShipment(TradeShipment s){
+        TradeShipment v=Objects.requireNonNull(s);
+        if(shipments.size()>=MAX_SHIPMENTS){
+            List<Long> drop=new ArrayList<>();
+            for(TradeShipment existing:shipments){
+                if(existing.arrived()||existing.lossState()==TradeShipment.LossState.TOTAL)drop.add(existing.id());
+                if(shipments.size()-drop.size()<MAX_SHIPMENTS)break;
+            }
+            for(Long id:drop)removeShipment(id);
+        }
+        if(shipments.size()>=MAX_SHIPMENTS)return;
+        observeCanonicalId(v.id());
+        shipments.add(v);
+    }
     public void addTreaty(Treaty v){Treaty value=Objects.requireNonNull(v);observeCanonicalId(value.id());treaties.add(value);} public void addWar(WarState v){WarState value=Objects.requireNonNull(v);observeCanonicalId(value.id());wars.add(value);} public void addRoute(TransportRoute v){TransportRoute value=Objects.requireNonNull(v);observeCanonicalId(value.id());routes.add(value);} public void addObjective(MilitaryObjective v){MilitaryObjective value=Objects.requireNonNull(v);observeCanonicalId(value.id());objectives.add(value);} public void addSiege(SiegeState v){SiegeState value=Objects.requireNonNull(v);observeCanonicalId(value.id());sieges.add(value);} public void addAirWing(AirWing v){AirWing value=Objects.requireNonNull(v);observeCanonicalId(value.id());airWings.add(value);} public void addBounty(BountyContract v){BountyContract value=Objects.requireNonNull(v);observeCanonicalId(value.id());bounties.add(value);} public void addCustody(CustodyRecord v){CustodyRecord value=Objects.requireNonNull(v);observeCanonicalId(value.id());custody.add(value);} public void addPort(PortState v){PortState value=Objects.requireNonNull(v);observeCanonicalId(value.id());ports.add(value);} public void addFleet(Fleet v){Fleet value=Objects.requireNonNull(v);observeCanonicalId(value.id());fleets.add(value);} public void addIndustrialSite(IndustrialSite v){IndustrialSite value=Objects.requireNonNull(v);observeCanonicalId(value.id());industrialSites.add(value);} public void addSocialCitizen(SocialCitizen v){SocialCitizen value=Objects.requireNonNull(v);observeCanonicalId(value.id());socialCitizens.add(value);}
     public void restoreSettlementCivilization(SettlementCivilizationState value){Objects.requireNonNull(value);settlementCivilizations.put(value.settlementId(),value);} public void restoreFactionCivilization(FactionCivilizationState value){Objects.requireNonNull(value);factionCivilizations.put(value.factionId(),value);}
     public SettlementCivilizationState ensureSettlementCivilization(long settlementId,long ownerFactionId){return settlementCivilizations.computeIfAbsent(settlementId,k->new SettlementCivilizationState(settlementId,ownerFactionId));}

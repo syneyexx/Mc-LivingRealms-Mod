@@ -4,6 +4,11 @@ import dev.livingrealms.sim.content.CulturalNaming;
 import dev.livingrealms.sim.content.CultureDefinition;
 import dev.livingrealms.sim.content.CultureDefinitionRegistry;
 import dev.livingrealms.sim.content.SettlementIdentityProfile;
+import dev.livingrealms.sim.civilization.CivicEvent;
+import dev.livingrealms.sim.civilization.CivicEventEngine;
+import dev.livingrealms.sim.civilization.CivicEventType;
+import dev.livingrealms.sim.civilization.CivicFestivalDecorationPlanner;
+import dev.livingrealms.sim.civilization.FaithCatalog;
 import dev.livingrealms.sim.construction.CultureArchitecture;
 import dev.livingrealms.sim.dialogue.DialogueContext;
 import dev.livingrealms.sim.dialogue.DialogueIntent;
@@ -23,7 +28,8 @@ public final class CulturalIdentityWiringTest {
         namingStylesDiffer();
         architecturePinnedByCulture();
         dialogueMentionsCultureDialect();
-        System.out.println("PASS CulturalIdentityWiring: naming + architecture + dialogue dialect");
+        festivalTitlesCarryCulture();
+        System.out.println("PASS CulturalIdentityWiring: naming + architecture + dialogue dialect + festivals");
     }
 
     private static void namingStylesDiffer() {
@@ -77,6 +83,24 @@ public final class CulturalIdentityWiringTest {
                         || lower.contains("naming") || lower.contains("material") || lower.contains("fachwerk")
                         || lower.contains("medieval"),
                 "dialect/naming/materials/architecture in dialogue: " + result.response());
+    }
+
+    private static void festivalTitlesCarryCulture() {
+        SimulationState state = new SimulationState(0xC013003L);
+        DemoSeeder.seed(state);
+        Faction aster = state.factions().stream().filter(f -> f.name().equals("Kingdom of Aster")).findFirst().orElseThrow();
+        var settlement = aster.settlements().getFirst();
+        var fc = state.ensureFactionCivilization(aster.id());
+        var faith = FaithCatalog.of(fc.faithName());
+        String title = CivicEventEngine.civicTitle(
+                CivicEventType.HARVEST_FESTIVAL, settlement, faith, aster);
+        check(title.toLowerCase().contains("aster") || title.toLowerCase().contains("river"),
+                "festival title carries culture: " + title);
+        // Ensure active civic event so culture-biased decoration planner has work.
+        state.addCivicEvent(new CivicEvent(state.nextId(), aster.id(), settlement.id(), 0, 2,
+                CivicEventType.MARKET_FAIR, title, 0.7));
+        var decorations = CivicFestivalDecorationPlanner.planActive(state);
+        check(!decorations.isEmpty(), "culture-aware festival decorations planned");
     }
 
     private static void check(boolean ok, String msg) {

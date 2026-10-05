@@ -4,6 +4,9 @@ import dev.livingrealms.sim.civilization.HiddenCache;
 import dev.livingrealms.sim.civilization.JusticeCase;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.law.CrimeType;
+import dev.livingrealms.sim.social.CitizenMemory;
+import dev.livingrealms.sim.social.MemoryType;
+import dev.livingrealms.sim.social.SocialCitizen;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.StateRetentionCompactor;
 import dev.livingrealms.sim.world.SimulationState;
@@ -18,6 +21,7 @@ public final class StateRetentionCompactorTest {
         monthlyPrunesInactiveRows();
         historySummarizesSnapshots();
         constructionKeysRetained();
+        memorySoftCapSummarizes();
         System.out.println("PASS StateRetentionCompactor: monthly/quarterly retention + history summarize + construction retained");
     }
 
@@ -63,6 +67,35 @@ public final class StateRetentionCompactorTest {
         check(state.history().all().stream().anyMatch(e -> e.type().equals("battle")), "important history retained");
         check(state.history().size() < before, "history shrank after summarize");
         check(state.history().all().stream().anyMatch(e -> e.type().equals("era_summary")), "era_summary present");
+    }
+
+    private static void memorySoftCapSummarizes() {
+        SimulationState state = new SimulationState(0x8E704L);
+        DemoSeeder.seed(state);
+        var settlement = state.factions().getFirst().settlements().getFirst();
+        var citizen = state.ensureSocialCitizen(state.factions().getFirst().id(), settlement.id(), 0,
+                dev.livingrealms.sim.civilian.CitizenRole.SCHOLAR);
+        state.advanceDays(120);
+        long day = state.clock().day();
+        // Flood with aged mid-importance local events so soft-cap summarization must fire.
+        for (int i = 0; i < SocialCitizen.MAX_MEMORIES; i++) {
+            citizen.remember(new CitizenMemory(
+                    Math.max(0, day - 90 + i),
+                    MemoryType.LOCAL_EVENT,
+                    "topic:" + i,
+                    "self",
+                    "Detail " + i + " about civic life.",
+                    settlement.position(),
+                    0.55,
+                    0.9));
+        }
+        check(citizen.memories().size() == SocialCitizen.MAX_MEMORIES, "filled to max");
+        var report = StateRetentionCompactor.compactQuarterly(state);
+        check(report.memoriesFolded() > 0, "soft-cap folded memories");
+        check(citizen.memories().size() <= SocialCitizen.MAX_MEMORIES * 2 / 3 + 2,
+                "memories under soft max after quarterly: " + citizen.memories().size());
+        check(citizen.memories().stream().anyMatch(m -> m.subjectKey().startsWith("memory-")),
+                "summary memory retained");
     }
 
     private static void constructionKeysRetained() {

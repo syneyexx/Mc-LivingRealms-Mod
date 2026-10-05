@@ -174,24 +174,48 @@ public final class StateRetentionCompactor {
             if (oldNoise) foldable.add(m);
             else keep.add(m);
         }
-        if (foldable.isEmpty()) return 0;
-        // Important history may summarize rather than delete meaninglessly.
-        CitizenMemory sample = foldable.getLast();
-        keep.add(new CitizenMemory(
-                sample.day(),
-                MemoryType.LOCAL_EVENT,
-                "memory-summary:" + citizen.id(),
-                "self",
-                "I retain a faded sense of " + foldable.size()
-                        + " older small matters around " + truncate(sample.summary(), 80) + ".",
-                sample.position(),
-                Math.min(0.45, sample.importance() + 0.08),
-                Math.max(0.35, sample.confidence() * 0.85)));
-        keep.sort(Comparator.comparingLong(CitizenMemory::day).thenComparing(CitizenMemory::subjectKey));
         int softMax = deep ? Math.max(16, SocialCitizen.MAX_MEMORIES * 2 / 3) : SocialCitizen.MAX_MEMORIES;
+        if (foldable.isEmpty() && keep.size() <= softMax) return 0;
+        int folded = foldable.size();
+        if (!foldable.isEmpty()) {
+            // Important history may summarize rather than delete meaninglessly.
+            CitizenMemory sample = foldable.getLast();
+            keep.add(new CitizenMemory(
+                    sample.day(),
+                    MemoryType.LOCAL_EVENT,
+                    "memory-summary:" + citizen.id(),
+                    "self",
+                    "I retain a faded sense of " + foldable.size()
+                            + " older small matters around " + truncate(sample.summary(), 80) + ".",
+                    sample.position(),
+                    Math.min(0.45, sample.importance() + 0.08),
+                    Math.max(0.35, sample.confidence() * 0.85)));
+        }
+        // Soft-cap pressure: when still over softMax (all memories "important"/recent),
+        // fold oldest low-importance rows into one summary instead of silent drop.
+        keep.sort(Comparator.comparingLong(CitizenMemory::day).thenComparing(CitizenMemory::subjectKey)
+                .thenComparingDouble(CitizenMemory::importance));
+        if (keep.size() > softMax) {
+            int excess = keep.size() - softMax + 1; // +1 room for the summary row
+            List<CitizenMemory> force = new ArrayList<>(keep.subList(0, Math.min(excess, keep.size())));
+            keep.subList(0, force.size()).clear();
+            CitizenMemory sample = force.getLast();
+            keep.add(0, new CitizenMemory(
+                    sample.day(),
+                    MemoryType.LOCAL_EVENT,
+                    "memory-era:" + citizen.id(),
+                    "self",
+                    "Older chapters of my life blur together — about " + force.size()
+                            + " matters near " + truncate(sample.summary(), 80) + ".",
+                    sample.position(),
+                    Math.min(0.5, sample.importance() + 0.05),
+                    Math.max(0.3, sample.confidence() * 0.8)));
+            folded += force.size();
+            keep.sort(Comparator.comparingLong(CitizenMemory::day).thenComparing(CitizenMemory::subjectKey));
+        }
         while (keep.size() > softMax) keep.removeFirst();
         citizen.replaceMemories(keep);
-        return foldable.size();
+        return folded;
     }
 
     private static String truncate(String s, int max) {
