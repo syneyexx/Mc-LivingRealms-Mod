@@ -3,7 +3,6 @@ package dev.livingrealms.sim.construction;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementRole;
-import dev.livingrealms.sim.transport.RegionalSettlementGraph;
 import dev.livingrealms.sim.world.SimPosition;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -86,6 +85,25 @@ public final class SettlementBoundary {
     public List<WallRun> wallRuns() { return wallRuns; }
     public List<SettlementStreetGraph.RoadSegment> approachSegments() { return approachSegments; }
 
+    /** Stable gate whose outward direction best matches a world-space destination. */
+    public GateNode gateToward(SimPosition settlementCenter, SimPosition target) {
+        Objects.requireNonNull(settlementCenter, "settlementCenter");
+        Objects.requireNonNull(target, "target");
+        double tx = target.x() - settlementCenter.x(), tz = target.z() - settlementCenter.z();
+        double tLen = Math.max(1.0e-9, Math.hypot(tx, tz));
+        tx /= tLen; tz /= tLen;
+        GateNode best = gates.getFirst();
+        double bestDot = -Double.MAX_VALUE;
+        for (GateNode gate : gates) {
+            double gx = gate.position().x() - settlementCenter.x();
+            double gz = gate.position().z() - settlementCenter.z();
+            double gLen = Math.max(1.0e-9, Math.hypot(gx, gz));
+            double dot = (gx / gLen) * tx + (gz / gLen) * tz;
+            if (dot > bestDot) { bestDot = dot; best = gate; }
+        }
+        return best;
+    }
+
     public boolean closedExceptGates() {
         if (perimeter.size() != 5 || !same(perimeter.getFirst(), perimeter.getLast())) return false;
         if (gates.isEmpty()) return false;
@@ -116,21 +134,16 @@ public final class SettlementBoundary {
         if (morphology == SettlementMorphology.HILL_TOWN) radius *= .82;
         if (morphology == SettlementMorphology.WALLED_CORE) radius *= .90;
 
-        List<Direction> desired = regionalDirections(faction, settlement, baseRotation);
-        // Fill missing sides from the strongest graph exits so a standalone CITY still has real gate roads.
+        // Boundary openings are stable: choose the strongest graph-authored exit on each side,
+        // then fall back to the side center. Regional topology later selects among these gates
+        // rather than moving the perimeter when a new settlement is founded.
         List<Direction> graphExits = graphExitDirections(settlement, baseGraph, baseRotation);
-        for (Direction exit : graphExits) {
-            if (desired.stream().noneMatch(d -> d.side() == exit.side())) desired.add(exit);
-            if (desired.size() >= 4) break;
-        }
-        if (desired.isEmpty()) throw new IllegalStateException("CITY+ street graph has no exits");
-        desired = desired.stream()
-                .sorted(Comparator.comparingInt((Direction d) -> d.priority()).reversed()
-                        .thenComparing(d -> d.side().ordinal()))
-                .toList();
-
         EnumMap<Side, Direction> bySide = new EnumMap<>(Side.class);
-        for (Direction d : desired) bySide.putIfAbsent(d.side(), d);
+        for (Direction exit : graphExits) bySide.putIfAbsent(exit.side(), exit);
+        bySide.putIfAbsent(Side.NORTH, new Direction(Side.NORTH, 0, -1, 0));
+        bySide.putIfAbsent(Side.EAST, new Direction(Side.EAST, 1, 0, 0));
+        bySide.putIfAbsent(Side.SOUTH, new Direction(Side.SOUTH, 0, 1, 0));
+        bySide.putIfAbsent(Side.WEST, new Direction(Side.WEST, -1, 0, 0));
         List<GateLocal> locals = new ArrayList<>();
         int gateIndex = 0;
         for (Side side : Side.values()) {
@@ -167,32 +180,6 @@ public final class SettlementBoundary {
                 localToWorld(settlement, baseRotation, -radius, -radius));
 
         return new SettlementBoundary(settlement.id(), radius, perimeter, gates, runs, approaches);
-    }
-
-    private static List<Direction> regionalDirections(Faction faction, Settlement settlement, int baseRotation) {
-        List<Direction> out = new ArrayList<>();
-        for (RegionalSettlementGraph.Edge edge : RegionalSettlementGraph.plan(faction)) {
-            long otherId;
-            if (edge.fromSettlementId() == settlement.id()) otherId = edge.toSettlementId();
-            else if (edge.toSettlementId() == settlement.id()) otherId = edge.fromSettlementId();
-            else continue;
-            Settlement other = faction.settlements().stream().filter(s -> s.id() == otherId).findFirst().orElse(null);
-            if (other == null) continue;
-            double worldDx = other.position().x() - settlement.position().x();
-            double worldDz = other.position().z() - settlement.position().z();
-            double[] local = worldToLocalVector(baseRotation, worldDx, worldDz);
-            Side side = dominantSide(local[0], local[1]);
-            int priority = switch (edge.relation()) {
-                case CAPITAL_CITY -> 500;
-                case CAPITAL_TOWN -> 480;
-                case TOWN_RING -> 430;
-                case TOWN_VILLAGE -> 400;
-                case VILLAGE_HAMLET -> 360;
-                case LOCAL_FALLBACK -> 320;
-            };
-            out.add(new Direction(side, local[0], local[1], priority));
-        }
-        return out;
     }
 
     private static List<Direction> graphExitDirections(Settlement settlement,
