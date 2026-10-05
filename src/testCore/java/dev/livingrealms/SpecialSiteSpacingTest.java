@@ -31,7 +31,7 @@ public final class SpecialSiteSpacingTest {
     }
 
     private static void refugeeCampBand() {
-        SimulationState state = new SimulationState(0xCAMP55L);
+        SimulationState state = new SimulationState(0xCA4F55L);
         Faction faction = new Faction(state.nextId(), "Refuge Realm", "Marshal");
         Settlement source = new Settlement(state.nextId(), "Source", new SimPosition(0, 0), 80, 90);
         faction.addSettlement(source);
@@ -76,7 +76,7 @@ public final class SpecialSiteSpacingTest {
     }
 
     private static void resourceParentBand() {
-        SimulationState state = new SimulationState(0xECO55L);
+        SimulationState state = new SimulationState(0xEC055L);
         Faction faction = new Faction(state.nextId(), "Resource Realm", "Steward");
         Settlement town = new Settlement(state.nextId(), "Resource Town", new SimPosition(1000, 1000), 900, 1000);
         faction.addSettlement(town);
