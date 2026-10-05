@@ -2,7 +2,6 @@ package dev.livingrealms.sim.construction;
 
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
-import dev.livingrealms.sim.faction.SettlementOrigin;
 import dev.livingrealms.sim.player.FactionRank;
 import dev.livingrealms.sim.player.PlayerStanding;
 import dev.livingrealms.sim.world.SimulationState;
@@ -53,6 +52,14 @@ public final class PlayerStructureRegistration {
             if (boxesOverlap(existing, minX, minY, minZ, maxX, maxY, maxZ)) {
                 return Result.fail("Cannot register: overlaps another registered building.");
             }
+            if (existing.role() == role) {
+                if (existing.doorX() == doorX && existing.doorY() == doorY && existing.doorZ() == doorZ) {
+                    return Result.fail("Cannot register: this building is already registered.");
+                }
+                if (sameBuilding(existing, minX, minY, minZ, maxX, maxY, maxZ, doorX, doorY, doorZ)) {
+                    return Result.fail("Cannot register: building already registered (same footprint/entrance).");
+                }
+            }
         }
         var validation = PlayerStructureValidator.validate(role, metrics);
         if (!validation.ok()) return Result.fail(validation.reason());
@@ -63,17 +70,53 @@ public final class PlayerStructureRegistration {
                 doorX, doorY, doorZ, validation.capacity(), state.clock().day(), fingerprint);
         state.addRegisteredPlayerStructure(structure);
         if (!settlement.physicallyAnchored()) settlement.markPhysicallyAnchored();
-        if (settlement.origin() == SettlementOrigin.AUTHORED_SEED) {
-            // Player registration anchors the town permanently.
-        }
-        if (role == RegisteredPlayerStructure.Role.HOUSE) {
-            int verified = HousingCapacity.calculate(settlement, state);
-            if (verified > settlement.housing()) settlement.setHousing(verified);
-        }
+        // Source-aware housing: never permanently absorb player capacity into a ratchet floor.
+        HousingCapacity.reconcileCanonical(settlement, state);
         state.history().add(new WorldEvent(state.clock().day(), "player_structure_registered",
                 "actor=" + actorKey + ", settlement=" + settlementId + ", role=" + role
                         + ", capacity=" + validation.capacity()));
         return Result.ok(structure.id(), validation.capacity());
+    }
+
+    /** Marks a registered structure invalid and reconciles housing so capacity can fall. */
+    public static Result invalidate(SimulationState state, long structureId, String reason) {
+        Objects.requireNonNull(state, "state");
+        RegisteredPlayerStructure structure = state.findRegisteredPlayerStructure(structureId).orElse(null);
+        if (structure == null) return Result.fail("structure_missing");
+        structure.markInvalid(state.clock().day());
+        state.findSettlement(structure.settlementId()).ifPresent(s -> HousingCapacity.reconcileCanonical(s, state));
+        state.history().add(new WorldEvent(state.clock().day(), "player_structure_invalidated",
+                "structure=" + structureId + ", reason=" + (reason == null ? "revalidation" : reason)));
+        return Result.ok(structureId, 0);
+    }
+
+    /** Updates capacity after a successful revalidation and reconciles settlement housing. */
+    public static Result updateCapacity(SimulationState state, long structureId, int capacity, long fingerprint) {
+        Objects.requireNonNull(state, "state");
+        RegisteredPlayerStructure structure = state.findRegisteredPlayerStructure(structureId).orElse(null);
+        if (structure == null) return Result.fail("structure_missing");
+        structure.setCapacity(capacity);
+        structure.markValid(state.clock().day(), fingerprint);
+        state.findSettlement(structure.settlementId()).ifPresent(s -> HousingCapacity.reconcileCanonical(s, state));
+        return Result.ok(structureId, capacity);
+    }
+
+    private static boolean sameBuilding(RegisteredPlayerStructure a,
+                                        int minX, int minY, int minZ, int maxX, int maxY, int maxZ,
+                                        int doorX, int doorY, int doorZ) {
+        int overlapMinX = Math.max(a.minX(), minX);
+        int overlapMaxX = Math.min(a.maxX(), maxX);
+        int overlapMinZ = Math.max(a.minZ(), minZ);
+        int overlapMaxZ = Math.min(a.maxZ(), maxZ);
+        if (overlapMinX > overlapMaxX || overlapMinZ > overlapMaxZ) return false;
+        int overlapArea = (overlapMaxX - overlapMinX + 1) * (overlapMaxZ - overlapMinZ + 1);
+        int areaA = (a.maxX() - a.minX() + 1) * (a.maxZ() - a.minZ() + 1);
+        int areaB = (maxX - minX + 1) * (maxZ - minZ + 1);
+        double ratio = overlapArea / (double) Math.max(1, Math.min(areaA, areaB));
+        boolean doorNear = Math.abs(a.doorX() - doorX) <= 2
+                && Math.abs(a.doorZ() - doorZ) <= 2
+                && Math.abs(a.doorY() - doorY) <= 3;
+        return ratio >= 0.72 && doorNear;
     }
 
     public static Result setDevelopmentMode(SimulationState state, String actorKey, long settlementId,

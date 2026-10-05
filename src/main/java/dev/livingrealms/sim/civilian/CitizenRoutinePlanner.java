@@ -31,8 +31,8 @@ public final class CitizenRoutinePlanner {
             case FISHER -> at(select(completed,slot,StructureRole.FISHERY),CitizenActivity.WORK_FISHERY,settlement,.9);
             case ARTISAN -> at(selectAny(completed,slot,List.of(StructureRole.WORKSHOP,StructureRole.FACTORY)),CitizenActivity.CRAFT,settlement,.86);
             case TRADER -> at(selectAny(completed,slot,List.of(StructureRole.MARKET,StructureRole.WAREHOUSE)),CitizenActivity.TRADE,settlement,.9);
-            case OFFICIAL -> at(select(completed,slot,StructureRole.KEEP),CitizenActivity.ADMINISTER,settlement,.82);
-            case GUARD -> at(selectAny(completed,slot,List.of(StructureRole.ROAD,StructureRole.KEEP,StructureRole.WALL,StructureRole.GATE,StructureRole.PRISON)),CitizenActivity.PATROL,settlement,1.0);
+            case OFFICIAL -> at(selectAny(completed,slot,List.of(StructureRole.KEEP,StructureRole.TOWN_HALL,StructureRole.COURTHOUSE)),CitizenActivity.ADMINISTER,settlement,.82);
+            case GUARD -> at(selectAny(completed,slot,List.of(StructureRole.ROAD,StructureRole.KEEP,StructureRole.TOWN_HALL,StructureRole.WALL,StructureRole.GATE,StructureRole.PRISON)),CitizenActivity.PATROL,settlement,1.0);
             case HEALER -> at(select(completed,slot,StructureRole.CLINIC),CitizenActivity.HEAL,settlement,.88);
             case PRIEST -> at(select(completed,slot,StructureRole.TEMPLE),CitizenActivity.WORSHIP,settlement,.84);
             case SCHOLAR -> at(selectAny(completed,slot,List.of(StructureRole.SCHOOL,StructureRole.OBSERVATORY)),CitizenActivity.STUDY,settlement,.84);

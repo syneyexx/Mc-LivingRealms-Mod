@@ -21,7 +21,7 @@ public final class PropertyCrimeEngine {
 
     public static CrimeType crimeType(StructureRole role){
         return switch(role){
-            case HOUSE, KEEP -> CrimeType.BURGLARY;
+            case HOUSE, KEEP, TOWN_HALL -> CrimeType.BURGLARY;
             case BARRACKS, WALL, GATE, FACTORY, AIRFIELD, DOCK, MINE, PRISON, OBSERVATORY, WIZARD_HALL, WIZARD_GROVE, WIZARD_TUNNEL, IRRIGATION, AQUEDUCT -> CrimeType.SABOTAGE;
             case MARKET, WAREHOUSE, WORKSHOP, TAVERN, TEMPLE, CLINIC, SCHOOL, COURTHOUSE, ORPHANAGE, WIZARD_HOME, MILL, BAKERY, BREWERY -> CrimeType.THEFT;
             case FARM, LUMBER_CAMP, FISHERY, WELL, PASTURE -> CrimeType.POACHING;

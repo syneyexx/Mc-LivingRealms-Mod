@@ -48,7 +48,7 @@ public final class PlayerSettlementGrowthTest {
         settlement.setDevelopmentMode(DevelopmentMode.HYBRID);
         int before = HousingCapacity.calculate(settlement, state);
         var metrics = new PlayerStructureValidator.SurveyMetrics(
-                8, 8, 5, 80, 400, 0.9, 0.85, 2, true, true, false, false);
+                8, 8, 5, 96, 400, 0.9, 0.85, 6, true, true, false, false);
         int dx = (int) Math.round(settlement.position().x());
         int dz = (int) Math.round(settlement.position().z());
         var reg = PlayerStructureRegistration.register(

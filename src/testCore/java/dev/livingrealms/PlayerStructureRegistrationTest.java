@@ -1,6 +1,7 @@
 package dev.livingrealms;
 
 import dev.livingrealms.sim.construction.HousingCapacity;
+import dev.livingrealms.sim.construction.PlayerStructureRegistration;
 import dev.livingrealms.sim.construction.RegisteredPlayerStructure;
 import dev.livingrealms.sim.faction.DevelopmentMode;
 import dev.livingrealms.sim.faction.SettlementOrigin;
@@ -30,15 +31,18 @@ public final class PlayerStructureRegistrationTest {
                 state.nextId(), settlement.id(), "player:builder", RegisteredPlayerStructure.Role.HOUSE,
                 dx, 64, dz, dx + 8, 72, dz + 8, dx + 4, 64, dz, 12, state.clock().day(), 0xABCDL);
         state.addRegisteredPlayerStructure(house);
+        HousingCapacity.reconcileCanonical(settlement, state);
         int after = HousingCapacity.calculate(settlement, state);
         check(after > before && after >= 12, "registered house increases housing capacity");
 
-        house.markInvalid(state.clock().day());
-        check(HousingCapacity.calculate(settlement, state) == Math.max(settlement.housing(), 0),
-                "invalid house loses capacity");
+        PlayerStructureRegistration.invalidate(state, house.id(), "test_demolish");
+        check(HousingCapacity.calculate(settlement, state) == PlayerSettlementFounder.FOUNDING_HOUSING,
+                "invalid house loses capacity back to founding temporary");
 
+        // Re-register via markValid path + reconcile
         house.markValid(state.clock().day(), 0xABCEL);
         house.setCapacity(12);
+        HousingCapacity.reconcileCanonical(settlement, state);
         byte[] bytes = SimulationStateCodec.encode(state);
         SimulationState loaded = SimulationStateCodec.decode(bytes);
         RegisteredPlayerStructure restored = loaded.findRegisteredPlayerStructure(house.id()).orElseThrow();

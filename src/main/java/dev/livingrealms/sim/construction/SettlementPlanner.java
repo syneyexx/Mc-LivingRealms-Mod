@@ -3,6 +3,7 @@ package dev.livingrealms.sim.construction;
 import dev.livingrealms.sim.faction.DevelopmentMode;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.faction.SettlementOrigin;
 import dev.livingrealms.sim.world.SimPosition;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -31,10 +32,24 @@ public final class SettlementPlanner {
         boolean capital = faction.settlements().stream()
                 .max(Comparator.comparingInt(Settlement::population).thenComparingLong(Settlement::id))
                 .map(s -> s.id() == settlement.id()).orElse(false);
-        int keepW = capital && tier >= Settlement.Tier.CITY.ordinal() ? 31 : capital ? 23 : tier >= Settlement.Tier.TOWN.ordinal() ? 19 : 15;
-        int keepD = capital && tier >= Settlement.Tier.CITY.ordinal() ? 27 : capital ? 21 : tier >= Settlement.Tier.TOWN.ordinal() ? 17 : 15;
-        SimPosition keep = civicPoint(settlement, morph, StructureRole.KEEP, baseRotation);
-        addAt(out, faction, settlement, StructureRole.KEEP, 0, keep, keepW, keepD, baseRotation, capital ? 190 : 120);
+        boolean playerFounded = settlement.origin() == SettlementOrigin.PLAYER_FOUNDED;
+        // Player-founded camps start with a town hall charter — not an instant castle.
+        // Keep/castle unlocks at TOWN+ (or later) for player realms; authored capitals still get KEEP.
+        if (playerFounded) {
+            SimPosition hall = civicPoint(settlement, morph, StructureRole.TOWN_HALL, baseRotation);
+            addAt(out, faction, settlement, StructureRole.TOWN_HALL, 0, hall, 11, 9, baseRotation, 160);
+            if (tier >= Settlement.Tier.TOWN.ordinal()) {
+                int keepW = tier >= Settlement.Tier.CITY.ordinal() ? 23 : 19;
+                int keepD = tier >= Settlement.Tier.CITY.ordinal() ? 21 : 17;
+                SimPosition keep = civicPoint(settlement, morph, StructureRole.KEEP, baseRotation);
+                addAt(out, faction, settlement, StructureRole.KEEP, 0, keep, keepW, keepD, baseRotation, 140);
+            }
+        } else {
+            int keepW = capital && tier >= Settlement.Tier.CITY.ordinal() ? 31 : capital ? 23 : tier >= Settlement.Tier.TOWN.ordinal() ? 19 : 15;
+            int keepD = capital && tier >= Settlement.Tier.CITY.ordinal() ? 27 : capital ? 21 : tier >= Settlement.Tier.TOWN.ordinal() ? 17 : 15;
+            SimPosition keep = civicPoint(settlement, morph, StructureRole.KEEP, baseRotation);
+            addAt(out, faction, settlement, StructureRole.KEEP, 0, keep, keepW, keepD, baseRotation, capital ? 190 : 120);
+        }
 
         addRoadNetwork(out, faction, settlement, morph, baseRotation);
         SettlementStreetGraph streetGraph = SettlementStreetGraph.fromRoadIntents(settlement.id(),
@@ -291,66 +306,82 @@ public final class SettlementPlanner {
             if (shortage <= 0) return;
             houses = Math.min(houses, Math.max(1, (int) Math.ceil(shortage / 22.0)));
         }
-        List<SettlementParcelPlanner.ParcelPlan> parcels =
-                SettlementParcelPlanner.plan(streetGraph, faction, settlement, houses);
+        List<SettlementParcelPlanner.ParcelPlan> remaining =
+                new java.util.ArrayList<>(SettlementParcelPlanner.plan(streetGraph, faction, settlement, houses));
+        // Determine building archetype BEFORE parcel reservation — request a parcel that fits W×D.
         int emitted = 0;
         boolean pressure = settlement.housingShortage() > 40 || settlement.population() > settlement.housing();
-        for (SettlementParcelPlanner.ParcelPlan parcel : parcels) {
-            if (emitted >= houses) break;
-            int variant = Math.floorMod((int) mix(settlement.id() ^ (long) emitted * 0x9E3779B97F4A7C15L), 7);
+        for (int i = 0; i < houses; i++) {
+            int variant = Math.floorMod((int) mix(settlement.id() ^ (long) i * 0x9E3779B97F4A7C15L), 7);
             int w, d;
-            if (settlement.tier().ordinal() >= Settlement.Tier.CITY.ordinal() && (emitted % 5 == 0 || (pressure && emitted % 3 == 0))) {
+            if (settlement.tier().ordinal() >= Settlement.Tier.CITY.ordinal() && (i % 5 == 0 || (pressure && i % 3 == 0))) {
                 w = 13; d = 11;
-            } else if (settlement.tier().ordinal() >= Settlement.Tier.TOWN.ordinal() && (emitted % 6 == 0 || (pressure && emitted % 4 == 0))) {
+            } else if (settlement.tier().ordinal() >= Settlement.Tier.TOWN.ordinal() && (i % 6 == 0 || (pressure && i % 4 == 0))) {
                 w = 11; d = 9;
-            } else if (settlement.tier() == Settlement.Tier.METROPOLIS && emitted % 2 == 0) {
+            } else if (settlement.tier() == Settlement.Tier.METROPOLIS && i % 2 == 0) {
                 w = 13; d = 11;
             } else {
                 w = switch (variant) { case 0 -> 9; case 1, 4 -> 11; default -> 9; };
                 d = switch (variant) { case 2 -> 11; case 5 -> 9; default -> 9; };
             }
-            w = Math.max(w, Math.max(parcel.width(), culture.minHouseWidth()));
-            d = Math.max(d, Math.max(parcel.depth(), culture.minHouseDepth()));
-            // Door faces parcel frontage — not abstract spiral houseFacing().
+            w = Math.max(w, culture.minHouseWidth());
+            d = Math.max(d, culture.minHouseDepth());
+            SettlementParcelPlanner.ParcelPlan parcel = null;
+            int parcelIndex = -1;
+            for (int pi = 0; pi < remaining.size(); pi++) {
+                SettlementParcelPlanner.ParcelPlan candidate = remaining.get(pi);
+                if (candidate.width() >= w && candidate.depth() >= d) {
+                    parcel = candidate;
+                    parcelIndex = pi;
+                    break;
+                }
+            }
+            if (parcel == null) {
+                // No parcel fits this archetype — defer rather than place off-street.
+                continue;
+            }
+            remaining.remove(parcelIndex);
             int face = parcel.orientationQuarterTurns();
             addAt(out, faction, settlement, StructureRole.HOUSE, emitted, parcel.center(), w, d, face, 88);
             emitted++;
         }
-        // Fallback: fill remaining house demand when the street graph cannot supply enough parcels.
+        // Road-first invariant: never spiral-place houses off the street graph.
+        // Remaining demand is deferred until parcels/lanes can be extended.
         if (emitted < houses) {
-            addHousingSpiralFallback(out, faction, settlement, morph, baseRotation, culture, houses, emitted);
+            extendSideStreetsForHousing(out, faction, settlement, streetGraph, baseRotation, houses - emitted);
         }
     }
 
-    private static void addHousingSpiralFallback(List<ConstructionIntent> out, Faction faction, Settlement settlement,
-                                                 SettlementMorphology morph, int baseRotation, CultureArchitecture culture,
-                                                 int houses, int alreadyEmitted) {
-        int spacing = spacing(morph);
-        int lotStep = morph == SettlementMorphology.HILL_TOWN ? 12 : morph == SettlementMorphology.ORGANIC_MEDIEVAL ? 13 : 14;
-        int emitted = alreadyEmitted, scan = 0, limit = houses * 22 + 400;
-        while (emitted < houses && scan < limit) {
-            int[] cell = spiral(scan++);
-            int lx = cell[0] * lotStep + (morph == SettlementMorphology.ORGANIC_MEDIEVAL ? organicShift(settlement, scan) / 2 : 0);
-            int lz = cell[1] * lotStep + (morph == SettlementMorphology.ORGANIC_MEDIEVAL ? organicShift(settlement, scan + 3) / 2 : 0);
-            if (Math.abs(lx) < 12 && Math.abs(lz) < 12) continue;
-            if (morph == SettlementMorphology.COASTAL_PORT && lz < -spacing) continue;
-            if (morph == SettlementMorphology.LINEAR_VALLEY || morph == SettlementMorphology.RIVER_TOWN) {
-                if (Math.abs(lz) > spacing + 24) continue;
-            }
-            if (morph == SettlementMorphology.INDUSTRIAL_EDGE && lx > spacing && Math.abs(lz) < spacing / 2) continue;
-            int streetStep = settlement.tier().ordinal() >= Settlement.Tier.VILLAGE.ordinal() ? Math.max(18, spacing / 2) : spacing;
-            if (distanceToStreet(lx, streetStep) < 5 || distanceToStreet(lz, streetStep) < 5) continue;
-            int maxRadius = switch (settlement.tier()) {
-                case CAMP -> 40; case HAMLET -> 64; case VILLAGE -> 96; case TOWN -> 148; case CITY -> 220; case METROPOLIS -> 320;
-            };
-            if (Math.abs(lx) > maxRadius || Math.abs(lz) > maxRadius) continue;
-            SimPosition center = local(settlement, baseRotation, lx, lz);
-            int w = Math.max(9, culture.minHouseWidth());
-            int d = Math.max(9, culture.minHouseDepth());
-            // Even fallback faces the nearest abstract street axis toward the keep grid.
-            int face = houseFacing(lx, lz, spacing, baseRotation);
-            addAt(out, faction, settlement, StructureRole.HOUSE, emitted, center, w, d, face, 88);
-            emitted++;
+    /**
+     * When parcels are insufficient, extend short side lanes from existing streets and reserve
+     * additional frontage parcels. Does not place free-floating houses.
+     */
+    private static void extendSideStreetsForHousing(List<ConstructionIntent> out, Faction faction, Settlement settlement,
+                                                   SettlementStreetGraph streetGraph, int baseRotation, int deficit) {
+        if (deficit <= 0 || streetGraph == null || streetGraph.segmentByKey().isEmpty()) return;
+        int startIndex = (int) out.stream().filter(i -> i.role() == StructureRole.ROAD).count();
+        int added = 0;
+        int lane = 0;
+        for (SettlementStreetGraph.RoadSegment segment : streetGraph.segmentByKey().values()) {
+            if (added >= deficit) break;
+            if (segment.length() < 9) continue;
+            double midX = (segment.start().x() + segment.end().x()) * 0.5;
+            double midZ = (segment.start().z() + segment.end().z()) * 0.5;
+            double dx = segment.end().x() - segment.start().x();
+            double dz = segment.end().z() - segment.start().z();
+            double len = Math.hypot(dx, dz);
+            if (len < 1) continue;
+            double nx = -dz / len;
+            double nz = dx / len;
+            int side = (lane & 1) == 0 ? 1 : -1;
+            SimPosition center = new SimPosition(midX + nx * 14 * side, midZ + nz * 14 * side);
+            addRoad(out, faction, settlement, startIndex + lane, center, 5, 17, baseRotation + ((lane & 1) == 0 ? 0 : 1), 90, 1);
+            int face = Math.floorMod(baseRotation + (side > 0 ? 0 : 2), 4);
+            SimPosition house = new SimPosition(midX + nx * 8 * side, midZ + nz * 8 * side);
+            addAt(out, faction, settlement, StructureRole.HOUSE, 900 + lane, house, 9, 9, face, 86);
+            added++;
+            lane++;
+            if (lane >= Math.min(deficit, 8)) break;
         }
     }
 
@@ -431,6 +462,7 @@ public final class SettlementPlanner {
     private static SimPosition civicPoint(Settlement settlement, SettlementMorphology morph, StructureRole role, int baseRotation) {
         double[] p = switch (role) {
             case KEEP -> new double[]{-18, -18};
+            case TOWN_HALL -> new double[]{0, -12};
             case MARKET -> new double[]{18, 18};
             case PLAZA -> new double[]{8, 8};
             case WAREHOUSE -> new double[]{-30, 28};

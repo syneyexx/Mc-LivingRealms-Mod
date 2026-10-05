@@ -70,4 +70,7 @@ dev.livingrealms.PlayerStructureRegistrationTest
 dev.livingrealms.PlayerSettlementGrowthTest
 dev.livingrealms.WildlifeVisualFamilyTest
 dev.livingrealms.CivicChoreographyTest
+dev.livingrealms.PlayerActorIdentityTest
+dev.livingrealms.HousingDemolitionRegressionTest
+dev.livingrealms.PlayerFoundedTownHallTest
 dev.livingrealms.LongRunSoakTest

@@ -83,8 +83,8 @@ public final class SettlementParcelPlanner {
         if (houseCount <= 0 || graph.isEmpty()) return List.of();
 
         CultureArchitecture culture = CultureArchitectureProfile.derive(faction, settlement).architecture();
-        int lotW = Math.max(9, culture.minHouseWidth());
-        int lotD = Math.max(9, culture.minHouseDepth());
+        int baseW = Math.max(9, culture.minHouseWidth());
+        int baseD = Math.max(9, culture.minHouseDepth());
         int accessStrip = 2;
         List<ParcelPlan> out = new ArrayList<>();
         List<SettlementStreetGraph.RoadSegment> roads = new ArrayList<>(graph.segments());
@@ -97,9 +97,24 @@ public final class SettlementParcelPlanner {
             if (segment.length() < 18) continue;
             boolean alongX = segment.axisAlignedAlongX();
             double len = segment.length();
-            int slots = Math.max(1, (int) (len / (lotW + 4)));
+            // Mixed lot sizes: cottages, townhouses, apartments — sized BEFORE reservation.
+            int slots = Math.max(1, (int) (len / (baseW + 4)));
             for (int side = 0; side < 2 && emitted < houseCount; side++) {
                 for (int i = 0; i < slots && emitted < houseCount; i++) {
+                    int lotW = baseW;
+                    int lotD = baseD;
+                    if (settlement.tier().ordinal() >= Settlement.Tier.CITY.ordinal()
+                            && (emitted % 5 == 0 || (emitted % 3 == 0 && settlement.population() > settlement.housing()))) {
+                        lotW = Math.max(lotW, 13);
+                        lotD = Math.max(lotD, 11);
+                    } else if (settlement.tier().ordinal() >= Settlement.Tier.TOWN.ordinal() && emitted % 6 == 0) {
+                        lotW = Math.max(lotW, 11);
+                        lotD = Math.max(lotD, 9);
+                    } else if (emitted % 7 == 1 || emitted % 7 == 4) {
+                        lotW = Math.max(lotW, 11);
+                    } else if (emitted % 7 == 2) {
+                        lotD = Math.max(lotD, 11);
+                    }
                     double t = (i + 0.5) / slots;
                     SimPosition onRoad = segment.start().lerp(segment.end(), t);
                     int setback = segment.width() / 2 + accessStrip + lotD / 2;
@@ -130,7 +145,7 @@ public final class SettlementParcelPlanner {
                             accessStrip
                     );
                     if (!parcel.footprintClearsRoad(segment)) continue;
-                    // Avoid overlapping earlier parcels.
+                    // Avoid overlapping earlier parcels — collision uses final footprint.
                     if (overlapsExisting(out, parcel)) continue;
                     out.add(parcel);
                     emitted++;
@@ -138,6 +153,15 @@ public final class SettlementParcelPlanner {
             }
         }
         return List.copyOf(out);
+    }
+
+    /** Find first unused parcel that fits the final building footprint W×D. */
+    public static ParcelPlan findFitting(List<ParcelPlan> parcels, int width, int depth) {
+        if (parcels == null) return null;
+        for (ParcelPlan parcel : parcels) {
+            if (parcel.width() >= width && parcel.depth() >= depth) return parcel;
+        }
+        return null;
     }
 
     /** Quarter-turns so blueprint local -Z (door) points from house center toward the road point. */

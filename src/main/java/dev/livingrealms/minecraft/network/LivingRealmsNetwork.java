@@ -64,7 +64,7 @@ public final class LivingRealmsNetwork {
             }
             if(command.action()==DashboardActionCommand.Action.REGISTER_BUILDING){
                 var survey=dev.livingrealms.minecraft.construction.PlayerStructureSurvey.surveyAndRegister(
-                        level,player,data.state(),command.targetId(),command.argument());
+                        level,player,actor,data.state(),command.targetId(),command.argument());
                 if(!survey.success()){player.sendSystemMessage(Component.literal(survey.message()));return;}
                 data.setDirty();
                 player.sendSystemMessage(Component.literal(survey.message()));
