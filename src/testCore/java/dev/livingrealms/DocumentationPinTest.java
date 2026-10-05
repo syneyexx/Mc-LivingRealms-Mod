@@ -32,28 +32,43 @@ public final class DocumentationPinTest {
         int protocol = readIntConst("src/main/java/dev/livingrealms/sim/ui/RealmDashboardSnapshot.java", "PROTOCOL_VERSION");
         String network = readStringConst("src/main/java/dev/livingrealms/minecraft/network/LivingRealmsNetwork.java", "NETWORK_VERSION");
         int contentRevision = readIntConst("src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java", "CONTENT_REVISION");
-        int surface = readIntConst("src/main/java/dev/livingrealms/sim/world/SettlementDensitySeeder.java", "SURFACE_STARTER_SETTLEMENTS");
-        int targetPerRealm = readIntConst("src/main/java/dev/livingrealms/sim/world/SettlementDensitySeeder.java", "TARGET_SETTLEMENTS_PER_REALM");
-        int spacing = (int) Double.parseDouble(readNumberConst(
-                "src/main/java/dev/livingrealms/sim/world/SettlementDensitySeeder.java", "MIN_SETTLEMENT_SPACING"));
+        int authoredSatellites = readIntConst(
+                "src/main/java/dev/livingrealms/sim/world/SettlementDensitySeeder.java", "AUTHORED_SATELLITES_PER_REALM");
+        int minRuralHamlets = readIntConst(
+                "src/main/java/dev/livingrealms/sim/world/SettlementDensitySeeder.java", "MIN_RURAL_HAMLETS_PER_REALM");
+        int maxRuralHamlets = readIntConst(
+                "src/main/java/dev/livingrealms/sim/world/SettlementDensitySeeder.java", "MAX_RURAL_HAMLETS_PER_REALM");
+        int minPerRealm = 1 + authoredSatellites + minRuralHamlets;
+        int maxPerRealm = 1 + authoredSatellites + maxRuralHamlets;
+        int minSurface = 12 * minPerRealm;
+        int maxSurface = 12 * maxPerRealm;
+        double[] capitalSpacing = readRangeConst(
+                "src/main/java/dev/livingrealms/sim/world/SettlementSpacingPolicy.java", "CAPITAL_TO_CAPITAL");
 
-        check(schema == 20, "expected SCHEMA_VERSION 20, got " + schema);
+        check(schema == 21, "expected SCHEMA_VERSION 21, got " + schema);
         check(minSchema == 1, "expected MIN_SUPPORTED_SCHEMA 1, got " + minSchema);
         check(protocol == 20, "expected PROTOCOL_VERSION 20, got " + protocol);
         check("16".equals(network), "expected NETWORK_VERSION 16, got " + network);
         check(contentRevision == 15, "expected CONTENT_REVISION 15, got " + contentRevision);
-        check(targetPerRealm == 3, "expected TARGET_SETTLEMENTS_PER_REALM 3, got " + targetPerRealm);
-        check(surface == 36, "expected SURFACE_STARTER_SETTLEMENTS 36, got " + surface);
-        check(spacing == 2000, "expected MIN_SETTLEMENT_SPACING 2000, got " + spacing);
+        check(authoredSatellites == 10, "expected 10 authored satellites/realm, got " + authoredSatellites);
+        check(minRuralHamlets == 6 && maxRuralHamlets == 14,
+                "expected 6-14 rural hamlets/realm, got " + minRuralHamlets + "-" + maxRuralHamlets);
+        check(minPerRealm == 17 && maxPerRealm == 25,
+                "expected 17-25 starter settlements/realm, got " + minPerRealm + "-" + maxPerRealm);
+        check(minSurface == 204 && maxSurface == 300,
+                "expected 204-300 surface starter settlements, got " + minSurface + "-" + maxSurface);
+        check(capitalSpacing[0] == 3000 && capitalSpacing[1] == 4500,
+                "expected capital spacing 3000-4500, got " + capitalSpacing[0] + "-" + capitalSpacing[1]);
 
         String pinNeedle = "CURRENT PINS: schema " + schema
                 + " / minSchema " + minSchema
                 + " / protocol " + protocol
                 + " / network " + network
                 + " / contentRevision " + contentRevision
-                + " / surfaceSettlements " + surface
-                + " / perRealm " + targetPerRealm
-                + " / spacing " + spacing;
+                + " / starterSettlements " + minSurface + "-" + maxSurface
+                + " / perRealm " + minPerRealm + "-" + maxPerRealm
+                + " / capitalSpacing " + (int) capitalSpacing[0] + "-" + (int) capitalSpacing[1]
+                + " / roleAwareSpacing";
 
         for (String doc : STATUS_DOCS) {
             Path path = Path.of(doc);
@@ -80,6 +95,9 @@ public final class DocumentationPinTest {
             forbid(current, doc, "~35% countryside", Pattern.compile("~35%\\s+countryside"));
             forbid(current, doc, "800-block spacing as current", Pattern.compile("(?i)800[- ]block"));
             forbid(current, doc, "156 surface as current", Pattern.compile("(?i)\\b156\\b.*settlement|surfaceSettlements 156|surface starter \\*\\*156\\*\\*"));
+            forbid(current, doc, "36 surface as current", Pattern.compile("(?i)(surfaceSettlements\\s+36|surface starter \\*\\*36\\*\\*|\\b36\\b.*surface.*settlement)"));
+            forbid(current, doc, "3 per realm as current", Pattern.compile("(?i)(perRealm\\s+3\\b|3\\s+(settlements\\s+)?per\\s+realm|12\\s*[×x]\\s*3)"));
+            forbid(current, doc, "global 2000 spacing as current", Pattern.compile("(?i)(/ spacing 2000|minimum settlement clearance is \\*\\*2000|spacing \\*\\*2000\\*\\*)"));
             forbid(current, doc, "EXTERNAL GATE as current status", Pattern.compile("(?i)EXTERNAL\\s+GATE"));
             forbid(current, doc, "PARTIAL as current matrix claim without truth", Pattern.compile("(?i)\\bPARTIAL\\b"));
             forbid(current, doc, "COMPLETE (core)", Pattern.compile("COMPLETE \\(core\\)"));
@@ -109,6 +127,15 @@ public final class DocumentationPinTest {
         Matcher m = Pattern.compile("\\b" + Pattern.quote(name) + "\\s*=\\s*([0-9]+(?:\\.[0-9]+)?)").matcher(text);
         check(m.find(), "missing " + name + " in " + file);
         return m.group(1);
+    }
+
+    private static double[] readRangeConst(String file, String name) throws Exception {
+        String text = Files.readString(Path.of(file));
+        Matcher m = Pattern.compile("\\b" + Pattern.quote(name)
+                + "\\s*=\\s*new\\s+Range\\(\\s*([0-9]+(?:\\.[0-9]+)?)\\s*,\\s*([0-9]+(?:\\.[0-9]+)?)\\s*\\)")
+                .matcher(text);
+        check(m.find(), "missing range " + name + " in " + file);
+        return new double[]{Double.parseDouble(m.group(1)), Double.parseDouble(m.group(2))};
     }
 
     private static String readStringConst(String file, String name) throws Exception {
