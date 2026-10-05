@@ -12,7 +12,7 @@ CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 | NeoForge | 21.1.219 |
 | Java | 21 |
 | Create | 6.0.10 |
-| Save schema | **19** (1–18 readable; provenance/anchors + outlying sites + player structures) |
+| Save schema | **20** (1–19 readable; underworld contracts + stolen-goods ledger) |
 | Dashboard protocol | **20** |
 | Network | **16** |
 | ContentRevision | **15** |
@@ -26,7 +26,7 @@ CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 - Named roster seeding via SocialPopulationEngine; aggregate population for scale.
 
 ## Status
-All A–R release-ready subsystems tracked in `COMPLETION_MATRIX.md` are COMPLETE against the pins above when core suite, release-audit, and linked build are green.
+Subsystem completeness in `COMPLETION_MATRIX.md` tracks feature wiring. Overall release claim must follow `docs/RELEASE_GATES.md` vocabulary (`core-green` … `release-ready`) with matching evidence — not core suite alone.
 
 ## Geschiedenis
 - Earlier ledger rows used schema 16–17, ContentRevision 10–11, 32/realm density, 2000-block spacing, and COMPLETE (core) / EXTERNAL GATE labels. Obsolete for current pins.

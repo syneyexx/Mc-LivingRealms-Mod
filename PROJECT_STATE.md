@@ -19,7 +19,8 @@ CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 - Mandatory gates include density, goods chain, migration order, settlement transfer, war goals, dialogue tokens, roster-without-projection, siege breach, and documentation pins.
 
 ## Explicit status claim
-**RELEASE-READY** — pins above are authoritative; historical notes live under Geschiedenis.
+**core-green candidate** when `./scripts/test-core.sh` + `release-audit.py` pass for these pins.
+Claim `linked-build-green` / `gametest-green` / `runtime-smoke-green` / `release-ready` only with matching evidence (see `docs/RELEASE_GATES.md`). Do not treat headless core alone as release-ready.
 
 ## Geschiedenis
 - Earlier waves used schema 16–18, ContentRevision 10–14, denser layouts (including a brief 156/800 regression), and older protocol pins. Those values are obsolete for current status except as migrated LEGACY settlements.

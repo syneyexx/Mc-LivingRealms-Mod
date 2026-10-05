@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Living Realms NeoForge GameTest runner.
-# Compiles the mod and launches gameTestServer; non-zero exit fails the suite.
+# Run NeoForge GameTestServer via a pinned Gradle bootstrap (same pattern as CI linked-build).
+# Exit code is non-zero when any required GameTest fails (or when the server crashes).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -16,9 +16,20 @@ if [ ! -x "$HOME_DIR/bin/gradle" ]; then
   echo "$EXPECTED_SHA256  $ZIP" | sha256sum -c -
   unzip -qo "$ZIP" -d "$CACHE"
 fi
-G="$HOME_DIR/bin/gradle"
 
-echo "== Living Realms GameTests (NeoForge gameTestServer) =="
-# --no-build-cache keeps the run honest for release gates.
-"$G" --no-daemon --no-build-cache runGameTestServer
-echo "PASS scripts/run-gametests.sh"
+echo "==> Compiling mod (classes needed by GameTestServer)"
+"$HOME_DIR/bin/gradle" --no-daemon --no-build-cache classes
+
+echo "==> Launching NeoForge GameTestServer (runGameTestServer)"
+# ModDevGradle's RunGameTask extends JavaExec: Minecraft GameTestServer exit code is the
+# number of required failed tests. Propagate that as this script's exit status.
+set +e
+"$HOME_DIR/bin/gradle" --no-daemon --no-build-cache runGameTestServer
+STATUS=$?
+set -e
+
+if [ "$STATUS" -ne 0 ]; then
+  echo "FAIL GameTests: gradle runGameTestServer exited $STATUS" >&2
+  exit "$STATUS"
+fi
+echo "PASS GameTests: runGameTestServer completed with exit 0"
