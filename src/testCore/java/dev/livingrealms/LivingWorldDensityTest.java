@@ -12,10 +12,12 @@ import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
+import dev.livingrealms.sim.faction.SettlementRole;
 import dev.livingrealms.sim.util.DeterministicRng;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SettlementDensitySeeder;
 import dev.livingrealms.sim.world.SettlementExpansionEngine;
+import dev.livingrealms.sim.world.SettlementSpacingPolicy;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 import java.util.HashSet;
@@ -37,9 +39,8 @@ public final class LivingWorldDensityTest {
         frontierExplorationDoesNotSeedSettlements();
         System.out.println("PASS living-world density: 12 kingdoms + Wizard Trees / "
                 + SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS
-                + " surface settlements (capital+1 Spec+rural) + "
-                + (int) SettlementDensitySeeder.MIN_SETTLEMENT_SPACING
-                + "-block spacing + causal expansion (no exploration spawn) + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
+                + " surface settlements (phase-1 starter topology) + role-aware spacing"
+                + " + causal expansion (no exploration spawn) + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
     }
 
     private static void denseStarterWorldIsHierarchicalAndIdempotent() {
@@ -79,20 +80,22 @@ public final class LivingWorldDensityTest {
     private static void settlementsRespectAuthoredSpacing() {
         SimulationState state = new SimulationState(0x2000L);
         DemoSeeder.seed(state);
-        double clearance = PlayerSettlementFounder.MIN_SETTLEMENT_SPACING;
         List<Settlement> all = state.factions().stream().flatMap(f -> f.settlements().stream()).toList();
         for (int i = 0; i < all.size(); i++) for (int j = i + 1; j < all.size(); j++) {
-            double dist = all.get(i).position().distanceTo(all.get(j).position());
-            check(dist >= clearance - 1.0,
-                    "settlements closer than " + (int) clearance + "m: "
-                            + all.get(i).name() + " ↔ " + all.get(j).name() + " = " + Math.round(dist));
+            Settlement a = all.get(i), b = all.get(j);
+            double dist = a.position().distanceTo(b.position());
+            double floor = SettlementSpacingPolicy.minimumDistance(a, b);
+            check(dist >= floor - 1.0,
+                    "settlement role floor violated: " + a.name() + "(" + a.role() + ") ↔ "
+                            + b.name() + "(" + b.role() + ") = " + Math.round(dist)
+                            + " < " + Math.round(floor));
         }
-        var blocked = PlayerSettlementFounder.found(state, "player:near", "Near", "Tooclose",
-                state.factions().getFirst().settlements().getFirst().position());
+        Settlement capital = state.factions().getFirst().settlements().stream()
+                .filter(s -> s.role() == SettlementRole.CAPITAL).findFirst().orElseThrow();
+        var blocked = PlayerSettlementFounder.found(state, "player:near", "Near", "Tooclose", capital.position());
         check(!blocked.success(), "founding on top of a capital must fail");
-        String expected = String.valueOf((int) Math.round(clearance));
-        check(blocked.reason().contains(expected) || blocked.reason().contains("too close"),
-                "founding error should mention clearance: " + blocked.reason());
+        check(blocked.reason().contains("2500") || blocked.reason().contains("blocks"),
+                "founding error should mention role-aware clearance: " + blocked.reason());
     }
 
     private static void frontierExplorationDoesNotSeedSettlements() {
@@ -124,9 +127,10 @@ public final class LivingWorldDensityTest {
         List<Settlement> all = state.factions().stream().flatMap(f -> f.settlements().stream()).toList();
         for (int i = 0; i < all.size(); i++) {
             for (int j = i + 1; j < all.size(); j++) {
-                check(all.get(i).position().distanceTo(all.get(j).position())
-                                >= SettlementExpansionEngine.MIN_SETTLEMENT_SPACING - 1.0,
-                        "causal colony violated 2000m spacing");
+                Settlement a = all.get(i), b = all.get(j);
+                check(a.position().distanceTo(b.position())
+                                >= SettlementSpacingPolicy.minimumDistance(a, b) - 1.0,
+                        "causal colony violated role-aware spacing: " + a.name() + " ↔ " + b.name());
             }
         }
         check(host.settlements().stream().anyMatch(s -> s.origin() == SettlementOrigin.CAUSAL_EXPANSION
