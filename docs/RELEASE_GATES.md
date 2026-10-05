@@ -1,6 +1,6 @@
 # Living Realms v3.0 release gates
 
-CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 Release states (precise):
 - **core-green**: `./scripts/test-core.sh` + `python3 ./scripts/release-audit.py` pass on this pin set.
@@ -16,7 +16,7 @@ Feature maturity (FOUNDATION→POLISHED) is tracked separately in `COMPLETION_MA
 python3 ./scripts/release-audit.py
 ```
 
-Must compile with `--release 21 -Xlint:all -Werror` and pass density, goods chain, migration order, settlement transfer, war goals, dialogue tokens, roster, soak (3650), save migration 1→20, fuzz, documentation pins, and deterministic refactor proof.
+Must compile with `--release 21 -Xlint:all -Werror` and pass density, goods chain, migration order, settlement transfer, war goals, dialogue tokens, roster, soak (3650), save migration 1→21, fuzz, documentation pins, and deterministic refactor proof.
 
 ## Full linked build
 `build-production.sh` / `build-production.ps1`: headless gates + audit + Gradle `clean --no-build-cache build` + `write-release-manifest.py` for exact HEAD.
