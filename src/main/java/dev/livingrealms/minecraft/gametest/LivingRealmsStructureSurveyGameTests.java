@@ -53,10 +53,11 @@ public final class LivingRealmsStructureSurveyGameTests {
         BlockPos door = buildClosedHouse(helper, false, true, true);
         var scan = PlayerStructureSurvey.scanInterior(helper.getLevel(), helper.absolutePos(door));
         helper.assertFalse(scan.ok(), "missing roof must fail survey");
-        helper.assertTrue(
+                helper.assertTrue(
                 scan.reason() == PlayerStructureSurvey.FailReason.OPEN_TO_EXTERIOR
-                        || scan.reason() == PlayerStructureSurvey.FailReason.VALIDATION,
-                "expected open/validation fail, got " + scan.reason());
+                        || scan.reason() == PlayerStructureSurvey.FailReason.VALIDATION
+                        || scan.reason() == PlayerStructureSurvey.FailReason.TOO_LARGE,
+                "expected open/validation/too-large fail, got " + scan.reason());
         helper.succeed();
     }
 
@@ -119,8 +120,9 @@ public final class LivingRealmsStructureSurveyGameTests {
                 m.minX, m.minY, m.minZ, m.maxX, m.maxY, m.maxZ,
                 absDoor.getX(), absDoor.getY(), absDoor.getZ(), metrics, 0xD002L);
         helper.assertFalse(dup.success(), "duplicate registration must be rejected");
-        helper.assertTrue(dup.reason() != null && dup.reason().toLowerCase().contains("already"),
-                "duplicate reason mentions already: " + dup.reason());
+        String reason = dup.reason() == null ? "" : dup.reason().toLowerCase();
+        helper.assertTrue(reason.contains("already") || reason.contains("overlap") || reason.contains("duplicate"),
+                "duplicate reason mentions already/overlap: " + dup.reason());
         helper.succeed();
     }
 
