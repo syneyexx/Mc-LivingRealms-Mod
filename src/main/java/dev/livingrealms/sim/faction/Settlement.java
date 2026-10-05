@@ -17,6 +17,7 @@ public final class Settlement {
     private int housing;
     private double infrastructure;
     private Tier tier;
+    private SettlementRole role;
     private final Set<String> completedConstruction=new LinkedHashSet<>();
     private final Map<String,ConstructionOrigin> constructionOrigins=new LinkedHashMap<>();
     private double prosperity=.5;
@@ -41,11 +42,17 @@ public final class Settlement {
     private long lastGrainBookDay = Long.MIN_VALUE;
 
     public Settlement(long id,String name,SimPosition pos,int pop,int housing){
-        this(id,name,pos,pop,housing,SettlementOrigin.AUTHORED_SEED,false,DevelopmentMode.AUTO);
+        this(id,name,pos,pop,housing,SettlementOrigin.AUTHORED_SEED,false,DevelopmentMode.AUTO,null);
     }
 
     public Settlement(long id,String name,SimPosition pos,int pop,int housing,
                       SettlementOrigin origin,boolean physicallyAnchored,DevelopmentMode developmentMode){
+        this(id,name,pos,pop,housing,origin,physicallyAnchored,developmentMode,null);
+    }
+
+    public Settlement(long id,String name,SimPosition pos,int pop,int housing,
+                      SettlementOrigin origin,boolean physicallyAnchored,DevelopmentMode developmentMode,
+                      SettlementRole role){
         if(id<=0)throw new IllegalArgumentException("id");
         if(name==null||name.isBlank())throw new IllegalArgumentException("name");
         if(pos==null)throw new IllegalArgumentException("position");
@@ -54,13 +61,17 @@ public final class Settlement {
         this.physicallyAnchored=physicallyAnchored||alwaysAnchored(origin);
         this.developmentMode=java.util.Objects.requireNonNull(developmentMode,"developmentMode");
         this.geography=SettlementGeographyProfile.fromNameHeuristic(name);
-        recalc();refreshStorageCapacity();seedStarterStores();
+        recalc();
+        this.role=role==null?SettlementRole.fromTier(this.tier):java.util.Objects.requireNonNull(role,"role");
+        refreshStorageCapacity();seedStarterStores();
     }
-    public long id(){return id;} public String name(){return name;} public SimPosition position(){return position;} public int population(){return population;} public int housing(){return housing;} public double infrastructure(){return infrastructure;} public Tier tier(){return tier;}
+    public long id(){return id;} public String name(){return name;} public SimPosition position(){return position;} public int population(){return population;} public int housing(){return housing;} public double infrastructure(){return infrastructure;} public Tier tier(){return tier;} public SettlementRole role(){return role;}
     public SettlementOrigin origin(){return origin;}
     public boolean physicallyAnchored(){return physicallyAnchored;}
     public DevelopmentMode developmentMode(){return developmentMode;}
     public void setDevelopmentMode(DevelopmentMode mode){developmentMode=java.util.Objects.requireNonNull(mode,"mode");}
+    /** Codec/migration hook. Role is stable and intentionally independent from population tier. */
+    public void restoreRole(SettlementRole value){role=java.util.Objects.requireNonNull(value,"role");}
     public void setOrigin(SettlementOrigin value){
         origin=java.util.Objects.requireNonNull(value,"origin");
         if(alwaysAnchored(origin))physicallyAnchored=true;
