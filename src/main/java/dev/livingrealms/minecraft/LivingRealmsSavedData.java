@@ -39,7 +39,7 @@ public final class LivingRealmsSavedData extends SavedData {
      * Revision 14: migration order fix (morphology reset before densifier), no seeder completion
      * keys, all 10 Specs per realm, goods-chain ContentRevision alignment with schema 18.
      */
-    private static final int CONTENT_REVISION = 14;
+    private static final int CONTENT_REVISION = 15;
 
     private final SimulationState state;
     /** settlementId -> packed BlockPos of Living Realms-authored Waystone only. */
@@ -108,7 +108,7 @@ public final class LivingRealmsSavedData extends SavedData {
                 ? SettlementDensitySeeder.ensureStarterDensity(loaded.state()) : 0;
         int wizardChanges = ContentMigrationPolicy.shouldEnsureWizardTrees(contentRevision)
                 ? WizardTreesSeeder.ensure(loaded.state()) : 0;
-        densityChanges += SettlementDensitySeeder.enforceSpacing(loaded.state());
+        densityChanges += 0; // spacing is planned at creation; anchored settlements are never relocated
         // Revision 8 introduced authored-block provenance. Revision 9 adds typed ownership.
         // Revision 10 morphology rebuild is gated above. Revision 11–13 are presentation/spacing.
         // Revision 14 is densifier Spec completeness + seeder completion-key ban.

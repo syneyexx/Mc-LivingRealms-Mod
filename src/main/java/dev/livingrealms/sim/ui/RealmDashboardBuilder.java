@@ -1,5 +1,6 @@
 package dev.livingrealms.sim.ui;
 
+import dev.livingrealms.sim.construction.HousingCapacity;
 import dev.livingrealms.sim.faction.*;
 import dev.livingrealms.sim.civilization.AssistanceTask;
 import dev.livingrealms.sim.civilization.*;
@@ -85,7 +86,7 @@ public final class RealmDashboardBuilder {
         List<RealmDashboardSnapshot.SettlementView> settlements=realm==null?List.of():realm.settlements().stream()
                 .sorted(Comparator.comparingDouble(s->s.position().distanceTo(position)))
                 .limit(MAX_SETTLEMENTS)
-                .map(s->{var assessment=SocietyDiagnostics.assess(realm,s);var needs=assessment.needs();String cause=WorldCauseExplainer.compact(WorldCauseExplainer.settlementPressureCause(state,realm,s));return new RealmDashboardSnapshot.SettlementView(s.id(),s.name(),s.tier().name(),s.developmentPriority().name(),s.population(),s.housing(),s.prosperity(),s.unrest(),s.foodSecurity(),s.publicOrder(),s.employment(),needs.housing(),needs.goods(),assessment.satisfaction(),assessment.primaryPressure().name(),assessment.pressureSeverity(),cause,s.position().distanceTo(position));})
+                .map(s->{var assessment=SocietyDiagnostics.assess(realm,s);var needs=assessment.needs();String cause=WorldCauseExplainer.compact(WorldCauseExplainer.settlementPressureCause(state,realm,s));int verified=HousingCapacity.calculate(s,state);int deficit=Math.max(0,s.population()-verified);int registered=(int)state.registeredPlayerStructures().stream().filter(r->r.valid()&&r.settlementId()==s.id()).count();return new RealmDashboardSnapshot.SettlementView(s.id(),s.name(),s.tier().name(),s.developmentPriority().name(),s.developmentMode().name(),s.origin().name(),s.population(),s.housing(),verified,deficit,registered,s.prosperity(),s.unrest(),s.foodSecurity(),s.publicOrder(),s.employment(),needs.housing(),needs.goods(),assessment.satisfaction(),assessment.primaryPressure().name(),assessment.pressureSeverity(),cause,s.position().distanceTo(position));})
                 .toList();
 
         List<RealmDashboardSnapshot.WarView> wars=state.wars().stream().filter(w->w.active()&&(realmId<=0||w.involves(realmId)))

@@ -44,6 +44,7 @@ public final class TradeShipment {
 
     public void advanceDistance(double blocks){if(blocks<0||!Double.isFinite(blocks))throw new IllegalArgumentException("blocks");double d=distance();progress=d<1e-9?1.0:Math.min(1.0,progress+blocks/d);}
     public void restoreProgress(double value){if(!Double.isFinite(value)||value<0||value>1)throw new IllegalArgumentException("progress");progress=value;}
+    public void setEscortStrength(double value){if(!Double.isFinite(value)||value<0)throw new IllegalArgumentException("escortStrength");escortStrength=value;}
     public void transferSellerFaction(long factionId){if(factionId<=0)throw new IllegalArgumentException("seller faction");sellerFactionId=factionId;}
     public void transferBuyerFaction(long factionId){if(factionId<=0)throw new IllegalArgumentException("buyer faction");buyerFactionId=factionId;}
 

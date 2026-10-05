@@ -18,6 +18,8 @@ import dev.livingrealms.sim.naval.*;
 import dev.livingrealms.sim.player.*;
 import dev.livingrealms.sim.social.*;
 import dev.livingrealms.sim.transport.*;
+import dev.livingrealms.sim.construction.RegisteredPlayerStructure;
+import dev.livingrealms.sim.underworld.UnderworldProfile;
 import dev.livingrealms.sim.validation.SimulationValidator;
 import dev.livingrealms.sim.world.*;
 import java.io.*;
@@ -32,7 +34,7 @@ import java.util.zip.CRC32;
 public final class SimulationStateCodec {
     private static final int MAGIC = 0x4C52534D; // LRSM
     public static final int MIN_SUPPORTED_SCHEMA = 1;
-    public static final int SCHEMA_VERSION = 18;
+    public static final int SCHEMA_VERSION = 19;
     /** Hard ceiling for one canonical world-state payload. Prevents corrupt/local saves from driving unbounded decode work. */
     public static final int MAX_STATE_BYTES = 32 * 1024 * 1024;
     /** Individual canonical text fields are metadata, identifiers or bounded event text; 64 KiB is intentionally generous. */
@@ -64,7 +66,7 @@ public final class SimulationStateCodec {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(bytes))) {
                 out.writeInt(MAGIC);out.writeInt(SCHEMA_VERSION);out.writeLong(state.seed());out.writeLong(state.clock().gameTicks());out.writeLong(state.peekNextId());
-                writeRegions(out,state);writeFactions(out,state);writeShipments(out,state);writeV4Strategic(out,state);writeV5Law(out,state);writeV6NavalAndPlayers(out,state);writeV7Industry(out,state);writeV9Config(out,state);writeV11Social(out,state);writeV12Civilization(out,state);writeV13Humanity(out,state);writeV14PirateHideouts(out,state);writeV15SiegeEquipment(out,state);writeV16SettlementEconomy(out,state);writeV17FinalProduct(out,state);writeV18GoodsAndOrigins(out,state);writeHistory(out,state);
+                writeRegions(out,state);writeFactions(out,state);writeShipments(out,state);writeV4Strategic(out,state);writeV5Law(out,state);writeV6NavalAndPlayers(out,state);writeV7Industry(out,state);writeV9Config(out,state);writeV11Social(out,state);writeV12Civilization(out,state);writeV13Humanity(out,state);writeV14PirateHideouts(out,state);writeV15SiegeEquipment(out,state);writeV16SettlementEconomy(out,state);writeV17FinalProduct(out,state);writeV18GoodsAndOrigins(out,state);writeV19ProvenanceAndSites(out,state);writeHistory(out,state);
             }
             byte[] payload=bytes.toByteArray();
             if(payload.length>MAX_STATE_BYTES)throw new IllegalStateException("Living Realms state exceeds hard size limit: "+payload.length);
@@ -261,7 +263,7 @@ public final class SimulationStateCodec {
             long seed=in.readLong();long ticks=in.readLong();long nextId=in.readLong();
             if(ticks<0)throw new IOException("Negative simulation clock: "+ticks);if(nextId<1)throw new IOException("Invalid nextId: "+nextId);
             SimulationState state=new SimulationState(seed,speciesCatalog);state.clock().restore(ticks);state.restoreNextId(nextId);
-            readRegions(in,state,version);readFactions(in,state,version);if(version>=3)readShipments(in,state,version);if(version>=4)readV4Strategic(in,state);if(version>=5)readV5Law(in,state);if(version>=6)readV6NavalAndPlayers(in,state);if(version>=7)readV7Industry(in,state);if(version>=9)readV9Config(in,state);if(version>=11)readV11Social(in,state);if(version>=12)readV12Civilization(in,state);if(version>=13)readV13Humanity(in,state,version);if(version>=14)readV14PirateHideouts(in,state);if(version>=15)readV15SiegeEquipment(in,state);if(version>=16)readV16SettlementEconomy(in,state,version);else migratePreV16SettlementEconomy(state);if(version>=17)readV17FinalProduct(in,state);else migratePreV17FinalProduct(state);if(version>=18)readV18GoodsAndOrigins(in,state);else migratePreV18Goods(state);readHistory(in,state);if(in.read()!=-1)throw new IOException("Trailing bytes after Living Realms state");
+            readRegions(in,state,version);readFactions(in,state,version);if(version>=3)readShipments(in,state,version);if(version>=4)readV4Strategic(in,state);if(version>=5)readV5Law(in,state);if(version>=6)readV6NavalAndPlayers(in,state);if(version>=7)readV7Industry(in,state);if(version>=9)readV9Config(in,state);if(version>=11)readV11Social(in,state);if(version>=12)readV12Civilization(in,state);if(version>=13)readV13Humanity(in,state,version);if(version>=14)readV14PirateHideouts(in,state);if(version>=15)readV15SiegeEquipment(in,state);if(version>=16)readV16SettlementEconomy(in,state,version);else migratePreV16SettlementEconomy(state);if(version>=17)readV17FinalProduct(in,state);else migratePreV17FinalProduct(state);if(version>=18)readV18GoodsAndOrigins(in,state);else migratePreV18Goods(state);if(version>=19)readV19ProvenanceAndSites(in,state);else migratePreV19Provenance(state);readHistory(in,state);if(in.read()!=-1)throw new IOException("Trailing bytes after Living Realms state");
             state.repairNextIdWatermark();
             if(version==SCHEMA_VERSION){try{SimulationValidator.validate(state).throwIfInvalid();}catch(IllegalStateException invalid){throw new IOException("Current-schema Living Realms state failed semantic validation",invalid);}}
             return state;
@@ -489,6 +491,147 @@ public final class SimulationStateCodec {
         // Clear constructor seed for post-legacy goods before mapping FOOD so values are not doubled.
         zeroNewGoods(stockpile);
         ResourceType.migrateLegacyFood(stockpile);
+    }
+
+    private static void writeV19ProvenanceAndSites(DataOutputStream out,SimulationState state)throws IOException{
+        List<Settlement> settlements=new ArrayList<>();
+        for(Faction f:state.factions())settlements.addAll(f.settlements());
+        settlements.sort(Comparator.comparingLong(Settlement::id));
+        out.writeInt(settlements.size());
+        for(Settlement s:settlements){
+            out.writeLong(s.id());
+            out.writeInt(s.origin().ordinal());
+            out.writeBoolean(s.physicallyAnchored());
+            out.writeInt(s.developmentMode().ordinal());
+        }
+        List<OutlyingSite> sites=new ArrayList<>(state.outlyingSites());
+        sites.sort(Comparator.comparingLong(OutlyingSite::id));
+        out.writeInt(sites.size());
+        for(OutlyingSite site:sites){
+            out.writeLong(site.id());out.writeLong(site.settlementId());out.writeLong(site.factionId());
+            out.writeInt(site.type().ordinal());writePosition(out,site.position());writeString(out,site.name());
+            out.writeInt(site.representedPopulation());out.writeDouble(site.housingCredit());
+            out.writeBoolean(site.foreign());out.writeBoolean(site.active());
+        }
+        List<CitizenJourney> journeys=new ArrayList<>(state.citizenJourneys());
+        journeys.sort(Comparator.comparingLong(CitizenJourney::id));
+        out.writeInt(journeys.size());
+        for(CitizenJourney j:journeys){
+            out.writeLong(j.id());out.writeLong(j.citizenId());out.writeLong(j.factionId());
+            out.writeLong(j.originSettlementId());out.writeLong(j.targetSettlementId());out.writeLong(j.routeId());
+            out.writeInt(j.purpose().ordinal());out.writeLong(j.createdDay());out.writeDouble(j.progress());
+            out.writeInt(j.status().ordinal());writeString(out,j.payload());
+        }
+        List<RoadsideSite> roadside=new ArrayList<>(state.roadsideSites());
+        roadside.sort(Comparator.comparingLong(RoadsideSite::id));
+        out.writeInt(roadside.size());
+        for(RoadsideSite site:roadside){
+            out.writeLong(site.id());out.writeInt(site.type().ordinal());writePosition(out,site.position());
+            writeString(out,site.name());out.writeLong(site.relatedSettlementId());out.writeLong(site.relatedRouteId());
+            out.writeLong(site.createdDay());out.writeInt(site.lifecycle().ordinal());out.writeBoolean(site.active());
+        }
+        List<UnderworldProfile> underworld=new ArrayList<>(state.underworldProfiles().values());
+        underworld.sort(Comparator.comparing(UnderworldProfile::actorKey));
+        out.writeInt(underworld.size());
+        for(UnderworldProfile p:underworld){
+            writeString(out,p.actorKey());
+            out.writeInt(p.contractsCompleted());
+            out.writeDouble(p.streetCred());
+            out.writeDouble(p.briberySkill());
+            out.writeLong(p.lastContractDay());
+            out.writeLong(p.lastBribeDay());
+            out.writeBoolean(p.blackMarketAccess());
+        }
+        List<RegisteredPlayerStructure> playerStructures=new ArrayList<>(state.registeredPlayerStructures());
+        playerStructures.sort(Comparator.comparingLong(RegisteredPlayerStructure::id));
+        out.writeInt(playerStructures.size());
+        for(RegisteredPlayerStructure s:playerStructures){
+            out.writeLong(s.id());out.writeLong(s.settlementId());writeString(out,s.ownerActorKey());
+            out.writeInt(s.role().ordinal());
+            out.writeInt(s.minX());out.writeInt(s.minY());out.writeInt(s.minZ());
+            out.writeInt(s.maxX());out.writeInt(s.maxY());out.writeInt(s.maxZ());
+            out.writeInt(s.doorX());out.writeInt(s.doorY());out.writeInt(s.doorZ());
+            out.writeInt(s.capacity());out.writeLong(s.registrationDay());out.writeLong(s.fingerprint());
+            out.writeBoolean(s.valid());out.writeLong(s.lastValidatedDay());
+        }
+
+    }
+
+    private static void readV19ProvenanceAndSites(DataInputStream in,SimulationState state)throws IOException{
+        int n=checkedCount(in.readInt(),100000,"settlement provenance");
+        for(int i=0;i<n;i++){
+            long id=in.readLong();
+            SettlementOrigin origin=SettlementOrigin.values()[enumOrdinal(in.readInt(),SettlementOrigin.values().length,"settlement origin")];
+            boolean anchored=in.readBoolean();
+            DevelopmentMode mode=DevelopmentMode.values()[enumOrdinal(in.readInt(),DevelopmentMode.values().length,"development mode")];
+            Settlement settlement=state.findSettlement(id).orElseThrow(()->new IOException("provenance missing settlement "+id));
+            settlement.restoreProvenance(origin,anchored,mode);
+        }
+        n=checkedCount(in.readInt(),SimulationState.MAX_OUTLYING_SITES,"outlying sites");
+        for(int i=0;i<n;i++){
+            long id=in.readLong(),settlementId=in.readLong(),factionId=in.readLong();
+            OutlyingSite.Type type=OutlyingSite.Type.values()[enumOrdinal(in.readInt(),OutlyingSite.Type.values().length,"outlying type")];
+            SimPosition pos=readPosition(in);String name=readString(in);
+            int pop=in.readInt();double housing=in.readDouble();boolean foreign=in.readBoolean();boolean active=in.readBoolean();
+            OutlyingSite site=new OutlyingSite(id,settlementId,factionId,type,pos,name,pop,housing,foreign);
+            site.restoreActive(active);
+            state.addOutlyingSite(site);
+        }
+        n=checkedCount(in.readInt(),SimulationState.MAX_CITIZEN_JOURNEYS,"citizen journeys");
+        for(int i=0;i<n;i++){
+            long id=in.readLong(),citizenId=in.readLong(),factionId=in.readLong();
+            long originId=in.readLong(),targetId=in.readLong(),routeId=in.readLong();
+            CitizenJourney.Purpose purpose=CitizenJourney.Purpose.values()[enumOrdinal(in.readInt(),CitizenJourney.Purpose.values().length,"journey purpose")];
+            long created=in.readLong();double progress=in.readDouble();
+            CitizenJourney.Status status=CitizenJourney.Status.values()[enumOrdinal(in.readInt(),CitizenJourney.Status.values().length,"journey status")];
+            String payload=readString(in);
+            CitizenJourney journey=new CitizenJourney(id,citizenId,factionId,originId,targetId,routeId,purpose,created);
+            journey.restore(progress,status,payload,routeId);
+            state.addCitizenJourney(journey);
+        }
+        n=checkedCount(in.readInt(),SimulationState.MAX_ROADSIDE_SITES,"roadside sites");
+        for(int i=0;i<n;i++){
+            long id=in.readLong();
+            RoadsideSite.Type type=RoadsideSite.Type.values()[enumOrdinal(in.readInt(),RoadsideSite.Type.values().length,"roadside type")];
+            SimPosition pos=readPosition(in);String name=readString(in);
+            long relatedSettlement=in.readLong(),relatedRoute=in.readLong(),created=in.readLong();
+            RoadsideSite.Lifecycle lifecycle=RoadsideSite.Lifecycle.values()[enumOrdinal(in.readInt(),RoadsideSite.Lifecycle.values().length,"roadside lifecycle")];
+            boolean active=in.readBoolean();
+            RoadsideSite site=new RoadsideSite(id,type,pos,name,relatedSettlement,relatedRoute,created);
+            site.restore(lifecycle,active);
+            state.addRoadsideSite(site);
+        }
+        n=checkedCount(in.readInt(),SimulationState.MAX_UNDERWORLD_PROFILES,"underworld profiles");
+        for(int i=0;i<n;i++){
+            String actor=readString(in);
+            UnderworldProfile profile=new UnderworldProfile(actor);
+            profile.restore(in.readInt(),in.readDouble(),in.readDouble(),in.readLong(),in.readLong(),in.readBoolean());
+            state.restoreUnderworldProfile(profile);
+        }
+        n=checkedCount(in.readInt(),SimulationState.MAX_REGISTERED_PLAYER_STRUCTURES,"registered player structures");
+        for(int i=0;i<n;i++){
+            long id=in.readLong(),settlementId=in.readLong();String owner=readString(in);
+            RegisteredPlayerStructure.Role role=RegisteredPlayerStructure.Role.values()[enumOrdinal(in.readInt(),RegisteredPlayerStructure.Role.values().length,"player structure role")];
+            int minX=in.readInt(),minY=in.readInt(),minZ=in.readInt(),maxX=in.readInt(),maxY=in.readInt(),maxZ=in.readInt();
+            int doorX=in.readInt(),doorY=in.readInt(),doorZ=in.readInt();
+            int capacity=in.readInt();long regDay=in.readLong();long fingerprint=in.readLong();
+            boolean valid=in.readBoolean();long lastVal=in.readLong();
+            RegisteredPlayerStructure s=new RegisteredPlayerStructure(id,settlementId,owner,role,minX,minY,minZ,maxX,maxY,maxZ,doorX,doorY,doorZ,capacity,regDay,fingerprint);
+            s.restore(valid,capacity,fingerprint,lastVal,role);
+            state.addRegisteredPlayerStructure(s);
+        }
+
+    }
+
+    /** Schema ≤18 settlements become LEGACY + physicallyAnchored — never assume they lack world geometry. */
+    private static void migratePreV19Provenance(SimulationState state){
+        for(Faction f:state.factions()){
+            boolean wizard=f.name().equals("Wizard Trees");
+            for(Settlement s:f.settlements()){
+                if(wizard)s.restoreProvenance(SettlementOrigin.WIZARD_TREES,true,DevelopmentMode.AUTO);
+                else s.restoreProvenance(SettlementOrigin.LEGACY,true,DevelopmentMode.AUTO);
+            }
+        }
     }
 
     private static void zeroNewGoods(Stockpile stockpile){

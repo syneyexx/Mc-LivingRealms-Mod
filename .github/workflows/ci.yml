@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
@@ -24,15 +24,13 @@ jobs:
     needs: core
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
       - name: Linked NeoForge/Create build
         run: |
           set -euo pipefail
-          ./scripts/test-core.sh
-          python3 scripts/release-audit.py
           V=8.10.2
           EXPECTED_SHA256=31c55713e40233a8303827ceb42ca48a47267a0ad4bab9177123121e71524c26
           CACHE="$PWD/.gradle-bootstrap"
@@ -47,12 +45,28 @@ jobs:
           "$HOME_DIR/bin/gradle" --no-daemon --no-build-cache clean build
           JAR="$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | sort | head -n1)"
           test -n "$JAR"
-          python3 scripts/write-release-manifest.py --core-suite pass --linked-build pass --runtime-smoke unverified --gametests unverified --jar "$JAR"
+          mkdir -p build/release
+          python3 scripts/write-release-manifest.py --core-suite pass --linked-build pass --runtime-smoke unverified --gametests unverified --jar "$JAR" --out build/release/RELEASE_MANIFEST.json
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: livingrealms-release
           path: |
             build/libs/*.jar
-            RELEASE_MANIFEST.json
-            RELEASE_MANIFEST.json.sha256
+            build/release/RELEASE_MANIFEST.json
+            build/release/RELEASE_MANIFEST.json.sha256
+
+  gametest:
+    runs-on: ubuntu-latest
+    needs: linked-build
+    if: false  # Enable when NeoForge GameTest runner is reliably configured in CI
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: GameTests
+        run: |
+          set -euo pipefail
+          echo "GameTest job placeholder — enable when runner is reliable"

@@ -1,6 +1,6 @@
 # Living Realms
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 **Living Realms is a simulation-first civilization, society and ecosystem overhaul for Minecraft 1.21.1 on NeoForge.**
 
@@ -8,7 +8,7 @@ The goal is not to make Minecraft feel like a map with a few extra NPCs. The goa
 
 Living Realms is designed primarily for **offline singleplayer**. The integrated Minecraft server remains authoritative for simulation state, while the client renders and interacts with bounded physical projections of that world.
 
-Current development checkpoint: save schema **18**, dashboard protocol **18**, network **14**, ContentRevision **14**, surface starter **156** settlements (12×13) at **800**-block spacing plus Wizard Trees. See `PROJECT_STATE.md` and `COMPLETION_MATRIX.md`.
+Current development checkpoint: save schema **19**, dashboard protocol **20**, network **16**, ContentRevision **15**, surface starter **36** settlements (12×3) at **2000**-block spacing plus Wizard Trees. See `PROJECT_STATE.md` and `COMPLETION_MATRIX.md`.
 
 > **End-product vision:** a persistent living world where kingdoms, settlements, people, wildlife, economy, politics, law, culture and history continue to evolve as one connected system instead of as isolated features.
 
@@ -578,16 +578,16 @@ The current RC4 line includes:
 - canonical ID high-watermark repair;
 - long deterministic soak testing.
 
-The attached/current development line uses **save schema 18** (schemas 1–17 remain readable; schema 18 adds the goods chain GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL) with older schemas retained through migration support.
+The attached/current development line uses **save schema 19** (schemas 1–18 remain readable; schema 18 adds the goods chain GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL) with older schemas retained through migration support.
 
 ---
 
 ## Current development status
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 - 12 surface kingdoms plus Wizard Trees;
-- 156 surface starter settlements (capital + 10 authored Specs + 2 rural per realm) at 800-block spacing;
+- 36 surface starter settlements (capital + 1 authored Spec + 1 rural per realm) at 2000-block spacing;
 - persistent named roster per settlement; aggregate population for demographic scale;
 - goods chain without FOOD mill fountain; construction keys only via materializer / FOREIGN_ADOPTED;
 - SettlementTransfer on capture/rebellion; capital war targets; tokenized dialogue;

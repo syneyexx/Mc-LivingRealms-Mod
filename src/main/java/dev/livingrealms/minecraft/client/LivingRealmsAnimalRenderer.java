@@ -6,6 +6,8 @@ import dev.livingrealms.minecraft.entity.LivingRealmsAnimalEntity;
 import dev.livingrealms.sim.ecology.SpeciesDefinition;
 import dev.livingrealms.sim.ecology.SpeciesMorphology;
 import dev.livingrealms.sim.ecology.SpeciesMorphologyResolver;
+import dev.livingrealms.sim.ecology.SpeciesVisualFamily;
+import dev.livingrealms.sim.ecology.SpeciesVisualFamilyResolver;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.MobRenderer;
 import net.minecraft.resources.ResourceLocation;
@@ -48,6 +50,17 @@ public final class LivingRealmsAnimalRenderer extends MobRenderer<LivingRealmsAn
                 case CETACEAN -> Mth.clamp((float) Math.pow(mass / 5000.0, 0.22), 1.4F, 3.2F);
                 case PINNIPED -> Mth.clamp((float) Math.pow(mass / 200.0, 0.28), 0.7F, 1.6F);
                 case BIRD -> Mth.clamp((float) Math.pow(mass / 3.0, 0.30), 0.35F, 1.2F);
+            };
+            SpeciesVisualFamily family = SpeciesVisualFamilyResolver.resolve(sp);
+            scale *= switch (family) {
+                case ELEPHANT, RHINO, HIPPO -> 1.15F;
+                case FELID -> 0.92F;
+                case CANID, MUSTELID -> 0.95F;
+                case SMALL_RODENT, LAGOMORPH -> 0.8F;
+                case CETACEAN -> 1.2F;
+                case SNAKE -> 0.75F;
+                case RAPTOR -> 1.05F;
+                default -> 1.0F;
             };
             // Deterministic stretch by species id so similar masses still differ slightly.
             long h = sp.id().hashCode() & 0xffffffffL;

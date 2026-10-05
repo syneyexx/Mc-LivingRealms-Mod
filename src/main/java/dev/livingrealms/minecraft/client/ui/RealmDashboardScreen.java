@@ -98,6 +98,7 @@ public final class RealmDashboardScreen extends Screen {
             rebuildInfluenceButtons(left,contentY,panelWidth);
         }
         if (tab == Tab.POLITICS) rebuildDiplomacyButtons(left,contentY,panelWidth);
+        if (tab == Tab.WARS) rebuildWarRoomButtons(left,contentY,panelWidth);
         if (tab == Tab.FORCES) rebuildArmyOrderButtons(left,contentY,panelWidth);
         if (tab == Tab.ECONOMY) rebuildEconomyButtons(left,contentY,panelWidth);
         if (tab == Tab.SETTLEMENTS) rebuildSettlementButtons(left,contentY,panelWidth);
@@ -169,6 +170,55 @@ public final class RealmDashboardScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Stand down"),b->DashboardClientState.sendAction(
                 new DashboardActionCommand(DashboardActionCommand.Action.ARMY_STAND_DOWN,army.id())))
                 .bounds(left+10+bw*2,contentY+4,bw-3,16).build());
+    }
+
+    private void rebuildWarRoomButtons(int left,int contentY,int panelWidth){
+        long selfId=snapshot.player().memberFactionId();
+        if(selfId<=0)return;
+        int y=contentY+4;
+        int shown=0;
+        for(var f:snapshot.factions()){
+            if(shown>=2)break;
+            if(f.id()==selfId||f.localRealm())continue;
+            boolean atWar=snapshot.wars().stream().anyMatch(w->
+                    (w.attackerFactionId()==selfId&&w.defenderFactionId()==f.id())
+                            ||(w.defenderFactionId()==selfId&&w.attackerFactionId()==f.id()));
+            if(atWar)continue;
+            long enemyId=f.id();
+            String name=f.name();
+            addRenderableWidget(Button.builder(Component.literal("Declare war: "+name),b->DashboardClientState.sendAction(
+                    new DashboardActionCommand(DashboardActionCommand.Action.DECLARE_WAR,enemyId)))
+                    .bounds(left+10,y,Math.min(220,panelWidth-20),16).build());
+            y+=18;shown++;
+        }
+        var army=snapshot.map().armies().stream()
+                .filter(a->a.factionId()==selfId)
+                .findFirst().orElse(null);
+        if(army==null)return;
+        long enemySettlement=0;
+        for(var war:snapshot.wars()){
+            if(war.attackerFactionId()!=selfId&&war.defenderFactionId()!=selfId)continue;
+            if(war.targetSettlementId()>0){enemySettlement=war.targetSettlementId();break;}
+        }
+        if(enemySettlement<=0)return;
+        int bw=Math.max(62,(panelWidth-28)/5);
+        long armyId=army.id();
+        long target=enemySettlement;
+        addRenderableWidget(Button.builder(Component.literal("Capture"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_CAPTURE,armyId,target)))
+                .bounds(left+10,y,bw-2,16).build());
+        addRenderableWidget(Button.builder(Component.literal("Siege"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_SIEGE,armyId,target)))
+                .bounds(left+10+bw,y,bw-2,16).build());
+        addRenderableWidget(Button.builder(Component.literal("Raid"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_RAID,armyId,target)))
+                .bounds(left+10+bw*2,y,bw-2,16).build());
+        addRenderableWidget(Button.builder(Component.literal("Escort"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_ESCORT,armyId,target)))
+                .bounds(left+10+bw*3,y,bw-2,16).build());
+        addRenderableWidget(Button.builder(Component.literal("Patrol"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_PATROL,armyId,target)))
+                .bounds(left+10+bw*4,y,bw-2,16).build());
     }
 
     private void rebuildFactionButton(int left,int contentY,int panelWidth){
@@ -284,6 +334,21 @@ public final class RealmDashboardScreen extends Screen {
                     b -> DashboardClientState.sendAction(new DashboardActionCommand(action, settlement.id())))
                     .bounds(x, contentY + 118, bw - 3, 18).build());
         }
+        int modeY = contentY + 138;
+        int mw = Math.max(54, (panelWidth - 28) / 4);
+        String[] modes = {"AUTO", "HYBRID", "PLAYER_LED"};
+        String[] modeLabels = {"Auto", "Hybrid", "Player"};
+        for (int i = 0; i < modes.length; i++) {
+            final String mode = modes[i];
+            addRenderableWidget(Button.builder(Component.literal(modeLabels[i]),
+                    b -> DashboardClientState.sendAction(new DashboardActionCommand(
+                            DashboardActionCommand.Action.SET_DEVELOPMENT_MODE, settlement.id(), mode)))
+                    .bounds(left + 10 + i * mw, modeY, mw - 3, 16).build());
+        }
+        addRenderableWidget(Button.builder(Component.literal("Register House"),
+                b -> DashboardClientState.sendAction(new DashboardActionCommand(
+                        DashboardActionCommand.Action.REGISTER_BUILDING, settlement.id(), "HOUSE")))
+                .bounds(left + 10 + 3 * mw, modeY, mw - 3, 16).build());
     }
 
     private void rebuildSettingsButtons(int left,int contentY,int panelWidth){
@@ -576,8 +641,11 @@ public final class RealmDashboardScreen extends Screen {
         int index=Math.min(snapshot.settlements().size()-1,page);var s=snapshot.settlements().get(index);
         lines.add(header("Settlement " + (index+1) + "/" + snapshot.settlements().size()));
         lines.add(text(s.name() + " [" + s.tier() + "] — pop " + s.population() + " • " + whole(s.distanceBlocks()) + "m"));
-        lines.add(text("Development policy: " + titleCase(s.developmentPriority())));
-        lines.add(dim("Housing " + s.housing() + " • prosperity " + pct(s.prosperity()) + " • unrest " + pct(s.unrest()), 1));
+        lines.add(text("Development: " + titleCase(s.developmentMode()) + " • policy " + titleCase(s.developmentPriority())));
+        lines.add(dim("Origin " + titleCase(s.origin()) + " • registered buildings " + s.registeredBuildings(), 1));
+        lines.add(dim("Canonical housing " + s.housing() + " • verified " + s.verifiedHousing()
+                + " • deficit " + s.housingDeficit(), 1));
+        lines.add(dim("Prosperity " + pct(s.prosperity()) + " • unrest " + pct(s.unrest()), 1));
         lines.add(dim("Food " + pct(s.foodSecurity()) + " • order " + pct(s.publicOrder()) + " • employment " + pct(s.employment()), 1));
         lines.add(dim("Housing satisfaction " + pct(s.housingSatisfaction()) + " • goods " + pct(s.goodsAccess()), 1));
         lines.add(dim("Society satisfaction " + pct(s.societySatisfaction()) + " • pressure " + titleCase(s.primaryPressure()) + " " + pct(s.pressureSeverity()), 1));

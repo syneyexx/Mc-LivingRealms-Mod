@@ -30,6 +30,9 @@ public final class Settlement {
     private double granaryCapacity=600;
     /** Geography is sidecar/runtime state; name heuristic bootstraps until world discovery authors it. */
     private SettlementGeographyProfile geography=SettlementGeographyProfile.unknown();
+    private SettlementOrigin origin=SettlementOrigin.AUTHORED_SEED;
+    private boolean physicallyAnchored;
+    private DevelopmentMode developmentMode=DevelopmentMode.AUTO;
     /** Ephemeral: intent key of the active physical construction job near players (not saved). */
     private String activeConstructionKey="";
     /** Ephemeral priority landmark keys (grand projects / hero monuments) forcing planner backlog. */
@@ -38,16 +41,51 @@ public final class Settlement {
     private long lastGrainBookDay = Long.MIN_VALUE;
 
     public Settlement(long id,String name,SimPosition pos,int pop,int housing){
+        this(id,name,pos,pop,housing,SettlementOrigin.AUTHORED_SEED,false,DevelopmentMode.AUTO);
+    }
+
+    public Settlement(long id,String name,SimPosition pos,int pop,int housing,
+                      SettlementOrigin origin,boolean physicallyAnchored,DevelopmentMode developmentMode){
         if(id<=0)throw new IllegalArgumentException("id");
         if(name==null||name.isBlank())throw new IllegalArgumentException("name");
         if(pos==null)throw new IllegalArgumentException("position");
         this.id=id;this.name=name;this.position=pos;this.population=Math.max(0,pop);this.housing=Math.max(0,housing);
+        this.origin=java.util.Objects.requireNonNull(origin,"origin");
+        this.physicallyAnchored=physicallyAnchored||alwaysAnchored(origin);
+        this.developmentMode=java.util.Objects.requireNonNull(developmentMode,"developmentMode");
         this.geography=SettlementGeographyProfile.fromNameHeuristic(name);
         recalc();refreshStorageCapacity();seedStarterStores();
     }
     public long id(){return id;} public String name(){return name;} public SimPosition position(){return position;} public int population(){return population;} public int housing(){return housing;} public double infrastructure(){return infrastructure;} public Tier tier(){return tier;}
-    /** Density/spacing repair only — never teleport a live settlement during ordinary sim ticks. */
-    public void relocate(SimPosition value){position=java.util.Objects.requireNonNull(value,"position");}
+    public SettlementOrigin origin(){return origin;}
+    public boolean physicallyAnchored(){return physicallyAnchored;}
+    public DevelopmentMode developmentMode(){return developmentMode;}
+    public void setDevelopmentMode(DevelopmentMode mode){developmentMode=java.util.Objects.requireNonNull(mode,"mode");}
+    public void setOrigin(SettlementOrigin value){
+        origin=java.util.Objects.requireNonNull(value,"origin");
+        if(alwaysAnchored(origin))physicallyAnchored=true;
+    }
+    /** Marks the settlement as corresponding to real Minecraft geometry; irreversible. */
+    public void markPhysicallyAnchored(){physicallyAnchored=true;}
+    public void restoreProvenance(SettlementOrigin origin,boolean physicallyAnchored,DevelopmentMode mode){
+        this.origin=java.util.Objects.requireNonNull(origin,"origin");
+        this.physicallyAnchored=physicallyAnchored||alwaysAnchored(this.origin);
+        this.developmentMode=java.util.Objects.requireNonNull(mode,"mode");
+    }
+    /**
+     * Restricted relocate for explicit pre-materialization migration/admin paths only.
+     * Anchored settlements refuse relocation — ordinary simulation must never teleport a real town.
+     */
+    public void relocate(SimPosition value){
+        if(physicallyAnchored)throw new IllegalStateException("anchored settlement cannot relocate: "+name+" ("+id+")");
+        position=java.util.Objects.requireNonNull(value,"position");
+    }
+    private static boolean alwaysAnchored(SettlementOrigin origin){
+        return origin==SettlementOrigin.PLAYER_FOUNDED
+                ||origin==SettlementOrigin.FOREIGN_ADOPTED
+                ||origin==SettlementOrigin.WIZARD_TREES
+                ||origin==SettlementOrigin.LEGACY;
+    }
     public double prosperity(){return prosperity;} public double unrest(){return unrest;} public double foodSecurity(){return foodSecurity;} public double publicOrder(){return publicOrder;} public double employment(){return employment;} public DevelopmentPriority developmentPriority(){return developmentPriority;}
     public Stockpile stockpile(){return stockpile;} public double barnCapacity(){return barnCapacity;} public double granaryCapacity(){return granaryCapacity;}
     public SettlementGeographyProfile geography(){return geography;}
@@ -64,7 +102,10 @@ public final class Settlement {
         return SettlementDevelopment.score(this,education,tradeConnectivity,administration,publicServices);
     }
     public Tier effectiveTier(double developmentScore){return SettlementDevelopment.effectiveTier(this,developmentScore);}
-    public void rename(String value){if(value==null||value.isBlank())throw new IllegalArgumentException("name");name=value;if(!geography.worldDiscovered())geography=SettlementGeographyProfile.fromNameHeuristic(name);} public void addPopulation(int n){population=Math.max(0,population+n);recalc();refreshStorageCapacity();} public void addHousing(int n){housing=Math.max(0,housing+n);recalc();refreshStorageCapacity();} public void improveInfrastructure(double v){infrastructure=Math.max(0,infrastructure+v);refreshStorageCapacity();}
+    public void rename(String value){if(value==null||value.isBlank())throw new IllegalArgumentException("name");name=value;if(!geography.worldDiscovered())geography=SettlementGeographyProfile.fromNameHeuristic(name);} public void addPopulation(int n){population=Math.max(0,population+n);recalc();refreshStorageCapacity();} public void addHousing(int n){housing=Math.max(0,housing+n);recalc();refreshStorageCapacity();}
+    /** Authoritative housing set when verified player/foreign capacity exceeds the canonical field. */
+    public void setHousing(int value){housing=Math.max(0,value);recalc();refreshStorageCapacity();}
+    public void improveInfrastructure(double v){infrastructure=Math.max(0,infrastructure+v);refreshStorageCapacity();}
     public int housingShortage(){return Math.max(0,population-housing);}
     public Set<String> completedConstruction(){return Collections.unmodifiableSet(completedConstruction);}
     public Map<String,ConstructionOrigin> constructionOrigins(){return Collections.unmodifiableMap(constructionOrigins);}
@@ -73,7 +114,10 @@ public final class Settlement {
     /** Headless/test receipt-equivalent: marks a Living Realms production-eligible completion. */
     public boolean markConstructionCompleted(String key){
         boolean changed=markConstruction(key,ConstructionOrigin.MATERIALIZED);
-        if(changed)priorityLandmarks.remove(key);
+        if(changed){
+            priorityLandmarks.remove(key);
+            markPhysicallyAnchored();
+        }
         return changed;
     }
     /** Foreign village footprint credit — never counted as Living Realms farm/mine production. */

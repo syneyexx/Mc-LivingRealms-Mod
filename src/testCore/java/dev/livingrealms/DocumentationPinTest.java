@@ -37,14 +37,14 @@ public final class DocumentationPinTest {
         int spacing = (int) Double.parseDouble(readNumberConst(
                 "src/main/java/dev/livingrealms/sim/world/SettlementDensitySeeder.java", "MIN_SETTLEMENT_SPACING"));
 
-        check(schema == 18, "expected SCHEMA_VERSION 18, got " + schema);
+        check(schema == 19, "expected SCHEMA_VERSION 19, got " + schema);
         check(minSchema == 1, "expected MIN_SUPPORTED_SCHEMA 1, got " + minSchema);
-        check(protocol == 19, "expected PROTOCOL_VERSION 19, got " + protocol);
-        check("15".equals(network), "expected NETWORK_VERSION 15, got " + network);
-        check(contentRevision == 14, "expected CONTENT_REVISION 14, got " + contentRevision);
-        check(targetPerRealm == 13, "expected TARGET_SETTLEMENTS_PER_REALM 13, got " + targetPerRealm);
-        check(surface == 156, "expected SURFACE_STARTER_SETTLEMENTS 156, got " + surface);
-        check(spacing == 800, "expected MIN_SETTLEMENT_SPACING 800, got " + spacing);
+        check(protocol == 20, "expected PROTOCOL_VERSION 20, got " + protocol);
+        check("16".equals(network), "expected NETWORK_VERSION 16, got " + network);
+        check(contentRevision == 15, "expected CONTENT_REVISION 15, got " + contentRevision);
+        check(targetPerRealm == 3, "expected TARGET_SETTLEMENTS_PER_REALM 3, got " + targetPerRealm);
+        check(surface == 36, "expected SURFACE_STARTER_SETTLEMENTS 36, got " + surface);
+        check(spacing == 2000, "expected MIN_SETTLEMENT_SPACING 2000, got " + spacing);
 
         String pinNeedle = "CURRENT PINS: schema " + schema
                 + " / minSchema " + minSchema
@@ -66,16 +66,19 @@ public final class DocumentationPinTest {
             if (hist >= 0) current = text.substring(0, hist);
             check(current.contains(pinNeedle),
                     doc + " current status must contain exact pin line: " + pinNeedle);
-            // Forbid obsolete current pins outside history.
-            forbid(current, doc, "schema 16", Pattern.compile("(?i)\\bschema\\s*16\\b"));
-            forbid(current, doc, "schema 17", Pattern.compile("(?i)\\bschema\\s*17\\b"));
-            forbid(current, doc, "protocol 17", Pattern.compile("(?i)\\bprotocol\\s*17\\b"));
-            forbid(current, doc, "protocol 18", Pattern.compile("(?i)\\bprotocol\\s*18\\b"));
+            // Forbid obsolete *current* pins. Historical mentions belong under ## History / ## Geschiedenis.
+            forbid(current, doc, "schema 16 as current", Pattern.compile("(?i)(CURRENT PINS:.*\\bschema\\s*16\\b|\\bsave schema\\s*\\*?\\*?16\\*?\\*?\\b(?!\\s+adds))"));
+            forbid(current, doc, "schema 17 as current", Pattern.compile("(?i)(CURRENT PINS:.*\\bschema\\s*17\\b|\\bsave schema\\s*\\*?\\*?17\\*?\\*?\\b(?!\\s+adds))"));
+            forbid(current, doc, "schema 18 as current", Pattern.compile("(?i)(CURRENT PINS:.*\\bschema\\s*18\\b|\\bsave schema\\s*\\*?\\*?18\\*?\\*?\\b(?!\\s+adds)|\\bschema\\s*18\\s*/\\s*minSchema)"));
+            forbid(current, doc, "protocol 17 as current", Pattern.compile("(?i)(CURRENT PINS:.*\\bprotocol\\s*17\\b|\\bdashboard protocol\\s*\\*?\\*?17\\*?\\*?)"));
+            forbid(current, doc, "protocol 18 as current", Pattern.compile("(?i)(CURRENT PINS:.*\\bprotocol\\s*18\\b|\\bdashboard protocol\\s*\\*?\\*?18\\*?\\*?)"));
+            forbid(current, doc, "protocol 19 as current", Pattern.compile("(?i)(CURRENT PINS:.*\\bprotocol\\s*19\\b|\\bdashboard protocol\\s*\\*?\\*?19\\*?\\*?)"));
             forbid(current, doc, "ContentRevision 11", Pattern.compile("(?i)content\\s*revision\\s*=?\\s*11\\b"));
             forbid(current, doc, "380+", Pattern.compile("380\\+"));
             forbid(current, doc, "32 per realm", Pattern.compile("(?i)32\\s+(settlements\\s+)?per\\s+(surface\\s+)?realm"));
             forbid(current, doc, "~35% countryside", Pattern.compile("~35%\\s+countryside"));
-            forbid(current, doc, "2000-block spacing as current", Pattern.compile("(?i)2000[- ]block"));
+            forbid(current, doc, "800-block spacing as current", Pattern.compile("(?i)800[- ]block"));
+            forbid(current, doc, "156 surface as current", Pattern.compile("(?i)\\b156\\b.*settlement|surfaceSettlements 156|surface starter \\*\\*156\\*\\*"));
             forbid(current, doc, "EXTERNAL GATE as current status", Pattern.compile("(?i)EXTERNAL\\s+GATE"));
             forbid(current, doc, "PARTIAL as current matrix claim without truth", Pattern.compile("(?i)\\bPARTIAL\\b"));
             forbid(current, doc, "COMPLETE (core)", Pattern.compile("COMPLETE \\(core\\)"));

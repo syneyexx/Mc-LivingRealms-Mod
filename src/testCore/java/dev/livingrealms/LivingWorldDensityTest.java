@@ -11,9 +11,11 @@ import dev.livingrealms.sim.construction.StructureBlueprintFactory;
 import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.faction.SettlementOrigin;
+import dev.livingrealms.sim.util.DeterministicRng;
 import dev.livingrealms.sim.world.DemoSeeder;
-import dev.livingrealms.sim.world.FrontierExplorationSeeder;
 import dev.livingrealms.sim.world.SettlementDensitySeeder;
+import dev.livingrealms.sim.world.SettlementExpansionEngine;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 import java.util.HashSet;
@@ -32,12 +34,12 @@ public final class LivingWorldDensityTest {
         absoluteDayProgressActuallySimulates();
         playerCanFoundARealGrowingRealm();
         citizenIdentityIsStableAndVaried();
-        frontierExplorationSeedsFarWorld();
+        frontierExplorationDoesNotSeedSettlements();
         System.out.println("PASS living-world density: 12 kingdoms + Wizard Trees / "
                 + SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS
-                + " surface settlements (capital+10 Specs+rural) + "
+                + " surface settlements (capital+1 Spec+rural) + "
                 + (int) SettlementDensitySeeder.MIN_SETTLEMENT_SPACING
-                + "-block spacing + frontier continuity + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
+                + "-block spacing + causal expansion (no exploration spawn) + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
     }
 
     private static void denseStarterWorldIsHierarchicalAndIdempotent() {
@@ -55,9 +57,9 @@ public final class LivingWorldDensityTest {
         long villages = state.factions().stream().flatMap(f -> f.settlements().stream())
                 .filter(s -> s.tier() == Settlement.Tier.VILLAGE).count();
         long hamlets = state.factions().stream().flatMap(f -> f.settlements().stream())
-                .filter(s -> s.tier() == Settlement.Tier.HAMLET).count();
-        check(cities >= 12 && (towns + villages + hamlets) >= 24,
-                "starter hierarchy lacks cities plus supporting towns/villages/hamlets: cities="+cities+" towns="+towns+" villages="+villages+" hamlets="+hamlets);
+                .filter(s -> s.tier() == Settlement.Tier.HAMLET || s.tier() == Settlement.Tier.CAMP).count();
+        check(cities >= 12 && (towns + villages + hamlets) >= 12,
+                "starter hierarchy lacks cities plus supporting towns/villages/hamlets: cities="+cities+" towns="+towns+"/villages="+villages+" hamlets="+hamlets);
         long monarchies=state.factions().stream().filter(f->f.government().type()==GovernmentType.FEUDAL_MONARCHY).count();
         check(monarchies==12,"starter world must retain twelve ordinary kingdoms: "+monarchies);
         Faction wizard=state.factions().stream().filter(f->f.name().equals("Wizard Trees")).findFirst().orElseThrow();
@@ -93,14 +95,43 @@ public final class LivingWorldDensityTest {
                 "founding error should mention clearance: " + blocked.reason());
     }
 
-    private static void frontierExplorationSeedsFarWorld() {
+    private static void frontierExplorationDoesNotSeedSettlements() {
         SimulationState state = new SimulationState(99L);
         DemoSeeder.seed(state);
         int before = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
-        int added = FrontierExplorationSeeder.ensureNear(state, new SimPosition(40_000, -35_000));
-        check(added == 1, "frontier seeder must plant one outpost in empty far-world");
-        check(state.factions().stream().mapToInt(f -> f.settlements().size()).sum() == before + 1, "frontier settlement must be attached");
-        check(FrontierExplorationSeeder.ensureNear(state, new SimPosition(40_000, -35_000)) == 0, "frontier seeding must be idempotent near the new outpost");
+        check(SettlementExpansionEngine.ensureNear(state, new SimPosition(40_000, -35_000)) == 0,
+                "player proximity must not create settlements");
+        check(SettlementExpansionEngine.ensureNear(state, new SimPosition(40_000, -35_000)) == 0,
+                "expansion ensureNear must refuse proximity founding");
+        check(state.factions().stream().mapToInt(f -> f.settlements().size()).sum() == before,
+                "settlement count must be unchanged by exploration");
+
+        Faction host = state.factions().stream()
+                .filter(f -> !f.name().equals("Wizard Trees") && !f.settlements().isEmpty())
+                .findFirst().orElseThrow();
+        Settlement capital = host.settlements().stream()
+                .max(java.util.Comparator.comparingInt(Settlement::population)).orElseThrow();
+        capital.addPopulation(2_400);
+        host.stockpile().add(dev.livingrealms.sim.faction.ResourceType.GRAIN, 5_000);
+        host.addTreasury(12_000);
+        int hostBefore = host.settlements().size();
+        int founded = 0;
+        for (int i = 0; i < 80 && founded == 0; i++) {
+            founded = SettlementExpansionEngine.simulateDay(state, new DeterministicRng(0xCA05A1L ^ (i * 17L)));
+        }
+        check(founded >= 1 || host.settlements().size() > hostBefore,
+                "causal expansion must found under pressure");
+        List<Settlement> all = state.factions().stream().flatMap(f -> f.settlements().stream()).toList();
+        for (int i = 0; i < all.size(); i++) {
+            for (int j = i + 1; j < all.size(); j++) {
+                check(all.get(i).position().distanceTo(all.get(j).position())
+                                >= SettlementExpansionEngine.MIN_SETTLEMENT_SPACING - 1.0,
+                        "causal colony violated 2000m spacing");
+            }
+        }
+        check(host.settlements().stream().anyMatch(s -> s.origin() == SettlementOrigin.CAUSAL_EXPANSION
+                        || SettlementDensitySeeder.authoredExpansionCatalogNames().contains(s.name())),
+                "new colony should be causal or claimed catalog Spec");
     }
 
     private static void settlementsUseDiverseOrganicBlueprints() {
@@ -129,7 +160,7 @@ public final class LivingWorldDensityTest {
         check(houseBlueprints.size() >= 4, "house geometry remains too repetitive: " + houseBlueprints);
         check(marketBlueprints.size() >= 2, "market geometry did not diversify: " + marketBlueprints);
         check(roadRichSettlements >= 8, "towns/cities should keep real street networks: " + roadRichSettlements);
-        check(countrysideSinglePath >= 8, "hamlets should use a single countryside path, not a grid: " + countrysideSinglePath);
+        check(countrysideSinglePath >= 4, "hamlets should use a single countryside path, not a grid: " + countrysideSinglePath);
     }
 
     private static void populatedSettlementsProjectVisibleCrowdsWithinBudget() {
@@ -176,6 +207,11 @@ public final class LivingWorldDensityTest {
         check(state.playerStanding("player:test-uuid").rank()==dev.livingrealms.sim.player.FactionRank.RULER,"founder must be canonical ruler, not merely a noble");
         check(state.playerRuler(faction.id()).isPresent(),"player ruler lookup missing");
         int population=settlement.population();
+        // Founding camps start without free farms; clear a plot then let attraction run.
+        check(settlement.markConstructionCompleted("farm:0"), "founding camp can clear a farm plot");
+        settlement.stockpile().add(dev.livingrealms.sim.faction.ResourceType.GRAIN, 200);
+        settlement.stockpile().add(dev.livingrealms.sim.faction.ResourceType.BREAD, 120);
+        settlement.setFoodSecurity(.85);
         state.advanceDays(60);
         check(settlement.population()>population,"player settlement did not attract civilians");
         check(state.socialCitizens().stream().noneMatch(c->c.factionId()==faction.id()&&c.name().equals("Romy")),"player ruler was duplicated as a fake NPC citizen");

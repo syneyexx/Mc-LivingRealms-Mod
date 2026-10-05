@@ -1,0 +1,10 @@
+{
+  "note": "TEMPLATE ONLY \u2014 not certification. CI generates build/release/RELEASE_MANIFEST.json for the exact checked-out commit.",
+  "exampleGates": {
+    "coreSuite": "pass",
+    "linkedBuild": "pass",
+    "gameTests": "unverified",
+    "runtimeSmoke": "unverified"
+  },
+  "releaseCompleteClaimAllowed": false
+}

@@ -15,10 +15,13 @@ public final class WizardTreesSeeder {
         faction.government().setTaxRate(.07);faction.government().setLawEnforcement(.52);
         faction.advanceTechnology(.62);faction.addTreasury(6_800);
         faction.stockpile().add(ResourceType.FOOD,2_400);faction.stockpile().add(ResourceType.WOOD,1_100);faction.stockpile().add(ResourceType.STONE,2_800);faction.stockpile().add(ResourceType.IRON,420);faction.stockpile().add(ResourceType.TOOLS,180);
-        // Keep Wizard Trees colonies on the same spacing floor as surface realms.
-        faction.addSettlement(new Settlement(state.nextId(),"Rootvault",new SimPosition(4_900,-6_700),760,860));
-        faction.addSettlement(new Settlement(state.nextId(),"Emberroot Hollow",new SimPosition(7_100,-7_200),340,390));
-        faction.addSettlement(new Settlement(state.nextId(),"The Mycelium Deep",new SimPosition(2_700,-8_100),210,250));
+        // Hidden deep-mountain belt — must clear the 2000m surface spacing floor.
+        faction.addSettlement(new Settlement(state.nextId(),"Rootvault",new SimPosition(-12_400,-14_200),760,860,
+                SettlementOrigin.WIZARD_TREES,true,DevelopmentMode.AUTO));
+        faction.addSettlement(new Settlement(state.nextId(),"Emberroot Hollow",new SimPosition(-9_600,-16_500),340,390,
+                SettlementOrigin.WIZARD_TREES,true,DevelopmentMode.AUTO));
+        faction.addSettlement(new Settlement(state.nextId(),"The Mycelium Deep",new SimPosition(-15_200,-15_800),210,250,
+                SettlementOrigin.WIZARD_TREES,true,DevelopmentMode.AUTO));
         Army wardens=new Army(state.nextId(),faction.id(),faction.settlements().getFirst().position(),74);faction.addArmy(wardens);
         for(Faction other:state.factions()){
             faction.relationWith(other.id()).adjust(-4);other.relationWith(faction.id()).adjust(-4);

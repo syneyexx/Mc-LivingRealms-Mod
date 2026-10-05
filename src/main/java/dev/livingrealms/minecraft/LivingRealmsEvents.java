@@ -161,17 +161,7 @@ public final class LivingRealmsEvents {
         else if (phase == 1) TransportNetworkMaterializer.tick(overworld, buildData);
         else if (phase == 2) UrbanCoreMaterializer.tick(overworld, buildData);
         else IndustrialSiteMaterializer.tick(overworld, buildData);
-        // Sparse far-world continuity: when players roam beyond the authored belt, seed frontier outposts.
-        if (tickCounter % 100L == 0) {
-            var data = SimulationRuntime.data(event.getServer());
-            boolean seeded = false;
-            for (var player : event.getServer().overworld().players()) {
-                int n = dev.livingrealms.sim.world.FrontierExplorationSeeder.ensureNear(
-                        data.state(), new SimPosition(player.getX(), player.getZ()));
-                if (n > 0) seeded = true;
-            }
-            if (seeded) data.setDirty();
-        }
+        // Player proximity must not create settlements. Causal expansion runs in advanceDays only.
         // Expensive aggregate simulation runs once per Minecraft day, not 20 times per second.
         if (tickCounter % 24000L == 0) {
             var data = SimulationRuntime.data(event.getServer());
@@ -346,14 +336,8 @@ public final class LivingRealmsEvents {
     public void onLivingDeath(LivingDeathEvent event) {
         if (!(event.getEntity().level() instanceof ServerLevel level)) return;
         if (event.getSource().getEntity() instanceof FactionCitizenEntity hunter && hunter.role()==CitizenRole.HUNTER && event.getEntity() instanceof LivingRealmsAnimalEntity animal) {
-            var data=SimulationRuntime.data(level.getServer());
-            var faction=data.state().findFaction(hunter.factionId()).orElse(null);
-            var species=animal.species();
-            if(faction!=null&&species!=null){
-                double food=Math.max(.5D,Math.min(18.0D,species.adultMassKg()*.065D));
-                faction.stockpile().add(ResourceType.FOOD,food);
-                data.setDirty();
-            }
+            // Physical hunt is presentation only. Canonical hunting yield belongs to ecology/economy
+            // simulation — never mint FOOD from a loaded-chunk death event.
             return;
         }
         if (event.getEntity() instanceof ServerPlayer victim && event.getSource().getEntity() instanceof BountyHunterEntity hunter) {
@@ -620,8 +604,6 @@ public final class LivingRealmsEvents {
         var data=SimulationRuntime.data(source.getServer());
         var state=data.state();
         SimPosition from=new SimPosition(player.getX(),player.getZ());
-        // Seed a far-world outpost if the player is in a civilization desert so locate has something to find later.
-        if(dev.livingrealms.sim.world.FrontierExplorationSeeder.ensureNear(state,from)>0)data.setDirty();
         java.util.Optional<dev.livingrealms.sim.world.LocateQuery.Hit> hit=switch(kind){
             case "city" -> dev.livingrealms.sim.world.LocateQuery.nearestCity(state,from);
             case "mine" -> dev.livingrealms.sim.world.LocateQuery.nearestMine(state,from);
@@ -661,7 +643,6 @@ public final class LivingRealmsEvents {
         var data=SimulationRuntime.data(source.getServer());
         var state=data.state();
         SimPosition from=new SimPosition(player.getX(),player.getZ());
-        if(dev.livingrealms.sim.world.FrontierExplorationSeeder.ensureNear(state,from)>0)data.setDirty();
         var hit=dev.livingrealms.sim.world.LocateQuery.nearestSettlement(state,from,filter,label);
         if(hit.isEmpty()){source.sendFailure(Component.literal("No Living Realms "+label+" exists in the canonical world state yet. Locate searches the entire world — if it exists anywhere, it will be found."));return 0;}
         var found=hit.get();

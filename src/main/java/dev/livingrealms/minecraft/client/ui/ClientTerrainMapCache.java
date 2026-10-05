@@ -1,5 +1,7 @@
 package dev.livingrealms.minecraft.client.ui;
 
+import dev.livingrealms.sim.cartography.TerrainKnowledge;
+import dev.livingrealms.sim.cartography.TerrainMapSample;
 import dev.livingrealms.sim.ui.RealmDashboardSnapshot;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -13,7 +15,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
  * Client-side cached top-down surface samples for the M-map. Samples loaded chunks only; never
- * force-loads. Discovery is not required — any loaded column can paint terrain immediately.
+ * force-loads. Unloaded land is UNKNOWN parchment or REGIONAL_ESTIMATE — never invented sine relief.
  */
 public final class ClientTerrainMapCache {
     /** Bounded offline tile atlas — raised for denser M-map paint without unbounded growth. */
@@ -22,7 +24,11 @@ public final class ClientTerrainMapCache {
         @Override protected boolean removeEldestEntry(Map.Entry<Long,Sample> eldest){return size()>MAX_ENTRIES;}
     };
 
-    public record Sample(int color,int height,boolean water){}
+    public record Sample(int color,int height,boolean water,TerrainKnowledge knowledge){
+        public Sample(int color,int height,boolean water){
+            this(color,height,water,TerrainKnowledge.ACTUAL);
+        }
+    }
 
     private ClientTerrainMapCache(){}
 
@@ -47,35 +53,49 @@ public final class ClientTerrainMapCache {
             double elev=Math.max(0,Math.min(1,(y-(level.getSeaLevel()-8))/96.0));
             color=shade(color,0.78+elev*0.28);
         }
-        Sample sample=new Sample(color,y,water);
+        Sample sample=new Sample(color,y,water,TerrainKnowledge.ACTUAL);
         CACHE.put(key,sample);
         return sample;
     }
 
     public static void clear(){CACHE.clear();}
 
-    /** Soft terrain wash for the F12 Map tab — samples when loaded, procedural fallback otherwise. */
+    /**
+     * Soft terrain wash for the F12 Map tab — ACTUAL when loaded, REGIONAL_ESTIMATE from ecology,
+     * otherwise UNKNOWN parchment. Never invents hills with sine noise.
+     */
     public static void paintIfAvailable(GuiGraphics g, RealmDashboardSnapshot snapshot, int x, int y, int w, int h) {
         if (g == null || snapshot == null || w <= 4 || h <= 4) return;
         var map = snapshot.map();
         double minX = map.minX(), maxX = map.maxX(), minZ = map.minZ(), maxZ = map.maxZ();
         if (!(maxX > minX) || !(maxZ > minZ)) return;
+        var regions = snapshot.ecology().regions();
         final int tile = 5;
         for (int py = y; py < y + h; py += tile) {
             double wz = minZ + ((py - y + tile * 0.5) / Math.max(1.0, h)) * (maxZ - minZ);
             for (int px = x; px < x + w; px += tile) {
                 double wx = minX + ((px - x + tile * 0.5) / Math.max(1.0, w)) * (maxX - minX);
                 Sample surface = sample((int) Math.round(wx), (int) Math.round(wz));
-                int color;
-                if (surface != null) color = surface.color();
-                else {
-                    double n = Math.sin(wx * 0.0031 + wz * 0.0027) * 0.5
-                            + Math.sin(wx * 0.0011 - wz * 0.0017) * 0.3
-                            + Math.sin((wx + wz) * 0.0007) * 0.2;
-                    n = Math.max(0, Math.min(1, (n + 1) * 0.5));
-                    color = n > 0.62 ? 0xFF6E7468 : n > 0.38 ? 0xFF4F6B45 : 0xFF3A5A3E;
+                TerrainMapSample.ActualSample actual = surface == null ? null
+                        : new TerrainMapSample.ActualSample(surface.color(), surface.height(), surface.water());
+                String nearestBiome = null;
+                if (actual == null && !regions.isEmpty()) {
+                    RealmDashboardSnapshot.RegionEcologyView nearest = null;
+                    double best = Double.POSITIVE_INFINITY;
+                    for (var region : regions) {
+                        double dx = region.x() - wx, dz = region.z() - wz, d = dx * dx + dz * dz;
+                        if (d < best) { best = d; nearest = region; }
+                    }
+                    if (nearest != null) nearestBiome = nearest.biome();
                 }
-                // Keep overlays readable — wash rather than opaque cover.
+                TerrainMapSample.Resolved resolved = TerrainMapSample.resolve(actual, nearestBiome, nearestBiome != null);
+                int color = resolved.knowledge() == TerrainKnowledge.UNKNOWN
+                        ? TerrainMapSample.unknownFill(px, py)
+                        : resolved.color();
+                if (resolved.knowledge() == TerrainKnowledge.REGIONAL_ESTIMATE) {
+                    // Low-detail hatch so estimates never read as surveyed topography.
+                    if ((((px >> 3) + (py >> 3)) & 1) == 0) color = shade(color, 0.88);
+                }
                 int washed = (0x66 << 24) | (color & 0x00FFFFFF);
                 g.fill(px, py, Math.min(x + w, px + tile), Math.min(y + h, py + tile), washed);
             }

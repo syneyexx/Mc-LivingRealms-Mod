@@ -24,7 +24,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Custom payload registration for bounded strategic UI synchronization. */
 public final class LivingRealmsNetwork {
-    public static final String NETWORK_VERSION = "15";
+    public static final String NETWORK_VERSION = "16";
 
     private LivingRealmsNetwork() {}
 
@@ -61,6 +61,15 @@ public final class LivingRealmsNetwork {
                 var trade=PlayerMarketRuntime.trade(data.state(),actor,player,position,command.action()==DashboardActionCommand.Action.MARKET_BUY,command.targetId());
                 if(!trade.success()){player.sendSystemMessage(Component.literal("Living Realms market: "+trade.message()));return;}
                 if(trade.dirty())data.setDirty();player.sendSystemMessage(Component.literal(trade.message()));sendDashboard(player,level);return;
+            }
+            if(command.action()==DashboardActionCommand.Action.REGISTER_BUILDING){
+                var survey=dev.livingrealms.minecraft.construction.PlayerStructureSurvey.surveyAndRegister(
+                        level,player,data.state(),command.targetId(),command.argument());
+                if(!survey.success()){player.sendSystemMessage(Component.literal(survey.message()));return;}
+                data.setDirty();
+                player.sendSystemMessage(Component.literal(survey.message()));
+                sendDashboard(player,level);
+                return;
             }
             var result=DashboardActionService.apply(data.state(),actor,position,command);
             if(!result.success()){player.sendSystemMessage(Component.literal(humanActionFailure(command.action(),result.reason())));return;}
@@ -122,11 +131,19 @@ public final class LivingRealmsNetwork {
             case ABDICATE -> "You abdicated. A court successor now holds the realm.";
             case PETITION_PEACE -> "Peace petition accepted — war ended with a treaty.";
             case PROPOSE_TRADE_PACT -> "Trade pact signed.";
+            case DECLARE_WAR -> "War declared.";
             case ARMY_DEFEND_HOME -> "Army ordered to defend home.";
             case ARMY_RALLY -> "Army ordered to rally / patrol the border.";
             case ARMY_STAND_DOWN -> "Army ordered to stand down and resupply.";
+            case ARMY_CAPTURE -> "Army ordered to capture the target settlement.";
+            case ARMY_SIEGE -> "Army ordered to siege the target settlement.";
+            case ARMY_RAID -> "Army ordered to raid the target settlement.";
+            case ARMY_ESCORT -> "Army ordered to escort the target.";
+            case ARMY_PATROL -> "Army ordered to patrol.";
             case SURRENDER -> "You surrendered to local authorities.";
             case PAY_FINE -> "Fine paid toward your bounty.";
+            case SET_DEVELOPMENT_MODE -> "Settlement development mode updated.";
+            case REGISTER_BUILDING -> "Building registered.";
         };
     }
 

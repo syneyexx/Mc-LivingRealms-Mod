@@ -1,6 +1,6 @@
 # Living Realms — Definition of Done matrix
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 A subsystem is **COMPLETE** only when model, simulation, persistence/migration, Minecraft runtime projection, player feedback/UI, required content/assets, and regression tests are all real for the pins above.
 
@@ -8,13 +8,13 @@ A subsystem is **COMPLETE** only when model, simulation, persistence/migration, 
 |---|---|---|---|---|---|---|---|---|
 | World clock/history | ✅ | ✅ | ✅ | ✅ | ✅ History tab + commands | n/a | ✅ | COMPLETE |
 | Factions/kingdoms | ✅ 12 + Wizard Trees + player realms | ✅ diplomacy/war/trade/growth + SettlementTransfer | ✅ | ✅ citizen + military projection | ✅ Overview/Realms/Map + Join/Leave + found/locate | ✅ heraldry + citizen skins | ✅ | COMPLETE |
-| Settlements/growth | ✅ capital+10 Specs+2 rural (156 surface) + spacing 800 | ✅ organic planning + immigration | ✅ schema 18 + ContentRevision 14 | ✅ terrain-aware construction + provenance + Waystone bridge | ✅ management + locate/found + onboarding | ✅ hut→mansion + culture geometry families | ✅ density/authored-names/worldgen | COMPLETE |
-| Society/needs/unrest | ✅ SocialCitizen roster + SocialMobilityEngine | ✅ needs/memory + roster simulateDay | ✅ schema 18 | ✅ physical jobs as animation of sim authority | ✅ Society tab + tokenized dialogue | ✅ 48 citizen skins | ✅ roster/dialogue/society | COMPLETE |
+| Settlements/growth | ✅ capital+1 Spec+1 rural (36 surface) + Spec expansion catalog + spacing 2000 | ✅ organic planning + immigration + causal expansion | ✅ schema 19 + ContentRevision 15 | ✅ terrain-aware construction + provenance + Waystone bridge | ✅ management + locate/found + player register building | ✅ hut→mansion + culture geometry families | ✅ density/authored-names/worldgen | COMPLETE |
+| Society/needs/unrest | ✅ SocialCitizen roster + SocialMobilityEngine | ✅ needs/memory + roster simulateDay | ✅ schema 19 | ✅ physical jobs as animation of sim authority | ✅ Society tab + tokenized dialogue | ✅ 48 citizen skins | ✅ roster/dialogue/society | COMPLETE |
 | Government/succession | ✅ + SovereignDebt + GrandProject | ✅ debt/projects/succession | ✅ | ✅ court projection | ✅ Politics | ✅ heraldry court kits | ✅ | COMPLETE |
 | Diplomacy/treaties | ✅ | ✅ typed war goals + peace treaties | ✅ | ✅ strategic | ✅ Politics | n/a | ✅ WarGoal* | COMPLETE |
 | War/objectives/sieges | ✅ CampaignPlan + SiegeState | ✅ capital targets + multi-key breach | ✅ | ✅ military + siege equipment | ✅ War tab | ✅ troop/siege art | ✅ SiegeBreach* + FinalProduct | COMPLETE |
 | Territory/jurisdiction | ✅ | ✅ | ✅ | ✅ runtime queries | ✅ jurisdiction + claims | n/a | ✅ | COMPLETE |
-| Economy/markets | ✅ GRAIN→FLOUR→BREAD + MEAT/ALE/WOOL | ✅ farms/mills/bakeries/breweries/pastures/hinterland truth | ✅ schema 18 | ✅ player market + vanilla item map | ✅ Economy + dialogue OPEN_TRADE | vanilla commodity bridge | ✅ GoodsChain* | COMPLETE |
+| Economy/markets | ✅ GRAIN→FLOUR→BREAD + MEAT/ALE/WOOL | ✅ farms/mills/bakeries/breweries/pastures/hinterland truth | ✅ schema 19 | ✅ player market + vanilla item map | ✅ Economy + dialogue OPEN_TRADE | vanilla commodity bridge | ✅ GoodsChain* | COMPLETE |
 | Trade/logistics | ✅ TradeShipment | ✅ escort/loss/risk | ✅ | ✅ caravan projection | ✅ Ops | ✅ caravan art | ✅ Trade* | COMPLETE |
 | Transport networks | ✅ StreetType + corridors | ✅ same-realm + cross-faction corridors | ✅ | ✅ carriageways/sidewalks | ✅ Ops | ✅ road projection | ✅ | COMPLETE |
 | Industry/Create | ✅ IndustrialSite | ✅ production + maintenance + starvation | ✅ | ✅ Create yard projection | ✅ Ops | ✅ Create blocks | ✅ | COMPLETE |
@@ -28,7 +28,7 @@ A subsystem is **COMPLETE** only when model, simulation, persistence/migration, 
 | Player reputation/membership/influence/careers | ✅ | ✅ join/leave/found/tax/policy | ✅ | ✅ commands + unlocks | ✅ dashboard | n/a | ✅ | COMPLETE |
 | Bounty hunters | ✅ | ✅ | ✅ | ✅ hunter runtime | ✅ Law | ✅ | ✅ | COMPLETE |
 | Assistance/contracts | ✅ | ✅ verified delivery + shortage contracts | ✅ | ✅ assist runtime | ✅ Ops + dialogue | n/a | ✅ | COMPLETE |
-| Singleplayer client sync | ✅ protocol 19 snapshot | ✅ request/response | server save | ✅ NeoForge payloads | ✅ F12/M/K | ✅ | ✅ | COMPLETE |
+| Singleplayer client sync | ✅ protocol 20 snapshot | ✅ request/response | server save | ✅ NeoForge payloads | ✅ F12/M/K | ✅ | ✅ | COMPLETE |
 | Config/data packs | ✅ | ✅ | ✅ | ✅ | ✅ Settings | ✅ | ✅ | COMPLETE |
 | Requested modpack compatibility | ✅ Guns++/GamingBarn player-only | n/a | n/a | ✅ Waystones soft + Create hard | n/a | ✅ | ✅ | COMPLETE |
 | Performance/LOD | ✅ | ✅ | n/a | ✅ bounded projections | n/a | n/a | ✅ soak/stress | COMPLETE |
@@ -40,7 +40,7 @@ A subsystem is **COMPLETE** only when model, simulation, persistence/migration, 
 2. Linked NeoForge/Create `clean --no-build-cache build`.
 3. `python3 scripts/release-audit.py`.
 4. `RELEASE_MANIFEST.json` generated for exact HEAD.
-5. Save/load for schema 18 with migrations from schema 1.
+5. Save/load for schema 19 with migrations from schema 1.
 6. 30/365/3650-day soak invariants.
 7. Projection stress under budgets.
 8. No phantom completion keys; no FOOD×mill fountain; capture keeps `citizen.factionId` aligned.

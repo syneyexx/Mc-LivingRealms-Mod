@@ -22,10 +22,10 @@ public final class MigrationOrderTest {
     private static void decisionGates() {
         check(ContentMigrationPolicy.shouldResetMorphology(9), "rev9 resets morphology");
         check(!ContentMigrationPolicy.shouldResetMorphology(11), "rev11 does not reset morphology");
-        check(!ContentMigrationPolicy.shouldResetMorphology(14), "current does not reset morphology");
-        check(ContentMigrationPolicy.shouldEnsureDensity(9, 14), "rev9 densifies");
-        check(ContentMigrationPolicy.shouldEnsureDensity(11, 14), "rev11 densifies toward 14");
-        check(!ContentMigrationPolicy.shouldEnsureDensity(14, 14), "current densifier is one-shot");
+        check(!ContentMigrationPolicy.shouldResetMorphology(15), "current does not reset morphology");
+        check(ContentMigrationPolicy.shouldEnsureDensity(9, 15), "rev9 densifies");
+        check(ContentMigrationPolicy.shouldEnsureDensity(11, 15), "rev11 densifies toward 15");
+        check(!ContentMigrationPolicy.shouldEnsureDensity(15, 15), "current densifier is one-shot");
         check(ContentMigrationPolicy.shouldRejectCorruptPayload(42L, 7L), "bad CRC rejected");
         check(!ContentMigrationPolicy.shouldRejectCorruptPayload(0L, 7L), "legacy integrity path allowed");
     }

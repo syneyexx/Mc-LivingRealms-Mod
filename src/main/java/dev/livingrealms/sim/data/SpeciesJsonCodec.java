@@ -12,7 +12,7 @@ public final class SpeciesJsonCodec {
         Object root=MiniJson.parse(json);
         if(!(root instanceof Map<?,?> raw))throw new IllegalArgumentException("Species root must be an object");
         Map<String,Object> m=stringMap(raw);
-        Set<String> allowed=Set.of("id","commonName","diet","activityCycle","socialPattern","adultMassKg","lifespanDays","maturityDays","gestationDays","offspringPerBirth","birthsPerYear","dailyFoodKg","dailyWaterLitres","movementKmPerDay","aggression","fearfulness","huntSkill","defense","minGroup","maxGroup","climates","habitatTags","preySpecies","predatorSpecies","attacksHumans","morphology","locomotion","swimSpeedFactor","flightSpeedFactor");
+        Set<String> allowed=Set.of("id","commonName","diet","activityCycle","socialPattern","adultMassKg","lifespanDays","maturityDays","gestationDays","offspringPerBirth","birthsPerYear","dailyFoodKg","dailyWaterLitres","movementKmPerDay","aggression","fearfulness","huntSkill","defense","minGroup","maxGroup","climates","habitatTags","preySpecies","predatorSpecies","attacksHumans","morphology","locomotion","swimSpeedFactor","flightSpeedFactor","visualFamily");
         for(String k:m.keySet())if(!allowed.contains(k))throw new IllegalArgumentException("Unknown species field: "+k);
         SpeciesDefinition base=new SpeciesDefinition(
                 str(m,"id"),str(m,"commonName"),enumValue(Diet.class,str(m,"diet")),enumValue(ActivityCycle.class,str(m,"activityCycle")),enumValue(SocialPattern.class,str(m,"socialPattern")),
@@ -24,8 +24,9 @@ public final class SpeciesJsonCodec {
         LocomotionMode locomotion=optionalEnum(m,"locomotion",LocomotionMode.class,base.locomotion());
         double swim=optionalNum(m,"swimSpeedFactor",base.swimSpeedFactor());
         double flight=optionalNum(m,"flightSpeedFactor",base.flightSpeedFactor());
-        if(morphology==base.morphology()&&locomotion==base.locomotion()&&Double.compare(swim,base.swimSpeedFactor())==0&&Double.compare(flight,base.flightSpeedFactor())==0)return base;
-        return new SpeciesDefinition(base.id(),base.commonName(),base.diet(),base.activityCycle(),base.socialPattern(),base.adultMassKg(),base.lifespanDays(),base.maturityDays(),base.gestationDays(),base.offspringPerBirth(),base.birthsPerYear(),base.dailyFoodKg(),base.dailyWaterLitres(),base.movementKmPerDay(),base.aggression(),base.fearfulness(),base.huntSkill(),base.defense(),base.minGroup(),base.maxGroup(),base.climates(),base.habitatTags(),base.preySpecies(),base.predatorSpecies(),base.attacksHumans(),morphology,locomotion,swim,flight);
+        SpeciesVisualFamily visual=optionalEnum(m,"visualFamily",SpeciesVisualFamily.class,base.visualFamily());
+        if(morphology==base.morphology()&&locomotion==base.locomotion()&&Double.compare(swim,base.swimSpeedFactor())==0&&Double.compare(flight,base.flightSpeedFactor())==0&&visual==base.visualFamily())return base;
+        return new SpeciesDefinition(base.id(),base.commonName(),base.diet(),base.activityCycle(),base.socialPattern(),base.adultMassKg(),base.lifespanDays(),base.maturityDays(),base.gestationDays(),base.offspringPerBirth(),base.birthsPerYear(),base.dailyFoodKg(),base.dailyWaterLitres(),base.movementKmPerDay(),base.aggression(),base.fearfulness(),base.huntSkill(),base.defense(),base.minGroup(),base.maxGroup(),base.climates(),base.habitatTags(),base.preySpecies(),base.predatorSpecies(),base.attacksHumans(),morphology,locomotion,swim,flight,visual);
     }
 
     public static String encode(SpeciesDefinition sp) {
@@ -33,7 +34,7 @@ public final class SpeciesJsonCodec {
         m.put("id",sp.id());m.put("commonName",sp.commonName());m.put("diet",sp.diet().name());m.put("activityCycle",sp.activityCycle().name());m.put("socialPattern",sp.socialPattern().name());
         m.put("adultMassKg",sp.adultMassKg());m.put("lifespanDays",sp.lifespanDays());m.put("maturityDays",sp.maturityDays());m.put("gestationDays",sp.gestationDays());m.put("offspringPerBirth",sp.offspringPerBirth());m.put("birthsPerYear",sp.birthsPerYear());m.put("dailyFoodKg",sp.dailyFoodKg());m.put("dailyWaterLitres",sp.dailyWaterLitres());m.put("movementKmPerDay",sp.movementKmPerDay());
         m.put("aggression",sp.aggression());m.put("fearfulness",sp.fearfulness());m.put("huntSkill",sp.huntSkill());m.put("defense",sp.defense());m.put("minGroup",sp.minGroup());m.put("maxGroup",sp.maxGroup());
-        m.put("climates",sp.climates().stream().map(Enum::name).sorted().toList());m.put("habitatTags",sp.habitatTags().stream().sorted().toList());m.put("preySpecies",sp.preySpecies().stream().sorted().toList());m.put("predatorSpecies",sp.predatorSpecies().stream().sorted().toList());m.put("attacksHumans",sp.attacksHumans());m.put("morphology",sp.morphology().name());m.put("locomotion",sp.locomotion().name());m.put("swimSpeedFactor",sp.swimSpeedFactor());m.put("flightSpeedFactor",sp.flightSpeedFactor());
+        m.put("climates",sp.climates().stream().map(Enum::name).sorted().toList());m.put("habitatTags",sp.habitatTags().stream().sorted().toList());m.put("preySpecies",sp.preySpecies().stream().sorted().toList());m.put("predatorSpecies",sp.predatorSpecies().stream().sorted().toList());m.put("attacksHumans",sp.attacksHumans());m.put("morphology",sp.morphology().name());m.put("locomotion",sp.locomotion().name());m.put("swimSpeedFactor",sp.swimSpeedFactor());m.put("flightSpeedFactor",sp.flightSpeedFactor());if(sp.visualFamily()!=null)m.put("visualFamily",sp.visualFamily().name());
         return MiniJson.stringify(m);
     }
 

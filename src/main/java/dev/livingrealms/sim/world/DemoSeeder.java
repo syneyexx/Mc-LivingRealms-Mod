@@ -1,8 +1,6 @@
 package dev.livingrealms.sim.world;
 
 import dev.livingrealms.sim.ecology.*;
-import dev.livingrealms.sim.faction.*;
-import java.util.*;
 
 public final class DemoSeeder {
     private DemoSeeder(){}
@@ -23,20 +21,9 @@ public final class DemoSeeder {
         s.addRegion(savanna);
         HabitatPopulationSeeder.seedMissingSpecies(s,savanna,64);
 
-        Faction a=new Faction(s.nextId(),"Kingdom of Aster","Queen Elara I");
-        a.addSettlement(new Settlement(s.nextId(),"Asterhold",new SimPosition(0,0),420,470));
-        a.stockpile().add(ResourceType.FOOD,700);a.stockpile().add(ResourceType.WOOD,240);a.stockpile().add(ResourceType.IRON,80);
-        Army aa=new Army(s.nextId(),a.id(),new SimPosition(80,30),90); aa.addArtillery(2); a.addArmy(aa); s.addFaction(a);
-
-        Faction b=new Faction(s.nextId(),"Veyran Dominion","King Oren IV");
-        b.addSettlement(new Settlement(s.nextId(),"Veyra",new SimPosition(2400,300),510,540));
-        b.stockpile().add(ResourceType.FOOD,580);b.stockpile().add(ResourceType.WOOD,300);b.stockpile().add(ResourceType.IRON,120);
-        Army ba=new Army(s.nextId(),b.id(),new SimPosition(2200,260),120);ba.addArtillery(3);b.addArmy(ba);s.addFaction(b);
-        a.relationWith(b.id()).adjust(-35); b.relationWith(a.id()).adjust(-35);
+        // Sparse authored lattice is the sole capital/satellite authority (2000-block policy).
         SettlementDensitySeeder.ensureStarterDensity(s);
         WizardTreesSeeder.ensure(s);
-        // Wizard colonies are authored after the surface lattice — re-enforce spacing clearance.
-        SettlementDensitySeeder.enforceSpacing(s);
         s.history().add(new WorldEvent(0,"world_created","Living Realms simulation initialized."));
         s.ensureNamedRosters();
     }

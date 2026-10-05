@@ -1,5 +1,7 @@
 # Living Realms architecture
 
+CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+
 ## Authority boundaries (non-negotiable)
 
 | Concern | Authority | Projection / presentation |

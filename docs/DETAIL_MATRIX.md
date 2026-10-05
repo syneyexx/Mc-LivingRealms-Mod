@@ -1,6 +1,6 @@
 # LivingRealms Detail Matrix
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 Source wins over docs. Status values for current work: EXISTS · IMPLEMENTING · COMPLETE.
 
@@ -19,11 +19,11 @@ Source wins over docs. Status values for current work: EXISTS · IMPLEMENTING ·
 | UI blur removed | clearBackground overrides | COMPLETE | M / dialogue / dashboard |
 | M-map terrain | RealmWorldMapScreen + ClientTerrainMapCache | COMPLETE | |
 | Named roster | SocialPopulationEngine | COMPLETE | hamlet6…capital64; no projection required |
-| Goods chains | ResourceType + SettlementEconomyEngine | COMPLETE | schema 18; no FOOD×mill fountain |
+| Goods chains | ResourceType + SettlementEconomyEngine | COMPLETE | schema 19; no FOOD×mill fountain |
 | Farms/pastures/hinterland keys | completion keys + receipts | COMPLETE | No seeder phantoms |
 | Settlement transfer | SettlementTransfer | COMPLETE | Capture + rebellion |
 | War capital targets | DiplomacyEngine | COMPLETE | Typed goals |
-| Density | SettlementDensitySeeder | COMPLETE | 13/realm, 156 surface, spacing 800 |
+| Density | SettlementDensitySeeder | COMPLETE | 13/realm, 36 surface, spacing 2000 |
 
 ## Geschiedenis
 - Older detail rows cited schema 16–17, 32/realm (~380+), FOOD mill proxies, COMPLETE (core), and EXTERNAL GATE. Historical only.

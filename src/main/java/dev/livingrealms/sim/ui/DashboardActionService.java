@@ -1,6 +1,7 @@
 package dev.livingrealms.sim.ui;
 
 import dev.livingrealms.sim.config.SimulationPreset;
+import dev.livingrealms.sim.construction.PlayerStructureRegistration;
 import dev.livingrealms.sim.faction.DevelopmentPriority;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
@@ -60,6 +61,14 @@ public final class DashboardActionService {
             var r=PlayerSettlementFounder.found(state,actorKey,playerName,settlementName,position);
             return new Result(r.success(),r.success(),r.success()?"founded_"+r.settlementName():r.reason());
         }
+        if(command.action()==DashboardActionCommand.Action.SET_DEVELOPMENT_MODE){
+            var r=PlayerStructureRegistration.setDevelopmentMode(state,actorKey,command.targetId(),command.argument());
+            return new Result(r.success(),r.success(),r.reason());
+        }
+        if(command.action()==DashboardActionCommand.Action.REGISTER_BUILDING){
+            // Survey requires loaded Minecraft blocks — handled by network runtime.
+            return new Result(false,false,"runtime_survey_required");
+        }
         if(command.action()==DashboardActionCommand.Action.MARKET_BUY||command.action()==DashboardActionCommand.Action.MARKET_SELL)return new Result(false,false,"runtime_inventory_required");
         if(command.action()==DashboardActionCommand.Action.ABDICATE){
             var r=PlayerAgencyActions.abdicate(state,actorKey);
@@ -73,16 +82,36 @@ public final class DashboardActionService {
             var r=PlayerAgencyActions.proposeTradePact(state,actorKey,command.targetId());
             return new Result(r.success(),r.dirty(),r.reason());
         }
+        if(command.action()==DashboardActionCommand.Action.DECLARE_WAR){
+            var r=PlayerAgencyActions.declareWar(state,actorKey,command.targetId(),command.secondaryTargetId());
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
         if(command.action()==DashboardActionCommand.Action.ARMY_DEFEND_HOME){
-            var r=PlayerAgencyActions.armyOrder(state,actorKey,command.targetId(),MilitaryObjectiveType.DEFEND);
+            var r=PlayerAgencyActions.armyOrder(state,actorKey,command.targetId(),MilitaryObjectiveType.DEFEND,command.secondaryTargetId());
             return new Result(r.success(),r.dirty(),r.reason());
         }
         if(command.action()==DashboardActionCommand.Action.ARMY_STAND_DOWN){
-            var r=PlayerAgencyActions.armyOrder(state,actorKey,command.targetId(),MilitaryObjectiveType.RETREAT);
+            var r=PlayerAgencyActions.armyOrder(state,actorKey,command.targetId(),MilitaryObjectiveType.RETREAT,command.secondaryTargetId());
             return new Result(r.success(),r.dirty(),r.reason());
         }
-        if(command.action()==DashboardActionCommand.Action.ARMY_RALLY){
-            var r=PlayerAgencyActions.armyOrder(state,actorKey,command.targetId(),MilitaryObjectiveType.PATROL_BORDER);
+        if(command.action()==DashboardActionCommand.Action.ARMY_RALLY||command.action()==DashboardActionCommand.Action.ARMY_PATROL){
+            var r=PlayerAgencyActions.armyOrder(state,actorKey,command.targetId(),MilitaryObjectiveType.PATROL_BORDER,command.secondaryTargetId());
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
+        if(command.action()==DashboardActionCommand.Action.ARMY_CAPTURE){
+            var r=PlayerAgencyActions.armyOrder(state,actorKey,command.targetId(),MilitaryObjectiveType.CAPTURE_SETTLEMENT,command.secondaryTargetId());
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
+        if(command.action()==DashboardActionCommand.Action.ARMY_SIEGE){
+            var r=PlayerAgencyActions.armyOrder(state,actorKey,command.targetId(),MilitaryObjectiveType.SIEGE,command.secondaryTargetId());
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
+        if(command.action()==DashboardActionCommand.Action.ARMY_RAID){
+            var r=PlayerAgencyActions.armyOrder(state,actorKey,command.targetId(),MilitaryObjectiveType.RAID,command.secondaryTargetId());
+            return new Result(r.success(),r.dirty(),r.reason());
+        }
+        if(command.action()==DashboardActionCommand.Action.ARMY_ESCORT){
+            var r=PlayerAgencyActions.armyOrder(state,actorKey,command.targetId(),MilitaryObjectiveType.ESCORT,command.secondaryTargetId());
             return new Result(r.success(),r.dirty(),r.reason());
         }
         if(command.action()==DashboardActionCommand.Action.SURRENDER||command.action()==DashboardActionCommand.Action.PAY_FINE){
@@ -125,7 +154,7 @@ public final class DashboardActionService {
         return switch(command.action()){
             case BOUNTY_ACCEPT -> {var r=state.acceptBounty(contract.id(),actorKey);yield new Result(r.success(),r.success(),r.reason());}
             case BOUNTY_ABANDON -> {var r=state.abandonBounty(contract.id(),actorKey);yield new Result(r.success(),r.success(),r.reason());}
-            case CONFIG_PERFORMANCE,CONFIG_BALANCED,CONFIG_IMMERSIVE,CONFIG_CINEMATIC,FACTION_JOIN_LOCAL,FACTION_LEAVE,TAX_LOWER,TAX_RAISE,SETTLEMENT_BALANCED,SETTLEMENT_FOOD,SETTLEMENT_HOUSING,SETTLEMENT_INDUSTRY,SETTLEMENT_DEFENSE,MARKET_BUY,MARKET_SELL,REQUEST_AUDIENCE,PROPOSE_PROJECT,REQUEST_MILITARY_SUPPORT,PETITION_TRADE,PETITION_CLERGY,FOUND_SETTLEMENT,ABDICATE,PETITION_PEACE,PROPOSE_TRADE_PACT,ARMY_DEFEND_HOME,ARMY_RALLY,ARMY_STAND_DOWN,SURRENDER,PAY_FINE -> new Result(false,false,"action_unreachable");
+            case CONFIG_PERFORMANCE,CONFIG_BALANCED,CONFIG_IMMERSIVE,CONFIG_CINEMATIC,FACTION_JOIN_LOCAL,FACTION_LEAVE,TAX_LOWER,TAX_RAISE,SETTLEMENT_BALANCED,SETTLEMENT_FOOD,SETTLEMENT_HOUSING,SETTLEMENT_INDUSTRY,SETTLEMENT_DEFENSE,SET_DEVELOPMENT_MODE,REGISTER_BUILDING,MARKET_BUY,MARKET_SELL,REQUEST_AUDIENCE,PROPOSE_PROJECT,REQUEST_MILITARY_SUPPORT,PETITION_TRADE,PETITION_CLERGY,FOUND_SETTLEMENT,ABDICATE,PETITION_PEACE,PROPOSE_TRADE_PACT,DECLARE_WAR,ARMY_DEFEND_HOME,ARMY_RALLY,ARMY_STAND_DOWN,ARMY_CAPTURE,ARMY_SIEGE,ARMY_RAID,ARMY_ESCORT,ARMY_PATROL,SURRENDER,PAY_FINE -> new Result(false,false,"action_unreachable");
         };
     }
 

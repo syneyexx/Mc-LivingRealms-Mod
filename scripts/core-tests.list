@@ -17,6 +17,10 @@ dev.livingrealms.SaveMutationFuzzTest
 dev.livingrealms.ProductionHardeningTest
 dev.livingrealms.LivingWorldDensityTest
 dev.livingrealms.OrganicMorphologyAndCauseTest
+dev.livingrealms.SettlementStreetGraphTest
+dev.livingrealms.StructureAccessValidatorTest
+dev.livingrealms.CultureArchitectureDerivationTest
+dev.livingrealms.HonestCartographyTest
 dev.livingrealms.WorldgenQualityTest
 dev.livingrealms.ProductionQualityTest
 dev.livingrealms.ProductionCompletionPassTest
@@ -56,4 +60,14 @@ dev.livingrealms.SingleProductionAuthorityTest
 dev.livingrealms.DocumentationPinTest
 dev.livingrealms.ManualDayAdvanceSchedulerTest
 dev.livingrealms.Schema18FollowUpTest
+dev.livingrealms.SparseWorldPolicyTest
+dev.livingrealms.SettlementAnchorInvariantTest
+dev.livingrealms.ForeignSettlementSpacingTest
+dev.livingrealms.PlayerWarRoomTest
+dev.livingrealms.UnderworldGameplayTest
+dev.livingrealms.RoadLifeLayerTest
+dev.livingrealms.PlayerStructureRegistrationTest
+dev.livingrealms.PlayerSettlementGrowthTest
+dev.livingrealms.WildlifeVisualFamilyTest
+dev.livingrealms.CivicChoreographyTest
 dev.livingrealms.LongRunSoakTest

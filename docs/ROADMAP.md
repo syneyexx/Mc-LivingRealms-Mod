@@ -1,6 +1,6 @@
 # Living Realms delivery roadmap
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 ## Product scope
 - [x] Offline singleplayer only; integrated server authoritative.
@@ -9,9 +9,9 @@ CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevisi
 
 ## v3.0 — release-ready singleplayer
 - [x] Deterministic civilization/ecology core.
-- [x] Versioned persistent world state through schema **18** (schemas 1–17 readable).
-- [x] Dashboard protocol **18**, network **14**, ContentRevision **14**.
-- [x] Surface density: 12 kingdoms × 13 settlements (capital + 10 Specs + 2 rural) = **156**, spacing **800**, plus Wizard Trees (3).
+- [x] Versioned persistent world state through schema **19** (schemas 1–18 readable).
+- [x] Dashboard protocol **20**, network **16**, ContentRevision **15**.
+- [x] Surface density: 12 kingdoms × 3 settlements (capital + 1 Spec + 1 rural) = **36**, spacing **2000**, plus Wizard Trees (3).
 - [x] Goods chain GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL; construction keys only via materializer / FOREIGN_ADOPTED.
 - [x] SettlementTransfer on capture/rebellion; capital war targets; named rosters; tokenized dialogue.
 - [x] 3650-day soak, projection stress, save fuzz, release-audit, GameTests.

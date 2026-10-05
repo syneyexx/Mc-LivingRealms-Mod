@@ -1,5 +1,7 @@
 package dev.livingrealms.minecraft.client.ui;
 
+import dev.livingrealms.sim.cartography.TerrainKnowledge;
+import dev.livingrealms.sim.cartography.TerrainMapSample;
 import dev.livingrealms.sim.ui.RealmDashboardSnapshot;
 import java.util.HashMap;
 import java.util.Locale;
@@ -9,8 +11,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Full-screen strategic world map opened with M. Painted like a compact Xaero-style local atlas:
- * player-centred zoom, elevation-shaded terrain from loaded chunks, ecology tint for unloaded land.
+ * Full-screen strategic world map opened with M. ACTUAL terrain from loaded chunks,
+ * REGIONAL_ESTIMATE from ecology, UNKNOWN parchment elsewhere — never invented sine relief.
  */
 public final class RealmWorldMapScreen extends Screen {
     /** Local view radius around the player in blocks (Xaero-style readable zoom). */
@@ -138,42 +140,29 @@ public final class RealmWorldMapScreen extends Screen {
             for(int px=x;px<x+w;px+=tile){
                 double wx=minX+((px-x+tile*.5)/Math.max(1.0,w))*(maxX-minX);
                 ClientTerrainMapCache.Sample surface=ClientTerrainMapCache.sample((int)Math.round(wx),(int)Math.round(wz));
-                int color;
-                if(surface!=null){
-                    color=surface.color();
-                }else if(regions.isEmpty()){
-                    // Deterministic procedural relief so unloaded land still shows hills/valleys.
-                    color=proceduralTerrain((int)Math.round(wx),(int)Math.round(wz));
-                }else{
+                TerrainMapSample.ActualSample actual=surface==null?null
+                        :new TerrainMapSample.ActualSample(surface.color(),surface.height(),surface.water());
+                String nearestBiome=null;
+                if(actual==null&&!regions.isEmpty()){
                     RealmDashboardSnapshot.RegionEcologyView nearest=null;double best=Double.POSITIVE_INFINITY;
                     for(var region:regions){double dx=region.x()-wx,dz=region.z()-wz,d=dx*dx+dz*dz;if(d<best){best=d;nearest=region;}}
-                    color=nearest==null?proceduralTerrain((int)Math.round(wx),(int)Math.round(wz)):opaque(biomeColor(nearest.biome()));
-                    if(nearest!=null){
-                        double b=Math.max(0,Math.min(1,nearest.plantBiomass()/1200.0));
-                        double relief=reliefNoise(wx,wz);
-                        color=shade(color,.72+b*.16+relief*.18);
-                    }
+                    if(nearest!=null)nearestBiome=nearest.biome();
+                }
+                TerrainMapSample.Resolved resolved=TerrainMapSample.resolve(actual,nearestBiome,nearestBiome!=null);
+                int color;
+                if(resolved.knowledge()==TerrainKnowledge.ACTUAL){
+                    color=resolved.color();
+                }else if(resolved.knowledge()==TerrainKnowledge.REGIONAL_ESTIMATE){
+                    color=resolved.color();
+                    // Low-detail hatch — visibly estimated, no fake elevation contours.
+                    if((((px>>3)+(py>>3))&1)==0)color=shade(color,.86);
+                }else{
+                    color=TerrainMapSample.unknownFill(px,py);
                 }
                 g.fill(px,py,Math.min(x+w,px+tile),Math.min(y+h,py+tile),color);
             }
         }
     }
-
-    private static int proceduralTerrain(int x,int z){
-        double n=reliefNoise(x,z);
-        int base=n>.62?0xFF6E7468:n>.38?0xFF4F6B45:0xFF3A5A3E;
-        if(n>.78)base=0xFF8A8E88;
-        return shade(base,.85+n*.2);
-    }
-
-    private static double reliefNoise(double x,double z){
-        // Cheap layered value noise — readable ridges without needing heightmaps for unloaded chunks.
-        double n=Math.sin(x*0.0031+z*0.0027)*0.5+Math.sin(x*0.0011-z*0.0017)*0.3+Math.sin((x+z)*0.0007)*0.2;
-        return Math.max(0,Math.min(1,(n+1)*.5));
-    }
-
-    private static int opaque(int argb){return 0xFF000000|(argb&0x00FFFFFF);}
-    private static int shade(int argb,double factor){int r=(int)(((argb>>16)&255)*factor),gg=(int)(((argb>>8)&255)*factor),b=(int)((argb&255)*factor);return 0xFF000000|(Math.min(255,r)<<16)|(Math.min(255,gg)<<8)|Math.min(255,b);}
 
     private void renderLegend(GuiGraphics g,RealmDashboardSnapshot s,int x,int y,int w,int h){
         g.fill(x,y,x+w,y+h,0xD910151B);g.drawString(font,"Kingdoms",x+8,y+8,0xFFFFFFFF,false);
@@ -182,11 +171,13 @@ public final class RealmWorldMapScreen extends Screen {
             if(yy>y+h-62)break;g.fill(x+8,yy+2,x+16,yy+10,factionColor(f.id(),0xFF));g.drawString(font,f.name(),x+21,yy+2,0xFFDDE5EC,false);yy+=13;shown++;
         }
         if(shown<s.factions().size()){g.drawString(font,"+"+(s.factions().size()-shown)+" more",x+8,yy+2,0xFF9DA8B3,false);yy+=14;}
-        yy=Math.max(yy+8,y+h-52);g.drawString(font,"Terrain + elevation (Xaero-style zoom)",x+8,yy,0xFF9EC9A9,false);yy+=12;
+        yy=Math.max(yy+8,y+h-52);g.drawString(font,"Actual / estimate / unknown terrain",x+8,yy,0xFF9EC9A9,false);yy+=12;
         g.drawString(font,"Routes • trade • migration • resources",x+8,yy,0xFFBDA66A,false);yy+=12;
         g.drawString(font,"Red threats • blue ports • purple disease",x+8,yy,0xFFE0A0A0,false);yy+=12;
         g.drawString(font,"X "+Math.round(s.map().playerX())+"  Z "+Math.round(s.map().playerZ())+"  zoom "+String.format(Locale.ROOT,"%.1f",zoom),x+8,yy,0xFFFFFFFF,false);
     }
+
+    private static int shade(int argb,double factor){int r=(int)(((argb>>16)&255)*factor),gg=(int)(((argb>>8)&255)*factor),b=(int)((argb&255)*factor);return 0xFF000000|(Math.min(255,r)<<16)|(Math.min(255,gg)<<8)|Math.min(255,b);}
 
     private int mapX(RealmDashboardSnapshot.StrategicMapView map,double wx,int x,int w){return x+(int)Math.round((wx-viewMinX(map))/Math.max(1,viewMaxX(map)-viewMinX(map))*(w-1));}
     private int mapY(RealmDashboardSnapshot.StrategicMapView map,double wz,int y,int h){return y+(int)Math.round((wz-viewMinZ(map))/Math.max(1,viewMaxZ(map)-viewMinZ(map))*(h-1));}
