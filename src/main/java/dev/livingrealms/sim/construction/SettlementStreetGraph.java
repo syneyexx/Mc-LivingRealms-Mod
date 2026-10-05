@@ -439,20 +439,22 @@ public final class SettlementStreetGraph {
             for(int ai=0;ai<segments.size();ai++){
                 RoadSegment a=segments.get(ai);
                 List<SimPosition> aLine=a.centerline();
-                SimPosition[] endpoints={aLine.getFirst(),aLine.getLast()};
                 for(int bi=0;bi<segments.size();bi++){
                     if(ai==bi)continue;
                     RoadSegment b=segments.get(bi);
                     double tolerance=(a.width()+b.width())*.5+.25;
                     List<SimPosition> bLine=b.centerline();
-                    for(SimPosition endpoint:endpoints){
-                        NearestSpan nearest=nearestSpan(endpoint,bLine);
+                    // Use every authored vertex, not just segment endpoints. Planned grids commonly
+                    // express a junction as an interior vertex on the side street touching the
+                    // middle of a longer boulevard span.
+                    for(SimPosition vertex:aLine){
+                        NearestSpan nearest=nearestSpan(vertex,bLine);
                         if(nearest==null||nearest.distance()>tolerance)continue;
-                        long endpointNode=nodeId(endpoint);
+                        long vertexNode=nodeId(vertex);
                         long junction=nodeId(nearest.point());
                         long from=nodeId(bLine.get(nearest.spanIndex()));
                         long to=nodeId(bLine.get(nearest.spanIndex()+1));
-                        addEdgeIfDistinct(endpointNode,junction,a.key());
+                        addEdgeIfDistinct(vertexNode,junction,a.key());
                         addEdgeIfDistinct(from,junction,b.key());
                         addEdgeIfDistinct(junction,to,b.key());
                     }
