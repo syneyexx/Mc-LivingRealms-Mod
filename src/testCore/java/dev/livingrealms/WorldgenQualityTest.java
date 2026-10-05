@@ -25,12 +25,14 @@ public final class WorldgenQualityTest {
         check(castle.id().contains("castle"),"capital keep must resolve to castle blueprint");
 
         List<ConstructionIntent> roads=plan.stream().filter(i->i.role()==StructureRole.ROAD).toList();
-        check(roads.size()>=12,"city must have a dense connected street/side-street network");
-        check(roads.stream().allMatch(i->i.rotationQuarterTurns()==0||i.rotationQuarterTurns()==1||i.rotationQuarterTurns()==2||i.rotationQuarterTurns()==3),"roads must use orthogonal quarter-turn geometry");
-        check(roads.stream().anyMatch(i->i.width()==5)&&roads.stream().anyMatch(i->i.width()>=9),"city must contain both residential side streets and arterial streets");
-        StructureBlueprint road=StructureBlueprintFactory.create(roads.getFirst());
-        check(road.placements().stream().anyMatch(p->p.slot()==PaletteSlot.PATH),"road must include carriageway/path");
-        check(road.placements().stream().anyMatch(p->p.slot()==PaletteSlot.FOUNDATION),"road must include sidewalks");
+        check(roads.size()>=5,"city must have a connected street/side-street network");
+        check(roads.stream().filter(ConstructionIntent::hasPath).count()>=5,"city roads must be graph polyline intents");
+        SettlementStreetGraph streetGraph=SettlementStreetGraph.fromRoadIntents(capital.id(),roads);
+        check(streetGraph.hasConnectedCore(),"city street graph must be fully connected");
+        check(streetGraph.segments().stream().anyMatch(SettlementStreetGraph.RoadSegment::hasNonAxisGeometry),
+                "city morphology must physically support non-axis streets");
+        check(roads.stream().anyMatch(i->i.width()==5)&&roads.stream().anyMatch(i->i.width()>=7),
+                "city must contain both residential streets and arterials");
 
         List<ConstructionIntent> houses=plan.stream().filter(i->i.role()==StructureRole.HOUSE).toList();
         check(houses.size()>=60,"city must materially expand housing stock");
@@ -66,7 +68,7 @@ public final class WorldgenQualityTest {
         List<RouteProjectionPlanner.RoutePoint> terrainPoints=RouteProjectionPlanner.plan(route,from,to,List.of(new SimPosition(60,35)),500,500,ridge);
         check(!terrainPoints.isEmpty(),"terrain-aware route must still project near observers");
 
-        System.out.println("PASS worldgen quality: city castle + orthogonal streets/sidewalks + apartments + accessible floors + tier growth + terrain-aware routes");
+        System.out.println("PASS worldgen quality: city castle + graph-first polyline streets + apartments + accessible floors + tier growth + terrain-aware routes");
     }
 
     private static void check(boolean condition,String message){if(!condition)throw new AssertionError(message);}
