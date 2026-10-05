@@ -32,6 +32,7 @@ public final class SettlementStreetGraphTest {
         java.util.Set<String> signatures = new java.util.HashSet<>();
         for (SettlementMorphology morphology : List.of(
                 SettlementMorphology.ORGANIC_MEDIEVAL,
+                SettlementMorphology.MARKET_CROSS,
                 SettlementMorphology.RADIAL_CAPITAL,
                 SettlementMorphology.HILL_TOWN,
                 SettlementMorphology.RIVER_TOWN,
