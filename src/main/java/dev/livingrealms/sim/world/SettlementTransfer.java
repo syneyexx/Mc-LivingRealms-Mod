@@ -64,7 +64,16 @@ public final class SettlementTransfer {
             }
         }
         for (ResourceClaim claim : state.resourceClaims()) {
-            if (claim.active() && claim.settlementId() == settlementId && claim.factionId() == fromFactionId) claim.setFactionId(toFactionId);
+            if (claim.active() && claim.settlementId() == settlementId && claim.factionId() == fromFactionId) {
+                claim.setFactionId(toFactionId);
+                // Capturer may have been the prior contender — clear self-contest after ownership flip.
+                if (claim.contestedByFactionId() == toFactionId || claim.contestedByFactionId() == fromFactionId) {
+                    claim.setContestedByFactionId(0);
+                }
+            } else if (claim.active() && claim.contestedByFactionId() == fromFactionId) {
+                // Former owner no longer contests neighboring claims once dispossessed of this settlement.
+                claim.setContestedByFactionId(0);
+            }
         }
         for (IndustrialSite site : state.industrialSites()) {
             if (site.settlementId() == settlementId) site.transferTo(toFactionId);
