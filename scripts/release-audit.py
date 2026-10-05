@@ -181,6 +181,7 @@ required_suite={
     'dev.livingrealms.SiegeBreachAllKeysTest',
     'dev.livingrealms.DashboardActionExhaustivenessTest',
     'dev.livingrealms.DocumentationPinTest',
+    'dev.livingrealms.ManualDayAdvanceSchedulerTest',
     'dev.livingrealms.LongRunSoakTest',
 }
 missing_required=sorted(required_suite-set(canonical_tests))
@@ -254,7 +255,8 @@ require('dev.livingrealms.WorldQualityPassTest' in canonical_tests,'core suite m
 require('return List.of()' in (root/'src/main/java/dev/livingrealms/sim/transport/TerrainCorridorPlanner.java').read_text() and 'straight(' not in (root/'src/main/java/dev/livingrealms/sim/transport/TerrainCorridorPlanner.java').read_text(),'terrain corridor must not fall back to destructive straight roads')
 events_text=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsEvents.java').read_text()
 require('SettlementGeographyDiscoveryRuntime.tick' in events_text,'server tick must run settlement geography discovery from loaded chunks')
-require('Commands.literal("setday")' in events_text and 'advanceToDay(target)' in events_text,'absolute setday command must run canonical simulation progression')
+require('Commands.literal("setday")' in events_text and 'dayAdvanceScheduler()' in events_text and 'enqueueAbsolute' in events_text and 'drainTick' in events_text and 'MAX_DAYS_PER_TICK' in (root/'src/main/java/dev/livingrealms/sim/world/ManualDayAdvanceScheduler.java').read_text(),'absolute setday command must queue canonical progression and drain via ManualDayAdvanceScheduler')
+require('boundLevelIdentity' in (root/'src/main/java/dev/livingrealms/minecraft/construction/SettlementConstructionMaterializer.java').read_text(),'construction materializer queue must bind to ServerLevel identity')
 require('Commands.literal("locate")' in events_text and 'Commands.literal("city")' in events_text,'Living Realms locate commands must remain registered')
 require('Commands.literal("found")' in events_text and 'PlayerSettlementFounder.found' in events_text,'player-founded realm command must remain registered')
 require('Commands.literal("mine")' in events_text,'player-owned settlement locate command must remain registered')
