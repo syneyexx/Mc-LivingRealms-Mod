@@ -5,7 +5,7 @@ CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 14 / contentRevisi
 ## Current production state
 - Twelve surface kingdoms each seed capital + 10 authored Spec satellites + 2 rural hamlets (`TARGET_SETTLEMENTS_PER_REALM=13` → `SURFACE_STARTER_SETTLEMENTS=156`), plus Wizard Trees (3 colonies, excluded from surface density).
 - Minimum settlement clearance is **800** blocks (shared by densifier, frontier seeder, and player founding).
-- Save schema **18** adds GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL goods; schemas 1–17 remain readable. Dashboard protocol **18**. Network registration **14**. Outer `ContentRevision=14` (Spec densifier, morphology gate via `ContentMigrationPolicy`, no seeder phantom completion keys).
+- Save schema **18** adds GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL goods; schemas 1–17 remain readable. Dashboard protocol **19**. Network registration **14**. Outer `ContentRevision=14` (Spec densifier, morphology gate via `ContentMigrationPolicy`, no seeder phantom completion keys).
 - Named citizen rosters seed per settlement (hamlet 6 … capital 64) independently of chunk projection; aggregate population remains the demographic scale.
 - Construction completion keys are written only by the materializer or explicit `FOREIGN_ADOPTED` adoption; economy production counts only materialized (or receipt-backed) keys.
 - Capture and rebellion use `SettlementTransfer` so citizens, claims, industry, ports and related ownership follow the new faction.
@@ -19,8 +19,8 @@ CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 14 / contentRevisi
 - Mandatory gates include density, goods chain, migration order, settlement transfer, war goals, dialogue tokens, roster-without-projection, siege breach, and documentation pins.
 
 ## Explicit status claim
-**RELEASE-READY IMPLEMENTATION IN PROGRESS** — pins above are authoritative; historical notes live under Geschiedenis.
+**RELEASE-READY** — pins above are authoritative; historical notes live under Geschiedenis.
 
 ## Geschiedenis
 - Earlier waves used schema 16–17, ContentRevision 10–11, denser 32/realm (~380+) layouts, and 2000-block spacing. Those pins are obsolete for current status.
-- Dashboard protocol historically climbed through v5–v17; current wire is protocol 18.
+- Dashboard protocol historically climbed through v5–v18 before the war-target field bump to protocol 19.

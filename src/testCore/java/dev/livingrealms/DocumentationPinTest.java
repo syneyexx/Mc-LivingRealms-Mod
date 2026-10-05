@@ -70,6 +70,7 @@ public final class DocumentationPinTest {
             forbid(current, doc, "schema 16", Pattern.compile("(?i)\\bschema\\s*16\\b"));
             forbid(current, doc, "schema 17", Pattern.compile("(?i)\\bschema\\s*17\\b"));
             forbid(current, doc, "protocol 17", Pattern.compile("(?i)\\bprotocol\\s*17\\b"));
+            forbid(current, doc, "protocol 18", Pattern.compile("(?i)\\bprotocol\\s*18\\b"));
             forbid(current, doc, "ContentRevision 11", Pattern.compile("(?i)content\\s*revision\\s*=?\\s*11\\b"));
             forbid(current, doc, "380+", Pattern.compile("380\\+"));
             forbid(current, doc, "32 per realm", Pattern.compile("(?i)32\\s+(settlements\\s+)?per\\s+(surface\\s+)?realm"));

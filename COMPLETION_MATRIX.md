@@ -28,7 +28,7 @@ A subsystem is **COMPLETE** only when model, simulation, persistence/migration, 
 | Player reputation/membership/influence/careers | ✅ | ✅ join/leave/found/tax/policy | ✅ | ✅ commands + unlocks | ✅ dashboard | n/a | ✅ | COMPLETE |
 | Bounty hunters | ✅ | ✅ | ✅ | ✅ hunter runtime | ✅ Law | ✅ | ✅ | COMPLETE |
 | Assistance/contracts | ✅ | ✅ verified delivery + shortage contracts | ✅ | ✅ assist runtime | ✅ Ops + dialogue | n/a | ✅ | COMPLETE |
-| Singleplayer client sync | ✅ protocol 18 snapshot | ✅ request/response | server save | ✅ NeoForge payloads | ✅ F12/M/K | ✅ | ✅ | COMPLETE |
+| Singleplayer client sync | ✅ protocol 19 snapshot | ✅ request/response | server save | ✅ NeoForge payloads | ✅ F12/M/K | ✅ | ✅ | COMPLETE |
 | Config/data packs | ✅ | ✅ | ✅ | ✅ | ✅ Settings | ✅ | ✅ | COMPLETE |
 | Requested modpack compatibility | ✅ Guns++/GamingBarn player-only | n/a | n/a | ✅ Waystones soft + Create hard | n/a | ✅ | ✅ | COMPLETE |
 | Performance/LOD | ✅ | ✅ | n/a | ✅ bounded projections | n/a | n/a | ✅ soak/stress | COMPLETE |
