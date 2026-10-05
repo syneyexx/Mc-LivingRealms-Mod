@@ -14,7 +14,7 @@ public final class DomainCodecRoundtripTest {
 
     public static void main(String[] args) {
         check(SimulationStateCodec.SCHEMA_VERSION == 20, "SCHEMA_VERSION must remain 20");
-        SimulationState state = new SimulationState(0xD0MA1C0DEL);
+        SimulationState state = new SimulationState(0xC0DEC0DECAFEL);
         DemoSeeder.seed(state);
         state.advanceDays(14);
         byte[] first = SimulationStateCodec.encode(state);
