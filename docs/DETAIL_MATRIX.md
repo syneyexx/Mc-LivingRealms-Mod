@@ -1,6 +1,6 @@
 # LivingRealms Detail Matrix
 
-CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 Source wins over docs. Status values for current work use maturity levels:
 FOUNDATION · CANONICAL · PLAYABLE · PHYSICALIZED · DEEP · POLISHED (see `COMPLETION_MATRIX.md`).
@@ -24,7 +24,7 @@ FOUNDATION · CANONICAL · PLAYABLE · PHYSICALIZED · DEEP · POLISHED (see `CO
 | Farms/pastures/hinterland keys | completion keys + receipts | CANONICAL | No seeder phantoms |
 | Settlement transfer | SettlementTransfer | DEEP | Capture + rebellion |
 | War capital targets | DiplomacyEngine | DEEP | Typed goals |
-| Density | SettlementDensitySeeder | POLISHED | 3/realm, 36 surface, spacing 2000 |
+| Density | SettlementDensitySeeder + SettlementSpacingPolicy | POLISHED | 17–25/realm, 204–300 surface starters, role-aware spacing |
 | Runtime scheduler | RuntimeBudgetController | DEEP | Soft/hard deferral + starvation |
 | Domain persistence codecs | sim/persistence/codec/* | DEEP | Schema 20 envelope |
 
