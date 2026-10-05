@@ -59,18 +59,14 @@ public final class SettlementParcelPlanner {
         /** True when the house footprint does not overlap the road rectangle of its frontage segment. */
         public boolean footprintClearsRoad(SettlementStreetGraph.RoadSegment segment) {
             Objects.requireNonNull(segment, "segment");
-            double halfW = width / 2.0;
-            double halfD = depth / 2.0;
-            // Conservative AABB check in world XZ against the road corridor AABB expanded by width.
-            double roadHalf = segment.width() / 2.0 + 0.5;
-            double minX = Math.min(segment.start().x(), segment.end().x()) - roadHalf;
-            double maxX = Math.max(segment.start().x(), segment.end().x()) + roadHalf;
-            double minZ = Math.min(segment.start().z(), segment.end().z()) - roadHalf;
-            double maxZ = Math.max(segment.start().z(), segment.end().z()) + roadHalf;
-            double hx0 = center.x() - halfW, hx1 = center.x() + halfW;
-            double hz0 = center.z() - halfD, hz1 = center.z() + halfD;
-            boolean overlap = hx0 < maxX && hx1 > minX && hz0 < maxZ && hz1 > minZ;
-            return !overlap;
+            double houseRadius = Math.hypot(width / 2.0, depth / 2.0);
+            double required = segment.width() / 2.0 + 0.5 + Math.min(houseRadius, Math.max(width, depth) / 2.0);
+            double nearest = Double.POSITIVE_INFINITY;
+            for (int i = 1; i < segment.centerline().size(); i++) {
+                nearest = Math.min(nearest, distanceToSegment(center,
+                        segment.centerline().get(i - 1), segment.centerline().get(i)));
+            }
+            return nearest >= required;
         }
     }
 
@@ -95,7 +91,6 @@ public final class SettlementParcelPlanner {
             if (emitted >= houseCount) break;
             // Skip very short stubs / gate approaches for housing.
             if (segment.length() < 18) continue;
-            boolean alongX = segment.axisAlignedAlongX();
             double len = segment.length();
             // Mixed lot sizes: cottages, townhouses, apartments — sized BEFORE reservation.
             int slots = Math.max(1, (int) (len / (baseW + 4)));
@@ -115,18 +110,19 @@ public final class SettlementParcelPlanner {
                     } else if (emitted % 7 == 2) {
                         lotD = Math.max(lotD, 11);
                     }
-                    double t = (i + 0.5) / slots;
-                    SimPosition onRoad = segment.start().lerp(segment.end(), t);
+                    double along = (i + 0.5) / slots * len;
+                    PathSample sample = sample(segment.centerline(), along);
+                    SimPosition onRoad = sample.point();
                     int setback = segment.width() / 2 + accessStrip + lotD / 2;
-                    // Perpendicular offset: for X-aligned road, offset in ±Z; for Z-aligned, ±X.
-                    double ox = alongX ? 0 : (side == 0 ? setback : -setback);
-                    double oz = alongX ? (side == 0 ? setback : -setback) : 0;
+                    double sign = side == 0 ? 1.0 : -1.0;
+                    double ox = -sample.tangentZ() * setback * sign;
+                    double oz = sample.tangentX() * setback * sign;
                     SimPosition center = new SimPosition(onRoad.x() + ox, onRoad.z() + oz);
                     if (center.distanceTo(settlement.position()) < 14) continue;
                     // Orientation: door at local -Z must face toward the road (frontage).
                     int orientation = facingToward(center, onRoad);
                     ParcelFrontage frontage = new ParcelFrontage(
-                            segment.key(), segment.key(), onRoad, orientation, t * len);
+                            segment.key(), segment.key(), onRoad, orientation, along);
                     SettlementDistrict district = districtFor(settlement, center, lotW, lotD);
                     double suitability = terrainSuitability(settlement, center);
                     if (suitability < 0.2) continue;
@@ -153,6 +149,35 @@ public final class SettlementParcelPlanner {
             }
         }
         return List.copyOf(out);
+    }
+
+    private record PathSample(SimPosition point, double tangentX, double tangentZ) {}
+
+    private static PathSample sample(List<SimPosition> path, double targetDistance) {
+        double walked = 0;
+        for (int i = 1; i < path.size(); i++) {
+            SimPosition a = path.get(i - 1), b = path.get(i);
+            double dx = b.x() - a.x(), dz = b.z() - a.z();
+            double length = Math.hypot(dx, dz);
+            if (length <= 1e-6) continue;
+            if (walked + length >= targetDistance) {
+                double t = Math.max(0, Math.min(1, (targetDistance - walked) / length));
+                return new PathSample(a.lerp(b, t), dx / length, dz / length);
+            }
+            walked += length;
+        }
+        SimPosition a = path.get(path.size() - 2), b = path.getLast();
+        double dx = b.x() - a.x(), dz = b.z() - a.z(), length = Math.max(1e-6, Math.hypot(dx, dz));
+        return new PathSample(b, dx / length, dz / length);
+    }
+
+    private static double distanceToSegment(SimPosition p, SimPosition a, SimPosition b) {
+        double vx = b.x() - a.x(), vz = b.z() - a.z();
+        double len2 = vx * vx + vz * vz;
+        if (len2 <= 1e-9) return p.distanceTo(a);
+        double t = ((p.x() - a.x()) * vx + (p.z() - a.z()) * vz) / len2;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(p.x() - (a.x() + vx * t), p.z() - (a.z() + vz * t));
     }
 
     /** Find first unused parcel that fits the final building footprint W×D. */
