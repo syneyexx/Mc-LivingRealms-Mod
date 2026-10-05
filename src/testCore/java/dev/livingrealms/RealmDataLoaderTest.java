@@ -39,7 +39,9 @@ public final class RealmDataLoaderTest {
                 .filter(f -> !f.name().equals("Wizard Trees"))
                 .mapToInt(f -> f.settlements().size())
                 .sum();
-        check(surface >= 36, "starter surface must not regress below legacy fabric count: " + surface);
+        check(surface >= SettlementDensitySeeder.MIN_SURFACE_STARTER_SETTLEMENTS
+                        && surface <= SettlementDensitySeeder.MAX_SURFACE_STARTER_SETTLEMENTS,
+                "starter surface outside hierarchical range: " + surface);
         long capitals = state.factions().stream()
                 .filter(f -> !f.name().equals("Wizard Trees"))
                 .flatMap(f -> f.settlements().stream())
