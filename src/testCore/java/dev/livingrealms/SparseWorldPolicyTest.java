@@ -17,6 +17,7 @@ public final class SparseWorldPolicyTest {
 
     public static void main(String[] args) {
         freshSeedUsesRoleAwareFloors();
+        starterHierarchyAndCapitalDistances();
         deterministicRepeatability();
         playerCapitalFoundingUsesRoleAwareClearance();
         matrixPins();
@@ -32,7 +33,7 @@ public final class SparseWorldPolicyTest {
                 .filter(f -> !f.name().equals("Wizard Trees"))
                 .flatMap(f -> f.settlements().stream())
                 .filter(s -> s.role() == SettlementRole.CAPITAL).count();
-        check(surfaceCapitals == 12, "every surface realm requires exactly one capital role in phase 1");
+        check(surfaceCapitals == 12, "every surface realm requires exactly one capital role");
 
         List<Settlement> surface = state.factions().stream()
                 .filter(f -> !f.name().equals("Wizard Trees"))
@@ -57,6 +58,43 @@ public final class SparseWorldPolicyTest {
                 check(s.origin() == SettlementOrigin.AUTHORED_SEED,
                         "fresh seed origin for " + s.name());
             }
+        }
+    }
+
+    private static void starterHierarchyAndCapitalDistances() {
+        SimulationState state = new SimulationState(0xC1A11L);
+        DemoSeeder.seed(state);
+        List<Settlement> capitals = state.factions().stream()
+                .filter(f -> !f.name().equals("Wizard Trees"))
+                .flatMap(f -> f.settlements().stream())
+                .filter(s -> s.role() == SettlementRole.CAPITAL)
+                .toList();
+        check(capitals.size() == 12, "twelve surface capitals");
+
+        double minNearest = Double.POSITIVE_INFINITY;
+        double maxNearest = 0.0;
+        for (Settlement capital : capitals) {
+            double nearest = capitals.stream()
+                    .filter(other -> other.id() != capital.id())
+                    .mapToDouble(other -> capital.position().distanceTo(other.position()))
+                    .min().orElseThrow();
+            check(nearest >= 3_000.0 && nearest <= 4_500.0,
+                    capital.name() + " nearest capital outside preferred range: " + Math.round(nearest));
+            minNearest = Math.min(minNearest, nearest);
+            maxNearest = Math.max(maxNearest, nearest);
+        }
+        check(maxNearest - minNearest >= 50.0, "capital lattice must not be exact-equal spacing");
+
+        for (var faction : state.factions()) {
+            if (faction.name().equals("Wizard Trees")) continue;
+            long towns = faction.settlements().stream().filter(s -> s.role() == SettlementRole.TOWN).count();
+            long villages = faction.settlements().stream().filter(s -> s.role() == SettlementRole.VILLAGE).count();
+            long hamlets = faction.settlements().stream().filter(s -> s.role() == SettlementRole.HAMLET).count();
+            check(towns >= 2 && towns <= 4, faction.name() + " towns=" + towns);
+            check(villages >= 6 && villages <= 8, faction.name() + " villages=" + villages);
+            check(hamlets >= 6 && hamlets <= 14, faction.name() + " hamlets=" + hamlets);
+            check(faction.settlements().size() >= 17 && faction.settlements().size() <= 25,
+                    faction.name() + " total starters=" + faction.settlements().size());
         }
     }
 
