@@ -236,6 +236,7 @@ public final class SaveMigrationMatrixTest {
         out.writeInt(0); // citizen journeys
         out.writeInt(0); // roadside sites
         out.writeInt(0); // underworld profiles
+        out.writeInt(0); // registered player structures
     }
 
     private static void writeRegions(DataOutputStream out, int schema) throws IOException {
