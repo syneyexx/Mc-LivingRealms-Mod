@@ -2,58 +2,62 @@ package dev.livingrealms;
 
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
+import dev.livingrealms.sim.faction.SettlementRole;
 import dev.livingrealms.sim.player.PlayerSettlementFounder;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SettlementDensitySeeder;
+import dev.livingrealms.sim.world.SettlementSpacingPolicy;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 import java.util.List;
 
-/** Product gate: fresh worlds use sparse 2000-block settlement policy. */
+/** Product gate for deterministic type-aware settlement spacing. */
 public final class SparseWorldPolicyTest {
     private SparseWorldPolicyTest() {}
 
     public static void main(String[] args) {
-        freshSeedIsSparseAndLegal();
+        freshSeedUsesRoleAwareFloors();
         deterministicRepeatability();
-        playerFoundingClearanceIs2000();
-        System.out.println("PASS SparseWorldPolicyTest: 36 surface / 3 per realm / 2000 spacing");
+        playerCapitalFoundingUsesRoleAwareClearance();
+        matrixPins();
+        System.out.println("PASS SparseWorldPolicyTest: role-aware settlement floors; no universal 2000-block exclusion");
     }
 
-    private static void freshSeedIsSparseAndLegal() {
+    private static void freshSeedUsesRoleAwareFloors() {
         SimulationState state = new SimulationState(0x2000L);
         DemoSeeder.seed(state);
         check(state.factions().size() == 13, "12 kingdoms + Wizard Trees");
-        int surface = state.factions().stream()
+
+        long surfaceCapitals = state.factions().stream()
                 .filter(f -> !f.name().equals("Wizard Trees"))
-                .mapToInt(f -> f.settlements().size()).sum();
-        check(surface == SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS,
-                "surface starters expected " + SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS + " got " + surface);
-        check(SettlementDensitySeeder.TARGET_SETTLEMENTS_PER_REALM == 3, "TARGET=3");
-        check(SettlementDensitySeeder.MAX_AUTHORED_SATELLITES == 1, "MAX_AUTHORED_SATELLITES=1");
-        check(SettlementDensitySeeder.RURAL_HAMLETS_PER_REALM == 1, "RURAL_HAMLETS=1");
-        check(SettlementDensitySeeder.MIN_SETTLEMENT_SPACING == 2000.0, "spacing 2000");
-        check(SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS == 36, "36 surface");
+                .flatMap(f -> f.settlements().stream())
+                .filter(s -> s.role() == SettlementRole.CAPITAL).count();
+        check(surfaceCapitals == 12, "every surface realm requires exactly one capital role in phase 1");
+
+        List<Settlement> surface = state.factions().stream()
+                .filter(f -> !f.name().equals("Wizard Trees"))
+                .flatMap(f -> f.settlements().stream()).toList();
+        boolean observedBelowOldGlobalFloor = false;
+        for (int i = 0; i < surface.size(); i++) for (int j = i + 1; j < surface.size(); j++) {
+            Settlement a = surface.get(i), b = surface.get(j);
+            double dist = a.position().distanceTo(b.position());
+            double floor = SettlementSpacingPolicy.minimumDistance(a, b);
+            check(dist >= floor - 1.0,
+                    "role-aware floor violated: " + a.name() + "(" + a.role() + ") ↔ "
+                            + b.name() + "(" + b.role() + ") = " + Math.round(dist)
+                            + " < " + Math.round(floor));
+            if (dist < 1_999.0) observedBelowOldGlobalFloor = true;
+        }
+        check(observedBelowOldGlobalFloor, "fresh world still behaves as if every settlement had a 2000-block floor");
+        check(SettlementDensitySeeder.ensureStarterDensity(state) == 0, "idempotent densifier");
 
         for (var faction : state.factions()) {
-            if (faction.name().equals("Wizard Trees")) {
-                check(faction.settlements().size() == 3, "Wizard Trees unchanged");
-                continue;
-            }
-            check(faction.settlements().size() == 3, faction.name() + " must have 3 starters, got " + faction.settlements().size());
+            if (faction.name().equals("Wizard Trees")) continue;
             for (Settlement s : faction.settlements()) {
-                check(s.origin() == SettlementOrigin.AUTHORED_SEED || s.origin() == SettlementOrigin.WIZARD_TREES,
+                check(s.origin() == SettlementOrigin.AUTHORED_SEED,
                         "fresh seed origin for " + s.name());
             }
         }
-
-        List<Settlement> all = state.factions().stream().flatMap(f -> f.settlements().stream()).toList();
-        for (int i = 0; i < all.size(); i++) for (int j = i + 1; j < all.size(); j++) {
-            double dist = all.get(i).position().distanceTo(all.get(j).position());
-            check(dist >= SettlementDensitySeeder.MIN_SETTLEMENT_SPACING - 1.0,
-                    "illegal spacing " + all.get(i).name() + " ↔ " + all.get(j).name() + " = " + Math.round(dist));
-        }
-        check(SettlementDensitySeeder.ensureStarterDensity(state) == 0, "idempotent densifier");
     }
 
     private static void deterministicRepeatability() {
@@ -66,25 +70,47 @@ public final class SparseWorldPolicyTest {
         check(sa.size() == sb.size(), "same count");
         for (int i = 0; i < sa.size(); i++) {
             check(sa.get(i).name().equals(sb.get(i).name()), "name order");
+            check(sa.get(i).role() == sb.get(i).role(), "role order");
             check(Math.abs(sa.get(i).position().x() - sb.get(i).position().x()) < 1e-6, "x");
             check(Math.abs(sa.get(i).position().z() - sb.get(i).position().z()) < 1e-6, "z");
         }
     }
 
-    private static void playerFoundingClearanceIs2000() {
-        check(PlayerSettlementFounder.MIN_SETTLEMENT_SPACING == 2000.0, "founder spacing");
+    private static void playerCapitalFoundingUsesRoleAwareClearance() {
+        Settlement capital = new Settlement(1, "Capital", new SimPosition(0, 0), 4000, 4500,
+                SettlementOrigin.AUTHORED_SEED, false, dev.livingrealms.sim.faction.DevelopmentMode.AUTO,
+                SettlementRole.CAPITAL);
+        Settlement village = new Settlement(2, "Village", new SimPosition(0, 0), 180, 220,
+                SettlementOrigin.AUTHORED_SEED, false, dev.livingrealms.sim.faction.DevelopmentMode.AUTO,
+                SettlementRole.VILLAGE);
+        check(PlayerSettlementFounder.requiredSpacing(capital) == 2500.0, "candidate capital ↔ capital floor");
+        check(PlayerSettlementFounder.requiredSpacing(village) == 300.0, "candidate capital ↔ village floor");
+
         SimulationState state = new SimulationState(0xF00DL);
         DemoSeeder.seed(state);
-        Settlement capital = state.factions().getFirst().settlements().getFirst();
-        var blocked = PlayerSettlementFounder.found(state, "player:near", "Near", "Tooclose", capital.position());
+        Settlement seededCapital = state.factions().getFirst().settlements().stream()
+                .filter(s -> s.role() == SettlementRole.CAPITAL).findFirst().orElseThrow();
+        var blocked = PlayerSettlementFounder.found(state, "player:near", "Near", "Tooclose", seededCapital.position());
         check(!blocked.success(), "must reject founding on capital");
-        check(blocked.reason().contains("2000") || blocked.reason().contains("blocks"),
-                "reason must cite 2000: " + blocked.reason());
+        check(blocked.reason().contains("2500") || blocked.reason().contains("blocks"),
+                "capital founding reason should expose its role-aware clearance: " + blocked.reason());
         var ok = PlayerSettlementFounder.found(state, "player:far", "Far", "Newcamp",
-                new SimPosition(capital.position().x() + 25_000, capital.position().z() + 25_000));
+                new SimPosition(seededCapital.position().x() + 25_000, seededCapital.position().z() + 25_000));
         check(ok.success(), "far founding should work: " + ok.reason());
-        check(state.findSettlement(ok.settlementId()).orElseThrow().population()
-                == PlayerSettlementFounder.FOUNDING_POPULATION, "founder camp population");
+        check(state.findSettlement(ok.settlementId()).orElseThrow().role() == SettlementRole.CAPITAL,
+                "player founding camp must retain CAPITAL role despite CAMP population tier");
+    }
+
+    private static void matrixPins() {
+        check(SettlementSpacingPolicy.minimumDistance(SettlementRole.CAPITAL, SettlementRole.CAPITAL) == 2500.0, "capital-capital");
+        check(SettlementSpacingPolicy.minimumDistance(SettlementRole.CAPITAL, SettlementRole.CITY) == 1600.0, "capital-city");
+        check(SettlementSpacingPolicy.minimumDistance(SettlementRole.CAPITAL, SettlementRole.TOWN) == 650.0, "capital-town");
+        check(SettlementSpacingPolicy.minimumDistance(SettlementRole.CAPITAL, SettlementRole.VILLAGE) == 300.0, "capital-village");
+        check(SettlementSpacingPolicy.minimumDistance(SettlementRole.CAPITAL, SettlementRole.HAMLET) == 180.0, "capital-hamlet");
+        check(SettlementSpacingPolicy.minimumDistance(SettlementRole.TOWN, SettlementRole.TOWN) == 650.0, "town-town");
+        check(SettlementSpacingPolicy.minimumDistance(SettlementRole.VILLAGE, SettlementRole.VILLAGE) == 280.0, "village-village");
+        check(SettlementSpacingPolicy.minimumDistance(SettlementRole.VILLAGE, SettlementRole.HAMLET) == 160.0, "village-hamlet");
+        check(SettlementSpacingPolicy.minimumDistance(SettlementRole.HAMLET, SettlementRole.HAMLET) == 150.0, "hamlet-hamlet");
     }
 
     private static void check(boolean ok, String msg) {
