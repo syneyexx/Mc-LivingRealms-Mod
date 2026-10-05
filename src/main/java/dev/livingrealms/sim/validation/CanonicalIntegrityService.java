@@ -194,8 +194,9 @@ public final class CanonicalIntegrityService {
 
         // Optional household backlinks — clear/set only when unambiguous.
         Set<Long> householdIds = new HashSet<>();
+        for (HouseholdState h : state.households()) householdIds.add(h.id());
+        Map<Long, List<Long>> householdsListingCitizen = new HashMap<>();
         for (HouseholdState h : state.households()) {
-            householdIds.add(h.id());
             if (!factionIds.contains(h.factionId()) || !settlementIds.contains(h.settlementId()))
                 fatal.add("household " + h.id() + " invalid faction/settlement");
             for (long memberId : h.memberIds()) {
@@ -204,18 +205,32 @@ public final class CanonicalIntegrityService {
                     fatal.add("household " + h.id() + " missing member " + memberId);
                     continue;
                 }
-                if (member.householdId() != h.id()) {
-                    String msg = "household " + h.id() + " member " + memberId + " missing backlink";
+                householdsListingCitizen.computeIfAbsent(memberId, k -> new ArrayList<>()).add(h.id());
+            }
+        }
+        for (HouseholdState h : state.households()) {
+            for (long memberId : h.memberIds()) {
+                SocialCitizen member = state.findSocialCitizen(memberId).orElse(null);
+                if (member == null) continue;
+                long backlink = member.householdId();
+                boolean missingOrStale = backlink == 0 || !householdIds.contains(backlink);
+                if (missingOrStale) {
+                    List<Long> listings = householdsListingCitizen.getOrDefault(memberId, List.of());
+                    if (listings.size() > 1) {
+                        fatal.add("ambiguous household backlink for citizen " + memberId + " (listed in multiple households, backlink=" + backlink + ")");
+                        continue;
+                    }
+                    String msg = backlink == 0
+                            ? "household " + h.id() + " member " + memberId + " missing backlink"
+                            : "household " + h.id() + " member " + memberId + " stale backlink " + backlink;
                     rebuildable.add(msg);
                     if (applyRepair) {
-                        if (member.householdId() == 0) {
-                            member.setHouseholdId(h.id());
-                            repaired.add(msg);
-                        } else {
-                            // Ambiguous competing household membership — do not invent a resolution.
-                            fatal.add("ambiguous household backlink for citizen " + memberId + " (listed in " + h.id() + ", points to " + member.householdId() + ")");
-                        }
+                        member.setHouseholdId(h.id());
+                        repaired.add(msg);
                     }
+                } else if (backlink != h.id()) {
+                    // Competing membership across two real households — never invent which wins.
+                    fatal.add("ambiguous household backlink for citizen " + memberId + " (listed in " + h.id() + ", points to " + backlink + ")");
                 }
             }
         }

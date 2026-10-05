@@ -22,16 +22,18 @@ public final class IntegrityRecoveryTest {
         IntegrityReport clean = CanonicalIntegrityService.inspect(state);
         check(clean.fatalCanonical().isEmpty(), "seeded world must have no fatal integrity issues: " + clean.fatalCanonical());
 
-        // Stale projection indexes
+        // Stale projection indexes (rebuildable)
         state.restoreSettlementCivilization(new SettlementCivilizationState(9_999_001L, state.factions().getFirst().id()));
         state.restoreFactionCivilization(new FactionCivilizationState(9_999_002L, "Ghost", "Null", "Void"));
         state.restoreDynasty(new DynastyState(9_999_003L, 0L, "House Phantom"));
         PlayerStanding standing = state.playerStanding("player:integrity");
         standing.restoreReputation(9_999_004L, 12.0);
 
-        // Stale household backlink on a living citizen
-        SocialCitizen citizen = state.socialCitizens().stream().filter(SocialCitizen::alive).findFirst().orElseThrow();
-        long previousHousehold = citizen.householdId();
+        // Stale optional backlink: detach a household member so the backlink is unambiguous to clear
+        SocialCitizen citizen = state.socialCitizens().stream().filter(SocialCitizen::alive).filter(c -> c.householdId() > 0).findFirst()
+                .orElseThrow(() -> new AssertionError("need a household-bound citizen"));
+        long householdId = citizen.householdId();
+        state.findHousehold(householdId).orElseThrow().removeMember(citizen.id());
         citizen.setHouseholdId(9_999_005L);
 
         IntegrityReport before = CanonicalIntegrityService.inspect(state);
@@ -45,28 +47,27 @@ public final class IntegrityRecoveryTest {
         check(state.dynasties().get(9_999_003L) == null, "orphan dynasty purged");
         check(!standing.reputations().containsKey(9_999_004L), "stale reputation purged");
         check(citizen.householdId() == 0L, "stale household backlink cleared");
+        check(!repaired.hasFatal(), "safe repair must not leave fatals: " + repaired.fatalCanonical());
 
         IntegrityReport after = CanonicalIntegrityService.inspect(state);
         check(after.rebuildableProjections().isEmpty(), "rebuildable issues should be cleared: " + after.rebuildableProjections());
         check(after.fatalCanonical().isEmpty(), "repair must not introduce fatals: " + after.fatalCanonical());
 
-        // Fatal: missing faction on army-like reference — citizen pointing at missing settlement is fatal and unrepairable by invention
-        SocialCitizen doomed = state.socialCitizens().stream().filter(SocialCitizen::alive).skip(1).findFirst().orElse(citizen);
+        // Fatal: missing settlement reference — never invent a settlement
+        SocialCitizen doomed = state.socialCitizens().stream().filter(SocialCitizen::alive).filter(c -> c.id() != citizen.id()).findFirst().orElse(citizen);
         long realSettlement = doomed.settlementId();
         doomed.migrateTo(doomed.factionId(), 9_999_100L);
         IntegrityReport fatal = CanonicalIntegrityService.repair(state);
         check(fatal.hasFatal(), "missing settlement reference must remain fatal");
         check(fatal.fatalCanonical().stream().anyMatch(m -> m.contains("missing settlement")), "fatal must name missing settlement");
-        // Restore so encode still works for round-trip sanity
         doomed.migrateTo(doomed.factionId(), realSettlement);
-        if (previousHousehold > 0) citizen.setHouseholdId(previousHousehold);
 
         byte[] encoded = SimulationStateCodec.encode(state);
         SimulationState restored = SimulationStateCodec.decode(encoded, state.species());
         IntegrityReport roundtrip = CanonicalIntegrityService.inspect(restored);
         check(roundtrip.fatalCanonical().isEmpty(), "round-trip after repair must stay fatally clean");
 
-        // Never invent missing faction/settlement: repair of a world with only an orphan civ profile and no factions stays empty of invented realms
+        // Never invent missing faction/settlement
         SimulationState empty = new SimulationState(7L);
         empty.restoreFactionCivilization(new FactionCivilizationState(42L, "X", "Y", "Z"));
         IntegrityReport emptyRepair = CanonicalIntegrityService.repair(empty);
