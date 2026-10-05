@@ -1,6 +1,6 @@
 {
-  "generatedAtUtc": "2026-10-05T03:42:58Z",
-  "gitCommit": "5b80db2bb0d5fbb8a20cc0ac8b2b09b4bd7a5f83",
+  "generatedAtUtc": "2026-10-05T04:42:01Z",
+  "gitCommit": "302f6e2fd8fd03b1eaa13f3cdb5526a43dc6c6fe",
   "gitWorktreeClean": true,
   "modVersion": "3.0.0-rc4",
   "minecraftVersion": "1.21.1",
@@ -10,7 +10,7 @@
   "gradleVersion": "Gradle 8.10.2",
   "saveSchema": 18,
   "minSupportedSchema": 1,
-  "dashboardProtocol": 18,
+  "dashboardProtocol": 19,
   "networkProtocol": "14",
   "contentRevision": 14,
   "gates": {
@@ -22,13 +22,13 @@
   "artifact": {
     "jar": "build/libs/livingrealms-3.0.0-rc4.jar",
     "jarPresent": true,
-    "jarBytes": 1984682,
-    "jarSha256": "c821f8fbbe4703739f41f5c12ff991d0b666317d945972f0ae8ff853060cf41a"
+    "jarBytes": 1986903,
+    "jarSha256": "657f306843708bca3178cef536c3d89f642462f85af36bb06f3fb1b8d46e29c2"
   },
   "releaseCompleteClaimAllowed": false,
   "notes": [
     "SOURCE WINS OVER DOCS.",
-    "gitCommit equals git rev-parse HEAD (regenerated after release-ready commit).",
-    "coreSuite + linkedBuild + gameTests passed; runtimeSmoke unverified (no client run)."
+    "Manifest gitCommit must equal the exact commit being certified.",
+    "Do not claim production-ready while runtimeSmoke is unverified/fail/skipped."
   ]
 }
