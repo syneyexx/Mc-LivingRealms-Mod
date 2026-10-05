@@ -520,6 +520,28 @@ public final class LivingRealmsEvents {
                     ctx.getSource().sendSuccess(() -> Component.literal("Advanced: " + data.state().summary()), true);
                     return 1;
                 }))
+                .then(Commands.literal("integrity").requires(src -> src.hasPermission(2))
+                    .executes(ctx -> {
+                        var state = SimulationRuntime.data(ctx.getSource().getServer()).state();
+                        var report = dev.livingrealms.sim.validation.CanonicalIntegrityService.inspect(state);
+                        ctx.getSource().sendSuccess(() -> Component.literal(report.summary()), false);
+                        report.allMessages().stream().limit(24).forEach(msg ->
+                                ctx.getSource().sendSuccess(() -> Component.literal(msg), false));
+                        if (report.allMessages().size() > 24)
+                            ctx.getSource().sendSuccess(() -> Component.literal("… " + (report.allMessages().size() - 24) + " more"), false);
+                        return report.hasFatal() ? 0 : 1;
+                    })
+                    .then(Commands.literal("repair").executes(ctx -> {
+                        var data = SimulationRuntime.data(ctx.getSource().getServer());
+                        var report = dev.livingrealms.sim.validation.CanonicalIntegrityService.repair(data.state());
+                        if (!report.repaired().isEmpty()) data.setDirty();
+                        ctx.getSource().sendSuccess(() -> Component.literal(report.summary()), true);
+                        report.allMessages().stream().limit(24).forEach(msg ->
+                                ctx.getSource().sendSuccess(() -> Component.literal(msg), false));
+                        if (report.allMessages().size() > 24)
+                            ctx.getSource().sendSuccess(() -> Component.literal("… " + (report.allMessages().size() - 24) + " more"), false);
+                        return report.hasFatal() ? 0 : 1;
+                    })))
         );
     }
 

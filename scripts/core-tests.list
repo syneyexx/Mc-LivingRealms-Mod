@@ -13,6 +13,8 @@ dev.livingrealms.EmergentStoryChainsTest
 dev.livingrealms.ProjectionStressTest
 dev.livingrealms.SaveMigrationMatrixTest
 dev.livingrealms.SaveIntegrityTest
+dev.livingrealms.DomainCodecRoundtripTest
+dev.livingrealms.IntegrityRecoveryTest
 dev.livingrealms.SaveMutationFuzzTest
 dev.livingrealms.ProductionHardeningTest
 dev.livingrealms.LivingWorldDensityTest

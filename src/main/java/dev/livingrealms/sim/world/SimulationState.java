@@ -318,6 +318,9 @@ public final class SimulationState {
     public Optional<AssistanceTask> activeAssistanceTask(long settlementId,AssistanceTaskType type){return assistanceTasks.stream().filter(AssistanceTask::active).filter(t->t.settlementId()==settlementId&&t.type()==type).findFirst();}
 
     public DynastyState ensureDynasty(long factionId,long foundedDay,String houseName){return dynasties.computeIfAbsent(factionId,k->new DynastyState(factionId,foundedDay,houseName));} public void restoreDynasty(DynastyState value){Objects.requireNonNull(value);dynasties.put(value.factionId(),value);}
+    public boolean removeSettlementCivilization(long settlementId){return settlementCivilizations.remove(settlementId)!=null;}
+    public boolean removeFactionCivilization(long factionId){return factionCivilizations.remove(factionId)!=null;}
+    public boolean removeDynasty(long factionId){return dynasties.remove(factionId)!=null;}
     public IndustrialSite removeIndustrialSite(long id){for(var it=industrialSites.iterator();it.hasNext();){IndustrialSite site=it.next();if(site.id()==id){it.remove();return site;}}return null;}
     public Optional<IndustrialSite> findIndustrialSite(long id){return industrialSites.stream().filter(s->s.id()==id).findFirst();}
     public Optional<SocialCitizen> findSocialCitizen(long id){return socialCitizens.stream().filter(c->c.id()==id).findFirst();}
