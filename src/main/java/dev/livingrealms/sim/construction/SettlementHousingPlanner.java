@@ -82,7 +82,7 @@ final class SettlementHousingPlanner {
         // Remaining demand extends side streets / lanes, then fills new frontage parcels.
         // CAMP/HAMLET keep a sparse countryside path — do not grid-extend them.
         if (emitted < houses && settlement.tier().ordinal() >= Settlement.Tier.VILLAGE.ordinal()) {
-            extendSideStreetsForHousing(out, faction, settlement, streetGraph, baseRotation,
+            extendSideStreetsForHousing(out, faction, settlement, morph, streetGraph, baseRotation,
                     houses - emitted, culture);
         }
     }
@@ -92,8 +92,8 @@ final class SettlementHousingPlanner {
      * centerline vertices. ROAD intents are downstream projections of these new graph segments.
      */
     private static void extendSideStreetsForHousing(List<ConstructionIntent> out, Faction faction, Settlement settlement,
-                                                   SettlementStreetGraph streetGraph, int baseRotation, int deficit,
-                                                   CultureArchitecture culture) {
+                                                   SettlementMorphology morph, SettlementStreetGraph streetGraph,
+                                                   int baseRotation, int deficit, CultureArchitecture culture) {
         if (deficit <= 0 || streetGraph == null || streetGraph.segmentByKey().isEmpty()) return;
         int lanesNeeded = Math.min(24, Math.max(2, (int) Math.ceil(deficit / 3.0)));
         int lane = 0;
