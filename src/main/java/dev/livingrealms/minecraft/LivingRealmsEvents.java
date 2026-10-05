@@ -44,6 +44,7 @@ import dev.livingrealms.minecraft.network.DialogueRequestLimiter;
 import dev.livingrealms.minecraft.network.DialogueSessionRuntime;
 import dev.livingrealms.sim.law.CrimeType;
 import dev.livingrealms.minecraft.construction.SettlementConstructionMaterializer;
+import dev.livingrealms.minecraft.construction.TransportNetworkMaterializer;
 import dev.livingrealms.minecraft.construction.CivilizationFabricChunkQueue;
 import dev.livingrealms.minecraft.construction.SettlementGeographyDiscoveryRuntime;
 import dev.livingrealms.minecraft.ForeignStructureDiscoveryRuntime;
@@ -66,6 +67,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.minecraft.world.level.Level;
 import net.minecraft.server.level.ServerPlayer;
@@ -90,6 +92,15 @@ public final class LivingRealmsEvents {
         CivilizationFabricChunkQueue.onChunkAvailable(level, pos.x, pos.z);
     }
 
+
+
+    @SubscribeEvent
+    public void onChunkLoad(ChunkEvent.Load event) {
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
+        if (level != level.getServer().overworld()) return;
+        // ChunkEvent.Load may fire before FULL. Queue only; world mutations occur on later scheduler ticks.
+        TransportNetworkMaterializer.onChunkLoaded(event.getChunk().getPos());
+    }
 
 
     @SubscribeEvent
@@ -185,6 +196,7 @@ public final class LivingRealmsEvents {
         DialogueSessionRuntime.clear();
         FactionContainerTheftRuntime.clear();
         SettlementConstructionMaterializer.clear();
+        TransportNetworkMaterializer.clear();
         CivilizationFabricChunkQueue.clear();
         PlayerStructureRevalidationRuntime.clear();
         SettlementGeographyDiscoveryRuntime.clear();
