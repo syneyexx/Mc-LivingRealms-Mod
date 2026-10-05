@@ -37,7 +37,7 @@ public final class DocumentationPinTest {
         int spacing = (int) Double.parseDouble(readNumberConst(
                 "src/main/java/dev/livingrealms/sim/world/SettlementDensitySeeder.java", "MIN_SETTLEMENT_SPACING"));
 
-        check(schema == 19, "expected SCHEMA_VERSION 19, got " + schema);
+        check(schema == 20, "expected SCHEMA_VERSION 20, got " + schema);
         check(minSchema == 1, "expected MIN_SUPPORTED_SCHEMA 1, got " + minSchema);
         check(protocol == 20, "expected PROTOCOL_VERSION 20, got " + protocol);
         check("16".equals(network), "expected NETWORK_VERSION 16, got " + network);
@@ -70,6 +70,7 @@ public final class DocumentationPinTest {
             forbid(current, doc, "schema 16 as current", Pattern.compile("(?i)(CURRENT PINS:.*\\bschema\\s*16\\b|\\bsave schema\\s*\\*?\\*?16\\*?\\*?\\b(?!\\s+adds))"));
             forbid(current, doc, "schema 17 as current", Pattern.compile("(?i)(CURRENT PINS:.*\\bschema\\s*17\\b|\\bsave schema\\s*\\*?\\*?17\\*?\\*?\\b(?!\\s+adds))"));
             forbid(current, doc, "schema 18 as current", Pattern.compile("(?i)(CURRENT PINS:.*\\bschema\\s*18\\b|\\bsave schema\\s*\\*?\\*?18\\*?\\*?\\b(?!\\s+adds)|\\bschema\\s*18\\s*/\\s*minSchema)"));
+            forbid(current, doc, "schema 19 as current", Pattern.compile("(?i)(CURRENT PINS:.*\\bschema\\s*19\\b|\\bsave schema\\s*\\*?\\*?19\\*?\\*?\\b(?!\\s+adds)|\\bschema\\s*19\\s*/\\s*minSchema)"));
             forbid(current, doc, "protocol 17 as current", Pattern.compile("(?i)(CURRENT PINS:.*\\bprotocol\\s*17\\b|\\bdashboard protocol\\s*\\*?\\*?17\\*?\\*?)"));
             forbid(current, doc, "protocol 18 as current", Pattern.compile("(?i)(CURRENT PINS:.*\\bprotocol\\s*18\\b|\\bdashboard protocol\\s*\\*?\\*?18\\*?\\*?)"));
             forbid(current, doc, "protocol 19 as current", Pattern.compile("(?i)(CURRENT PINS:.*\\bprotocol\\s*19\\b|\\bdashboard protocol\\s*\\*?\\*?19\\*?\\*?)"));

@@ -1,6 +1,6 @@
 # Living Realms — World Integration Expansion contract
 
-CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 This document is the acceptance contract for the fixed singleplayer target modpack. Existing canonical systems remain authoritative. Integration adds visible-world depth without replacing the save model or allowing loaded chunks to become simulation authority.
 

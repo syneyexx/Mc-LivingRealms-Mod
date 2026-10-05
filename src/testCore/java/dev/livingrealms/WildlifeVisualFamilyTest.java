@@ -53,6 +53,30 @@ public final class WildlifeVisualFamilyTest {
                                                 .findFirst().orElseThrow()))),
                 "predator vs aquatic model plans differ");
 
+        // Wave 12: distinctive anatomy families must resolve to the expected silhouette buckets
+        // (client LivingRealmsAnimalModel toggles trunk/horn/antler/shell/fin/snout/neck off these).
+        SpeciesDefinition elephant = findContaining(all, "elephant");
+        check(SpeciesVisualFamilyResolver.resolve(elephant) == SpeciesVisualFamily.ELEPHANT,
+                "elephant visual family");
+        check(all.values().stream().anyMatch(s ->
+                        SpeciesVisualFamilyResolver.resolve(s) == SpeciesVisualFamily.RHINO),
+                "rhino visual family present");
+        check(deer == SpeciesVisualFamily.CERVID || SpeciesVisualFamilyResolver.modelPlan(deer)
+                        == SpeciesVisualFamilyResolver.ModelPlan.UNGULATE,
+                "cervid/ungulate plan for antlers");
+        check(all.values().stream().anyMatch(s ->
+                        SpeciesVisualFamilyResolver.resolve(s) == SpeciesVisualFamily.CAMELID),
+                "camelid attachment family present");
+        check(all.values().stream().anyMatch(s ->
+                        SpeciesVisualFamilyResolver.resolve(s) == SpeciesVisualFamily.TURTLE),
+                "turtle shell family present");
+        check(all.values().stream().anyMatch(s ->
+                        SpeciesVisualFamilyResolver.resolve(s) == SpeciesVisualFamily.SHARK),
+                "shark dorsal-fin family present");
+        check(all.values().stream().anyMatch(s ->
+                        SpeciesVisualFamilyResolver.resolve(s) == SpeciesVisualFamily.CROCODILIAN),
+                "crocodilian snout family present");
+
         // Determinism
         for (SpeciesDefinition sp : all.values()) {
             check(SpeciesVisualFamilyResolver.resolve(sp) == SpeciesVisualFamilyResolver.resolve(sp),
@@ -60,6 +84,13 @@ public final class WildlifeVisualFamilyTest {
         }
 
         System.out.println("PASS WildlifeVisualFamilyTest: " + all.size() + " species resolved");
+    }
+
+    private static SpeciesDefinition findContaining(Map<String, SpeciesDefinition> all, String needle) {
+        return all.values().stream()
+                .filter(s -> s.id().toLowerCase(Locale.ROOT).contains(needle))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("missing species containing " + needle));
     }
 
     private static void check(boolean ok, String msg) {

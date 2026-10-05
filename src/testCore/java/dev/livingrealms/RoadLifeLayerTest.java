@@ -1,5 +1,9 @@
 package dev.livingrealms;
 
+import dev.livingrealms.sim.civilization.CivilizationCalendar;
+import dev.livingrealms.sim.civilization.SettlementCivilizationState;
+import dev.livingrealms.sim.diplomacy.WarGoalType;
+import dev.livingrealms.sim.diplomacy.WarState;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.transport.TransportMode;
@@ -11,12 +15,21 @@ import dev.livingrealms.sim.world.RoadLifeEngine;
 import dev.livingrealms.sim.world.RoadsideSite;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
 
 /** Wave 8: causal journeys + sparse roadside sites on the road network. */
 public final class RoadLifeLayerTest {
     private RoadLifeLayerTest() {}
 
     public static void main(String[] args) {
+        spawnAndSites();
+        causalPurposeTriggers();
+        System.out.println("PASS road life layer: journeys + roadside sites + causal purposes + daily tick");
+    }
+
+    private static void spawnAndSites() {
         SimulationState state = new SimulationState(0x524F4144L);
         DemoSeeder.seed(state);
         // Ensure at least one long operational route for journey spawn.
@@ -78,8 +91,73 @@ public final class RoadLifeLayerTest {
         state.advanceDays(30);
         int after = state.citizenJourneys().size() + state.roadsideSites().size();
         check(after >= before, "daily tick keeps road-life layer alive");
+    }
 
-        System.out.println("PASS road life layer: journeys + roadside sites + daily tick");
+    private static void causalPurposeTriggers() {
+        SimulationState state = new SimulationState(0x50555250L);
+        Faction faction = new Faction(state.nextId(), "Road Realm", "Ruler");
+        Settlement from = new Settlement(state.nextId(), "Fromtown", new SimPosition(0, 0), 600, 700);
+        Settlement to = new Settlement(state.nextId(), "Totown", new SimPosition(2000, 0), 500, 600);
+        from.adjustProsperity(.5);
+        to.adjustProsperity(.5);
+        faction.addSettlement(from);
+        faction.addSettlement(to);
+        state.addFaction(faction);
+        TransportRoute safe = new TransportRoute(state.nextId(), faction.id(), from.id(), to.id(),
+                TransportMode.ROAD, 2000, .7, .7, 40);
+        TransportRoute unsafe = new TransportRoute(state.nextId(), faction.id(), from.id(), to.id(),
+                TransportMode.ROAD, 2100, .4, .2, 30);
+        state.addRoute(safe);
+        state.addRoute(unsafe);
+
+        // War → courier / diplomat only among those causes (plus any other concurrent triggers).
+        Faction rival = new Faction(state.nextId(), "War Peer", "Peer");
+        rival.addSettlement(new Settlement(state.nextId(), "Warpeer", new SimPosition(4000, 0), 400, 450));
+        state.addFaction(rival);
+        state.addWar(new WarState(state.nextId(), faction.id(), rival.id(), WarGoalType.CONQUEST,
+                rival.settlements().getFirst().id(), state.clock().day()));
+        List<CitizenJourney.Purpose> wartime =
+                RoadLifeEngine.causalPurposeCandidates(state, faction, from, to, safe);
+        check(wartime.contains(CitizenJourney.Purpose.COURIER), "war causes courier");
+        check(wartime.contains(CitizenJourney.Purpose.DIPLOMAT), "war causes diplomat");
+        check(!wartime.containsAll(EnumSet.allOf(CitizenJourney.Purpose.class)),
+                "war slate is not the full enum");
+
+        // Bandits → patrol.
+        SettlementCivilizationState civ = state.ensureSettlementCivilization(from.id(), faction.id());
+        civ.adjustBanditPressure(.6);
+        List<CitizenJourney.Purpose> bandit =
+                RoadLifeEngine.causalPurposeCandidates(state, faction, from, to, unsafe);
+        check(bandit.contains(CitizenJourney.Purpose.PATROL), "bandits/insecure route cause patrol");
+
+        // Harvest season → seasonal worker (force autumn day).
+        while (CivilizationCalendar.season(state.clock().day()) != CivilizationCalendar.Season.AUTUMN) {
+            state.clock().advance(24_000L); // one Minecraft day
+        }
+        from.stockpile().add(dev.livingrealms.sim.faction.ResourceType.GRAIN, 80);
+        List<CitizenJourney.Purpose> harvest =
+                RoadLifeEngine.causalPurposeCandidates(state, faction, from, to, safe);
+        check(harvest.contains(CitizenJourney.Purpose.SEASONAL_WORKER), "harvest season causes seasonal worker");
+
+        // Randomness only among candidates: spawn under war must pick from wartime slate.
+        Set<CitizenJourney.Purpose> allowed = EnumSet.copyOf(wartime);
+        int spawned = 0;
+        for (int day = 0; day < 200 && spawned < 3; day++) {
+            int before = state.citizenJourneys().size();
+            RoadLifeEngine.simulateDay(state, new DeterministicRng(0x50555250L ^ (day * 17L)));
+            if (state.citizenJourneys().size() > before) {
+                CitizenJourney j = state.citizenJourneys().get(state.citizenJourneys().size() - 1);
+                check(allowed.contains(j.purpose())
+                                || RoadLifeEngine.causalPurposeCandidates(state, faction,
+                                state.findSettlement(j.originSettlementId()).orElse(from),
+                                state.findSettlement(j.targetSettlementId()).orElse(to),
+                                state.routes().stream().filter(r -> r.id() == j.routeId()).findFirst().orElse(safe))
+                                .contains(j.purpose()),
+                        "spawned purpose must be causal candidate: " + j.purpose());
+                spawned++;
+            }
+        }
+        check(spawned >= 1, "at least one causal journey spawned under war pressure");
     }
 
     private static void check(boolean v, String m) {

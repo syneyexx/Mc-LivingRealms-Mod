@@ -1,6 +1,11 @@
 package dev.livingrealms.sim.world;
 
+import dev.livingrealms.sim.civilization.CivilizationCalendar;
+import dev.livingrealms.sim.civilization.FactionCivilizationState;
+import dev.livingrealms.sim.civilization.SettlementCivilizationState;
+import dev.livingrealms.sim.diplomacy.WarState;
 import dev.livingrealms.sim.faction.Faction;
+import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.transport.TransportRoute;
 import dev.livingrealms.sim.util.DeterministicRng;
@@ -18,7 +23,6 @@ public final class RoadLifeEngine {
     public static final int MAX_ACTIVE_JOURNEYS = 96;
     /** Minimum blocks between roadside sites. */
     public static final double MIN_SITE_SPACING = 420.0;
-    private static final CitizenJourney.Purpose[] PURPOSES = CitizenJourney.Purpose.values();
     private static final RoadsideSite.Type[] SITE_TYPES = RoadsideSite.Type.values();
 
     private RoadLifeEngine() {}
@@ -69,15 +73,27 @@ public final class RoadLifeEngine {
             if (from == null || to == null) continue;
             Faction owner = state.findFaction(route.ownerFactionId()).orElse(null);
             if (owner == null) continue;
-            // Causal gate: prosperity/order and route security encourage travel.
-            double pressure = .04 + from.prosperity() * .05 + to.prosperity() * .03
+            List<CitizenJourney.Purpose> candidates = causalPurposeCandidates(state, owner, from, to, route);
+            if (candidates.isEmpty()) continue;
+            // Causal gate: prosperity/order plus active causes (war, bandits, harvest) encourage travel.
+            double pressure = .05 + from.prosperity() * .06 + to.prosperity() * .04
                     + route.security() * .04 + route.quality() * .03;
+            if (candidates.contains(CitizenJourney.Purpose.COURIER)
+                    || candidates.contains(CitizenJourney.Purpose.DIPLOMAT)) {
+                pressure += .12; // war / dispatch pressure
+            }
+            if (candidates.contains(CitizenJourney.Purpose.PATROL)) {
+                pressure += .08;
+            }
+            if (candidates.contains(CitizenJourney.Purpose.SEASONAL_WORKER)) {
+                pressure += .05;
+            }
             if (from.unrest() > .55) pressure *= .45;
-            if (!rng.chance(Math.min(.22, pressure))) continue;
+            if (!rng.chance(Math.min(.38, pressure))) continue;
             boolean already = state.citizenJourneys().stream().anyMatch(j -> j.active()
                     && j.originSettlementId() == from.id() && j.targetSettlementId() == to.id());
             if (already) continue;
-            CitizenJourney.Purpose purpose = PURPOSES[rng.nextInt(PURPOSES.length)];
+            CitizenJourney.Purpose purpose = candidates.get(rng.nextInt(candidates.size()));
             long citizenId = state.socialCitizens().stream()
                     .filter(c -> c.alive() && c.settlementId() == from.id())
                     .mapToLong(c -> c.id()).findFirst().orElse(0L);
@@ -89,6 +105,77 @@ public final class RoadLifeEngine {
                     owner.name() + " " + journey.purposeLabel() + " left " + from.name() + " for " + to.name()));
             active++;
         }
+    }
+
+    /**
+     * Builds the causal purpose slate for a would-be traveler.
+     * Randomness (caller) only picks among these valid candidates — never across the full enum.
+     */
+    public static List<CitizenJourney.Purpose> causalPurposeCandidates(SimulationState state, Faction owner,
+                                                                Settlement from, Settlement to,
+                                                                TransportRoute route) {
+        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(from, "from");
+        Objects.requireNonNull(to, "to");
+        Objects.requireNonNull(route, "route");
+        List<CitizenJourney.Purpose> candidates = new ArrayList<>();
+        boolean atWar = state.wars().stream().anyMatch(WarState::active)
+                && state.wars().stream().anyMatch(w -> w.active() && w.involves(owner.id()));
+        SettlementCivilizationState fromCiv = state.findSettlementCivilization(from.id()).orElse(null);
+        FactionCivilizationState factionCiv = state.findFactionCivilization(owner.id()).orElse(null);
+        CivilizationCalendar.Season season = CivilizationCalendar.season(state.clock().day());
+        double bandit = fromCiv == null ? 0 : fromCiv.banditPressure();
+        double religious = factionCiv == null ? .42 : factionCiv.religiousInfluence();
+        double mercantile = factionCiv == null ? .35 : factionCiv.mercantileTradition();
+        double agrarian = factionCiv == null ? .4 : factionCiv.agrarianTradition();
+        double food = from.stockpile().get(ResourceType.FOOD) + from.stockpile().get(ResourceType.GRAIN);
+
+        // War → dispatches and envoys on the road.
+        if (atWar) {
+            candidates.add(CitizenJourney.Purpose.COURIER);
+            candidates.add(CitizenJourney.Purpose.DIPLOMAT);
+        }
+        // Bandits / unsafe roads → patrols.
+        if (bandit > .35 || route.security() < .45) {
+            candidates.add(CitizenJourney.Purpose.PATROL);
+        }
+        // Harvest / field season → seasonal workers.
+        if ((season == CivilizationCalendar.Season.SUMMER || season == CivilizationCalendar.Season.AUTUMN)
+                && (food > 40 || from.prosperity() > .45 || agrarian > .45)) {
+            candidates.add(CitizenJourney.Purpose.SEASONAL_WORKER);
+        }
+        // Faith pressure → pilgrims.
+        if (religious > .55) {
+            candidates.add(CitizenJourney.Purpose.PILGRIM);
+        }
+        // Trade corridors → peddlers.
+        if (mercantile > .4 || route.quality() > .55 || from.prosperity() > .5) {
+            candidates.add(CitizenJourney.Purpose.PEDDLER);
+        }
+        // Fiscal calendar → tax collectors mid-season.
+        int dayOfSeason = CivilizationCalendar.dayOfSeason(state.clock().day());
+        if (dayOfSeason >= 20 && dayOfSeason <= 40 && owner.treasury() > 50) {
+            candidates.add(CitizenJourney.Purpose.TAX_COLLECTOR);
+        }
+        // Pastoral hinterland → shepherds.
+        if (agrarian > .5 && from.population() < 1200) {
+            candidates.add(CitizenJourney.Purpose.SHEPHERD);
+        }
+        // Sparse / insecure hinterland → hunters.
+        if (from.population() < 900 || bandit > .25) {
+            candidates.add(CitizenJourney.Purpose.HUNTER);
+        }
+        // Long poorly known road → explorers.
+        if (route.distanceBlocks() > 1600 && route.quality() < .55) {
+            candidates.add(CitizenJourney.Purpose.EXPLORER);
+        }
+        // Quiet peacetime baseline: keep roads alive without inventing causes.
+        if (candidates.isEmpty()) {
+            if (route.security() >= .5) candidates.add(CitizenJourney.Purpose.PEDDLER);
+            candidates.add(CitizenJourney.Purpose.COURIER);
+        }
+        return List.copyOf(candidates);
     }
 
     private static void maybeSpawnRoadsideSite(SimulationState state, DeterministicRng rng) {

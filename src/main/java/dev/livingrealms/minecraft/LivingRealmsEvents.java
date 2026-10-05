@@ -22,6 +22,7 @@ import dev.livingrealms.minecraft.entity.CaravanEscortMaterializer;
 import dev.livingrealms.minecraft.entity.FactionCitizenEntity;
 import dev.livingrealms.minecraft.entity.FactionCitizenIndex;
 import dev.livingrealms.minecraft.entity.FactionCitizenMaterializer;
+import dev.livingrealms.minecraft.entity.CitizenJourneyMaterializer;
 import dev.livingrealms.minecraft.entity.CitizenConversationRuntime;
 import dev.livingrealms.minecraft.entity.MilitaryUnitEntity;
 import dev.livingrealms.minecraft.entity.MilitaryUnitIndex;
@@ -42,6 +43,9 @@ import dev.livingrealms.minecraft.entity.BountyHunterMaterializer;
 import dev.livingrealms.minecraft.entity.SiegeEquipmentEntity;
 import dev.livingrealms.minecraft.entity.SiegeEquipmentIndex;
 import dev.livingrealms.minecraft.entity.SiegeEquipmentMaterializer;
+import dev.livingrealms.minecraft.construction.PlayerStructureRevalidationRuntime;
+import dev.livingrealms.minecraft.presentation.CivicChoreographyRuntime;
+import dev.livingrealms.minecraft.presentation.SeasonalFarmPresentationRuntime;
 import dev.livingrealms.minecraft.law.CrimeRuntime;
 import dev.livingrealms.minecraft.law.CustodyRuntime;
 import dev.livingrealms.minecraft.law.FactionContainerTheftRuntime;
@@ -61,6 +65,7 @@ import dev.livingrealms.minecraft.construction.TransportNetworkMaterializer;
 import dev.livingrealms.minecraft.construction.UrbanCoreMaterializer;
 import dev.livingrealms.minecraft.construction.IndustrialSiteMaterializer;
 import dev.livingrealms.minecraft.construction.HistoricalSiteMaterializer;
+import dev.livingrealms.minecraft.construction.RoadsideSiteMaterializer;
 import dev.livingrealms.sim.industry.*;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
@@ -118,6 +123,7 @@ public final class LivingRealmsEvents {
             var data = SimulationRuntime.data(event.getServer());
             WildlifeMaterializer.tick(event.getServer(), data);
             FactionCitizenMaterializer.tick(event.getServer(), data);
+            CivicChoreographyRuntime.tick(event.getServer().overworld(), data, tickCounter);
             if (tickCounter % 100L == 0) dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.tick(event.getServer(), data);
             SettlementAmbienceRuntime.tick(event.getServer().overworld(), data, tickCounter);
         } else if (tickCounter % 20L == 5) {
@@ -128,6 +134,7 @@ public final class LivingRealmsEvents {
         } else if (tickCounter % 20L == 10) {
             var data = SimulationRuntime.data(event.getServer());
             MobileCivilizationMaterializer.tick(event.getServer().overworld(), data);
+            CitizenJourneyMaterializer.tick(event.getServer().overworld(), data);
             AircraftMaterializer.tick(event.getServer(), data);
             NavalMaterializer.tick(event.getServer(), data);
             BountyHunterMaterializer.tick(event.getServer(), data);
@@ -137,8 +144,11 @@ public final class LivingRealmsEvents {
             CustodyRuntime.tick(event.getServer(), data);
             CitizenConversationRuntime.tick(event.getServer(), data, tickCounter);
             HistoricalSiteMaterializer.tick(event.getServer().overworld(), data);
+            RoadsideSiteMaterializer.tick(event.getServer().overworld(), data);
             CivicFestivalMaterializer.tick(event.getServer().overworld(), data);
             SettlementGeographyDiscoveryRuntime.tick(event.getServer().overworld(), data);
+            PlayerStructureRevalidationRuntime.tick(event.getServer());
+            SeasonalFarmPresentationRuntime.tick(event.getServer().overworld(), data, tickCounter);
         }
         if (tickCounter % 100L == 0) {
             var data = SimulationRuntime.data(event.getServer());
@@ -206,7 +216,10 @@ public final class LivingRealmsEvents {
             FactionCitizenIndex.left(citizen);
             if (!citizen.isDematerializing() && !citizen.deathReported() && !citizen.isAlive() && event.getLevel() instanceof ServerLevel level) {
                 var data=SimulationRuntime.data(level.getServer());
-                if(data.state().recordPhysicalCitizenDeath(citizen.settlementId(),citizen.citizenId(),"physical_citizen_death")){citizen.markDeathReported();data.setDirty();}
+                boolean changed=citizen.isJourneyProjection()
+                        ?data.state().recordPhysicalJourneyDeath(citizen.journeyId(),"physical_journey_death")
+                        :data.state().recordPhysicalCitizenDeath(citizen.settlementId(),citizen.citizenId(),"physical_citizen_death");
+                if(changed){citizen.markDeathReported();data.setDirty();}
             }
         } else if (event.getEntity() instanceof MilitaryUnitEntity unit) {
             MilitaryUnitIndex.left(unit);
@@ -279,6 +292,7 @@ public final class LivingRealmsEvents {
         if(HiddenCacheRuntime.broken(player,event.getPos())){event.setCanceled(true);return;}
         if(PirateHideoutRuntime.blockBroken(player,event.getPos()))return;
         HistoricalSiteRuntime.ruinBlockBroken(player,event.getPos());
+        PlayerStructureRevalidationRuntime.onBlockChanged(level, event.getPos());
         var data=SimulationRuntime.data(level.getServer());var state=data.state();double x=event.getPos().getX()+.5,z=event.getPos().getZ()+.5;
         IndustrySitePlanner.Site nearest=null;double best=7.0D*7.0D;
         for(var faction:state.factions())for(IndustrySitePlanner.Site site:IndustrySitePlanner.plan(faction)){double dx=site.center().x()-x,dz=site.center().z()-z,d=dx*dx+dz*dz;if(d<best){best=d;nearest=site;}}
@@ -287,6 +301,12 @@ public final class LivingRealmsEvents {
         IndustrialSite canonical=state.industrialSites().stream().filter(s->s.factionId()==nearestSite.factionId()&&s.settlementId()==nearestSite.settlementId()&&s.kind()==nearestSite.kind()).findFirst().orElse(null);
         if(canonical==null)return;
         if(state.recordIndustrialDamage(canonical.id(),.018,0,"player_block_break")){data.setDirty();CrimeRuntime.report(player,canonical.factionId(),CrimeType.SABOTAGE,25,null,"damaged industrial site "+canonical.id());}
+    }
+
+    @SubscribeEvent
+    public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
+        PlayerStructureRevalidationRuntime.onBlockChanged(level, event.getPos());
     }
 
     @SubscribeEvent
@@ -317,9 +337,13 @@ public final class LivingRealmsEvents {
         DialogueSessionRuntime.clear();
         FactionContainerTheftRuntime.clear();
         SettlementConstructionMaterializer.clear();
+        PlayerStructureRevalidationRuntime.clear();
         SettlementGeographyDiscoveryRuntime.clear();
         HistoricalSiteMaterializer.clear();
+        RoadsideSiteMaterializer.clear();
         CivicFestivalMaterializer.clear();
+        CivicChoreographyRuntime.clear();
+        SeasonalFarmPresentationRuntime.clear();
         ForeignStructureDiscoveryRuntime.clear();
         dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.clear();
         SimulationRuntime.data(event.getServer()).dayAdvanceScheduler().clear();

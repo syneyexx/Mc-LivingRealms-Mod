@@ -10,8 +10,10 @@ import dev.livingrealms.sim.faction.RelationStatus;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.military.MilitaryObjective;
 import dev.livingrealms.sim.military.MilitaryObjectiveType;
+import dev.livingrealms.sim.military.WarRoomOptionsBuilder;
 import dev.livingrealms.sim.civilian.CitizenRole;
 import dev.livingrealms.sim.social.SocialCitizen;
+import dev.livingrealms.sim.world.SettlementTransfer;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.WorldEvent;
@@ -159,51 +161,103 @@ public final class PlayerAgencyActions {
     }
 
     public static Result declareWar(SimulationState state, String actorKey, long enemyFactionId) {
-        return declareWar(state, actorKey, enemyFactionId, 0);
+        return declareWar(state, actorKey, enemyFactionId, 0, WarGoalType.CONQUEST);
     }
 
     public static Result declareWar(SimulationState state, String actorKey, long enemyFactionId, long targetSettlementId) {
+        return declareWar(state, actorKey, enemyFactionId, targetSettlementId, WarGoalType.CONQUEST);
+    }
+
+    public static Result declareWar(SimulationState state, String actorKey, long enemyFactionId,
+                                    long targetSettlementId, WarGoalType goal) {
         Objects.requireNonNull(state, "state");
         if (actorKey == null || actorKey.isBlank() || enemyFactionId <= 0) return Result.fail("invalid");
-        PlayerStanding standing = state.findPlayerStanding(actorKey).orElse(null);
-        if (standing == null || !standing.isMember()) return Result.fail("not_member");
-        if (standing.rank() != FactionRank.RULER && standing.rank() != FactionRank.NOBLE) {
-            return Result.fail("rank_too_low");
+        WarRoomOptionsBuilder.DeclareOptions options =
+                WarRoomOptionsBuilder.declareOptions(state, actorKey, enemyFactionId);
+        if (options.canPetitionOnly() && !options.canDeclareUnilateral()) {
+            return Result.fail("petition_only");
         }
+        if (!options.canDeclareUnilateral()) {
+            return Result.fail(options.denyReason().isBlank() ? "cannot_declare" : options.denyReason());
+        }
+        WarGoalType chosen = goal == null ? WarGoalType.CONQUEST : goal;
+        if (!WarRoomOptionsBuilder.isValidOffensiveGoal(chosen)) {
+            return Result.fail("defense_not_offensive");
+        }
+        if (!options.validGoals().contains(chosen)) {
+            // Contextual goals may omit some types; CONQUEST is always allowed as fallback when listed.
+            if (chosen != WarGoalType.CONQUEST || !options.validGoals().contains(WarGoalType.CONQUEST)) {
+                return Result.fail("goal_not_available");
+            }
+        }
+        PlayerStanding standing = state.findPlayerStanding(actorKey).orElseThrow();
         long selfId = standing.memberFactionId();
-        if (selfId == enemyFactionId) return Result.fail("self_target");
-        Faction self = state.findFaction(selfId).orElse(null);
-        Faction enemy = state.findFaction(enemyFactionId).orElse(null);
-        if (self == null || enemy == null) return Result.fail("faction_missing");
-        if (self.relationWith(enemyFactionId).status() == RelationStatus.WAR
-                || state.wars().stream().anyMatch(w -> w.active() && w.between(selfId, enemyFactionId))) {
-            return Result.fail("already_at_war");
-        }
-        if (standing.rank() != FactionRank.RULER
-                && standing.influenceWith(selfId, InfluenceInstitution.CROWN) < 18
-                && standing.influenceWith(selfId, InfluenceInstitution.MILITARY) < 22) {
-            return Result.fail("insufficient_influence");
-        }
+        Faction self = state.findFaction(selfId).orElseThrow();
+        Faction enemy = state.findFaction(enemyFactionId).orElseThrow();
         Settlement target = null;
         if (targetSettlementId > 0) {
             target = enemy.settlements().stream().filter(s -> s.id() == targetSettlementId).findFirst().orElse(null);
             if (target == null) return Result.fail("target_not_enemy");
-        } else {
-            target = enemy.settlements().stream().max(Comparator.comparingInt(Settlement::population)).orElse(null);
+        } else if (options.suggestedTargetSettlementId() > 0) {
+            target = enemy.settlements().stream()
+                    .filter(s -> s.id() == options.suggestedTargetSettlementId()).findFirst().orElse(null);
         }
+        if (target == null) target = SettlementTransfer.capitalTarget(enemy);
         long targetId = target == null ? 0 : target.id();
+        // Breaking peace / non-aggression / alliance before the sword is drawn.
+        double legitimacyHit = 0;
+        double reputationHit = 0;
+        for (WarRoomOptionsBuilder.TreatyBreakCost cost : options.treatiesToBreak()) {
+            state.treaties().stream().filter(t -> t.id() == cost.treatyId() && t.active()).findFirst()
+                    .ifPresent(Treaty::terminate);
+            legitimacyHit += cost.legitimacyCost();
+            reputationHit += cost.reputationCost();
+        }
+        if (legitimacyHit > 0) self.government().adjustLegitimacy(-legitimacyHit);
+        if (reputationHit > 0) standing.adjustReputation(enemyFactionId, -reputationHit);
         self.relationWith(enemyFactionId).declareWar();
         enemy.relationWith(selfId).declareWar();
-        WarState war = new WarState(state.nextId(), selfId, enemyFactionId, WarGoalType.CONQUEST,
-                targetId, state.clock().day());
+        WarState war = new WarState(state.nextId(), selfId, enemyFactionId, chosen, targetId, state.clock().day());
         state.addWar(war);
         standing.adjustInfluence(selfId, InfluenceInstitution.CROWN, -6);
         standing.adjustInfluence(selfId, InfluenceInstitution.MILITARY, 3);
         standing.adjustReputation(enemyFactionId, -25);
         standing.grantCareerService(CareerTrack.MILITARY, 15);
         state.history().add(new WorldEvent(state.clock().day(), "player_declare_war",
-                "actor=" + actorKey + ", vs=" + enemyFactionId + ", target=" + targetId));
+                "actor=" + actorKey + ", vs=" + enemyFactionId + ", goal=" + chosen.name()
+                        + ", target=" + targetId
+                        + (legitimacyHit > 0 ? ", treaty_break_legitimacy=" + Math.round(legitimacyHit * 100) : "")));
         return Result.ok("war_declared");
+    }
+
+    /** Noble war petition: records court pressure without unilaterally opening hostilities. */
+    public static Result petitionWar(SimulationState state, String actorKey, long enemyFactionId) {
+        return petitionWar(state, actorKey, enemyFactionId, 0, WarGoalType.CONQUEST);
+    }
+
+    public static Result petitionWar(SimulationState state, String actorKey, long enemyFactionId,
+                                     long targetSettlementId, WarGoalType goal) {
+        Objects.requireNonNull(state, "state");
+        WarRoomOptionsBuilder.DeclareOptions options =
+                WarRoomOptionsBuilder.declareOptions(state, actorKey, enemyFactionId);
+        if (!options.canPetitionOnly() && !options.canDeclareUnilateral()) {
+            return Result.fail(options.denyReason().isBlank() ? "cannot_petition" : options.denyReason());
+        }
+        PlayerStanding standing = state.findPlayerStanding(actorKey).orElse(null);
+        if (standing == null || !standing.isMember()) return Result.fail("not_member");
+        if (standing.rank() != FactionRank.NOBLE && standing.rank() != FactionRank.RULER) {
+            return Result.fail("rank_too_low");
+        }
+        WarGoalType chosen = goal == null ? WarGoalType.CONQUEST : goal;
+        if (!WarRoomOptionsBuilder.isValidOffensiveGoal(chosen)) return Result.fail("defense_not_offensive");
+        long selfId = standing.memberFactionId();
+        standing.adjustInfluence(selfId, InfluenceInstitution.CROWN, -2);
+        standing.adjustInfluence(selfId, InfluenceInstitution.MILITARY, 1);
+        long targetId = targetSettlementId > 0 ? targetSettlementId : options.suggestedTargetSettlementId();
+        state.history().add(new WorldEvent(state.clock().day(), "player_war_petition",
+                "actor=" + actorKey + ", vs=" + enemyFactionId + ", goal=" + chosen.name()
+                        + ", target=" + targetId));
+        return Result.ok("war_petitioned");
     }
 
     public static Result armyOrder(SimulationState state, String actorKey, long armyId, MilitaryObjectiveType type) {
@@ -287,23 +341,30 @@ public final class PlayerAgencyActions {
     private static Result orderEscort(SimulationState state, String actorKey, Army army, Faction faction,
                                       long secondaryTargetId) {
         if (secondaryTargetId <= 0) return Result.fail("target_required");
-        // Prefer escorting an active shipment to its destination; otherwise escort to a friendly settlement.
+        // Hard gate: never escort an enemy settlement (War Room UI used to pass war targets here).
+        if (!WarRoomOptionsBuilder.isValidEscortTarget(state, faction.id(), secondaryTargetId)) {
+            return Result.fail("escort_target_invalid");
+        }
         var shipment = state.shipments().stream()
                 .filter(s -> s.id() == secondaryTargetId && !s.arrived())
                 .findFirst().orElse(null);
         long settlementId;
         SimPosition pos;
         if (shipment != null) {
-            if (shipment.sellerFactionId() != faction.id() && shipment.buyerFactionId() != faction.id()) {
-                return Result.fail("shipment_not_ours");
-            }
             settlementId = shipment.destinationSettlementId() > 0 ? shipment.destinationSettlementId() : 0;
             pos = shipment.destination();
             shipment.setEscortStrength(Math.max(shipment.escortStrength(), army.totalPersonnel() * .15));
         } else {
-            Settlement settlement = faction.settlements().stream()
-                    .filter(s -> s.id() == secondaryTargetId).findFirst().orElse(null);
+            Settlement settlement = state.findSettlement(secondaryTargetId).orElse(null);
             if (settlement == null) return Result.fail("escort_target_missing");
+            Faction owner = state.findSettlementOwner(secondaryTargetId).orElse(null);
+            if (owner == null) return Result.fail("escort_target_missing");
+            if (owner.id() != faction.id()) {
+                RelationStatus status = faction.relationWith(owner.id()).status();
+                if (status != RelationStatus.ALLIED && status != RelationStatus.FRIENDLY) {
+                    return Result.fail("escort_not_friendly");
+                }
+            }
             settlementId = settlement.id();
             pos = settlement.position();
         }

@@ -14,6 +14,7 @@ public final class StructureBlueprintFactory {
     public static StructureBlueprint create(ConstructionIntent intent) {
         return switch (intent.role()) {
             case KEEP -> keep(intent.width(), intent.depth());
+            case TOWN_HALL -> townHall(intent.width(), intent.depth());
             case HOUSE -> house(intent);
             case FARM -> farm(intent.width(), intent.depth());
             case ROAD -> road(intent.width(), intent.depth());
@@ -339,6 +340,17 @@ public final class StructureBlueprintFactory {
         flatRoof(p,w,d,7,PaletteSlot.FOUNDATION);battlements(p,w,d,8);
         add(p,0,3,0,PaletteSlot.LIGHT,ConstructionPhase.DETAIL);add(p,-2,2,0,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);add(p,2,2,0,PaletteSlot.STORAGE,ConstructionPhase.DETAIL);
         return bp("keep",w,d,9,p);
+    }
+
+    /** Civic charter hall for player-founded camps — distinct from military KEEP. */
+    private static StructureBlueprint townHall(int w, int d) {
+        List<BlockPlacement> p = new ArrayList<>(hall("town_hall", w, d, 5, true).placements());
+        int hz = d / 2;
+        for (int x = -2; x <= 2; x++) add(p, x, 1, hz - 2, PaletteSlot.FOUNDATION, ConstructionPhase.DETAIL);
+        add(p, 0, 2, 0, PaletteSlot.LIGHT, ConstructionPhase.DETAIL);
+        add(p, -2, 1, 0, PaletteSlot.STORAGE, ConstructionPhase.DETAIL);
+        add(p, 2, 1, 0, PaletteSlot.STORAGE, ConstructionPhase.DETAIL);
+        return bp("town_hall", w, d, 8, p);
     }
 
     /** Proper capital castle: walled court, four towers, gatehouse and a raised great hall. */

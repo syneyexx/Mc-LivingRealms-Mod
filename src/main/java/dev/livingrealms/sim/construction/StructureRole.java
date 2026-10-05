@@ -3,6 +3,7 @@ package dev.livingrealms.sim.construction;
 /** Functional building/structure roles used by settlement growth and the Minecraft construction adapter. */
 public enum StructureRole {
     KEEP,
+    TOWN_HALL,
     HOUSE,
     FARM,
     ROAD,

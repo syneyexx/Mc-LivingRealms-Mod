@@ -4,6 +4,7 @@ import dev.livingrealms.minecraft.SimulationRuntime;
 import dev.livingrealms.minecraft.entity.FactionCitizenEntity;
 import dev.livingrealms.minecraft.entity.FactionCitizenIndex;
 import dev.livingrealms.sim.law.*;
+import dev.livingrealms.sim.player.PlayerActorIdentity;
 import dev.livingrealms.sim.property.*;
 import dev.livingrealms.sim.territory.*;
 import dev.livingrealms.sim.world.*;
@@ -39,5 +40,8 @@ public final class CrimeRuntime {
     }
 
     public static int countWitnesses(ServerLevel level,ServerPlayer actor,long factionId,Entity victim){int count=0;for(FactionCitizenEntity citizen:FactionCitizenIndex.loaded()){if(citizen==victim||citizen.factionId()!=factionId||!citizen.isAlive()||citizen.distanceToSqr(actor)>WITNESS_RADIUS_SQR)continue;if(citizen.hasLineOfSight(actor))count++;}for(ServerPlayer player:level.players()){if(player==actor||player==victim||!player.isAlive()||player.distanceToSqr(actor)>WITNESS_RADIUS_SQR)continue;if(player.hasLineOfSight(actor))count++;}return count;}
-    public static String actorKey(ServerPlayer player){return "player:"+player.getUUID();}
+    /** Canonical player identity — delegates to {@link PlayerActorIdentity}. Never use display names. */
+    public static String actorKey(ServerPlayer player){
+        return PlayerActorIdentity.of(player.getUUID());
+    }
 }

@@ -1,5 +1,7 @@
 package dev.livingrealms.sim.presentation;
 
+import dev.livingrealms.sim.civilization.FaithCatalog;
+import dev.livingrealms.sim.civilization.FactionCivilizationState;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.world.SimulationState;
@@ -11,6 +13,8 @@ import java.util.Objects;
 /**
  * Non-authoritative presentation planner. Reads canonical truth and emits bounded choreography
  * cues for nearby Minecraft projection. Never mutates economy/politics.
+ *
+ * <p>Holy-day cues reuse {@link FaithCatalog} — this is not a second calendar authority.
  */
 public final class CivicChoreographyPlanner {
     public static final int MAX_EVENTS_PER_SETTLEMENT = 8;
@@ -50,9 +54,8 @@ public final class CivicChoreographyPlanner {
             out.add(new PresentationEvent(EventKind.MARKET_DAY, sid, fid,
                     "merchants gather at the market", 0.7));
         }
-        // Holy day: temple-bearing towns on day-of-week aligned to settlement id.
-        if (settlement.tier().ordinal() >= Settlement.Tier.TOWN.ordinal()
-                && Math.floorMod(day + sid, 14) == 0) {
+        // Holy day: reuse faith calendar (same authority as rites / tithe), not a parallel cadence.
+        if (settlement.tier().ordinal() >= Settlement.Tier.TOWN.ordinal() && isFaithHolyDay(state, fid, day)) {
             out.add(new PresentationEvent(EventKind.HOLY_DAY, sid, fid,
                     "congregation walks to the temple", 0.65));
         }
@@ -97,5 +100,15 @@ public final class CivicChoreographyPlanner {
             return List.copyOf(out.subList(0, MAX_EVENTS_PER_SETTLEMENT));
         }
         return List.copyOf(out);
+    }
+
+    /** True when the faction faith calendar marks today (or the day being opened) as holy. */
+    public static boolean isFaithHolyDay(SimulationState state, long factionId, long day) {
+        Objects.requireNonNull(state, "state");
+        FactionCivilizationState civ = state.findFactionCivilization(factionId).orElse(null);
+        if (civ == null) return false;
+        FaithCatalog.FaithProfile faith = FaithCatalog.of(civ.faithName());
+        // Match CivilizationLifecycleEngine: advanceDays opens day D while clock still reads D-1.
+        return faith.isHolyDay(day) || faith.isHolyDay(day + 1);
     }
 }

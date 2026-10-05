@@ -64,10 +64,16 @@ dev.livingrealms.SparseWorldPolicyTest
 dev.livingrealms.SettlementAnchorInvariantTest
 dev.livingrealms.ForeignSettlementSpacingTest
 dev.livingrealms.PlayerWarRoomTest
+dev.livingrealms.WarRoomOptionsBuilderTest
 dev.livingrealms.UnderworldGameplayTest
 dev.livingrealms.RoadLifeLayerTest
+dev.livingrealms.RoadLifeMaterializationTest
+dev.livingrealms.PlayerStructureRevalidationTest
 dev.livingrealms.PlayerStructureRegistrationTest
 dev.livingrealms.PlayerSettlementGrowthTest
 dev.livingrealms.WildlifeVisualFamilyTest
 dev.livingrealms.CivicChoreographyTest
+dev.livingrealms.PlayerActorIdentityTest
+dev.livingrealms.HousingDemolitionRegressionTest
+dev.livingrealms.PlayerFoundedTownHallTest
 dev.livingrealms.LongRunSoakTest

@@ -1,6 +1,6 @@
 # LivingRealms Detail Matrix
 
-CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 Source wins over docs. Status values for current work: EXISTS · IMPLEMENTING · COMPLETE.
 
@@ -19,7 +19,7 @@ Source wins over docs. Status values for current work: EXISTS · IMPLEMENTING ·
 | UI blur removed | clearBackground overrides | COMPLETE | M / dialogue / dashboard |
 | M-map terrain | RealmWorldMapScreen + ClientTerrainMapCache | COMPLETE | |
 | Named roster | SocialPopulationEngine | COMPLETE | hamlet6…capital64; no projection required |
-| Goods chains | ResourceType + SettlementEconomyEngine | COMPLETE | schema 19; no FOOD×mill fountain |
+| Goods chains | ResourceType + SettlementEconomyEngine | COMPLETE | schema 20; no FOOD×mill fountain |
 | Farms/pastures/hinterland keys | completion keys + receipts | COMPLETE | No seeder phantoms |
 | Settlement transfer | SettlementTransfer | COMPLETE | Capture + rebellion |
 | War capital targets | DiplomacyEngine | COMPLETE | Typed goals |

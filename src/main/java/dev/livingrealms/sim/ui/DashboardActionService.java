@@ -83,7 +83,18 @@ public final class DashboardActionService {
             return new Result(r.success(),r.dirty(),r.reason());
         }
         if(command.action()==DashboardActionCommand.Action.DECLARE_WAR){
-            var r=PlayerAgencyActions.declareWar(state,actorKey,command.targetId(),command.secondaryTargetId());
+            var options=dev.livingrealms.sim.military.WarRoomOptionsBuilder.declareOptions(state,actorKey,command.targetId());
+            if(options.canPetitionOnly()){
+                var r=PlayerAgencyActions.petitionWar(state,actorKey,command.targetId(),command.secondaryTargetId(),
+                        dev.livingrealms.sim.diplomacy.WarGoalType.CONQUEST);
+                return new Result(r.success(),r.dirty(),r.reason());
+            }
+            dev.livingrealms.sim.diplomacy.WarGoalType goal=dev.livingrealms.sim.diplomacy.WarGoalType.CONQUEST;
+            if(!command.argument().isBlank()){
+                try{goal=dev.livingrealms.sim.diplomacy.WarGoalType.valueOf(command.argument().trim().toUpperCase());}
+                catch(IllegalArgumentException ignored){goal=dev.livingrealms.sim.diplomacy.WarGoalType.CONQUEST;}
+            }
+            var r=PlayerAgencyActions.declareWar(state,actorKey,command.targetId(),command.secondaryTargetId(),goal);
             return new Result(r.success(),r.dirty(),r.reason());
         }
         if(command.action()==DashboardActionCommand.Action.ARMY_DEFEND_HOME){

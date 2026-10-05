@@ -18,7 +18,9 @@ public enum AuthoredOwnerType {
     WIZARD_TREES(8),
     OTHER_LR(9),
     /** Temporary festival banners/stalls/torches; must clean up when the civic event ends. */
-    CIVIC_FESTIVAL(10);
+    CIVIC_FESTIVAL(10),
+    /** Sparse roadside features (waystations, shrines, milestones). Never settlement structures. */
+    ROADSIDE_SITE(11);
 
     private final int id;
 

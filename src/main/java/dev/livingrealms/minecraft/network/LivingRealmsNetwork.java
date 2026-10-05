@@ -64,7 +64,7 @@ public final class LivingRealmsNetwork {
             }
             if(command.action()==DashboardActionCommand.Action.REGISTER_BUILDING){
                 var survey=dev.livingrealms.minecraft.construction.PlayerStructureSurvey.surveyAndRegister(
-                        level,player,data.state(),command.targetId(),command.argument());
+                        level,player,actor,data.state(),command.targetId(),command.argument());
                 if(!survey.success()){player.sendSystemMessage(Component.literal(survey.message()));return;}
                 data.setDirty();
                 player.sendSystemMessage(Component.literal(survey.message()));
@@ -74,7 +74,11 @@ public final class LivingRealmsNetwork {
             var result=DashboardActionService.apply(data.state(),actor,position,command);
             if(!result.success()){player.sendSystemMessage(Component.literal(humanActionFailure(command.action(),result.reason())));return;}
             if(result.dirty())data.setDirty();
-            sendActionFeedback(player,command.action());
+            if("war_petitioned".equals(result.reason())){
+                player.sendSystemMessage(Component.literal("War petition filed with the court — a ruler must still declare."));
+            }else{
+                sendActionFeedback(player,command.action());
+            }
             sendDashboard(player,level);
         } catch(RuntimeException ex){
             LivingRealms.LOGGER.warn("Rejected dashboard action from {}",player.getGameProfile().getName(),ex);
@@ -97,6 +101,9 @@ public final class LivingRealmsNetwork {
             case "already_member", "already_member_elsewhere" -> "You already belong to a realm. Leave first.";
             case "ruler_cannot_leave" -> "Rulers cannot leave. Use succession/abdication to step down.";
             case "not_member" -> "You are not a member of any realm.";
+            case "petition_only" -> "Only the ruler may declare war unilaterally. File a court petition instead.";
+            case "defense_not_offensive" -> "Defense is not a valid offensive war goal.";
+            case "escort_target_invalid" -> "Escort targets must be your shipments or friendly settlements — not the enemy.";
             case "wrong_local_faction" -> "That realm is not the local jurisdiction here.";
             case "no_usable_board" -> "No usable jurisdiction here (wilderness or contested).";
             default -> "Living Realms action failed: " + (r.isBlank() ? action.name() : r);

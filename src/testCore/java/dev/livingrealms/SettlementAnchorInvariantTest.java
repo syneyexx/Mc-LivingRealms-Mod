@@ -46,7 +46,7 @@ public final class SettlementAnchorInvariantTest {
             catch (IllegalStateException expected) { refused = true; }
             check(refused, "LEGACY must refuse relocate: " + s.name());
         }
-        check(SimulationStateCodec.SCHEMA_VERSION == 19, "schema 19");
+        check(SimulationStateCodec.SCHEMA_VERSION == 20, "schema 20");
     }
 
     private static void anchoredRefuseRelocate() {

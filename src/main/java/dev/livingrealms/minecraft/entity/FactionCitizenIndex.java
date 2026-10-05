@@ -10,7 +10,9 @@ public final class FactionCitizenIndex {
     public static void joined(FactionCitizenEntity entity){BY_UUID.put(entity.getUUID(),entity);}
     public static void left(FactionCitizenEntity entity){BY_UUID.remove(entity.getUUID());}
     public static Collection<FactionCitizenEntity> loaded(){return List.copyOf(BY_UUID.values());}
-    public static FactionCitizenEntity forSlot(long settlementId,int slot){return BY_UUID.values().stream().filter(e->e.settlementId()==settlementId&&e.projectionSlot()==slot&&!e.isRemoved()).findFirst().orElse(null);}
+    public static FactionCitizenEntity forSlot(long settlementId,int slot){return BY_UUID.values().stream().filter(e->!e.isJourneyProjection()&&e.settlementId()==settlementId&&e.projectionSlot()==slot&&!e.isRemoved()).findFirst().orElse(null);}
     public static FactionCitizenEntity forCitizen(long citizenId){return BY_UUID.values().stream().filter(e->e.citizenId()==citizenId&&!e.isRemoved()).findFirst().orElse(null);}
+    public static FactionCitizenEntity forJourney(long journeyId){return BY_UUID.values().stream().filter(e->e.journeyId()==journeyId&&!e.isRemoved()).findFirst().orElse(null);}
+    public static Collection<FactionCitizenEntity> loadedJourneys(){return BY_UUID.values().stream().filter(e->e.isJourneyProjection()&&!e.isRemoved()).toList();}
     public static void clear(){BY_UUID.clear();}
 }
