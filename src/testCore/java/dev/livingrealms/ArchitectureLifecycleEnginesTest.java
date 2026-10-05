@@ -53,6 +53,11 @@ public final class ArchitectureLifecycleEnginesTest {
         // May or may not spawn depending on cadence helpers; ensure call does not throw and state stays valid.
         check(state.migrationGroups() != null, "migration engine callable");
 
+        DemographyEngine.simulateSettlementAttraction(state);
+        DemographyEngine.updateNamedPeople(state, rng);
+        DemographyEngine.simulateMonthlyDemography(state);
+        check(town.population() > 0, "demography engine callable");
+
         KnowledgeEngine.diffuseKnowledge(state);
         KnowledgeEngine.trainApprentices(state);
         DynastyLifecycleEngine.ensureCulturalPoliciesAndDynasties(state);
@@ -70,7 +75,7 @@ public final class ArchitectureLifecycleEnginesTest {
 
         new CivilizationLifecycleEngine().simulateDay(state, new DeterministicRng(state.seed() ^ state.clock().day() ^ 0xD1B54A32D192ED03L));
 
-        System.out.println("PASS architecture lifecycle engines: household/epidemic/migration/knowledge/dynasty + SimulationEngine façade");
+        System.out.println("PASS architecture lifecycle engines: household/demography/epidemic/migration/knowledge/dynasty + SimulationEngine façade");
     }
 
     private static void check(boolean v, String m) {

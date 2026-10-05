@@ -25,7 +25,7 @@ CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 
 | Domain | Modules | Role |
 |--------|---------|------|
-| Simulation | `SimulationEngine`, lifecycle engines (household / epidemic / migration / knowledge / dynasty), `FactionEngine`, civilization sub-engines | Day pipeline orchestration; demography helpers still partly in `CivilizationEngine` |
+| Simulation | `SimulationEngine`, lifecycle engines (household / demography / epidemic / migration / knowledge / dynasty), `FactionEngine`, civilization sub-engines | Day pipeline orchestration; aggregate demography and named mortality live in `DemographyEngine` |
 | Runtime scheduler | `LivingRealmsRuntimeScheduler`, `LivingRealmsRuntimeTaskCatalog`, `RuntimeTask`, `RuntimeDomain` / `RuntimePriority` / `RuntimeTaskClass` | Server tick catalog; `LivingRealmsEvents` only drives `runtimeScheduler.tick` |
 | Budgets / pressure | `RuntimeBudgetController`, `ProjectionBudget`, `RuntimePressureBridge` | Lane caps + HEALTHY/SOFT/HARD degradation for physical projection |
 | Failure isolation | `RuntimeFailureIsolator`, `StructuredErrorReporter` (waves 34/35) | Recoverable tasks disable; critical tasks do not swallow |
@@ -128,7 +128,7 @@ Honest matrix for this finalize pass:
 ## H Remaining limitations
 
 - `SettlementPlanner`, `SettlementConstructionMaterializer`, `SimulationState` still oversized
-- Births/deaths demography not fully extracted from `CivilizationEngine`
+- Household-pair formation and several claims/raid helpers remain in `CivilizationEngine`; aggregate demography and named mortality are extracted to `DemographyEngine`
 - Linked build + GameTest + client runtime smoke need CI/agent with NeoForge deps
 - Some player loops are CONSEQUENCE WIRED / DEEP without POLISHED UX
 - Release claims remain only in `docs/RELEASE_GATES.md` — maturity vocabulary ≠ ship gate
@@ -149,4 +149,4 @@ Honest matrix for this finalize pass:
 
 ## Verdict
 
-Architecture depth pass delivered a **modular monolith** with preserved schema-20 semantics and CURRENT PINS. Core + release-audit are the hard gates for this finalize; linked/GameTest remain CI follow-through.
+Architecture depth pass delivered a **modular monolith** with preserved schema-20 semantics and CURRENT PINS. The explicit demography extraction is complete; residual hotspots are documented follow-up work rather than hidden blockers. Core + release-audit are the hard gates for this finalize; linked/GameTest remain CI follow-through.

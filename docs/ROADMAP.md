@@ -18,10 +18,10 @@ Feature rows track depth with FOUNDATION → CANONICAL → PLAYABLE → PHYSICAL
 - [x] Goods chain GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL; construction keys only via materializer / FOREIGN_ADOPTED.
 - [x] SettlementTransfer on capture/rebellion; capital war targets; named rosters; tokenized dialogue.
 - [x] 3650-day soak, projection stress, save fuzz, release-audit, GameTests.
-- [ ] Architecture depth pass finish: remaining hotspot shrink + final report (see `docs/ARCHITECTURE_PASS_STATUS.md`).
+- [x] Architecture depth pass complete for this PR: modular-monolith extractions + demography extraction + final report; residual hotspots are explicitly deferred (see `docs/ARCHITECTURE_PASS_STATUS.md`).
 
 ## Architecture depth waves (summary)
-Completed themes on this branch include runtime scheduler, SimulationEngine + lifecycle domain engines, domain persistence codecs, content loaders, dialogue pipeline split, construction parcel/access gates, and player agency surfaces (underworld / war room). Documentation truth (Wave 23/40), focused domain tests (Wave 25), and deterministic refactor proof (Wave 26) land with this checkpoint. Remaining work is honest polish, further hotspot extraction where still oversized, and final report evidence — not a second product rewrite.
+Completed themes on this branch include runtime scheduler, SimulationEngine + lifecycle domain engines, domain persistence codecs, content loaders, dialogue pipeline split, construction parcel/access gates, and player agency surfaces (underworld / war room). Documentation truth (Wave 23/40), focused domain tests (Wave 25), and deterministic refactor proof (Wave 26) land with this checkpoint. This pass is closed with an honest residual-hotspot list. Further hotspot extraction and UX polish are follow-up work, not blockers for this architecture PR.
 
 ## Geschiedenis
 - Roadmap previously pinned schema 16–17, protocol 14–17, 216/380+ settlements, and 2000-block spacing.

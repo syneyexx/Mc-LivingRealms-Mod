@@ -3,7 +3,7 @@
 Branch: `cursor/architecture-depth-pass-f4a7`  
 Pins: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
-Honest checkpoint for modular-monolith work. Feature maturity ≠ release readiness (`docs/RELEASE_GATES.md`).
+Final checkpoint for this modular-monolith pass. Feature maturity ≠ release readiness (`docs/RELEASE_GATES.md`).
 
 ## Waves completed (this pass)
 
@@ -13,6 +13,7 @@ Honest checkpoint for modular-monolith work. Feature maturity ≠ release readin
 | 2 | Dashboard section codecs / panels (snapshot-only client) | Largely done |
 | 3–4 | Construction truth + parcel `ResolvedBuildSite` / access gates | Largely done |
 | 5–7 | SimulationEngine, lifecycle domain engines, domain persistence codecs, integrity repair | Done |
+| Final | `DemographyEngine` extraction for settlement attraction, aggregate births/deaths, named mortality | Done |
 | 8–9 / 15.1 / 31 | Data-driven realm / culture / building content loaders | Done |
 | 10 | Parcel-bound build sites + access-gated completion | Done |
 | 11 | Dialogue interpreter / knowledge / planner / style / realizer | Done |
@@ -26,15 +27,16 @@ Honest checkpoint for modular-monolith work. Feature maturity ≠ release readin
 | 33 | Historic city evolution (append-only completed keys across tier growth) | Done |
 | 46 | Development modes (`DevelopmentModeGuard` PLAYER_LED/HYBRID/AUTO) | Done |
 
-## Remaining / in progress
+## Deferred follow-up (not required to close this pass)
 
 | Theme | Honest note |
 |---|---|
-| Further hotspot shrink | `SettlementPlanner`, `SettlementConstructionMaterializer`, `LivingRealmsEvents`, `SimulationState` still large; peel only with proof tests |
-| Demography engine extract | Births/deaths still private in `CivilizationEngine`; MigrationEngine + EpidemicEngine already extracted |
-| Final report | Scaffolding started in `docs/ARCHITECTURE_PASS_FINAL_REPORT.md` — fill evidence after green suite + any remaining extractions |
-| Linked / GameTest / runtime smoke | Not claimed from headless core alone |
-| Polish | Some player loops are CONSEQUENCE WIRED / DEEP without POLISHED UX |
+| Further hotspot shrink | `SettlementPlanner`, `SettlementConstructionMaterializer`, `LivingRealmsEvents`, and `SimulationState` remain large. Their remaining responsibilities cross Minecraft/runtime boundaries, so further peeling is deferred until each extraction has a dedicated proof test. |
+| Household/family split | Aggregate demography is now extracted; household formation remains in `CivilizationEngine` while household lifecycle/births live in `HouseholdLifecycleEngine`. This is a maintainability follow-up, not a correctness blocker. |
+| Linked / GameTest / runtime smoke | Must be taken from CI / real runtime evidence; headless core alone cannot claim them. |
+| Polish | Some player loops are CONSEQUENCE WIRED / DEEP without POLISHED UX. |
+
+The architecture pass is complete for PR #19: the major god-object edges targeted by this pass are split, persistence/schema pins are preserved, and the final report documents residual hotspots instead of claiming they disappeared.
 
 ## Documentation maturity vocabulary
 
@@ -47,3 +49,4 @@ Applied in `COMPLETION_MATRIX.md`, `DETAIL_MATRIX.md`, `WAVE0_SYSTEM_INVENTORY.m
 - `DeterministicRefactorProofTest` locks day-30 / day-365 count bands for known seed.
 - Full `./scripts/test-core.sh` EXIT=0.
 - Wave 28–46 proof: `StateRetentionCompactorTest`, `SaveSizeAuditorTest`, `CulturalIdentityWiringTest`, `HistoricCityEvolutionTest`, `DevelopmentModeGuardTest`.
+- Demography extraction proof: `ArchitectureLifecycleEnginesTest` directly exercises `DemographyEngine`.
