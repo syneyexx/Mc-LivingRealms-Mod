@@ -1,10 +1,10 @@
 # Living Realms architecture
 
-CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 ## Modular monolith (architecture depth pass)
 
-Living Realms is one deployable NeoForge mod with **internal kernels** instead of a microservice split. Boundaries are package/class extraction with shared `SimulationState` and a single schema-20 persistence envelope.
+Living Realms is one deployable NeoForge mod with **internal kernels** instead of a microservice split. Boundaries are package/class extraction with shared `SimulationState` and a single schema-21 persistence envelope.
 
 | Kernel | Responsibility | Key types |
 |---|---|---|
@@ -18,6 +18,15 @@ Living Realms is one deployable NeoForge mod with **internal kernels** instead o
 | **UI contract** | Snapshot-only dashboard | `RealmDashboardBuilder` / section codecs / client panels (no direct `SimulationState` on client) |
 
 Inventory of pre-extraction hotspots and wave order: `docs/ARCHITECTURE_INVENTORY.md`. Pass progress: `docs/ARCHITECTURE_PASS_STATUS.md`.
+
+## Hierarchical world fabric
+
+Fresh surface realms seed **1 capital + 10 authored satellites + 6–14 rural hamlets**: 17–25 settlements per realm, 204–300 surface starters across twelve realms. `SettlementRole` and `SettlementSpacingPolicy` replace the former single global spacing floor. Capital↔capital uses a 3000–4500 preferred range; towns, villages and hamlets use progressively tighter role-pair bands. SPECIAL sites (refugee camps, Wizard Trees, outlying sites) are not ordinary settlement graph nodes and use context-specific placement rules.
+
+Settlement streets are graph-first. `SettlementStreetGraph` is the source of road geometry; parcels/housing consume frontage from that graph. CITY+ boundaries come from `SettlementBoundary`: wall runs cover the perimeter except explicit gate openings, gate approach roads are graph segments, and inter-settlement transport chooses the gate facing its destination.
+
+Construction completeness is explicit via `SettlementCoreCompleteness`: tier-specific minimum roads/houses/food/water/civic/boundary/external-road deficits are reconciled before optional detail. Persistent roadside, historical, pirate, industrial and outlying block sites are chunk-driven and never force-load terrain.
+
 
 ## Authority boundaries (non-negotiable)
 
@@ -46,9 +55,11 @@ The canonical state remains authoritative. Materialized entities are a projectio
 
 ## LOD
 
-- PHYSICAL: <= 320 blocks from an interested player. Individual entity AI, combat, animation, collisions.
-- REGIONAL: 320-2048 blocks. Groups, routes, tactical outcomes, construction intents.
-- ABSTRACT: > 2048 blocks. Population/economy/ecology equations and strategic movement.
+Block fabric and entity LOD are deliberately separate. Persistent settlement/road/special-site blocks are reconciled from **already-loaded chunks** and never depend on player distance as existence authority. Entity projections remain budgeted around players.
+
+- **PHYSICAL entities:** per-kind cutoffs. Military, caravans and wildlife follow the configured physical radius; citizens use the larger citizen envelope; migrations and ships use their own mobility-aware envelopes.
+- **REGIONAL impostors:** each token type begins only *outside its corresponding full-entity cutoff* and ends at the configured regional radius. This prevents a caravan, fleet, migration group, army, herd or settlement from being represented simultaneously as both full entities and an impostor.
+- **ABSTRACT:** beyond the regional radius, canonical population/economy/ecology/strategic state continues without Minecraft entities.
 
 ## Tick budgets
 
