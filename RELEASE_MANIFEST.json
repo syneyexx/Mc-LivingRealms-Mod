@@ -1,6 +1,6 @@
 {
-  "generatedAtUtc": "2026-10-05T04:42:01Z",
-  "gitCommit": "302f6e2fd8fd03b1eaa13f3cdb5526a43dc6c6fe",
+  "generatedAtUtc": "2026-10-05T05:10:57Z",
+  "gitCommit": "f24f6508092aa4cbcb9c681d32bb930556e11f14",
   "gitWorktreeClean": true,
   "modVersion": "3.0.0-rc4",
   "minecraftVersion": "1.21.1",
@@ -23,7 +23,7 @@
     "jar": "build/libs/livingrealms-3.0.0-rc4.jar",
     "jarPresent": true,
     "jarBytes": 1986903,
-    "jarSha256": "657f306843708bca3178cef536c3d89f642462f85af36bb06f3fb1b8d46e29c2"
+    "jarSha256": "c68efb1466b5733aa6d85bd50fe67af07b1e45d5f6dabf89dfc6e7620cdf209e"
   },
   "releaseCompleteClaimAllowed": false,
   "notes": [
