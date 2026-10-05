@@ -26,9 +26,9 @@ public final class WorldFabricActivationPolicyTest {
                 "settlement block discovery must not require players");
         check(!settlementDiscovery.contains("nearPlayer("),
                 "settlement block discovery must not use nearPlayer");
-        check(settlementDiscovery.contains("level.hasChunkAt(core)")
+        check(settlementDiscovery.contains("CivilizationFabricChunkQueue.pollSettlement")
                         && settlementDiscovery.contains("level.hasChunkAt(center)"),
-                "settlement block discovery must be loaded-chunk bounded");
+                "settlement block discovery must consume chunk hints and refuse force loading");
 
         String presentation = between(settlement,
                 "private static void refreshPresentationScope", "private static void creditHousingFromCompletedHouse");
@@ -39,19 +39,19 @@ public final class WorldFabricActivationPolicyTest {
                 "regional road fabric must not use the old observer activation radius");
         check(!transport.contains("level.players()"),
                 "regional road block fabric must not be player-list driven");
-        check(transport.contains("onChunkLoaded(ChunkPos chunkPos)")
-                        && transport.contains("PENDING_CHUNKS")
-                        && transport.contains("level.hasChunkAt(probe)"),
-                "regional roads must be queued from loaded chunks without force loading");
+        check(transport.contains("CivilizationFabricChunkQueue.pollTransport")
+                        && transport.contains("RouteProjectionPlanner.planInBounds")
+                        && transport.contains("level.hasChunkAt"),
+                "regional roads must consume loaded-chunk hints without force loading");
 
         check(!urban.contains("nearPlayer(") && !urban.contains("level.players()"),
                 "urban core block fabric must not be player-proximity driven");
         check(urban.contains("level.hasChunkAt(core)") && urban.contains("level.hasChunkAt(probe)"),
                 "urban core work must only touch already-loaded chunks");
 
-        check(events.contains("ChunkEvent.Load")
-                        && events.contains("TransportNetworkMaterializer.onChunkLoaded(event.getChunk().getPos())"),
-                "NeoForge chunk-load wiring for road fabric is missing");
+        check(events.contains("onChunkLoad(ChunkEvent.Load event)")
+                        && events.contains("CivilizationFabricChunkQueue.onChunkAvailable"),
+                "NeoForge chunk-load handoff to shared civilization fabric queue is missing");
         check(demo.contains("new TransportNetworkEngine().ensureRoutes(s)"),
                 "fresh-world road topology must exist before chunk fabric projection");
 
