@@ -1,11 +1,11 @@
 # Living Realms project state
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 ## Current production state
-- Twelve surface kingdoms each seed capital + 10 authored Spec satellites + 2 rural hamlets (`TARGET_SETTLEMENTS_PER_REALM=13` → `SURFACE_STARTER_SETTLEMENTS=156`), plus Wizard Trees (3 colonies, excluded from surface density).
+- Twelve surface kingdoms each seed capital + 1 authored satellite + 1 rural hamlet (`TARGET_SETTLEMENTS_PER_REALM=3` → `SURFACE_STARTER_SETTLEMENTS=36`), plus Wizard Trees (3 colonies, excluded from surface density).
 - Minimum settlement clearance is **800** blocks (shared by densifier, frontier seeder, and player founding).
-- Save schema **18** adds GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL goods; schemas 1–17 remain readable. Dashboard protocol **19**. Network registration **14**. Outer `ContentRevision=14` (Spec densifier, morphology gate via `ContentMigrationPolicy`, no seeder phantom completion keys).
+- Save schema **19** adds GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL goods; schemas 1–17 remain readable. Dashboard protocol **20**. Network registration **14**. Outer `ContentRevision=14` (Spec densifier, morphology gate via `ContentMigrationPolicy`, no seeder phantom completion keys).
 - Named citizen rosters seed per settlement (hamlet 6 … capital 64) independently of chunk projection; aggregate population remains the demographic scale.
 - Construction completion keys are written only by the materializer or explicit `FOREIGN_ADOPTED` adoption; economy production counts only materialized (or receipt-backed) keys.
 - Capture and rebellion use `SettlementTransfer` so citizens, claims, industry, ports and related ownership follow the new faction.

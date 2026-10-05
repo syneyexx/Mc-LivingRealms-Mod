@@ -1,9 +1,11 @@
 package dev.livingrealms.sim.player;
 
 import dev.livingrealms.sim.faction.Army;
+import dev.livingrealms.sim.faction.DevelopmentMode;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.faction.SettlementOrigin;
 import dev.livingrealms.sim.world.SettlementDensitySeeder;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
@@ -15,12 +17,19 @@ import java.util.Objects;
  *
  * <p>Settlements must sit at least {@link #MIN_SETTLEMENT_SPACING} blocks apart so realms have
  * real wilderness between them and inter-city travel/diplomacy is inevitable.</p>
+ *
+ * <p>Founding begins as a small camp (not an instant town). First civic anchor is a town hall;
+ * castles come later through normal development.</p>
  */
 public final class PlayerSettlementFounder {
     public record Result(boolean success,String reason,long factionId,long settlementId,String realmName,String settlementName) {}
 
-    /** Hard product floor shared with {@link dev.livingrealms.sim.world.SettlementDensitySeeder}. */
+    /** Hard product floor shared with {@link SettlementDensitySeeder}. */
     public static final double MIN_SETTLEMENT_SPACING = SettlementDensitySeeder.MIN_SETTLEMENT_SPACING;
+    /** Founding-camp population — small camp, not an instant city. */
+    public static final int FOUNDING_POPULATION = 6;
+    public static final int FOUNDING_HOUSING = 8;
+    public static final int FOUNDING_ARMY = 4;
 
     private PlayerSettlementFounder(){}
 
@@ -41,22 +50,23 @@ public final class PlayerSettlementFounder {
             double dist=blocker.position().distanceTo(position);
             double remain=Math.max(1.0,need-dist);
             String dir=cardinalAway(blocker.position(),position);
-            return fail("too close to "+blocker.name()
-                    +" ("+Math.round(dist)+"m, need "+Math.round(need)+"m). Move ~"
-                    +Math.round(remain)+"m "+dir+" into open wilderness (settlements need "
-                    +Math.round(MIN_SETTLEMENT_SPACING)+"m clearance).");
+            return fail("Cannot found here: "+blocker.name()+" is "+Math.round(dist)
+                    +" blocks away; "+Math.round(need)+" blocks are required. Move ~"
+                    +Math.round(remain)+"m "+dir+" into open wilderness.");
         }
 
         long factionId=state.nextId(), settlementId=state.nextId();
         String realmName="Realm of "+settlement;
         Faction faction=new Faction(factionId,realmName,player);
-        faction.restoreTreasury(2_750);
-        faction.restoreTechnology(.24);
-        Settlement capital=new Settlement(settlementId,settlement,position,24,48);
+        faction.restoreTreasury(420);
+        faction.restoreTechnology(.18);
+        Settlement capital=new Settlement(settlementId,settlement,position,FOUNDING_POPULATION,FOUNDING_HOUSING,
+                SettlementOrigin.PLAYER_FOUNDED,true,DevelopmentMode.HYBRID);
         faction.addSettlement(capital);
-        faction.addArmy(new Army(state.nextId(),factionId,new SimPosition(position.x()+24,position.z()+18),18));
-        stock(faction,ResourceType.FOOD,2_200);stock(faction,ResourceType.WOOD,1_100);stock(faction,ResourceType.STONE,1_450);
-        stock(faction,ResourceType.IRON,180);stock(faction,ResourceType.TOOLS,140);stock(faction,ResourceType.TEXTILES,120);stock(faction,ResourceType.AMMUNITION,90);
+        faction.addArmy(new Army(state.nextId(),factionId,new SimPosition(position.x()+12,position.z()+10),FOUNDING_ARMY));
+        stock(faction,ResourceType.GRAIN,180);stock(faction,ResourceType.BREAD,120);
+        stock(faction,ResourceType.WOOD,220);stock(faction,ResourceType.STONE,160);
+        stock(faction,ResourceType.IRON,24);stock(faction,ResourceType.TOOLS,18);stock(faction,ResourceType.TEXTILES,20);
         for(Faction other:state.factions()){
             double initial=initialOpinion(state.seed(),factionId,other.id());
             faction.relationWith(other.id()).adjust(initial);
@@ -65,10 +75,11 @@ public final class PlayerSettlementFounder {
         state.addFaction(faction);
         standing.restoreReputation(factionId,100);
         standing.assumeRule(factionId,state.clock().day());
-        // Kick physical catch-up so keep/first houses appear quickly near the founder.
-        state.requestConstructionCatchup(45);
-        capital.requestLandmark("keep:0");
-        state.history().add(new WorldEvent(state.clock().day(),"player_realm_founded",player+" founded "+realmName+" at "+settlement));
+        // First civic anchor is a town hall / charter hall — not an instant keep.
+        state.requestConstructionCatchup(20);
+        capital.requestLandmark("town_hall:0");
+        state.history().add(new WorldEvent(state.clock().day(),"player_realm_founded",
+                player+" founded founding camp "+realmName+" at "+settlement+" (HYBRID development)"));
         return new Result(true,"ok",factionId,settlementId,realmName,settlement);
     }
 

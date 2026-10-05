@@ -2,11 +2,10 @@ package dev.livingrealms.minecraft;
 
 import dev.livingrealms.sim.compat.ModCompatibilityPolicy;
 import dev.livingrealms.sim.faction.Faction;
-import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.world.ForeignAdoptionClassifier;
+import dev.livingrealms.sim.world.OutlyingSite;
 import dev.livingrealms.sim.world.SimPosition;
-import dev.livingrealms.sim.world.WorldEvent;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -106,25 +105,26 @@ public final class ForeignStructureDiscoveryRuntime {
 
     private static boolean hasSettlementNear(LivingRealmsSavedData data, SimPosition pos) {
         for (Faction faction : data.state().factions()) for (Settlement settlement : faction.settlements())
-            if (settlement.position().distanceTo(pos) <= EXISTING_RADIUS) return true;
-        return false;
+            if (settlement.position().distanceTo(pos) <= ForeignAdoptionClassifier.DUPLICATE_PHYSICAL_SITE_RADIUS) return true;
+        return data.state().findOutlyingNear(pos, ForeignAdoptionClassifier.DUPLICATE_PHYSICAL_SITE_RADIUS).isPresent();
     }
 
     private static void adopt(LivingRealmsSavedData data, ResourceLocation structureId, SimPosition pos, StructureStart start) {
-        Faction owner = data.state().factions().stream().min(Comparator.comparingDouble(f -> f.settlements().stream()
-                .mapToDouble(s -> s.position().distanceTo(pos)).min().orElse(Double.POSITIVE_INFINITY))).orElse(null);
-        if (owner == null) return;
         int population = inferredPopulation(structureId.getPath(), start);
-        Settlement settlement = new Settlement(data.state().nextId(), generatedName(structureId, pos), pos, population,
-                (int)Math.ceil(population * 1.18D));
-        owner.addSettlement(settlement);
-        ForeignSettlementBootstrap.preserveExistingInfrastructure(data.state(), owner, settlement);
-        owner.stockpile().add(ResourceType.FOOD, Math.max(180, population * 0.7D));
-        owner.stockpile().add(ResourceType.WOOD, Math.max(120, population * 0.35D));
-        owner.stockpile().add(ResourceType.STONE, Math.max(100, population * 0.30D));
-        data.state().history().add(new WorldEvent(data.state().clock().day(), "foreign_structure_adopted",
-                settlement.name() + " adopted from " + structureId + " into " + owner.name() + "; original structure preserved"));
-        data.setDirty();
+        int housing = (int) Math.ceil(population * 1.18D);
+        String name = generatedName(structureId, pos);
+        OutlyingSite.Type siteType = structureId.getPath().toLowerCase(Locale.ROOT).contains("outpost")
+                ? OutlyingSite.Type.MILITARY_POST : OutlyingSite.Type.FOREIGN_HAMLET;
+        var result = ForeignAdoptionClassifier.classifyAndAdopt(data.state(), pos, name, population, housing, siteType);
+        if (result.outcome() == ForeignAdoptionClassifier.Outcome.NEW_SETTLEMENT && result.settlement() != null) {
+            Faction owner = data.state().findSettlementOwner(result.settlement().id()).orElse(null);
+            if (owner != null) {
+                ForeignSettlementBootstrap.preserveExistingInfrastructure(data.state(), owner, result.settlement());
+            }
+            data.setDirty();
+        } else if (result.outcome() == ForeignAdoptionClassifier.Outcome.OUTLYING_SITE) {
+            data.setDirty();
+        }
     }
 
     private static int inferredPopulation(String path, StructureStart start) {

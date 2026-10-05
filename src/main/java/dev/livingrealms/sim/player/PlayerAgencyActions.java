@@ -2,6 +2,7 @@ package dev.livingrealms.sim.player;
 
 import dev.livingrealms.sim.diplomacy.Treaty;
 import dev.livingrealms.sim.diplomacy.TreatyType;
+import dev.livingrealms.sim.diplomacy.WarGoalType;
 import dev.livingrealms.sim.diplomacy.WarState;
 import dev.livingrealms.sim.faction.Army;
 import dev.livingrealms.sim.faction.Faction;
@@ -11,6 +12,7 @@ import dev.livingrealms.sim.military.MilitaryObjective;
 import dev.livingrealms.sim.military.MilitaryObjectiveType;
 import dev.livingrealms.sim.civilian.CitizenRole;
 import dev.livingrealms.sim.social.SocialCitizen;
+import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.WorldEvent;
 import java.util.Comparator;
@@ -156,14 +158,63 @@ public final class PlayerAgencyActions {
         return Result.ok("military_support_defend");
     }
 
+    public static Result declareWar(SimulationState state, String actorKey, long enemyFactionId) {
+        return declareWar(state, actorKey, enemyFactionId, 0);
+    }
+
+    public static Result declareWar(SimulationState state, String actorKey, long enemyFactionId, long targetSettlementId) {
+        Objects.requireNonNull(state, "state");
+        if (actorKey == null || actorKey.isBlank() || enemyFactionId <= 0) return Result.fail("invalid");
+        PlayerStanding standing = state.findPlayerStanding(actorKey).orElse(null);
+        if (standing == null || !standing.isMember()) return Result.fail("not_member");
+        if (standing.rank() != FactionRank.RULER && standing.rank() != FactionRank.NOBLE) {
+            return Result.fail("rank_too_low");
+        }
+        long selfId = standing.memberFactionId();
+        if (selfId == enemyFactionId) return Result.fail("self_target");
+        Faction self = state.findFaction(selfId).orElse(null);
+        Faction enemy = state.findFaction(enemyFactionId).orElse(null);
+        if (self == null || enemy == null) return Result.fail("faction_missing");
+        if (self.relationWith(enemyFactionId).status() == RelationStatus.WAR
+                || state.wars().stream().anyMatch(w -> w.active() && w.between(selfId, enemyFactionId))) {
+            return Result.fail("already_at_war");
+        }
+        if (standing.rank() != FactionRank.RULER
+                && standing.influenceWith(selfId, InfluenceInstitution.CROWN) < 18
+                && standing.influenceWith(selfId, InfluenceInstitution.MILITARY) < 22) {
+            return Result.fail("insufficient_influence");
+        }
+        Settlement target = null;
+        if (targetSettlementId > 0) {
+            target = enemy.settlements().stream().filter(s -> s.id() == targetSettlementId).findFirst().orElse(null);
+            if (target == null) return Result.fail("target_not_enemy");
+        } else {
+            target = enemy.settlements().stream().max(Comparator.comparingInt(Settlement::population)).orElse(null);
+        }
+        long targetId = target == null ? 0 : target.id();
+        self.relationWith(enemyFactionId).declareWar();
+        enemy.relationWith(selfId).declareWar();
+        WarState war = new WarState(state.nextId(), selfId, enemyFactionId, WarGoalType.CONQUEST,
+                targetId, state.clock().day());
+        state.addWar(war);
+        standing.adjustInfluence(selfId, InfluenceInstitution.CROWN, -6);
+        standing.adjustInfluence(selfId, InfluenceInstitution.MILITARY, 3);
+        standing.adjustReputation(enemyFactionId, -25);
+        standing.grantCareerService(CareerTrack.MILITARY, 15);
+        state.history().add(new WorldEvent(state.clock().day(), "player_declare_war",
+                "actor=" + actorKey + ", vs=" + enemyFactionId + ", target=" + targetId));
+        return Result.ok("war_declared");
+    }
+
     public static Result armyOrder(SimulationState state, String actorKey, long armyId, MilitaryObjectiveType type) {
+        return armyOrder(state, actorKey, armyId, type, 0);
+    }
+
+    public static Result armyOrder(SimulationState state, String actorKey, long armyId,
+                                   MilitaryObjectiveType type, long secondaryTargetId) {
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(type, "type");
         if (actorKey == null || actorKey.isBlank() || armyId <= 0) return Result.fail("invalid");
-        if (type != MilitaryObjectiveType.DEFEND && type != MilitaryObjectiveType.RETREAT
-                && type != MilitaryObjectiveType.PATROL_BORDER) {
-            return Result.fail("unsupported_order");
-        }
         PlayerStanding standing = state.findPlayerStanding(actorKey).orElse(null);
         if (standing == null || !standing.isMember()) return Result.fail("not_member");
         if (standing.rank() != FactionRank.RULER && standing.rank() != FactionRank.NOBLE
@@ -175,13 +226,29 @@ public final class PlayerAgencyActions {
         if (army.factionId() != standing.memberFactionId()) return Result.fail("not_own_army");
         Faction faction = state.findFaction(army.factionId()).orElse(null);
         if (faction == null) return Result.fail("faction_missing");
-        Settlement home = faction.settlements().stream()
-                .min(Comparator.comparingDouble(s -> s.position().distanceTo(army.position())))
-                .orElse(null);
+
+        return switch (type) {
+            case DEFEND, RETREAT, PATROL_BORDER -> orderHomeObjective(state, actorKey, army, faction, type, secondaryTargetId);
+            case CAPTURE_SETTLEMENT, SIEGE, RAID -> orderHostileSettlement(state, actorKey, army, faction, type, secondaryTargetId);
+            case ESCORT -> orderEscort(state, actorKey, army, faction, secondaryTargetId);
+        };
+    }
+
+    private static Result orderHomeObjective(SimulationState state, String actorKey, Army army, Faction faction,
+                                             MilitaryObjectiveType type, long secondaryTargetId) {
+        Settlement home = null;
+        if (secondaryTargetId > 0) {
+            home = faction.settlements().stream().filter(s -> s.id() == secondaryTargetId).findFirst().orElse(null);
+            if (home == null) return Result.fail("settlement_not_owned");
+        } else {
+            home = faction.settlements().stream()
+                    .min(Comparator.comparingDouble(s -> s.position().distanceTo(army.position())))
+                    .orElse(null);
+        }
         if (home == null) return Result.fail("no_home");
         int priority = type == MilitaryObjectiveType.DEFEND ? 150
                 : type == MilitaryObjectiveType.RETREAT ? 140 : 80;
-        replaceArmyObjective(state, army, faction.id(), type, home.id(), home.position(), priority);
+        replaceArmyObjective(state, army, faction.id(), type, 0, home.id(), home.position(), priority);
         if (type == MilitaryObjectiveType.RETREAT) {
             army.resupply(.05);
             army.adjustMorale(.02);
@@ -192,17 +259,68 @@ public final class PlayerAgencyActions {
             army.adjustMorale(.01);
         }
         state.history().add(new WorldEvent(state.clock().day(), "player_army_order",
-                "actor=" + actorKey + ", army=" + armyId + ", order=" + type.name() + ", home=" + home.id()));
+                "actor=" + actorKey + ", army=" + army.id() + ", order=" + type.name() + ", home=" + home.id()));
         return Result.ok("army_" + type.name().toLowerCase());
     }
 
+    private static Result orderHostileSettlement(SimulationState state, String actorKey, Army army, Faction faction,
+                                                 MilitaryObjectiveType type, long settlementId) {
+        if (settlementId <= 0) return Result.fail("target_required");
+        Settlement target = state.findSettlement(settlementId).orElse(null);
+        if (target == null) return Result.fail("settlement_missing");
+        Faction owner = state.findSettlementOwner(settlementId).orElse(null);
+        if (owner == null || owner.id() == faction.id()) return Result.fail("not_enemy_settlement");
+        if (faction.relationWith(owner.id()).status() != RelationStatus.WAR
+                && state.wars().stream().noneMatch(w -> w.active() && w.between(faction.id(), owner.id()))) {
+            return Result.fail("not_at_war");
+        }
+        int priority = type == MilitaryObjectiveType.CAPTURE_SETTLEMENT ? 130
+                : type == MilitaryObjectiveType.SIEGE ? 120 : 95;
+        replaceArmyObjective(state, army, faction.id(), type, owner.id(), settlementId, target.position(), priority);
+        army.adjustMorale(.02);
+        state.history().add(new WorldEvent(state.clock().day(), "player_army_order",
+                "actor=" + actorKey + ", army=" + army.id() + ", order=" + type.name()
+                        + ", settlement=" + settlementId + ", enemy=" + owner.id()));
+        return Result.ok("army_" + type.name().toLowerCase());
+    }
+
+    private static Result orderEscort(SimulationState state, String actorKey, Army army, Faction faction,
+                                      long secondaryTargetId) {
+        if (secondaryTargetId <= 0) return Result.fail("target_required");
+        // Prefer escorting an active shipment to its destination; otherwise escort to a friendly settlement.
+        var shipment = state.shipments().stream()
+                .filter(s -> s.id() == secondaryTargetId && !s.arrived())
+                .findFirst().orElse(null);
+        long settlementId;
+        SimPosition pos;
+        if (shipment != null) {
+            if (shipment.sellerFactionId() != faction.id() && shipment.buyerFactionId() != faction.id()) {
+                return Result.fail("shipment_not_ours");
+            }
+            settlementId = shipment.destinationSettlementId() > 0 ? shipment.destinationSettlementId() : 0;
+            pos = shipment.destination();
+            shipment.setEscortStrength(Math.max(shipment.escortStrength(), army.totalPersonnel() * .15));
+        } else {
+            Settlement settlement = faction.settlements().stream()
+                    .filter(s -> s.id() == secondaryTargetId).findFirst().orElse(null);
+            if (settlement == null) return Result.fail("escort_target_missing");
+            settlementId = settlement.id();
+            pos = settlement.position();
+        }
+        replaceArmyObjective(state, army, faction.id(), MilitaryObjectiveType.ESCORT, 0, settlementId, pos, 100);
+        army.adjustMorale(.015);
+        state.history().add(new WorldEvent(state.clock().day(), "player_army_order",
+                "actor=" + actorKey + ", army=" + army.id() + ", order=ESCORT, target=" + secondaryTargetId));
+        return Result.ok("army_escort");
+    }
+
     private static void replaceArmyObjective(SimulationState state, Army army, long factionId,
-                                             MilitaryObjectiveType type, long settlementId,
-                                             dev.livingrealms.sim.world.SimPosition pos, int priority) {
+                                             MilitaryObjectiveType type, long targetFactionId, long settlementId,
+                                             SimPosition pos, int priority) {
         for (MilitaryObjective o : state.objectives()) {
             if (!o.complete() && o.armyId() == army.id()) o.markComplete();
         }
         state.addObjective(new MilitaryObjective(state.nextId(), army.id(), factionId, type,
-                0, settlementId, pos, state.clock().day(), priority));
+                targetFactionId, settlementId, pos, state.clock().day(), priority));
     }
 }

@@ -98,6 +98,7 @@ public final class RealmDashboardScreen extends Screen {
             rebuildInfluenceButtons(left,contentY,panelWidth);
         }
         if (tab == Tab.POLITICS) rebuildDiplomacyButtons(left,contentY,panelWidth);
+        if (tab == Tab.WARS) rebuildWarRoomButtons(left,contentY,panelWidth);
         if (tab == Tab.FORCES) rebuildArmyOrderButtons(left,contentY,panelWidth);
         if (tab == Tab.ECONOMY) rebuildEconomyButtons(left,contentY,panelWidth);
         if (tab == Tab.SETTLEMENTS) rebuildSettlementButtons(left,contentY,panelWidth);
@@ -169,6 +170,55 @@ public final class RealmDashboardScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Stand down"),b->DashboardClientState.sendAction(
                 new DashboardActionCommand(DashboardActionCommand.Action.ARMY_STAND_DOWN,army.id())))
                 .bounds(left+10+bw*2,contentY+4,bw-3,16).build());
+    }
+
+    private void rebuildWarRoomButtons(int left,int contentY,int panelWidth){
+        long selfId=snapshot.player().memberFactionId();
+        if(selfId<=0)return;
+        int y=contentY+4;
+        int shown=0;
+        for(var f:snapshot.factions()){
+            if(shown>=2)break;
+            if(f.id()==selfId||f.localRealm())continue;
+            boolean atWar=snapshot.wars().stream().anyMatch(w->
+                    (w.attackerFactionId()==selfId&&w.defenderFactionId()==f.id())
+                            ||(w.defenderFactionId()==selfId&&w.attackerFactionId()==f.id()));
+            if(atWar)continue;
+            long enemyId=f.id();
+            String name=f.name();
+            addRenderableWidget(Button.builder(Component.literal("Declare war: "+name),b->DashboardClientState.sendAction(
+                    new DashboardActionCommand(DashboardActionCommand.Action.DECLARE_WAR,enemyId)))
+                    .bounds(left+10,y,Math.min(220,panelWidth-20),16).build());
+            y+=18;shown++;
+        }
+        var army=snapshot.map().armies().stream()
+                .filter(a->a.factionId()==selfId)
+                .findFirst().orElse(null);
+        if(army==null)return;
+        long enemySettlement=0;
+        for(var war:snapshot.wars()){
+            if(war.attackerFactionId()!=selfId&&war.defenderFactionId()!=selfId)continue;
+            if(war.targetSettlementId()>0){enemySettlement=war.targetSettlementId();break;}
+        }
+        if(enemySettlement<=0)return;
+        int bw=Math.max(62,(panelWidth-28)/5);
+        long armyId=army.id();
+        long target=enemySettlement;
+        addRenderableWidget(Button.builder(Component.literal("Capture"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_CAPTURE,armyId,target)))
+                .bounds(left+10,y,bw-2,16).build());
+        addRenderableWidget(Button.builder(Component.literal("Siege"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_SIEGE,armyId,target)))
+                .bounds(left+10+bw,y,bw-2,16).build());
+        addRenderableWidget(Button.builder(Component.literal("Raid"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_RAID,armyId,target)))
+                .bounds(left+10+bw*2,y,bw-2,16).build());
+        addRenderableWidget(Button.builder(Component.literal("Escort"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_ESCORT,armyId,target)))
+                .bounds(left+10+bw*3,y,bw-2,16).build());
+        addRenderableWidget(Button.builder(Component.literal("Patrol"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_PATROL,armyId,target)))
+                .bounds(left+10+bw*4,y,bw-2,16).build());
     }
 
     private void rebuildFactionButton(int left,int contentY,int panelWidth){

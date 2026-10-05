@@ -105,7 +105,7 @@ public final class LivingRealmsReleaseGameTests {
 
         LivingRealmsSavedData data = LivingRealmsSavedData.create(0x5AFE_0015L, SpeciesCatalog.starter());
         CompoundTag tag = data.save(new CompoundTag(), helper.getLevel().registryAccess());
-        helper.assertTrue(tag.getInt("ContentRevision") == 14, "CONTENT_REVISION must serialize as 14");
+        helper.assertTrue(tag.getInt("ContentRevision") == 15, "CONTENT_REVISION must serialize as 15");
         helper.succeed();
     }
 

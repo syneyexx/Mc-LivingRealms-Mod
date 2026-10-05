@@ -1,6 +1,6 @@
 # LivingRealms Implementation Ledger
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 **Authority rule:** source wins over docs. No parallel engines.
 
@@ -16,7 +16,7 @@ CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevisi
 | Dashboard protocol | **18** |
 | Network | **14** |
 | ContentRevision | **14** |
-| Surface settlements | **156** (12 × 13: capital + 10 Specs + 2 rural) |
+| Surface settlements | **36** (12 × 3: capital + 1 Spec + 1 rural) |
 | Spacing | **800** blocks |
 | Dashboard / map / catalog | F12 / M / K |
 

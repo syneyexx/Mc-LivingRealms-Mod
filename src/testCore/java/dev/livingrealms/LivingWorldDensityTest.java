@@ -32,12 +32,12 @@ public final class LivingWorldDensityTest {
         absoluteDayProgressActuallySimulates();
         playerCanFoundARealGrowingRealm();
         citizenIdentityIsStableAndVaried();
-        frontierExplorationSeedsFarWorld();
+        frontierExplorationDoesNotSeedSettlements();
         System.out.println("PASS living-world density: 12 kingdoms + Wizard Trees / "
                 + SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS
-                + " surface settlements (capital+10 Specs+rural) + "
+                + " surface settlements (capital+1 Spec+rural) + "
                 + (int) SettlementDensitySeeder.MIN_SETTLEMENT_SPACING
-                + "-block spacing + frontier continuity + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
+                + "-block spacing + causal expansion (no exploration spawn) + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
     }
 
     private static void denseStarterWorldIsHierarchicalAndIdempotent() {
@@ -55,9 +55,9 @@ public final class LivingWorldDensityTest {
         long villages = state.factions().stream().flatMap(f -> f.settlements().stream())
                 .filter(s -> s.tier() == Settlement.Tier.VILLAGE).count();
         long hamlets = state.factions().stream().flatMap(f -> f.settlements().stream())
-                .filter(s -> s.tier() == Settlement.Tier.HAMLET).count();
-        check(cities >= 12 && (towns + villages + hamlets) >= 24,
-                "starter hierarchy lacks cities plus supporting towns/villages/hamlets: cities="+cities+" towns="+towns+" villages="+villages+" hamlets="+hamlets);
+                .filter(s -> s.tier() == Settlement.Tier.HAMLET || s.tier() == Settlement.Tier.CAMP).count();
+        check(cities >= 12 && (towns + villages + hamlets) >= 12,
+                "starter hierarchy lacks cities plus supporting towns/villages/hamlets: cities="+cities+" towns="+towns+"/villages="+villages+" hamlets="+hamlets);
         long monarchies=state.factions().stream().filter(f->f.government().type()==GovernmentType.FEUDAL_MONARCHY).count();
         check(monarchies==12,"starter world must retain twelve ordinary kingdoms: "+monarchies);
         Faction wizard=state.factions().stream().filter(f->f.name().equals("Wizard Trees")).findFirst().orElseThrow();
@@ -93,14 +93,14 @@ public final class LivingWorldDensityTest {
                 "founding error should mention clearance: " + blocked.reason());
     }
 
-    private static void frontierExplorationSeedsFarWorld() {
+    private static void frontierExplorationDoesNotSeedSettlements() {
         SimulationState state = new SimulationState(99L);
         DemoSeeder.seed(state);
         int before = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
         int added = FrontierExplorationSeeder.ensureNear(state, new SimPosition(40_000, -35_000));
-        check(added == 1, "frontier seeder must plant one outpost in empty far-world");
-        check(state.factions().stream().mapToInt(f -> f.settlements().size()).sum() == before + 1, "frontier settlement must be attached");
-        check(FrontierExplorationSeeder.ensureNear(state, new SimPosition(40_000, -35_000)) == 0, "frontier seeding must be idempotent near the new outpost");
+        check(added == 0, "exploration must not found settlements");
+        check(state.factions().stream().mapToInt(f -> f.settlements().size()).sum() == before,
+                "settlement count must be unchanged by exploration");
     }
 
     private static void settlementsUseDiverseOrganicBlueprints() {
@@ -129,7 +129,7 @@ public final class LivingWorldDensityTest {
         check(houseBlueprints.size() >= 4, "house geometry remains too repetitive: " + houseBlueprints);
         check(marketBlueprints.size() >= 2, "market geometry did not diversify: " + marketBlueprints);
         check(roadRichSettlements >= 8, "towns/cities should keep real street networks: " + roadRichSettlements);
-        check(countrysideSinglePath >= 8, "hamlets should use a single countryside path, not a grid: " + countrysideSinglePath);
+        check(countrysideSinglePath >= 4, "hamlets should use a single countryside path, not a grid: " + countrysideSinglePath);
     }
 
     private static void populatedSettlementsProjectVisibleCrowdsWithinBudget() {

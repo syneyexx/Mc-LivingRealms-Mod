@@ -1,6 +1,6 @@
 # Living Realms — Definition of Done matrix
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 A subsystem is **COMPLETE** only when model, simulation, persistence/migration, Minecraft runtime projection, player feedback/UI, required content/assets, and regression tests are all real for the pins above.
 
@@ -8,7 +8,7 @@ A subsystem is **COMPLETE** only when model, simulation, persistence/migration, 
 |---|---|---|---|---|---|---|---|---|
 | World clock/history | ✅ | ✅ | ✅ | ✅ | ✅ History tab + commands | n/a | ✅ | COMPLETE |
 | Factions/kingdoms | ✅ 12 + Wizard Trees + player realms | ✅ diplomacy/war/trade/growth + SettlementTransfer | ✅ | ✅ citizen + military projection | ✅ Overview/Realms/Map + Join/Leave + found/locate | ✅ heraldry + citizen skins | ✅ | COMPLETE |
-| Settlements/growth | ✅ capital+10 Specs+2 rural (156 surface) + spacing 800 | ✅ organic planning + immigration | ✅ schema 18 + ContentRevision 14 | ✅ terrain-aware construction + provenance + Waystone bridge | ✅ management + locate/found + onboarding | ✅ hut→mansion + culture geometry families | ✅ density/authored-names/worldgen | COMPLETE |
+| Settlements/growth | ✅ capital+10 Specs+2 rural (36 surface) + spacing 2000 | ✅ organic planning + immigration | ✅ schema 18 + ContentRevision 14 | ✅ terrain-aware construction + provenance + Waystone bridge | ✅ management + locate/found + onboarding | ✅ hut→mansion + culture geometry families | ✅ density/authored-names/worldgen | COMPLETE |
 | Society/needs/unrest | ✅ SocialCitizen roster + SocialMobilityEngine | ✅ needs/memory + roster simulateDay | ✅ schema 18 | ✅ physical jobs as animation of sim authority | ✅ Society tab + tokenized dialogue | ✅ 48 citizen skins | ✅ roster/dialogue/society | COMPLETE |
 | Government/succession | ✅ + SovereignDebt + GrandProject | ✅ debt/projects/succession | ✅ | ✅ court projection | ✅ Politics | ✅ heraldry court kits | ✅ | COMPLETE |
 | Diplomacy/treaties | ✅ | ✅ typed war goals + peace treaties | ✅ | ✅ strategic | ✅ Politics | n/a | ✅ WarGoal* | COMPLETE |

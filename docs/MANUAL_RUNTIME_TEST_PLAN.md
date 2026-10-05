@@ -3,7 +3,7 @@
 Hand checklist after automated core suite, release-audit, and linked NeoForge build are green.
 This is a catch-net — it does **not** replace automated tests.
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 ## Environment
 1. JAR from `./build-production.sh` / `build/libs`.
@@ -15,7 +15,7 @@ CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevisi
 | # | Check | Pass criteria |
 |---|-------|---------------|
 | 1 | Mod loads | No crash; Living Realms in mod list |
-| 2 | Density | ~156 surface settlements + Wizard Trees; Spec names present |
+| 2 | Density | ~36 surface settlements + Wizard Trees; Spec catalog preserved |
 | 3 | Spacing | Founding needs 800m clearance (HUD/found message) |
 | 4 | F12 dashboard | All tabs; GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL visible |
 | 5 | War tab | Goals show capital targets (not list-order first town) |

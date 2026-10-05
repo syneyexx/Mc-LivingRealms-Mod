@@ -346,14 +346,8 @@ public final class LivingRealmsEvents {
     public void onLivingDeath(LivingDeathEvent event) {
         if (!(event.getEntity().level() instanceof ServerLevel level)) return;
         if (event.getSource().getEntity() instanceof FactionCitizenEntity hunter && hunter.role()==CitizenRole.HUNTER && event.getEntity() instanceof LivingRealmsAnimalEntity animal) {
-            var data=SimulationRuntime.data(level.getServer());
-            var faction=data.state().findFaction(hunter.factionId()).orElse(null);
-            var species=animal.species();
-            if(faction!=null&&species!=null){
-                double food=Math.max(.5D,Math.min(18.0D,species.adultMassKg()*.065D));
-                faction.stockpile().add(ResourceType.FOOD,food);
-                data.setDirty();
-            }
+            // Physical hunt is presentation only. Canonical hunting yield belongs to ecology/economy
+            // simulation — never mint FOOD from a loaded-chunk death event.
             return;
         }
         if (event.getEntity() instanceof ServerPlayer victim && event.getSource().getEntity() instanceof BountyHunterEntity hunter) {

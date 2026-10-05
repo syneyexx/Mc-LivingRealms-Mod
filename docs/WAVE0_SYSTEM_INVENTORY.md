@@ -1,6 +1,6 @@
 # LivingRealms Wave 0 — System Inventory
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 | Subsystem | Authority | Persistence | Runtime | UI | Tests | Status |
 |---|---|---|---|---|---|---|

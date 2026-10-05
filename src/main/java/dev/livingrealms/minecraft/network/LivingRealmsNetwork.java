@@ -24,7 +24,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Custom payload registration for bounded strategic UI synchronization. */
 public final class LivingRealmsNetwork {
-    public static final String NETWORK_VERSION = "15";
+    public static final String NETWORK_VERSION = "16";
 
     private LivingRealmsNetwork() {}
 
@@ -122,9 +122,15 @@ public final class LivingRealmsNetwork {
             case ABDICATE -> "You abdicated. A court successor now holds the realm.";
             case PETITION_PEACE -> "Peace petition accepted — war ended with a treaty.";
             case PROPOSE_TRADE_PACT -> "Trade pact signed.";
+            case DECLARE_WAR -> "War declared.";
             case ARMY_DEFEND_HOME -> "Army ordered to defend home.";
             case ARMY_RALLY -> "Army ordered to rally / patrol the border.";
             case ARMY_STAND_DOWN -> "Army ordered to stand down and resupply.";
+            case ARMY_CAPTURE -> "Army ordered to capture the target settlement.";
+            case ARMY_SIEGE -> "Army ordered to siege the target settlement.";
+            case ARMY_RAID -> "Army ordered to raid the target settlement.";
+            case ARMY_ESCORT -> "Army ordered to escort the target.";
+            case ARMY_PATROL -> "Army ordered to patrol.";
             case SURRENDER -> "You surrendered to local authorities.";
             case PAY_FINE -> "Fine paid toward your bounty.";
         };

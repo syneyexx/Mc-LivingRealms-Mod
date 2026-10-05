@@ -1,6 +1,6 @@
 # Living Realms production readiness
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 ## Status
 Release-ready candidate against the pins above for automated gates. Headless core suite and release-audit must be green; linked NeoForge/Create `clean --no-build-cache build` must be green; `RELEASE_MANIFEST.json` must match HEAD. `runtimeSmoke` may only be recorded as **pass** after a real client run — never guessed.

@@ -39,7 +39,7 @@ public final class LivingRealmsSavedData extends SavedData {
      * Revision 14: migration order fix (morphology reset before densifier), no seeder completion
      * keys, all 10 Specs per realm, goods-chain ContentRevision alignment with schema 18.
      */
-    private static final int CONTENT_REVISION = 14;
+    private static final int CONTENT_REVISION = 15;
 
     private final SimulationState state;
     /** settlementId -> packed BlockPos of Living Realms-authored Waystone only. */

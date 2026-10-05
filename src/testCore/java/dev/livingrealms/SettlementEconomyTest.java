@@ -10,7 +10,7 @@ import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 
-/** Phase 2–3 local settlement economy: stockpile authority, seasonal farms, market-day prices, schema 18. */
+/** Phase 2–3 local settlement economy: stockpile authority, seasonal farms, market-day prices, schema 19. */
 public final class SettlementEconomyTest {
     private SettlementEconomyTest() {}
 

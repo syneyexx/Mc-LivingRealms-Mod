@@ -125,7 +125,7 @@ public final class TradeCaravanEntity extends PathfinderMob {
         if (nearPlayer && tickCount % 40 == 0) {
             serverLevel.sendParticles(ParticleTypes.CLOUD, getX(), getY() + .2, getZ(), 2, .35, .05, .35, .01);
             if (random.nextFloat() < .35f) {
-                serverLevel.playSound(null, blockPosition(), SoundEvents.MULE_GALLOP, SoundSource.NEUTRAL, .35f, .9f + random.nextFloat() * .2f);
+                serverLevel.playSound(null, blockPosition(), SoundEvents.HORSE_GALLOP, SoundSource.NEUTRAL, .35f, .9f + random.nextFloat() * .2f);
             }
         }
         if (shipment.lossState() == TradeShipment.LossState.PARTIAL && tickCount % 60 == 0) {

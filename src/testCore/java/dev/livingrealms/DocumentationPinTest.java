@@ -37,14 +37,14 @@ public final class DocumentationPinTest {
         int spacing = (int) Double.parseDouble(readNumberConst(
                 "src/main/java/dev/livingrealms/sim/world/SettlementDensitySeeder.java", "MIN_SETTLEMENT_SPACING"));
 
-        check(schema == 18, "expected SCHEMA_VERSION 18, got " + schema);
+        check(schema == 19, "expected SCHEMA_VERSION 19, got " + schema);
         check(minSchema == 1, "expected MIN_SUPPORTED_SCHEMA 1, got " + minSchema);
-        check(protocol == 19, "expected PROTOCOL_VERSION 19, got " + protocol);
-        check("15".equals(network), "expected NETWORK_VERSION 15, got " + network);
-        check(contentRevision == 14, "expected CONTENT_REVISION 14, got " + contentRevision);
-        check(targetPerRealm == 13, "expected TARGET_SETTLEMENTS_PER_REALM 13, got " + targetPerRealm);
-        check(surface == 156, "expected SURFACE_STARTER_SETTLEMENTS 156, got " + surface);
-        check(spacing == 800, "expected MIN_SETTLEMENT_SPACING 800, got " + spacing);
+        check(protocol == 20, "expected PROTOCOL_VERSION 20, got " + protocol);
+        check("16".equals(network), "expected NETWORK_VERSION 16, got " + network);
+        check(contentRevision == 15, "expected CONTENT_REVISION 15, got " + contentRevision);
+        check(targetPerRealm == 3, "expected TARGET_SETTLEMENTS_PER_REALM 3, got " + targetPerRealm);
+        check(surface == 36, "expected SURFACE_STARTER_SETTLEMENTS 36, got " + surface);
+        check(spacing == 2000, "expected MIN_SETTLEMENT_SPACING 2000, got " + spacing);
 
         String pinNeedle = "CURRENT PINS: schema " + schema
                 + " / minSchema " + minSchema

@@ -6,3 +6,8 @@ javac.*.args
 /gradle/
 /gradlew
 /gradlew.bat
+
+# Generated release evidence
+build/
+RELEASE_MANIFEST.json
+RELEASE_MANIFEST.json.sha256
