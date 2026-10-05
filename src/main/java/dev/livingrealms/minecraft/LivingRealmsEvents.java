@@ -2,52 +2,36 @@ package dev.livingrealms.minecraft;
 
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import dev.livingrealms.LivingRealms;
-import dev.livingrealms.minecraft.ambience.FarPresenceRuntime;
-import dev.livingrealms.minecraft.ambience.SettlementAmbienceRuntime;
 import dev.livingrealms.minecraft.entity.LivingRealmsAnimalEntity;
 import dev.livingrealms.minecraft.entity.RegionalImpostorEntity;
 import dev.livingrealms.minecraft.entity.RegionalImpostorIndex;
-import dev.livingrealms.minecraft.entity.RegionalImpostorMaterializer;
-import dev.livingrealms.minecraft.player.PlayerOnboardingRuntime;
-import dev.livingrealms.minecraft.compat.WaystoneSettlementRuntime;
-import dev.livingrealms.sim.player.PlayerSettlementFounder;
-import dev.livingrealms.sim.world.SimPosition;
-import dev.livingrealms.minecraft.entity.WildlifeMaterializer;
 import dev.livingrealms.minecraft.entity.WildlifeProjectionIndex;
 import dev.livingrealms.minecraft.entity.TradeCaravanEntity;
 import dev.livingrealms.minecraft.entity.TradeCaravanIndex;
-import dev.livingrealms.minecraft.entity.TradeCaravanMaterializer;
-import dev.livingrealms.minecraft.entity.CaravanEscortMaterializer;
 import dev.livingrealms.minecraft.entity.FactionCitizenEntity;
 import dev.livingrealms.minecraft.entity.FactionCitizenIndex;
-import dev.livingrealms.minecraft.entity.FactionCitizenMaterializer;
-import dev.livingrealms.minecraft.entity.CitizenJourneyMaterializer;
 import dev.livingrealms.minecraft.entity.CitizenConversationRuntime;
 import dev.livingrealms.minecraft.entity.MilitaryUnitEntity;
 import dev.livingrealms.minecraft.entity.MilitaryUnitIndex;
-import dev.livingrealms.minecraft.entity.MilitaryUnitMaterializer;
 import dev.livingrealms.minecraft.entity.MobileCivilizationEntity;
 import dev.livingrealms.minecraft.entity.MobileCivilizationIndex;
 import dev.livingrealms.minecraft.entity.MobileCivilizationKind;
-import dev.livingrealms.minecraft.entity.MobileCivilizationMaterializer;
 import dev.livingrealms.minecraft.entity.LivingRealmsAircraftEntity;
 import dev.livingrealms.minecraft.entity.AircraftProjectionIndex;
-import dev.livingrealms.minecraft.entity.AircraftMaterializer;
 import dev.livingrealms.minecraft.entity.LivingRealmsShipEntity;
 import dev.livingrealms.minecraft.entity.ShipProjectionIndex;
-import dev.livingrealms.minecraft.entity.NavalMaterializer;
 import dev.livingrealms.minecraft.entity.BountyHunterEntity;
 import dev.livingrealms.minecraft.entity.BountyHunterIndex;
-import dev.livingrealms.minecraft.entity.BountyHunterMaterializer;
 import dev.livingrealms.minecraft.entity.SiegeEquipmentEntity;
 import dev.livingrealms.minecraft.entity.SiegeEquipmentIndex;
-import dev.livingrealms.minecraft.entity.SiegeEquipmentMaterializer;
 import dev.livingrealms.minecraft.construction.PlayerStructureRevalidationRuntime;
 import dev.livingrealms.minecraft.presentation.CivicChoreographyRuntime;
 import dev.livingrealms.minecraft.presentation.SeasonalFarmPresentationRuntime;
+import dev.livingrealms.minecraft.runtime.LivingRealmsRuntimePerf;
+import dev.livingrealms.minecraft.runtime.LivingRealmsRuntimeScheduler;
+import dev.livingrealms.sim.player.PlayerSettlementFounder;
+import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.minecraft.law.CrimeRuntime;
-import dev.livingrealms.minecraft.law.CustodyRuntime;
 import dev.livingrealms.minecraft.law.FactionContainerTheftRuntime;
 import dev.livingrealms.minecraft.civilization.HiddenCacheRuntime;
 import dev.livingrealms.minecraft.civilization.HistoricalSiteRuntime;
@@ -61,15 +45,12 @@ import dev.livingrealms.minecraft.network.DialogueSessionRuntime;
 import dev.livingrealms.sim.law.CrimeType;
 import dev.livingrealms.minecraft.construction.SettlementConstructionMaterializer;
 import dev.livingrealms.minecraft.construction.SettlementGeographyDiscoveryRuntime;
-import dev.livingrealms.minecraft.construction.TransportNetworkMaterializer;
-import dev.livingrealms.minecraft.construction.UrbanCoreMaterializer;
-import dev.livingrealms.minecraft.construction.IndustrialSiteMaterializer;
+import dev.livingrealms.minecraft.ForeignStructureDiscoveryRuntime;
 import dev.livingrealms.minecraft.construction.HistoricalSiteMaterializer;
 import dev.livingrealms.minecraft.construction.RoadsideSiteMaterializer;
 import dev.livingrealms.sim.industry.*;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
-import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.civilian.CitizenRole;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -90,101 +71,11 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.minecraft.server.level.ServerLevel;
 
 public final class LivingRealmsEvents {
-    private long tickCounter;
-    private long appliedSpeciesRevision = -1;
+    private final LivingRealmsRuntimeScheduler runtimeScheduler = new LivingRealmsRuntimeScheduler();
 
     @SubscribeEvent
     public void onServerTick(ServerTickEvent.Post event) {
-        if (!SpeciesDataRegistry.ready()) return;
-        tickCounter++;
-        long revision = SpeciesDataRegistry.revision();
-        if (revision != appliedSpeciesRevision) {
-            var data = SimulationRuntime.data(event.getServer());
-            try {
-                data.state().replaceSpeciesCatalog(SpeciesDataRegistry.current());
-                data.setDirty();
-                appliedSpeciesRevision = revision;
-            } catch (RuntimeException incompatibleCatalog) {
-                LivingRealms.LOGGER.error("Rejected species reload because it would invalidate the live world; restoring previous canonical catalog", incompatibleCatalog);
-                SpeciesDataRegistry.install(data.state().species());
-                appliedSpeciesRevision = SpeciesDataRegistry.revision();
-            }
-        }
-        if (tickCounter % 200L == 0) {
-            var maintenanceData=SimulationRuntime.data(event.getServer());
-            EcosystemDiscoveryRuntime.tick(event.getServer(), maintenanceData);
-            SpawnKingdomRuntime.ensure(event.getServer().overworld(),maintenanceData);
-            WaystoneSettlementRuntime.tick(event.getServer().overworld(), maintenanceData);
-        }
-        if (tickCounter % 400L == 0) ForeignSettlementDiscoveryRuntime.tick(event.getServer().overworld(),SimulationRuntime.data(event.getServer()));
-        if (tickCounter % 600L == 0) ForeignStructureDiscoveryRuntime.tick(event.getServer().overworld(),SimulationRuntime.data(event.getServer()));
-        // Temporal LOD + spread: near projections tick often; materializers share a 20-tick window.
-        if (tickCounter % 20L == 0) {
-            var data = SimulationRuntime.data(event.getServer());
-            WildlifeMaterializer.tick(event.getServer(), data);
-            FactionCitizenMaterializer.tick(event.getServer(), data);
-            CivicChoreographyRuntime.tick(event.getServer().overworld(), data, tickCounter);
-            if (tickCounter % 100L == 0) dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.tick(event.getServer(), data);
-            SettlementAmbienceRuntime.tick(event.getServer().overworld(), data, tickCounter);
-        } else if (tickCounter % 20L == 5) {
-            var data = SimulationRuntime.data(event.getServer());
-            TradeCaravanMaterializer.tick(event.getServer().overworld(), data);
-            MilitaryUnitMaterializer.tick(event.getServer(), data);
-            CaravanEscortMaterializer.tick(event.getServer(), data);
-        } else if (tickCounter % 20L == 10) {
-            var data = SimulationRuntime.data(event.getServer());
-            MobileCivilizationMaterializer.tick(event.getServer().overworld(), data);
-            CitizenJourneyMaterializer.tick(event.getServer().overworld(), data);
-            AircraftMaterializer.tick(event.getServer(), data);
-            NavalMaterializer.tick(event.getServer(), data);
-            BountyHunterMaterializer.tick(event.getServer(), data);
-        } else if (tickCounter % 20L == 15) {
-            var data = SimulationRuntime.data(event.getServer());
-            SiegeEquipmentMaterializer.tick(event.getServer(), data);
-            CustodyRuntime.tick(event.getServer(), data);
-            CitizenConversationRuntime.tick(event.getServer(), data, tickCounter);
-            HistoricalSiteMaterializer.tick(event.getServer().overworld(), data);
-            RoadsideSiteMaterializer.tick(event.getServer().overworld(), data);
-            CivicFestivalMaterializer.tick(event.getServer().overworld(), data);
-            SettlementGeographyDiscoveryRuntime.tick(event.getServer().overworld(), data);
-            PlayerStructureRevalidationRuntime.tick(event.getServer());
-            SeasonalFarmPresentationRuntime.tick(event.getServer().overworld(), data, tickCounter);
-        }
-        if (tickCounter % 100L == 0) {
-            var data = SimulationRuntime.data(event.getServer());
-            RegionalImpostorMaterializer.tick(event.getServer(), data);
-            FarPresenceRuntime.tick(event.getServer().overworld(), data, tickCounter);
-        }
-        // Time-slice construction systems across ticks so the sim stays live without hitching.
-        // Features are not removed — each still runs every 4 ticks with the same per-tick budgets.
-        var overworld = event.getServer().overworld();
-        var buildData = SimulationRuntime.data(event.getServer());
-        if (buildData.dayAdvanceScheduler().hasPending()) {
-            long drained = buildData.dayAdvanceScheduler().drainTick(buildData.state());
-            if (drained > 0) {
-                buildData.setDirty();
-                SettlementConstructionMaterializer.requestCatchup(drained);
-            }
-        }
-        int phase = (int) (tickCounter & 3L);
-        if (phase == 0) SettlementConstructionMaterializer.tick(overworld, buildData);
-        else if (phase == 1) TransportNetworkMaterializer.tick(overworld, buildData);
-        else if (phase == 2) UrbanCoreMaterializer.tick(overworld, buildData);
-        else IndustrialSiteMaterializer.tick(overworld, buildData);
-        // Player proximity must not create settlements. Causal expansion runs in advanceDays only.
-        // Expensive aggregate simulation runs once per Minecraft day, not 20 times per second.
-        if (tickCounter % 24000L == 0) {
-            var data = SimulationRuntime.data(event.getServer());
-            data.state().advanceDays(data.state().config().strategicDaysPerStep());
-            data.setDirty();
-            LivingRealms.LOGGER.debug("Simulation: {}", data.state().summary());
-        }
-        // Mid-day presentation pulse: shipment crawl / siege nudge / migration columns without full advanceDays.
-        if (tickCounter % 24000L == 12000L) {
-            var data = SimulationRuntime.data(event.getServer());
-            data.state().advancePresentationPulse(0.5);
-            data.setDirty();
-        }
+        runtimeScheduler.tick(event.getServer());
     }
 
 
@@ -347,8 +238,7 @@ public final class LivingRealmsEvents {
         ForeignStructureDiscoveryRuntime.clear();
         dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.clear();
         SimulationRuntime.data(event.getServer()).dayAdvanceScheduler().clear();
-        tickCounter = 0;
-        appliedSpeciesRevision = -1;
+        runtimeScheduler.reset();
     }
 
     @SubscribeEvent
@@ -564,6 +454,16 @@ public final class LivingRealmsEvents {
                     ctx.getSource().sendSuccess(() -> Component.literal(state.summary()), false);
                     return 1;
                 }))
+                .then(Commands.literal("perf").requires(src -> src.hasPermission(2))
+                        .executes(ctx -> {
+                            LivingRealmsRuntimePerf.print(ctx.getSource(), runtimeScheduler);
+                            return 1;
+                        })
+                        .then(Commands.literal("reset").executes(ctx -> {
+                            LivingRealmsRuntimePerf.reset(runtimeScheduler);
+                            ctx.getSource().sendSuccess(() -> Component.literal("Runtime perf peaks/deferred counters reset."), false);
+                            return 1;
+                        })))
                 .then(Commands.literal("setday").requires(src -> src.hasPermission(2))
                     .then(Commands.argument("day", LongArgumentType.longArg(0L)).executes(ctx -> {
                         var data=SimulationRuntime.data(ctx.getSource().getServer());

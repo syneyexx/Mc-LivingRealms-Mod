@@ -46,6 +46,7 @@ dev.livingrealms.PlayerRulershipTest
 dev.livingrealms.MobileCivilizationProjectionTest
 dev.livingrealms.WizardTreesTest
 dev.livingrealms.RuntimeSmokeTest
+dev.livingrealms.RuntimeSchedulerTest
 dev.livingrealms.HousingAndProductionTruthTest
 dev.livingrealms.RegionalImpostorPlannerTest
 dev.livingrealms.PlayerAgencyTest
