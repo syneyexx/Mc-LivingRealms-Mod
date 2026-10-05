@@ -21,6 +21,7 @@ dev.livingrealms.LivingWorldDensityTest
 dev.livingrealms.OrganicMorphologyAndCauseTest
 dev.livingrealms.SettlementStreetGraphTest
 dev.livingrealms.SettlementBoundaryTest
+dev.livingrealms.SettlementCoreCompletenessTest
 dev.livingrealms.StructureAccessValidatorTest
 dev.livingrealms.ResolvedBuildSiteTest
 dev.livingrealms.CultureArchitectureDerivationTest
