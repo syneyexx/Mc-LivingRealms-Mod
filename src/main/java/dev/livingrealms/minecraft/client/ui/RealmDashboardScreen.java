@@ -334,6 +334,21 @@ public final class RealmDashboardScreen extends Screen {
                     b -> DashboardClientState.sendAction(new DashboardActionCommand(action, settlement.id())))
                     .bounds(x, contentY + 118, bw - 3, 18).build());
         }
+        int modeY = contentY + 138;
+        int mw = Math.max(54, (panelWidth - 28) / 4);
+        String[] modes = {"AUTO", "HYBRID", "PLAYER_LED"};
+        String[] modeLabels = {"Auto", "Hybrid", "Player"};
+        for (int i = 0; i < modes.length; i++) {
+            final String mode = modes[i];
+            addRenderableWidget(Button.builder(Component.literal(modeLabels[i]),
+                    b -> DashboardClientState.sendAction(new DashboardActionCommand(
+                            DashboardActionCommand.Action.SET_DEVELOPMENT_MODE, settlement.id(), mode)))
+                    .bounds(left + 10 + i * mw, modeY, mw - 3, 16).build());
+        }
+        addRenderableWidget(Button.builder(Component.literal("Register House"),
+                b -> DashboardClientState.sendAction(new DashboardActionCommand(
+                        DashboardActionCommand.Action.REGISTER_BUILDING, settlement.id(), "HOUSE")))
+                .bounds(left + 10 + 3 * mw, modeY, mw - 3, 16).build());
     }
 
     private void rebuildSettingsButtons(int left,int contentY,int panelWidth){
@@ -626,8 +641,11 @@ public final class RealmDashboardScreen extends Screen {
         int index=Math.min(snapshot.settlements().size()-1,page);var s=snapshot.settlements().get(index);
         lines.add(header("Settlement " + (index+1) + "/" + snapshot.settlements().size()));
         lines.add(text(s.name() + " [" + s.tier() + "] — pop " + s.population() + " • " + whole(s.distanceBlocks()) + "m"));
-        lines.add(text("Development policy: " + titleCase(s.developmentPriority())));
-        lines.add(dim("Housing " + s.housing() + " • prosperity " + pct(s.prosperity()) + " • unrest " + pct(s.unrest()), 1));
+        lines.add(text("Development: " + titleCase(s.developmentMode()) + " • policy " + titleCase(s.developmentPriority())));
+        lines.add(dim("Origin " + titleCase(s.origin()) + " • registered buildings " + s.registeredBuildings(), 1));
+        lines.add(dim("Canonical housing " + s.housing() + " • verified " + s.verifiedHousing()
+                + " • deficit " + s.housingDeficit(), 1));
+        lines.add(dim("Prosperity " + pct(s.prosperity()) + " • unrest " + pct(s.unrest()), 1));
         lines.add(dim("Food " + pct(s.foodSecurity()) + " • order " + pct(s.publicOrder()) + " • employment " + pct(s.employment()), 1));
         lines.add(dim("Housing satisfaction " + pct(s.housingSatisfaction()) + " • goods " + pct(s.goodsAccess()), 1));
         lines.add(dim("Society satisfaction " + pct(s.societySatisfaction()) + " • pressure " + titleCase(s.primaryPressure()) + " " + pct(s.pressureSeverity()), 1));

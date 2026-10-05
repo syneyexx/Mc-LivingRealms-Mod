@@ -102,7 +102,10 @@ public final class Settlement {
         return SettlementDevelopment.score(this,education,tradeConnectivity,administration,publicServices);
     }
     public Tier effectiveTier(double developmentScore){return SettlementDevelopment.effectiveTier(this,developmentScore);}
-    public void rename(String value){if(value==null||value.isBlank())throw new IllegalArgumentException("name");name=value;if(!geography.worldDiscovered())geography=SettlementGeographyProfile.fromNameHeuristic(name);} public void addPopulation(int n){population=Math.max(0,population+n);recalc();refreshStorageCapacity();} public void addHousing(int n){housing=Math.max(0,housing+n);recalc();refreshStorageCapacity();} public void improveInfrastructure(double v){infrastructure=Math.max(0,infrastructure+v);refreshStorageCapacity();}
+    public void rename(String value){if(value==null||value.isBlank())throw new IllegalArgumentException("name");name=value;if(!geography.worldDiscovered())geography=SettlementGeographyProfile.fromNameHeuristic(name);} public void addPopulation(int n){population=Math.max(0,population+n);recalc();refreshStorageCapacity();} public void addHousing(int n){housing=Math.max(0,housing+n);recalc();refreshStorageCapacity();}
+    /** Authoritative housing set when verified player/foreign capacity exceeds the canonical field. */
+    public void setHousing(int value){housing=Math.max(0,value);recalc();refreshStorageCapacity();}
+    public void improveInfrastructure(double v){infrastructure=Math.max(0,infrastructure+v);refreshStorageCapacity();}
     public int housingShortage(){return Math.max(0,population-housing);}
     public Set<String> completedConstruction(){return Collections.unmodifiableSet(completedConstruction);}
     public Map<String,ConstructionOrigin> constructionOrigins(){return Collections.unmodifiableMap(constructionOrigins);}

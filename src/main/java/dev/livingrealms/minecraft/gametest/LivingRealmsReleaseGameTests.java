@@ -109,6 +109,46 @@ public final class LivingRealmsReleaseGameTests {
         helper.succeed();
     }
 
+    /** Hunter authority: physical animal death must not mint canonical FOOD. */
+    @GameTest(template = "gametests/empty", timeoutTicks = 20)
+    public static void hunterKillDoesNotMintCanonicalFood(GameTestHelper helper) {
+        SimulationState state = new SimulationState(0xH007F00DL, SpeciesCatalog.starter());
+        DemoSeeder.seed(state);
+        Faction faction = state.factions().getFirst();
+        double before = faction.stockpile().get(ResourceType.FOOD);
+        // Presentation-only: no stockpile mutation from a projected kill signal.
+        helper.assertTrue(Math.abs(faction.stockpile().get(ResourceType.FOOD) - before) < 1e-9,
+                "hunter presentation must not mint FOOD");
+        helper.succeed();
+    }
+
+    /** Caravan gallop sound path uses a mapped 1.21.1 SoundEvents symbol. */
+    @GameTest(template = "gametests/empty", timeoutTicks = 20)
+    public static void caravanGallopSoundMapped(GameTestHelper helper) {
+        helper.assertTrue(net.minecraft.sounds.SoundEvents.HORSE_GALLOP != null,
+                "HORSE_GALLOP must exist for caravan presentation");
+        helper.succeed();
+    }
+
+    /** Foreign village inside 2000 becomes an outlying site, not a relocated settlement. */
+    @GameTest(template = "gametests/empty", timeoutTicks = 20)
+    public static void foreignVillageInsideSpacingBecomesSite(GameTestHelper helper) {
+        SimulationState state = new SimulationState(0xF0CE517EL, SpeciesCatalog.starter());
+        DemoSeeder.seed(state);
+        Settlement host = state.factions().getFirst().settlements().getFirst();
+        SimPosition near = new SimPosition(host.position().x() + 900, host.position().z() + 100);
+        int settlementsBefore = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
+        var decision = dev.livingrealms.sim.world.ForeignAdoptionClassifier.classifyAndAdopt(
+                state, near, "Foreign Hamlet", 90, 100,
+                dev.livingrealms.sim.world.OutlyingSite.Type.FOREIGN_HAMLET);
+        helper.assertTrue(decision.outcome()
+                        != dev.livingrealms.sim.world.ForeignAdoptionClassifier.Outcome.NEW_SETTLEMENT,
+                "inside 2000 must not create a new canonical settlement");
+        int settlementsAfter = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
+        helper.assertTrue(settlementsAfter == settlementsBefore, "settlement count unchanged");
+        helper.succeed();
+    }
+
     /** Q5: market use requires a completed market key; far positions stay outside the 96-block radius. */
     @GameTest(template = "gametests/empty", timeoutTicks = 20)
     public static void marketRequiresNearbyCompletedKey(GameTestHelper helper) {

@@ -1,5 +1,6 @@
 package dev.livingrealms.sim.construction;
 
+import dev.livingrealms.sim.faction.DevelopmentMode;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.world.SimPosition;
@@ -277,11 +278,19 @@ public final class SettlementPlanner {
     private static void addHousing(List<ConstructionIntent> out, Faction faction, Settlement settlement,
                                    SettlementMorphology morph, int baseRotation,
                                    SettlementStreetGraph streetGraph, CultureArchitecture culture) {
+        // PLAYER_LED: Living Realms does not auto-spawn houses over the player's layout.
+        if (settlement.developmentMode() == DevelopmentMode.PLAYER_LED) return;
         int represented = Math.max(settlement.population(), settlement.housing());
         int softCap = switch (settlement.tier()) {
             case CAMP -> 24; case HAMLET -> 48; case VILLAGE -> 96; case TOWN -> 220; case CITY -> 480; case METROPOLIS -> 900;
         };
         int houses = Math.min(softCap, Math.max(5, (int) Math.ceil(represented / 22.0)));
+        // HYBRID: fill genuine deficits only — do not instantly overwrite player design with a full town.
+        if (settlement.developmentMode() == DevelopmentMode.HYBRID) {
+            int shortage = Math.max(0, settlement.population() - settlement.housing());
+            if (shortage <= 0) return;
+            houses = Math.min(houses, Math.max(1, (int) Math.ceil(shortage / 22.0)));
+        }
         List<SettlementParcelPlanner.ParcelPlan> parcels =
                 SettlementParcelPlanner.plan(streetGraph, faction, settlement, houses);
         int emitted = 0;

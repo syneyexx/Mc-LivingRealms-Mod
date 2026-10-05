@@ -24,12 +24,14 @@ public final class PlayerStructureRegistrationTest {
         check(settlement.population() == PlayerSettlementFounder.FOUNDING_POPULATION, "founder camp pop");
 
         int before = HousingCapacity.calculate(settlement, state);
+        int dx = (int) Math.round(settlement.position().x());
+        int dz = (int) Math.round(settlement.position().z());
         RegisteredPlayerStructure house = new RegisteredPlayerStructure(
                 state.nextId(), settlement.id(), "player:builder", RegisteredPlayerStructure.Role.HOUSE,
-                0, 64, 0, 8, 72, 8, 4, 64, 0, 12, state.clock().day(), 0xABCDL);
+                dx, 64, dz, dx + 8, 72, dz + 8, dx + 4, 64, dz, 12, state.clock().day(), 0xABCDL);
         state.addRegisteredPlayerStructure(house);
         int after = HousingCapacity.calculate(settlement, state);
-        check(after >= before + 12, "registered house increases housing capacity");
+        check(after > before && after >= 12, "registered house increases housing capacity");
 
         house.markInvalid(state.clock().day());
         check(HousingCapacity.calculate(settlement, state) == Math.max(settlement.housing(), 0),

@@ -15,17 +15,20 @@ CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 | # | Check | Pass criteria |
 |---|-------|---------------|
 | 1 | Mod loads | No crash; Living Realms in mod list |
-| 2 | Density | ~36 surface settlements + Wizard Trees; Spec catalog preserved |
-| 3 | Spacing | Founding needs 800m clearance (HUD/found message) |
-| 4 | F12 dashboard | All tabs; GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL visible |
-| 5 | War tab | Goals show capital targets (not list-order first town) |
-| 6 | M map | Terrain base on; no vanilla blur; settlement ids match sim |
-| 7 | Dialogue | "welk koninkrijk is dit?" → faction, not ruler |
-| 8 | Capture | After conquest, citizen names the new faction |
-| 9 | Market | Buy BREAD near completed market; refuse when far |
-| 10 | setday | Large jump spreads (chat remaining days); no long freeze |
-| 11 | Construction | Farms/houses appear as blocks; no phantom farm keys on new hamlets |
-| 12 | Guns | mr_guns items never on guards |
+| 2 | Density | 36 surface settlements + Wizard Trees; large wilderness gaps; Spec catalog preserved for causal expansion |
+| 3 | Spacing | Founding needs 2000m clearance (HUD/found message) |
+| 4 | F12 dashboard | Settlements show verified housing / deficit / development mode; goods chain visible |
+| 5 | War Room | Ruler can declare war, order capture/siege/raid, petition peace |
+| 6 | Player buildings | Found camp → register house → capacity rises; PLAYER_LED does not spam houses |
+| 7 | M map | Loaded terrain ACTUAL; unloaded estimate/unknown — no fake sine hills |
+| 8 | Dialogue | "welk koninkrijk is dit?" → faction, not ruler |
+| 9 | Capture | After conquest, citizen names the new faction |
+| 10 | Crime/underworld | Witnessed theft → wanted; contract completes only via matching crime |
+| 11 | Wilderness travel | 2000+ block route: nature, sparse travelers/sites — not continuous suburbs |
+| 12 | Market | Buy BREAD near completed market; refuse when far |
+| 13 | setday | Large jump spreads (chat remaining days); no long freeze |
+| 14 | Construction | Roads/parcels/doors usable; farms/houses appear; no phantom farm keys on new hamlets |
+| 15 | Guns | mr_guns items never on guards |
 
 ## Failure handling
 - Crash / silent no-op / duplicate projection → leave `runtimeSmoke` **unverified** or fail.

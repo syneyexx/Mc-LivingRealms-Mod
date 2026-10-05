@@ -34,7 +34,8 @@ public record SpeciesDefinition(
         MorphologyFamily morphology,
         LocomotionMode locomotion,
         double swimSpeedFactor,
-        double flightSpeedFactor
+        double flightSpeedFactor,
+        SpeciesVisualFamily visualFamily
 ) {
     public SpeciesDefinition {
         if (id == null || id.isBlank()) throw new IllegalArgumentException("id");
@@ -48,6 +49,7 @@ public record SpeciesDefinition(
         if (!Double.isFinite(swimSpeedFactor) || swimSpeedFactor < 0 || !Double.isFinite(flightSpeedFactor) || flightSpeedFactor < 0) throw new IllegalArgumentException("invalid locomotion factors");
         if (locomotion == LocomotionMode.FLYING && flightSpeedFactor <= 0) throw new IllegalArgumentException("flying species requires flight speed");
         if ((locomotion == LocomotionMode.AQUATIC || locomotion == LocomotionMode.AMPHIBIOUS) && swimSpeedFactor <= 0) throw new IllegalArgumentException("swimming species requires swim speed");
+        // Null visualFamily is allowed — resolved lazily via SpeciesVisualFamilyResolver.
     }
 
     /** Backward-compatible constructor for the original species schema. */
@@ -60,7 +62,21 @@ public record SpeciesDefinition(
         this(id,commonName,diet,activityCycle,socialPattern,adultMassKg,lifespanDays,maturityDays,gestationDays,offspringPerBirth,
                 birthsPerYear,dailyFoodKg,dailyWaterLitres,movementKmPerDay,aggression,fearfulness,huntSkill,defense,minGroup,maxGroup,
                 climates,habitatTags,preySpecies,predatorSpecies,attacksHumans,
-                inferMorphology(id,habitatTags),inferLocomotion(habitatTags),inferSwimFactor(habitatTags),inferFlightFactor(habitatTags));
+                inferMorphology(id,habitatTags),inferLocomotion(habitatTags),inferSwimFactor(habitatTags),inferFlightFactor(habitatTags),null);
+    }
+
+    /** Morphology-aware constructor without explicit visual family (resolved by fallback). */
+    public SpeciesDefinition(
+            String id,String commonName,Diet diet,ActivityCycle activityCycle,SocialPattern socialPattern,
+            double adultMassKg,double lifespanDays,double maturityDays,double gestationDays,double offspringPerBirth,
+            double birthsPerYear,double dailyFoodKg,double dailyWaterLitres,double movementKmPerDay,double aggression,
+            double fearfulness,double huntSkill,double defense,double minGroup,double maxGroup,Set<ClimateBand> climates,
+            Set<String> habitatTags,Set<String> preySpecies,Set<String> predatorSpecies,boolean attacksHumans,
+            MorphologyFamily morphology,LocomotionMode locomotion,double swimSpeedFactor,double flightSpeedFactor) {
+        this(id,commonName,diet,activityCycle,socialPattern,adultMassKg,lifespanDays,maturityDays,gestationDays,offspringPerBirth,
+                birthsPerYear,dailyFoodKg,dailyWaterLitres,movementKmPerDay,aggression,fearfulness,huntSkill,defense,minGroup,maxGroup,
+                climates,habitatTags,preySpecies,predatorSpecies,attacksHumans,
+                morphology,locomotion,swimSpeedFactor,flightSpeedFactor,null);
     }
 
     public boolean canPreyOn(String speciesId) { return preySpecies.contains(speciesId); }

@@ -67,4 +67,7 @@ dev.livingrealms.PlayerWarRoomTest
 dev.livingrealms.UnderworldGameplayTest
 dev.livingrealms.RoadLifeLayerTest
 dev.livingrealms.PlayerStructureRegistrationTest
+dev.livingrealms.PlayerSettlementGrowthTest
+dev.livingrealms.WildlifeVisualFamilyTest
+dev.livingrealms.CivicChoreographyTest
 dev.livingrealms.LongRunSoakTest

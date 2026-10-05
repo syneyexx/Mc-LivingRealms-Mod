@@ -1,13 +1,13 @@
+
 build/
+build/release/
+# Generated release evidence
 .gradle/
-.gradle-bootstrap/
-javac.*.args
-/run/
 /gradle/
+.gradle-bootstrap/
 /gradlew
 /gradlew.bat
-
-# Generated release evidence
-build/
+javac.*.args
 RELEASE_MANIFEST.json
 RELEASE_MANIFEST.json.sha256
+/run/

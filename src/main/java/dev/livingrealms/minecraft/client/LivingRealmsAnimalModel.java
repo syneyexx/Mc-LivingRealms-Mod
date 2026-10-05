@@ -5,7 +5,9 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.livingrealms.LivingRealms;
 import dev.livingrealms.minecraft.entity.LivingRealmsAnimalEntity;
 import dev.livingrealms.sim.animal.AnimalIntent;
-import dev.livingrealms.sim.ecology.*;
+import dev.livingrealms.sim.ecology.SpeciesDefinition;
+import dev.livingrealms.sim.ecology.SpeciesVisualFamily;
+import dev.livingrealms.sim.ecology.SpeciesVisualFamilyResolver;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.*;
 import net.minecraft.client.model.geom.builders.*;
@@ -63,11 +65,15 @@ public final class LivingRealmsAnimalModel extends EntityModel<LivingRealmsAnima
     @Override
     public void setupAnim(LivingRealmsAnimalEntity e, float swing, float amount, float age, float yaw, float pitch) {
         SpeciesDefinition sp = e.species();
-        SpeciesMorphology morph = sp == null ? SpeciesMorphology.UNGULATE : SpeciesMorphologyResolver.resolve(sp);
-        boolean fish = morph == SpeciesMorphology.FISH || morph == SpeciesMorphology.CETACEAN || morph == SpeciesMorphology.PINNIPED;
-        boolean bird = morph == SpeciesMorphology.BIRD;
-        boolean reptile = morph == SpeciesMorphology.CROCODILIAN;
+        SpeciesVisualFamily family = sp == null ? SpeciesVisualFamily.GENERIC_QUADRUPED
+                : SpeciesVisualFamilyResolver.resolve(sp);
+        var plan = SpeciesVisualFamilyResolver.modelPlan(family);
+        boolean fish = plan == SpeciesVisualFamilyResolver.ModelPlan.FISH
+                || plan == SpeciesVisualFamilyResolver.ModelPlan.MARINE_MAMMAL;
+        boolean bird = plan == SpeciesVisualFamilyResolver.ModelPlan.BIRD;
+        boolean reptile = plan == SpeciesVisualFamilyResolver.ModelPlan.REPTILE;
         boolean quad = !fish && !bird && !reptile;
+        resetPartScales();
         body.visible = quad;
         head.visible = quad;
         leg0.visible = quad;
@@ -84,6 +90,56 @@ public final class LivingRealmsAnimalModel extends EntityModel<LivingRealmsAnima
         wingRight.visible = bird;
         reptileBody.visible = reptile;
         reptileTail.visible = reptile;
+
+        // Family-aware base proportions (silhouette differences without unique Java models per species).
+        if (quad) {
+            float bodyY = switch (plan) {
+                case BULKY_QUADRUPED -> 13.5F;
+                case LIGHT_QUADRUPED -> 16.0F;
+                case UNGULATE -> 14.5F;
+                default -> 15.0F;
+            };
+            body.y = bodyY;
+            head.y = bodyY - 2.0F;
+            float legLen = switch (plan) {
+                case BULKY_QUADRUPED -> 0.85F;
+                case LIGHT_QUADRUPED -> 1.15F;
+                case UNGULATE -> 1.25F;
+                default -> 1.0F;
+            };
+            leg0.yScale = legLen; leg1.yScale = legLen; leg2.yScale = legLen; leg3.yScale = legLen;
+            float bodyScaleX = plan == SpeciesVisualFamilyResolver.ModelPlan.BULKY_QUADRUPED ? 1.25F
+                    : plan == SpeciesVisualFamilyResolver.ModelPlan.LIGHT_QUADRUPED ? 0.85F : 1.0F;
+            float bodyScaleZ = family == SpeciesVisualFamily.FELID ? 0.9F
+                    : family == SpeciesVisualFamily.URSID ? 1.15F
+                    : family == SpeciesVisualFamily.ELEPHANT ? 1.35F : 1.0F;
+            body.xScale = bodyScaleX; body.zScale = bodyScaleZ;
+            head.xScale = family == SpeciesVisualFamily.CANID ? 0.9F
+                    : family == SpeciesVisualFamily.ELEPHANT ? 1.2F : 1.0F;
+        }
+        if (fish) {
+            boolean whale = family == SpeciesVisualFamily.CETACEAN;
+            boolean seal = family == SpeciesVisualFamily.PINNIPED;
+            boolean shark = family == SpeciesVisualFamily.SHARK;
+            fishBody.xScale = whale ? 1.4F : seal ? 1.15F : shark ? 1.1F : 1.0F;
+            fishBody.yScale = whale ? 1.3F : seal ? 0.85F : 1.0F;
+            fishBody.zScale = whale ? 1.6F : seal ? 1.2F : shark ? 1.35F : 1.0F;
+            fishTail.yScale = whale ? 1.4F : 1.0F;
+        }
+        if (bird) {
+            boolean raptor = family == SpeciesVisualFamily.RAPTOR;
+            boolean waterfowl = family == SpeciesVisualFamily.WATERFOWL;
+            birdBody.xScale = raptor ? 1.15F : waterfowl ? 1.2F : 0.9F;
+            birdBody.zScale = waterfowl ? 1.15F : 1.0F;
+            wingLeft.xScale = raptor ? 1.25F : 1.0F;
+            wingRight.xScale = raptor ? 1.25F : 1.0F;
+        }
+        if (reptile) {
+            boolean snake = family == SpeciesVisualFamily.SNAKE;
+            reptileBody.yScale = snake ? 0.55F : 1.0F;
+            reptileBody.zScale = snake ? 1.6F : family == SpeciesVisualFamily.TURTLE ? 0.85F : 1.0F;
+            reptileTail.zScale = snake ? 1.8F : 1.0F;
+        }
 
         AnimalIntent intent = parseIntent(e.currentIntentName());
         float strideMul = switch (intent) {
@@ -135,6 +191,18 @@ public final class LivingRealmsAnimalModel extends EntityModel<LivingRealmsAnima
             float wag = intent == AnimalIntent.FLEE ? 0.28F : intent == AnimalIntent.REST ? 0.05F : 0.16F;
             reptileTail.yRot = Mth.sin(age * wag) * (intent == AnimalIntent.FLEE ? 0.45F : 0.28F);
         }
+    }
+
+    private void resetPartScales() {
+        for (ModelPart part : new ModelPart[]{
+                body, head, leg0, leg1, leg2, leg3, fishBody, fishTail, finLeft, finRight,
+                birdBody, birdHead, wingLeft, wingRight, reptileBody, reptileTail}) {
+            part.xScale = 1.0F;
+            part.yScale = 1.0F;
+            part.zScale = 1.0F;
+        }
+        body.y = 15.0F;
+        head.y = 13.0F;
     }
 
     private static AnimalIntent parseIntent(String name) {

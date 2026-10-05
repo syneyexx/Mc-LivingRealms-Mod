@@ -12,10 +12,10 @@ CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 | NeoForge | 21.1.219 |
 | Java | 21 |
 | Create | 6.0.10 |
-| Save schema | **18** (1–17 readable; goods chain GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL) |
-| Dashboard protocol | **18** |
-| Network | **14** |
-| ContentRevision | **14** |
+| Save schema | **19** (1–18 readable; provenance/anchors + outlying sites + player structures) |
+| Dashboard protocol | **20** |
+| Network | **16** |
+| ContentRevision | **15** |
 | Surface settlements | **36** (12 × 3: capital + 1 Spec + 1 rural) |
 | Spacing | **2000** blocks |
 | Dashboard / map / catalog | F12 / M / K |

@@ -8,6 +8,10 @@ public record DashboardActionCommand(Action action, long targetId, long secondar
         FACTION_JOIN_LOCAL, FACTION_LEAVE,
         TAX_LOWER, TAX_RAISE,
         SETTLEMENT_BALANCED, SETTLEMENT_FOOD, SETTLEMENT_HOUSING, SETTLEMENT_INDUSTRY, SETTLEMENT_DEFENSE,
+        /** targetId = settlement. argument = AUTO|HYBRID|PLAYER_LED */
+        SET_DEVELOPMENT_MODE,
+        /** targetId = settlement. argument = role name (HOUSE, TOWN_HALL, …). Survey runs server-side. */
+        REGISTER_BUILDING,
         MARKET_BUY, MARKET_SELL,
         /** Influence unlocks — targetId is the faction id. */
         REQUEST_AUDIENCE, PROPOSE_PROJECT, REQUEST_MILITARY_SUPPORT, PETITION_TRADE, PETITION_CLERGY,

@@ -62,6 +62,15 @@ public final class LivingRealmsNetwork {
                 if(!trade.success()){player.sendSystemMessage(Component.literal("Living Realms market: "+trade.message()));return;}
                 if(trade.dirty())data.setDirty();player.sendSystemMessage(Component.literal(trade.message()));sendDashboard(player,level);return;
             }
+            if(command.action()==DashboardActionCommand.Action.REGISTER_BUILDING){
+                var survey=dev.livingrealms.minecraft.construction.PlayerStructureSurvey.surveyAndRegister(
+                        level,player,data.state(),command.targetId(),command.argument());
+                if(!survey.success()){player.sendSystemMessage(Component.literal(survey.message()));return;}
+                data.setDirty();
+                player.sendSystemMessage(Component.literal(survey.message()));
+                sendDashboard(player,level);
+                return;
+            }
             var result=DashboardActionService.apply(data.state(),actor,position,command);
             if(!result.success()){player.sendSystemMessage(Component.literal(humanActionFailure(command.action(),result.reason())));return;}
             if(result.dirty())data.setDirty();
@@ -133,6 +142,8 @@ public final class LivingRealmsNetwork {
             case ARMY_PATROL -> "Army ordered to patrol.";
             case SURRENDER -> "You surrendered to local authorities.";
             case PAY_FINE -> "Fine paid toward your bounty.";
+            case SET_DEVELOPMENT_MODE -> "Settlement development mode updated.";
+            case REGISTER_BUILDING -> "Building registered.";
         };
     }
 
