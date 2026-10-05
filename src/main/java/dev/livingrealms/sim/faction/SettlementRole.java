@@ -30,4 +30,12 @@ public enum SettlementRole {
             case HAMLET, CAMP -> HAMLET;
         };
     }
+
+    /** Bootstrap helper for legacy/authored records before an explicit network role is available. */
+    public static SettlementRole fromPopulation(int population) {
+        if (population >= 2_000) return CITY;
+        if (population >= 500) return TOWN;
+        if (population >= 100) return VILLAGE;
+        return HAMLET;
+    }
 }
