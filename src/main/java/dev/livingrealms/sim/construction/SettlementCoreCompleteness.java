@@ -98,6 +98,8 @@ public final class SettlementCoreCompleteness {
         int houses = completedByRole.getOrDefault(StructureRole.HOUSE, 0);
         int farms = completedByRole.getOrDefault(StructureRole.FARM, 0);
         int gates = completedByRole.getOrDefault(StructureRole.GATE, 0);
+        int walls = completedByRole.getOrDefault(StructureRole.WALL, 0);
+        int plannedWalls = (int) plan.stream().filter(i -> i.role() == StructureRole.WALL).count();
 
         EnumSet<StructureRole> missing = EnumSet.noneOf(StructureRole.class);
         if (contract.requireWater() && completedByRole.getOrDefault(StructureRole.WELL, 0) == 0) missing.add(StructureRole.WELL);
@@ -110,7 +112,7 @@ public final class SettlementCoreCompleteness {
             missing.add(StructureRole.KEEP);
             missing.add(StructureRole.TOWN_HALL);
         }
-        if (contract.requireBoundary() && completedByRole.getOrDefault(StructureRole.WALL, 0) == 0) {
+        if (contract.requireBoundary() && walls < plannedWalls) {
             missing.add(StructureRole.WALL);
         }
         if (contract.minGates() > gates) missing.add(StructureRole.GATE);
@@ -119,7 +121,8 @@ public final class SettlementCoreCompleteness {
         int houseGap = Math.max(0, contract.minHouses() - houses);
         int farmGap = Math.max(0, contract.minFarms() - farms);
         int gateGap = Math.max(0, contract.minGates() - gates);
-        int externalGap = contract.requireExternalRoad() && externalRoads == 0 ? 1 : 0;
+        int externalGap = contract.requireExternalRoad()
+                ? Math.max(0, contract.minGates() - externalRoads) : 0;
 
         boolean complete = roadGap == 0 && houseGap == 0 && farmGap == 0 && gateGap == 0
                 && externalGap == 0 && missing.isEmpty();
