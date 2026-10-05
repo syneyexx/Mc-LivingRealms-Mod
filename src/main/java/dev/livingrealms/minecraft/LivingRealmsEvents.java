@@ -49,6 +49,7 @@ import dev.livingrealms.minecraft.construction.CivilizationFabricChunkQueue;
 import dev.livingrealms.minecraft.construction.SettlementGeographyDiscoveryRuntime;
 import dev.livingrealms.minecraft.ForeignStructureDiscoveryRuntime;
 import dev.livingrealms.minecraft.construction.HistoricalSiteMaterializer;
+import dev.livingrealms.minecraft.construction.OutlyingSiteMaterializer;
 import dev.livingrealms.minecraft.construction.RoadsideSiteMaterializer;
 import dev.livingrealms.sim.industry.*;
 import dev.livingrealms.sim.faction.Faction;
@@ -202,6 +203,7 @@ public final class LivingRealmsEvents {
         SettlementGeographyDiscoveryRuntime.clear();
         HistoricalSiteMaterializer.clear();
         RoadsideSiteMaterializer.clear();
+        OutlyingSiteMaterializer.clear();
         CivicFestivalMaterializer.clear();
         CivicChoreographyRuntime.clear();
         SeasonalFarmPresentationRuntime.clear();
