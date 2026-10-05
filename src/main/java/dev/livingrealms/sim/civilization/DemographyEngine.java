@@ -136,18 +136,15 @@ public final class DemographyEngine {
             double inherited = person.money() * .8;
             person.addMoney(-inherited);
             heir.addMoney(inherited);
-            Settlement home = state.findSettlement(person.settlementId()).orElse(null);
-            if (home != null) {
-                heir.remember(new CitizenMemory(
-                        state.clock().day(),
-                        MemoryType.FAMILY_EVENT,
-                        key,
-                        "self",
-                        "I inherited possessions after " + person.name() + " died.",
-                        home.position(),
-                        .7,
-                        1));
-            }
+            heir.remember(new CitizenMemory(
+                    state.clock().day(),
+                    MemoryType.FAMILY_EVENT,
+                    key,
+                    "self",
+                    "I inherited possessions after " + person.name() + " died.",
+                    state.findSettlement(person.settlementId()).orElseThrow().position(),
+                    .7,
+                    1));
         }
         state.recordPhysicalCitizenDeath(person.settlementId(), person.id(), cause);
     }
