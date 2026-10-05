@@ -104,6 +104,8 @@ public final class CivilizationLifecycleEngine {
             if(citizen.householdId()>0&&byId.containsKey(citizen.householdId()))continue;
             HouseholdState partnerHouse=null;
             for(var e:citizen.relationships().entrySet())if(e.getValue().familyBond()==FamilyBond.PARTNER){long otherId=parseCitizenKey(e.getKey());SocialCitizen other=state.findSocialCitizen(otherId).filter(SocialCitizen::alive).orElse(null);if(other!=null&&other.householdId()>0){partnerHouse=byId.get(other.householdId());if(partnerHouse!=null)break;}}
+            // Never attach a citizen to a household that lives in another settlement/faction.
+            if(partnerHouse!=null&&(partnerHouse.factionId()!=citizen.factionId()||partnerHouse.settlementId()!=citizen.settlementId()))partnerHouse=null;
             if(partnerHouse==null){
                 partnerHouse=new HouseholdState(state.nextId(),citizen.factionId(),citizen.settlementId(),state.clock().day());
                 Faction owner=state.findFaction(citizen.factionId()).orElse(null);
@@ -118,9 +120,35 @@ public final class CivilizationLifecycleEngine {
             }
             partnerHouse.addMember(citizen.id());citizen.setHouseholdId(partnerHouse.id());
         }
+        // Drop dead members so transfers that leave corpses behind do not desync household location checks.
+        for(HouseholdState household:state.households())if(household.active())for(long memberId:List.copyOf(household.memberIds())){
+            SocialCitizen member=state.findSocialCitizen(memberId).orElse(null);
+            if(member==null||!member.alive()){household.removeMember(memberId);if(member!=null&&member.householdId()==household.id())member.setHouseholdId(0);}
+        }
         // Merge households after partnership formation; oldest household survives to preserve a stable identity.
         for(SocialCitizen citizen:state.socialCitizens())if(citizen.alive()&&citizen.householdId()>0)for(var e:citizen.relationships().entrySet())if(e.getValue().familyBond()==FamilyBond.PARTNER){SocialCitizen partner=state.findSocialCitizen(parseCitizenKey(e.getKey())).filter(SocialCitizen::alive).orElse(null);if(partner==null||partner.householdId()<=0||partner.householdId()==citizen.householdId())continue;HouseholdState a=byId.get(citizen.householdId()),b=byId.get(partner.householdId());if(a==null||b==null||a.factionId()!=b.factionId()||a.settlementId()!=b.settlementId())continue;HouseholdState keep=a.id()<b.id()?a:b,drop=keep==a?b:a;for(long member:new ArrayList<>(drop.memberIds()))if(keep.addMember(member)){state.findSocialCitizen(member).ifPresent(c->c.setHouseholdId(keep.id()));drop.removeMember(member);}for(DependentChild child:drop.children())keep.addChild(child);keep.adjustWealth(drop.sharedWealth());drop.deactivate();}
         for(HouseholdState household:state.households())if(household.active()&&household.memberIds().stream().noneMatch(id->state.findSocialCitizen(id).map(SocialCitizen::alive).orElse(false))&&household.children().isEmpty())household.deactivate();
+        // Repair residual location drift (e.g. transfer/migration race): sync household to unanimous member location or clear links.
+        for(HouseholdState household:state.households()){
+            if(!household.active())continue;
+            Long unanimousFaction=null,unanimousSettlement=null;boolean mixed=false;
+            for(long memberId:household.memberIds()){
+                SocialCitizen member=state.findSocialCitizen(memberId).filter(SocialCitizen::alive).orElse(null);
+                if(member==null)continue;
+                if(unanimousFaction==null){unanimousFaction=member.factionId();unanimousSettlement=member.settlementId();}
+                else if(unanimousFaction!=member.factionId()||unanimousSettlement!=member.settlementId()){mixed=true;break;}
+            }
+            if(mixed){
+                for(long memberId:List.copyOf(household.memberIds())){
+                    SocialCitizen member=state.findSocialCitizen(memberId).orElse(null);
+                    if(member!=null&&(member.factionId()!=household.factionId()||member.settlementId()!=household.settlementId())){
+                        household.removeMember(memberId);member.setHouseholdId(0);
+                    }
+                }
+            }else if(unanimousFaction!=null&&(household.factionId()!=unanimousFaction||household.settlementId()!=unanimousSettlement)){
+                household.migrate(unanimousFaction,unanimousSettlement);
+            }
+        }
     }
 
     private static void simulateAssistanceTasks(SimulationState state){

@@ -162,7 +162,7 @@ public final class SimulationValidator {
             for(long memberId:h.memberIds()){
                 SocialCitizen member=state.findSocialCitizen(memberId).orElse(null);if(member==null){errors.add("household "+h.id()+" missing member "+memberId);continue;}
                 if(member.householdId()!=h.id())errors.add("household "+h.id()+" member "+memberId+" backlink mismatch");
-                if(h.active()&&(member.factionId()!=h.factionId()||member.settlementId()!=h.settlementId()))errors.add("household "+h.id()+" active member location mismatch "+memberId);
+                if(h.active()&&member.alive()&&(member.factionId()!=h.factionId()||member.settlementId()!=h.settlementId()))errors.add("household "+h.id()+" active member location mismatch "+memberId);
             }
             for(DependentChild child:h.children()){
                 id(canonicalIds,max,child.id(),"dependent child",errors);dependentIds.add(child.id());allPeopleIds.add(child.id());

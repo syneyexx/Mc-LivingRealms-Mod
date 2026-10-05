@@ -472,15 +472,23 @@ public final class SimulationStateCodec {
 
     private static void migratePreV18Goods(SimulationState state){
         for(Faction f:state.factions()){
-            // Clear constructor seed for post-legacy goods before mapping FOOD.
-            zeroNewGoods(f.stockpile());
-            ResourceType.migrateLegacyFood(f.stockpile());
+            migrateStockpileToGoods(f.stockpile());
             for(Settlement s:f.settlements()){
-                zeroNewGoods(s.stockpile());
-                ResourceType.migrateLegacyFood(s.stockpile());
+                migrateStockpileToGoods(s.stockpile());
                 for(String key:s.completedConstruction())s.restoreConstructionOrigin(key,ConstructionOrigin.MATERIALIZED);
             }
         }
+    }
+
+    private static void migrateStockpileToGoods(Stockpile stockpile){
+        double food=stockpile.get(ResourceType.FOOD);
+        if(food<=0){
+            // Already seeded as GRAIN/BREAD (fresh constructors) or empty — keep as-is.
+            return;
+        }
+        // Clear constructor seed for post-legacy goods before mapping FOOD so values are not doubled.
+        zeroNewGoods(stockpile);
+        ResourceType.migrateLegacyFood(stockpile);
     }
 
     private static void zeroNewGoods(Stockpile stockpile){

@@ -12,7 +12,7 @@ public final class SingleProductionAuthorityTest {
     private SingleProductionAuthorityTest() {}
 
     public static void main(String[] args) {
-        SimulationState state = new SimulationState(0xH11L);
+        SimulationState state = new SimulationState(0xB11L);
         Faction f = new Faction(state.nextId(), "Farm Realm", "Farmer Queen");
         Settlement s = new Settlement(state.nextId(), "Grainfields", new SimPosition(0, 0), 200, 240);
         s.markConstructionCompleted("farm:0");

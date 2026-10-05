@@ -12,6 +12,7 @@ import dev.livingrealms.sim.social.HouseholdState;
 import dev.livingrealms.sim.social.SocialCitizen;
 import dev.livingrealms.sim.social.SocialPopulationEngine;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 
 /** Canonical settlement ownership change: faction lists plus attached social, economic and military state. */
@@ -38,7 +39,29 @@ public final class SettlementTransfer {
             }
         }
         for (HouseholdState household : state.households()) {
-            if (household.settlementId() == settlementId) household.migrate(toFactionId, settlementId);
+            if (!household.active()) continue;
+            boolean anyHere = false;
+            boolean anyElsewhere = false;
+            for (long memberId : household.memberIds()) {
+                SocialCitizen member = state.findSocialCitizen(memberId).orElse(null);
+                if (member == null || !member.alive()) continue;
+                if (member.settlementId() == settlementId) anyHere = true;
+                else anyElsewhere = true;
+            }
+            // Prompt F1: migrate households whose living members are only in this settlement.
+            if (anyHere && !anyElsewhere) household.migrate(toFactionId, settlementId);
+            else if (household.settlementId() == settlementId && anyHere && anyElsewhere) {
+                // Mixed household: keep household with the non-transferred members; clear transferred members' links.
+                for (long memberId : List.copyOf(household.memberIds())) {
+                    SocialCitizen member = state.findSocialCitizen(memberId).orElse(null);
+                    if (member != null && member.settlementId() == settlementId) {
+                        household.removeMember(memberId);
+                        member.setHouseholdId(0);
+                    }
+                }
+            } else if (household.settlementId() == settlementId && !anyElsewhere) {
+                household.migrate(toFactionId, settlementId);
+            }
         }
         for (ResourceClaim claim : state.resourceClaims()) {
             if (claim.active() && claim.settlementId() == settlementId && claim.factionId() == fromFactionId) claim.setFactionId(toFactionId);

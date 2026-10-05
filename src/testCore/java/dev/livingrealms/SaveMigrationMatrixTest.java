@@ -46,7 +46,7 @@ public final class SaveMigrationMatrixTest {
             SimulationState state = SimulationStateCodec.decode(fixture, catalog);
             verify(schema, state);
         }
-        System.out.println("PASS save migration matrix: schemas 1-2 fixed fixtures + schemas 3-17 versioned compatibility fixtures");
+        System.out.println("PASS save migration matrix: schemas 1-2 fixed fixtures + schemas 3-" + SimulationStateCodec.SCHEMA_VERSION + " versioned compatibility fixtures");
     }
 
     private static void verify(int schema, SimulationState state) {
@@ -127,11 +127,17 @@ public final class SaveMigrationMatrixTest {
         check(state.history().all().size() == 1 && state.history().all().getFirst().message().equals("legacy migration marker"), "schema " + schema + " history");
         if (schema >= 16) {
             check(close(settlement.barnCapacity(), 512.0) && close(settlement.granaryCapacity(), 640.0), "schema " + schema + " barn/granary capacity");
-            check(close(settlement.stockpile().get(ResourceType.FOOD), 222.0), "schema " + schema + " local food stockpile");
+            if (schema >= 18) {
+                check(close(settlement.stockpile().get(ResourceType.FOOD), 222.0), "schema " + schema + " local food stockpile");
+            } else {
+                // Schema 16–17 FOOD is split into GRAIN+BREAD by the v18 goods migration.
+                check(close(settlement.stockpile().get(ResourceType.GRAIN) + settlement.stockpile().get(ResourceType.BREAD), 222.0),
+                        "schema " + schema + " local food migrated to grain/bread");
+            }
             check(close(settlement.stockpile().get(ResourceType.WOOD), 88.0), "schema " + schema + " local wood stockpile");
         } else {
             check(settlement.barnCapacity() > 0 && settlement.granaryCapacity() > 0, "schema " + schema + " migrated storage capacity");
-            check(settlement.stockpile().get(ResourceType.FOOD) > 0, "schema " + schema + " migrated starter food");
+            check(settlement.edibleStock() > 0, "schema " + schema + " migrated starter food");
         }
         if (schema >= 17) {
             var citizen = state.socialCitizens().getFirst();
@@ -143,6 +149,15 @@ public final class SaveMigrationMatrixTest {
             check(state.debts().size() == 1 && state.grandProjects().size() == 1 && state.campaignPlans().size() == 1, "schema 17 debt/project/plan");
             check(state.shipments().getFirst().originSettlementId() == SETTLEMENT_ID && close(state.shipments().getFirst().risk(), .33), "schema 17 shipment logistics");
         }
+    }
+
+
+    private static int resourceCount(int schema) {
+        return schema >= 18 ? ResourceType.values().length : ResourceType.LEGACY_COUNT;
+    }
+
+    private static void writeResources(DataOutputStream out, int schema, java.util.function.ToDoubleFunction<ResourceType> values) throws IOException {
+        for (int i = 0; i < resourceCount(schema); i++) out.writeDouble(values.applyAsDouble(ResourceType.values()[i]));
     }
 
     private static byte[] fixture(int schema) throws IOException {
@@ -163,11 +178,12 @@ public final class SaveMigrationMatrixTest {
             if (schema >= 9) writeConfig(out);
             if (schema >= 11) writeSocial(out);
             if (schema >= 12) writeCivilization(out);
-            if (schema >= 13) writeHumanity(out);
+            if (schema >= 13) writeHumanity(out, schema);
             if (schema >= 14) out.writeInt(0); // pirate hideouts
             if (schema >= 15) out.writeInt(0); // siege equipment extensions
-            if (schema >= 16) writeSettlementEconomy(out);
+            if (schema >= 16) writeSettlementEconomy(out, schema);
             if (schema >= 17) writeFinalProduct(out);
+            if (schema >= 18) writeGoodsOrigins(out);
             writeHistory(out);
         }
         return bytes.toByteArray();
@@ -192,23 +208,22 @@ public final class SaveMigrationMatrixTest {
         out.writeLong(400L);out.writeLong(SETTLEMENT_ID);out.writeLong(301L);out.writeLong(0L);out.writeInt(0);out.writeLong(16L);out.writeLong(20L);out.writeDouble(.33);out.writeDouble(.5);out.writeInt(0);out.writeInt(0);
     }
 
-    private static void writeSettlementEconomy(DataOutputStream out) throws IOException {
+    private static void writeSettlementEconomy(DataOutputStream out, int schema) throws IOException {
         out.writeInt(2);
         out.writeLong(SETTLEMENT_ID);
         out.writeDouble(512.0);
         out.writeDouble(640.0);
-        for (ResourceType type : ResourceType.values()) {
-            if (type == ResourceType.FOOD) out.writeDouble(222.0);
-            else if (type == ResourceType.WOOD) out.writeDouble(88.0);
-            else out.writeDouble(0.0);
-        }
+        writeResources(out, schema, type -> type == ResourceType.FOOD ? 222.0 : type == ResourceType.WOOD ? 88.0 : 0.0);
         out.writeLong(301L);
         out.writeDouble(400.0);
         out.writeDouble(500.0);
-        for (ResourceType type : ResourceType.values()) {
-            if (type == ResourceType.FOOD) out.writeDouble(111.0);
-            else out.writeDouble(0.0);
-        }
+        writeResources(out, schema, type -> type == ResourceType.FOOD ? 111.0 : 0.0);
+    }
+
+    private static void writeGoodsOrigins(DataOutputStream out) throws IOException {
+        out.writeInt(2);
+        out.writeLong(SETTLEMENT_ID);out.writeInt(1);writeString(out,"keep:legacy");out.writeInt(0);
+        out.writeLong(301L);out.writeInt(0);
     }
 
     private static void writeRegions(DataOutputStream out, int schema) throws IOException {
@@ -244,7 +259,7 @@ public final class SaveMigrationMatrixTest {
         out.writeDouble(500.0);
         out.writeDouble(1.25);
         if (schema >= 4) writeGovernment(out);
-        for (ResourceType type : ResourceType.values()) out.writeDouble(12.0 + type.ordinal());
+        writeResources(out, schema, type -> 12.0 + type.ordinal());
         out.writeInt(1);
         out.writeLong(SETTLEMENT_ID);
         writeString(out, "Legacy City");
@@ -273,7 +288,7 @@ public final class SaveMigrationMatrixTest {
         out.writeDouble(450.0);
         out.writeDouble(.9);
         if (schema >= 4) writeGovernment(out);
-        for (ResourceType type : ResourceType.values()) out.writeDouble(8.0 + type.ordinal());
+        writeResources(out, schema, type -> 8.0 + type.ordinal());
         out.writeInt(1);
         out.writeLong(301L);
         writeString(out, "Counterparty City");
@@ -433,7 +448,7 @@ public final class SaveMigrationMatrixTest {
     }
 
 
-    private static void writeHumanity(DataOutputStream out) throws IOException {
+    private static void writeHumanity(DataOutputStream out, int schema) throws IOException {
         out.writeInt(1); // citizen household links
         out.writeLong(850L);out.writeLong(8400L);out.writeDouble(.57);
         out.writeInt(1); // settlement civilization extensions
@@ -445,7 +460,7 @@ public final class SaveMigrationMatrixTest {
         out.writeInt(0); // epidemics
         out.writeInt(0); // migrations
         out.writeInt(0); // justice
-        out.writeInt(0); // hidden caches
+        out.writeInt(0); // hidden caches — empty (resource-count schema sensitive when non-empty)
         out.writeInt(0); // pirates
         out.writeInt(0); // diplomatic marriages
         out.writeInt(0); // dynasties

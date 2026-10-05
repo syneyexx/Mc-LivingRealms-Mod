@@ -158,7 +158,7 @@ public final class FinalProductSystemsTest {
         state.addShipment(shipment);
         check(SimulationStateCodec.SCHEMA_VERSION == 18, "schema 18 pin");
         byte[] bytes = SimulationStateCodec.encode(state);
-        check(SimulationStateCodec.inspectSchema(bytes) == 17, "encoded schema 17");
+        check(SimulationStateCodec.inspectSchema(bytes) == SimulationStateCodec.SCHEMA_VERSION, "encoded schema 17");
         SimulationState loaded = SimulationStateCodec.decode(bytes);
         TradeShipment round = loaded.findShipment(shipment.id()).orElseThrow();
         check(round.originSettlementId() == origin.id() && round.destinationSettlementId() == destination.id(), "logistics settlements roundtrip");

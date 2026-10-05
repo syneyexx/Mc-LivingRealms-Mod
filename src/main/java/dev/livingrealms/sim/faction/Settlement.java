@@ -109,7 +109,10 @@ public final class Settlement {
     public void setDevelopmentPriority(DevelopmentPriority value){developmentPriority=java.util.Objects.requireNonNull(value);}
     public void restoreEconomy(double barnCapacity,double granaryCapacity,java.util.Map<ResourceType,Double> stores){
         this.barnCapacity=Math.max(50,barnCapacity);this.granaryCapacity=Math.max(80,granaryCapacity);
-        if(stores!=null)for(var e:stores.entrySet())stockpile().set(e.getKey(),Math.max(0,e.getValue()));
+        if(stores!=null){
+            for(ResourceType type:ResourceType.values())stockpile().set(type,0);
+            for(var e:stores.entrySet())stockpile().set(e.getKey(),Math.max(0,e.getValue()));
+        }
         enforceStorageCaps();
     }
     public void refreshStorageCapacity(){
