@@ -110,7 +110,7 @@ network_version=str_const(net,'NETWORK_VERSION')
 content_revision=int_const(saved_data_for_rev,'CONTENT_REVISION')
 require(schema_version==18,f'save schema must be 18 (source currently {schema_version})')
 require(min_schema==1,f'min supported schema must remain 1 (source {min_schema})')
-require(dashboard_protocol==18,f'dashboard protocol must be 18 (source {dashboard_protocol})')
+require(dashboard_protocol==19,f'dashboard protocol must be 19 (source {dashboard_protocol})')
 require(network_version=='14',f'network registration version must be 14 (source {network_version!r})')
 require(content_revision==14,f'content revision must be 14 (source {content_revision})')
 
@@ -182,6 +182,7 @@ required_suite={
     'dev.livingrealms.DashboardActionExhaustivenessTest',
     'dev.livingrealms.DocumentationPinTest',
     'dev.livingrealms.ManualDayAdvanceSchedulerTest',
+    'dev.livingrealms.Schema18FollowUpTest',
     'dev.livingrealms.LongRunSoakTest',
 }
 missing_required=sorted(required_suite-set(canonical_tests))

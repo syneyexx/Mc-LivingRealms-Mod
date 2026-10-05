@@ -17,7 +17,9 @@ public final class TradeEngine {
     private static final double CARAVAN_SPEED_PER_DAY=180.0;
     /** Fraction of paid value the seller refunds the buyer when a caravan is lost (guild/insurance bond). */
     private static final double INTERCEPT_INSURANCE_RATE=.55;
-    private static final List<ResourceType> TRADED=List.of(ResourceType.FOOD,ResourceType.IRON,ResourceType.FUEL,ResourceType.TOOLS,ResourceType.TEXTILES,ResourceType.MACHINERY);
+    private static final List<ResourceType> TRADED=List.of(
+            ResourceType.GRAIN,ResourceType.BREAD,ResourceType.MEAT,ResourceType.WOOL,
+            ResourceType.IRON,ResourceType.FUEL,ResourceType.TOOLS,ResourceType.TEXTILES,ResourceType.MACHINERY);
 
     public void simulateDay(SimulationState state, DeterministicRng rng) {
         Objects.requireNonNull(state,"state");Objects.requireNonNull(rng,"rng");
@@ -222,6 +224,14 @@ public final class TradeEngine {
     private static Settlement closestTo(Faction faction,SimPosition target){
         return faction.settlements().stream().min(Comparator.comparingDouble(s->s.position().distanceTo(target))).orElse(null);
     }
-    private static double desiredReserve(Faction f,ResourceType r){return switch(r){case FOOD->Math.max(30,f.population()*.30);case IRON->Math.max(12,f.population()*.03);case FUEL->Math.max(24,f.population()*.004);case TOOLS->Math.max(8,f.population()*.008);case TEXTILES->Math.max(8,f.population()*.01);case MACHINERY->Math.max(4,f.population()*.001);default->10;};}
+    private static double desiredReserve(Faction f,ResourceType r){return switch(r){
+        case GRAIN,BREAD,MEAT,FOOD -> Math.max(30,f.population()*.30);
+        case WOOL,TEXTILES -> Math.max(8,f.population()*.01);
+        case IRON -> Math.max(12,f.population()*.03);
+        case FUEL -> Math.max(24,f.population()*.004);
+        case TOOLS -> Math.max(8,f.population()*.008);
+        case MACHINERY -> Math.max(4,f.population()*.001);
+        default -> 10;
+    };}
     private static String describe(TradeShipment s){return "shipment="+s.id()+", "+s.resource()+"="+s.amount()+", seller="+s.sellerFactionId()+", buyer="+s.buyerFactionId();}
 }

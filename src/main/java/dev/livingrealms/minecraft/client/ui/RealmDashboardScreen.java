@@ -537,7 +537,8 @@ public final class RealmDashboardScreen extends Screen {
         lines.add(header("Active wars"));
         for (var w : snapshot.wars()) {
             lines.add(warn(w.attackerName() + " vs " + w.defenderName()));
-            lines.add(dim(w.goal() + " • since day " + w.startDay() + " • score " + one(w.attackerScore()), 1));
+            lines.add(dim(w.goal() + (w.targetSettlementName().isBlank() ? "" : " → " + w.targetSettlementName())
+                    + " • since day " + w.startDay() + " • score " + one(w.attackerScore()), 1));
             lines.add(dim("Exhaustion A " + pct(w.attackerExhaustion()) + " / D " + pct(w.defenderExhaustion()), 1));
         }
         if (snapshot.wars().isEmpty()) lines.add(dim("No active wars relevant to this realm.", 0));

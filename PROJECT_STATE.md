@@ -1,6 +1,6 @@
 # Living Realms project state
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 18 / network 14 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 14 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
 
 ## Current production state
 - Twelve surface kingdoms each seed capital + 10 authored Spec satellites + 2 rural hamlets (`TARGET_SETTLEMENTS_PER_REALM=13` → `SURFACE_STARTER_SETTLEMENTS=156`), plus Wizard Trees (3 colonies, excluded from surface density).

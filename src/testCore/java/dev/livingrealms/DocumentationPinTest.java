@@ -39,7 +39,7 @@ public final class DocumentationPinTest {
 
         check(schema == 18, "expected SCHEMA_VERSION 18, got " + schema);
         check(minSchema == 1, "expected MIN_SUPPORTED_SCHEMA 1, got " + minSchema);
-        check(protocol == 18, "expected PROTOCOL_VERSION 18, got " + protocol);
+        check(protocol == 19, "expected PROTOCOL_VERSION 19, got " + protocol);
         check("14".equals(network), "expected NETWORK_VERSION 14, got " + network);
         check(contentRevision == 14, "expected CONTENT_REVISION 14, got " + contentRevision);
         check(targetPerRealm == 13, "expected TARGET_SETTLEMENTS_PER_REALM 13, got " + targetPerRealm);

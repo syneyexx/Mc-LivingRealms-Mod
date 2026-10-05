@@ -51,4 +51,5 @@ dev.livingrealms.SiegeBreachAllKeysTest
 dev.livingrealms.SingleProductionAuthorityTest
 dev.livingrealms.DocumentationPinTest
 dev.livingrealms.ManualDayAdvanceSchedulerTest
+dev.livingrealms.Schema18FollowUpTest
 dev.livingrealms.LongRunSoakTest

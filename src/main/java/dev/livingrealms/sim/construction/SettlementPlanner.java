@@ -504,16 +504,25 @@ public final class SettlementPlanner {
     private static int adjustPriority(dev.livingrealms.sim.faction.DevelopmentPriority policy, StructureRole role, int base) {
         int bonus = switch (policy) {
             case BALANCED -> 0;
-            case FOOD -> (role == StructureRole.FARM || role == StructureRole.FISHERY || role == StructureRole.IRRIGATION
-                    || role == StructureRole.AQUEDUCT || role == StructureRole.WELL || role == StructureRole.MILL
-                    || role == StructureRole.BAKERY || role == StructureRole.PASTURE) ? 35 : 0;
+            case FOOD -> {
+                if (role == StructureRole.FARM || role == StructureRole.FISHERY || role == StructureRole.IRRIGATION
+                        || role == StructureRole.AQUEDUCT || role == StructureRole.WELL || role == StructureRole.MILL
+                        || role == StructureRole.BAKERY || role == StructureRole.PASTURE) {
+                    yield 70;
+                }
+                if (role == StructureRole.PLAZA || role == StructureRole.MONUMENT || role == StructureRole.TAVERN
+                        || role == StructureRole.TEMPLE) {
+                    yield -45;
+                }
+                yield 0;
+            }
             case HOUSING -> role == StructureRole.HOUSE ? 60 : 0;
             case INDUSTRY -> (role == StructureRole.WORKSHOP || role == StructureRole.FACTORY || role == StructureRole.MINE
                     || role == StructureRole.LUMBER_CAMP || role == StructureRole.BREWERY) ? 35 : 0;
             case DEFENSE -> (role == StructureRole.KEEP || role == StructureRole.BARRACKS || role == StructureRole.WALL
                     || role == StructureRole.GATE || role == StructureRole.AIRFIELD) ? 35 : 0;
         };
-        return Math.min(240, base + bonus);
+        return Math.max(1, Math.min(240, base + bonus));
     }
 
     private static int spacing(SettlementMorphology morph) {

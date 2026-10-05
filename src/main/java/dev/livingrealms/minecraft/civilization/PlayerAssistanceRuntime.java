@@ -81,11 +81,21 @@ public final class PlayerAssistanceRuntime {
 
     private static Item item(ResourceType r) {
         return switch (r) {
-            case FOOD -> Items.BREAD;
+            case FOOD, BREAD -> Items.BREAD;
+            case GRAIN, FLOUR -> Items.WHEAT;
+            case MEAT -> Items.BEEF;
+            case ALE -> Items.HONEY_BOTTLE;
+            case WOOL, TEXTILES -> Items.WHITE_WOOL;
             case WOOD -> Items.OAK_LOG;
+            case STONE -> Items.COBBLESTONE;
             case IRON -> Items.IRON_INGOT;
-            case TEXTILES -> Items.WHITE_WOOL;
-            default -> null;
+            case COAL -> Items.COAL;
+            case COPPER -> Items.COPPER_INGOT;
+            case GOLD -> Items.GOLD_INGOT;
+            case FUEL -> Items.CHARCOAL;
+            case AMMUNITION -> Items.ARROW;
+            case TOOLS -> Items.IRON_PICKAXE;
+            case MACHINERY -> Items.IRON_BLOCK;
         };
     }
 

@@ -7,6 +7,7 @@ import dev.livingrealms.sim.animal.AnimalIntent;
 import dev.livingrealms.sim.animal.AnimalStimulus;
 import dev.livingrealms.sim.ecology.ActivityCycle;
 import dev.livingrealms.sim.ecology.Diet;
+import dev.livingrealms.sim.ecology.LocomotionMode;
 import dev.livingrealms.sim.ecology.SpeciesDefinition;
 import dev.livingrealms.sim.ecology.SpeciesMobility;
 import dev.livingrealms.sim.ecology.SpeciesMobilityResolver;
@@ -221,8 +222,13 @@ public final class LivingRealmsAnimalEntity extends PathfinderMob {
         setBase(Attributes.MAX_HEALTH, Math.max(3.0D, Math.min(120.0D, 8.0D + massScale * 12.0D + species.defense() * 20.0D)));
         setBase(Attributes.ATTACK_DAMAGE, Math.max(1.0D, Math.min(24.0D, 1.0D + massScale * 2.0D + species.aggression() * 7.0D)));
         double movementSpeed = Math.max(0.16D, Math.min(0.42D, 0.20D + species.movementKmPerDay() / 500.0D));
+        if (species.swimSpeedFactor() > 0
+                && (species.locomotion() == LocomotionMode.AQUATIC || species.locomotion() == LocomotionMode.AMPHIBIOUS)) {
+            movementSpeed = Math.max(0.16D, Math.min(0.48D, movementSpeed * species.swimSpeedFactor()));
+        }
         setBase(Attributes.MOVEMENT_SPEED, movementSpeed);
-        setBase(Attributes.FLYING_SPEED, Math.max(0.22D, Math.min(0.72D, movementSpeed * 1.55D)));
+        double flightFactor = species.flightSpeedFactor() > 0 ? species.flightSpeedFactor() : 1.0D;
+        setBase(Attributes.FLYING_SPEED, Math.max(0.22D, Math.min(0.72D, movementSpeed * 1.55D * flightFactor)));
         setBase(Attributes.ARMOR, Math.max(0.0D, Math.min(14.0D, species.defense() * 10.0D)));
         setBase(Attributes.KNOCKBACK_RESISTANCE, Math.max(0.0D, Math.min(0.85D, (massScale - 1.0D) * 0.15D)));
         setBase(Attributes.FOLLOW_RANGE, 28.0D);
