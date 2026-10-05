@@ -8,6 +8,7 @@ import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
+import dev.livingrealms.sim.faction.SettlementRole;
 import dev.livingrealms.sim.faction.Stockpile;
 import dev.livingrealms.sim.social.SocialCitizen;
 import dev.livingrealms.sim.world.SimulationState;
@@ -26,6 +27,7 @@ public final class SaveMigrationRegistry {
         if (fromVersion < 18) migrate17to18(state);
         if (fromVersion < 19) migrate18to19(state);
         if (fromVersion < 20) migrate19to20(state);
+        if (fromVersion < 21) migrate20to21(state);
     }
 
     /** Pre-schema-16 worlds already receive starter stores from Settlement construction; refresh barn/granary from structures. */
@@ -78,6 +80,29 @@ public final class SaveMigrationRegistry {
     public static void migrate19to20(SimulationState state) {
         // Intentionally empty — new collections are already empty on SimulationState construction.
         // Kept as an explicit step so SaveMigrationRegistry documents the 19→20 boundary.
+    }
+
+
+    /**
+     * Schema 20→21: give every settlement a stable civilization-network role.
+     * Positions, anchors, construction receipts and foreign provenance are untouched.
+     */
+    public static void migrate20to21(SimulationState state) {
+        for (Faction faction : state.factions()) {
+            boolean wizard = faction.name().equals("Wizard Trees");
+            for (Settlement settlement : faction.settlements()) {
+                if (wizard || settlement.name().startsWith("Refugee Camp ") || settlement.name().startsWith("Haven ")) {
+                    settlement.restoreRole(SettlementRole.SPECIAL);
+                } else {
+                    settlement.restoreRole(SettlementRole.fromTier(settlement.tier()));
+                }
+            }
+            if (wizard) continue;
+            faction.settlements().stream()
+                    .filter(s -> s.role() != SettlementRole.SPECIAL)
+                    .max(java.util.Comparator.comparingInt(Settlement::population).thenComparingLong(Settlement::id))
+                    .ifPresent(s -> s.restoreRole(SettlementRole.CAPITAL));
+        }
     }
 
     static void migrateStockpileToGoods(Stockpile stockpile) {
