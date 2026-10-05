@@ -149,4 +149,83 @@ public final class LivingRealmsGameTests {
         SeasonalFarmPresentationRuntime.clear();
         helper.succeed();
     }
+
+    @GameTest(template = "gametests/empty", timeoutTicks = 40)
+    public static void closedHouseSurveyPasses(GameTestHelper helper) {
+        // 7x7 closed house: floor, walls, roof, south door, one bed.
+        BlockPos origin = new BlockPos(1, 1, 1);
+        for (int x = 0; x < 7; x++) for (int z = 0; z < 7; z++) {
+            helper.setBlock(origin.offset(x, 0, z), Blocks.OAK_PLANKS);
+            helper.setBlock(origin.offset(x, 4, z), Blocks.OAK_PLANKS);
+        }
+        for (int y = 1; y <= 3; y++) for (int x = 0; x < 7; x++) for (int z = 0; z < 7; z++) {
+            boolean wall = x == 0 || x == 6 || z == 0 || z == 6;
+            helper.setBlock(origin.offset(x, y, z), wall ? Blocks.OAK_PLANKS : Blocks.AIR);
+        }
+        BlockPos door = origin.offset(3, 1, 0);
+        helper.setBlock(door, Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.DoorBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER)
+                .setValue(net.minecraft.world.level.block.DoorBlock.FACING, net.minecraft.core.Direction.SOUTH));
+        helper.setBlock(door.above(), Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.DoorBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER)
+                .setValue(net.minecraft.world.level.block.DoorBlock.FACING, net.minecraft.core.Direction.SOUTH));
+        helper.setBlock(origin.offset(2, 1, 3), Blocks.RED_BED.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.BedBlock.PART, net.minecraft.world.level.block.state.properties.BedPart.FOOT)
+                .setValue(net.minecraft.world.level.block.BedBlock.FACING, net.minecraft.core.Direction.EAST));
+        helper.setBlock(origin.offset(3, 1, 3), Blocks.RED_BED.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.BedBlock.PART, net.minecraft.world.level.block.state.properties.BedPart.HEAD)
+                .setValue(net.minecraft.world.level.block.BedBlock.FACING, net.minecraft.core.Direction.EAST));
+        var scan = dev.livingrealms.minecraft.construction.PlayerStructureSurvey.scanInterior(
+                helper.getLevel(), helper.absolutePos(door));
+        helper.assertTrue(scan.ok(), "closed house must survey: " + scan.message());
+        helper.succeed();
+    }
+
+    @GameTest(template = "gametests/empty", timeoutTicks = 40)
+    public static void missingRoofSurveyFails(GameTestHelper helper) {
+        BlockPos origin = new BlockPos(1, 1, 1);
+        for (int x = 0; x < 7; x++) for (int z = 0; z < 7; z++) {
+            helper.setBlock(origin.offset(x, 0, z), Blocks.OAK_PLANKS);
+        }
+        for (int y = 1; y <= 3; y++) for (int x = 0; x < 7; x++) for (int z = 0; z < 7; z++) {
+            boolean wall = x == 0 || x == 6 || z == 0 || z == 6;
+            helper.setBlock(origin.offset(x, y, z), wall ? Blocks.OAK_PLANKS : Blocks.AIR);
+        }
+        BlockPos door = origin.offset(3, 1, 0);
+        helper.setBlock(door, Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.DoorBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER)
+                .setValue(net.minecraft.world.level.block.DoorBlock.FACING, net.minecraft.core.Direction.SOUTH));
+        helper.setBlock(door.above(), Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.DoorBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER)
+                .setValue(net.minecraft.world.level.block.DoorBlock.FACING, net.minecraft.core.Direction.SOUTH));
+        var scan = dev.livingrealms.minecraft.construction.PlayerStructureSurvey.scanInterior(
+                helper.getLevel(), helper.absolutePos(door));
+        helper.assertFalse(scan.ok(), "missing roof must fail survey");
+        helper.succeed();
+    }
+
+    @GameTest(template = "gametests/empty", timeoutTicks = 40)
+    public static void openWallSurveyFails(GameTestHelper helper) {
+        BlockPos origin = new BlockPos(1, 1, 1);
+        for (int x = 0; x < 7; x++) for (int z = 0; z < 7; z++) {
+            helper.setBlock(origin.offset(x, 0, z), Blocks.OAK_PLANKS);
+            helper.setBlock(origin.offset(x, 4, z), Blocks.OAK_PLANKS);
+        }
+        for (int y = 1; y <= 3; y++) for (int x = 0; x < 7; x++) for (int z = 0; z < 7; z++) {
+            boolean wall = x == 0 || x == 6 || z == 0; // missing z==6 wall
+            helper.setBlock(origin.offset(x, y, z), wall ? Blocks.OAK_PLANKS : Blocks.AIR);
+        }
+        BlockPos door = origin.offset(3, 1, 0);
+        helper.setBlock(door, Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.DoorBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER)
+                .setValue(net.minecraft.world.level.block.DoorBlock.FACING, net.minecraft.core.Direction.SOUTH));
+        helper.setBlock(door.above(), Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.DoorBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER)
+                .setValue(net.minecraft.world.level.block.DoorBlock.FACING, net.minecraft.core.Direction.SOUTH));
+        var scan = dev.livingrealms.minecraft.construction.PlayerStructureSurvey.scanInterior(
+                helper.getLevel(), helper.absolutePos(door));
+        helper.assertFalse(scan.ok(), "open wall must fail enclosure");
+        helper.succeed();
+    }
+
 }

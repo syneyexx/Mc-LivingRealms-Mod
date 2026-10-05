@@ -87,12 +87,29 @@ public final class SettlementConstructionMaterializer {
             if(catchupTicks<=0)catchupOpsBoost=0;
         }
         AuthoredBlockLedger ledger=data.authoredBlocks();
+        java.util.Map<String,ConstructionJob> beforeTick=new HashMap<>();
+        for(ConstructionJob j:QUEUE.jobs()) beforeTick.put(j.key(),j);
         var result=QUEUE.tick(operationBudget,(job,operation)->apply(level,job,operation,ledger));
         boolean dirty=result.applied()>0;
         long day=data.state().clock().day();
         for(String completed:result.completedJobKeys()) {
             Settlement owner=JOB_OWNERS.remove(completed);
             ConstructionRetryKey retryKey=ConstructionRetryKey.parse(completed);
+            ConstructionJob finished=beforeTick.get(completed);
+            // Access gate: houses/civic must have walkable door→road before canonical completion.
+            if(finished!=null && WorldStructureAccessProbe.requiresAccessGate(finished.intent().role())) {
+                var access=WorldStructureAccessProbe.probe(level,finished.intent(),finished.operations());
+                if(WorldStructureAccessProbe.shouldDefer(access)) {
+                    RETRY_AFTER_DAY.put(retryKey.wire(),day+1);
+                    dirty=true;
+                    continue;
+                }
+                if(!access.pass()) {
+                    RETRY_AFTER_DAY.put(retryKey.wire(),day+3);
+                    dirty=true;
+                    continue;
+                }
+            }
             RETRY_AFTER_DAY.remove(retryKey.wire());
             if(owner!=null && owner.markConstructionCompleted(retryKey.intentKey())) {
                 dirty=true;
