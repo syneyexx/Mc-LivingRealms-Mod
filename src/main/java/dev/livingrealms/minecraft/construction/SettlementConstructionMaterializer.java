@@ -16,7 +16,10 @@ import dev.livingrealms.sim.construction.EntranceAccessPlanner;
 import dev.livingrealms.sim.construction.HousingCapacity;
 import dev.livingrealms.sim.construction.PaletteSlot;
 import dev.livingrealms.sim.construction.PhysicalDevelopmentReconciler;
+import dev.livingrealms.sim.construction.ResolvedBuildSite;
+import dev.livingrealms.sim.construction.SettlementParcelPlanner;
 import dev.livingrealms.sim.construction.SettlementPlanCache;
+import dev.livingrealms.sim.construction.StructureAccessValidator;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
 import dev.livingrealms.sim.construction.StructureGeometryRules;
 import dev.livingrealms.sim.construction.StructureRole;
@@ -96,7 +99,7 @@ public final class SettlementConstructionMaterializer {
             Settlement owner=JOB_OWNERS.remove(completed);
             ConstructionRetryKey retryKey=ConstructionRetryKey.parse(completed);
             ConstructionJob finished=beforeTick.get(completed);
-            // Access gate: houses/civic must have walkable door→road before canonical completion.
+            // Access gate before completedConstructionReceipt (StructureAccessValidator).
             if(finished!=null && WorldStructureAccessProbe.requiresAccessGate(finished.intent().role())) {
                 var access=WorldStructureAccessProbe.probe(level,finished.intent(),finished.operations());
                 if(WorldStructureAccessProbe.shouldDefer(access)) {
@@ -240,9 +243,9 @@ public final class SettlementConstructionMaterializer {
 
 
     /**
-     * Resolves a blueprint against real terrain instead of assuming the entire footprint shares
-     * the height of its centre block. Roads and walls step with terrain; buildings search nearby
-     * for the flattest dry pad and receive short foundation piers where the ground drops away.
+     * Resolves a blueprint against real terrain and parcel law. Parcel-bound buildings stay inside
+     * their legal lot (porch/stairs/frontage excepted); never free-search 8–20 blocks onto other lots.
+     * Unbound roles use a modest ≤4-block pad search.
      */
     private static ConstructionJob createTerrainAwareJob(ServerLevel level,ConstructionIntent original) {
         if(isWizardRole(original.role()))return createWizardUndergroundJob(level,original);
@@ -254,79 +257,153 @@ public final class SettlementConstructionMaterializer {
             java.util.List<BuildOperation> ops=terrainFollowingOperations(level,original);
             return ops.isEmpty()?null:new ConstructionJob(original,ops,0);
         }
-        BuildSite site=findBuildSite(level,original);
-        if(site==null)return null;
-        ConstructionIntent intent=site.intent();
-        java.util.List<BuildOperation> ops=buildingOperations(level,intent,site.baseY());
+        ResolvedBuildSite site=findBuildSite(level,original);
+        if(site==null||site.adaptation()==ResolvedBuildSite.Adaptation.REJECTED)return null;
+        ConstructionIntent intent=site.toIntent(original);
+        java.util.List<BuildOperation> ops=buildingOperations(level,intent,site);
         return ops.isEmpty()?null:new ConstructionJob(intent,ops,0);
     }
 
     private static boolean isWizardRole(StructureRole role){return role==StructureRole.WIZARD_HALL||role==StructureRole.WIZARD_GROVE||role==StructureRole.WIZARD_HOME||role==StructureRole.WIZARD_TUNNEL;}
 
     private static ConstructionJob createWizardUndergroundJob(ServerLevel level,ConstructionIntent original){
-        int[][] offsets={{0,0},{16,0},{-16,0},{0,16},{0,-16},{28,28},{28,-28},{-28,28},{-28,-28}};BuildSite best=null;double bestScore=Double.POSITIVE_INFINITY;
-        for(int[] off:offsets){int x=(int)Math.round(original.center().x()+off[0]),z=(int)Math.round(original.center().z()+off[1]);BlockPos probe=new BlockPos(x,level.getSeaLevel(),z);if(!level.hasChunkAt(probe))continue;int surface=naturalSurfaceY(level,x,z);int base=Math.max(level.getMinBuildHeight()+8,surface-18);if(base+10>=surface)continue;double score=-surface*4.0+Math.hypot(off[0],off[1]);if(score<bestScore){ConstructionIntent shifted=off[0]==0&&off[1]==0?original:new ConstructionIntent(original.key(),original.factionId(),original.settlementId(),original.role(),new dev.livingrealms.sim.world.SimPosition(original.center().x()+off[0],original.center().z()+off[1]),original.width(),original.depth(),original.rotationQuarterTurns(),original.priority());best=new BuildSite(shifted,base);bestScore=score;}}
-        if(best==null)return null;java.util.List<BuildOperation> ops=buildingOperations(level,best.intent(),best.baseY());return ops.isEmpty()?null:new ConstructionJob(best.intent(),ops,0);
+        int[][] offsets={{0,0},{16,0},{-16,0},{0,16},{0,-16},{28,28},{28,-28},{-28,28},{-28,-28}};
+        ResolvedBuildSite best=null;double bestScore=Double.POSITIVE_INFINITY;
+        for(int[] off:offsets){
+            int x=(int)Math.round(original.center().x()+off[0]),z=(int)Math.round(original.center().z()+off[1]);
+            BlockPos probe=new BlockPos(x,level.getSeaLevel(),z);if(!level.hasChunkAt(probe))continue;
+            int surface=naturalSurfaceY(level,x,z);int base=Math.max(level.getMinBuildHeight()+8,surface-18);
+            if(base+10>=surface)continue;
+            double score=-surface*4.0+Math.hypot(off[0],off[1]);
+            if(score<bestScore){
+                var center=new dev.livingrealms.sim.world.SimPosition(original.center().x()+off[0],original.center().z()+off[1]);
+                best=new ResolvedBuildSite(original.center(),center,original.width(),original.depth(),
+                        original.rotationQuarterTurns(),null,null,base,null,"",0,0,ResolvedBuildSite.Adaptation.NONE);
+                bestScore=score;
+            }
+        }
+        if(best==null)return null;
+        ConstructionIntent intent=best.toIntent(original);
+        java.util.List<BuildOperation> ops=buildingOperations(level,intent,best);
+        return ops.isEmpty()?null:new ConstructionJob(intent,ops,0);
     }
 
-    private static BuildSite findBuildSite(ServerLevel level,ConstructionIntent original) {
-        int[][] offsets={{0,0},{8,0},{-8,0},{0,8},{0,-8},{12,12},{12,-12},{-12,12},{-12,-12},{20,0},{-20,0},{0,20},{0,-20}};
-        BuildSite best=null;double bestScore=Double.POSITIVE_INFINITY;
+    /** Cascade: bounded alignment → foundation → stairs/retaining → reject parcel (never relocate). */
+    private static ResolvedBuildSite findBuildSite(ServerLevel level,ConstructionIntent original) {
+        boolean parcelBound=original.hasParcel();
+        java.util.List<int[]> offsets=parcelBound?ResolvedBuildSite.parcelAlignmentOffsets():ResolvedBuildSite.openSiteAlignmentOffsets();
         int maxSlope=switch(original.role()){case AIRFIELD -> 2;case FARM,KEEP,FACTORY -> 3;default -> 2;};
+        ResolvedBuildSite best=null;double bestScore=Double.POSITIVE_INFINITY;
         for(int[] off:offsets){
-            ConstructionIntent candidate=off[0]==0&&off[1]==0?original:new ConstructionIntent(original.key(),original.factionId(),original.settlementId(),original.role(),new dev.livingrealms.sim.world.SimPosition(original.center().x()+off[0],original.center().z()+off[1]),original.width(),original.depth(),original.rotationQuarterTurns(),original.priority());
-            TerrainStats stats=terrainStats(level,candidate);if(stats==null||stats.max()-stats.min()>maxSlope)continue;
-            double score=(stats.max()-stats.min())*120.0+Math.hypot(off[0],off[1]);
-            if(score<bestScore){bestScore=score;best=new BuildSite(candidate,stats.max());}
+            var candidateCenter=new dev.livingrealms.sim.world.SimPosition(original.center().x()+off[0],original.center().z()+off[1]);
+            if(parcelBound && !ResolvedBuildSite.footprintInsideParcel(
+                    candidateCenter,original.width(),original.depth(),original.rotationQuarterTurns(),
+                    original.center(),original.parcelWidth(),original.parcelDepth())) continue;
+            ConstructionIntent candidate=original.withCenter(candidateCenter);
+            TerrainStats stats=terrainStats(level,candidate);
+            if(stats==null)continue;
+            int padSlope=stats.max()-stats.min();
+            if(padSlope>6)continue;
+            boolean flatOk=padSlope<=maxSlope;
+            boolean adaptOk=padSlope<=4;
+            if(!flatOk&&!adaptOk)continue;
+            int foundationY=stats.max();
+            EntranceProbe entrance=probeEntrance(level,candidate,foundationY);
+            ResolvedBuildSite.Adaptation adaptation=ResolvedBuildSite.adaptationForGrade(
+                    entrance.doorFloorY(),entrance.approachY(),padSlope);
+            if(adaptation==ResolvedBuildSite.Adaptation.REJECTED)continue;
+            if(!flatOk&&adaptation==ResolvedBuildSite.Adaptation.NONE) adaptation=ResolvedBuildSite.Adaptation.FOUNDATION_PIERS;
+            StructureAccessValidator.AccessSample access=new StructureAccessValidator.AccessSample(
+                    accessKindFor(entrance.doorFloorY(),entrance.approachY()),
+                    entrance.doorFloorY(),entrance.approachY(),true,false,false);
+            if(!StructureAccessValidator.accepts(access))continue;
+            SettlementParcelPlanner.ParcelFrontage frontage=null;
+            if(parcelBound){
+                frontage=new SettlementParcelPlanner.ParcelFrontage(
+                        original.parcelId(),original.parcelId(),
+                        new dev.livingrealms.sim.world.SimPosition(entrance.streetX()+0.5,entrance.streetZ()+0.5),
+                        original.rotationQuarterTurns(),0);
+            }
+            ResolvedBuildSite.EntranceSpec entranceSpec=new ResolvedBuildSite.EntranceSpec(
+                    entrance.doorLocalX(),entrance.doorLocalZ(),entrance.doorFloorY(),entrance.approachY());
+            double score=padSlope*120.0+Math.hypot(off[0],off[1])+(adaptation==ResolvedBuildSite.Adaptation.NONE?0:40);
+            if(score<bestScore){
+                bestScore=score;
+                best=new ResolvedBuildSite(original.center(),candidateCenter,original.width(),original.depth(),
+                        original.rotationQuarterTurns(),frontage,entranceSpec,foundationY,access,
+                        original.parcelId(),original.parcelWidth(),original.parcelDepth(),adaptation);
+            }
         }
         return best;
+    }
+
+    private static StructureAccessValidator.AccessKind accessKindFor(int doorFloorY,int approachY){
+        int delta=Math.abs(doorFloorY-approachY);
+        if(delta<=1)return StructureAccessValidator.AccessKind.FLAT;
+        if(delta<=3)return StructureAccessValidator.AccessKind.STAIRS;
+        if(delta<=8)return StructureAccessValidator.AccessKind.SWITCHBACK;
+        return StructureAccessValidator.AccessKind.CLIFF;
+    }
+
+    private record EntranceProbe(int doorLocalX,int doorLocalZ,int doorFloorY,int approachY,int streetX,int streetZ){}
+
+    private static EntranceProbe probeEntrance(ServerLevel level,ConstructionIntent intent,int baseY){
+        int turns=Math.floorMod(intent.rotationQuarterTurns(),4);
+        int doorLocalX=0,doorLocalZ=-(intent.depth()/2);
+        int ox=doorLocalX,oz=doorLocalZ;
+        for(int i=0;i<turns;i++){int t=ox;ox=-oz;oz=t;}
+        int cx=(int)Math.round(intent.center().x()),cz=(int)Math.round(intent.center().z());
+        int approachX=cx+ox,approachZ=cz+oz;
+        int stepX=0,stepZ=-1;for(int i=0;i<turns;i++){int t=stepX;stepX=-stepZ;stepZ=t;}
+        int streetX=approachX+stepX,streetZ=approachZ+stepZ;
+        return new EntranceProbe(doorLocalX,doorLocalZ,baseY,naturalSurfaceY(level,streetX,streetZ),streetX,streetZ);
     }
 
     private static TerrainStats terrainStats(ServerLevel level,ConstructionIntent intent){
         boolean allowWater=intent.role()==StructureRole.DOCK||intent.role()==StructureRole.FISHERY;
         int turns=Math.floorMod(intent.rotationQuarterTurns(),4);int w=(turns&1)==0?intent.width():intent.depth(),d=(turns&1)==0?intent.depth():intent.width();
         int cx=(int)Math.round(intent.center().x()),cz=(int)Math.round(intent.center().z()),hx=w/2,hz=d/2;
-        int min=Integer.MAX_VALUE,max=Integer.MIN_VALUE,samples=0,steepNeighbors=0;
-        Integer prevY=null;
+        int min=Integer.MAX_VALUE,max=Integer.MIN_VALUE,samples=0,steepNeighbors=0;Integer prevY=null;
         for(int z=-hz;z<=hz;z+=Math.max(2,d/6))for(int x=-hx;x<=hx;x+=Math.max(2,w/6)){
             int wx=cx+x,wz=cz+z;BlockPos probe=new BlockPos(wx,level.getSeaLevel(),wz);if(!level.hasChunkAt(probe))return null;
             int y=naturalSurfaceY(level,wx,wz);if(y<=level.getMinBuildHeight()+1||y>=level.getMaxBuildHeight()-18)return null;
             BlockState ground=level.getBlockState(new BlockPos(wx,y,wz));
             boolean flooded=!ground.getFluidState().isEmpty()||!level.getFluidState(new BlockPos(wx,y+1,wz)).isEmpty();
-            // Houses/civic pads must stay dry. Only docks/fisheries may build into water.
             if(flooded&&!allowWater)return null;
             if(!allowWater&&y<=level.getSeaLevel()-1)return null;
-            // Reject cave mouths / unsupported pads: the block under the surface sample must exist.
             BlockState below=level.getBlockState(new BlockPos(wx,y-1,wz));
             if(below.isAir()||(!allowWater&&!below.getFluidState().isEmpty()))return null;
             if(prevY!=null&&Math.abs(y-prevY)>4)steepNeighbors++;
             prevY=y;min=Math.min(min,y);max=Math.max(max,y);samples++;
         }
         if(min==Integer.MAX_VALUE)return null;
-        // Too many cliff steps across the footprint → reject rather than build pillar towers.
         if(samples>0&&steepNeighbors>Math.max(1,samples/4))return null;
         if(max-min>6)return null;
         return new TerrainStats(min,max);
     }
 
-    private static java.util.List<BuildOperation> buildingOperations(ServerLevel level,ConstructionIntent intent,int baseY){
+    private static java.util.List<BuildOperation> buildingOperations(ServerLevel level,ConstructionIntent intent,ResolvedBuildSite site){
+        int baseY=site.foundationY();
         var blueprint=StructureBlueprintFactory.create(intent);int cx=(int)Math.round(intent.center().x()),cz=(int)Math.round(intent.center().z()),turns=Math.floorMod(intent.rotationQuarterTurns(),4);
         java.util.List<BuildOperation> out=new java.util.ArrayList<>(blueprint.operationCount()+intent.width()*intent.depth());
         Integer doorLocalX=null,doorLocalZ=null;
+        int pierDepth=site.adaptation()==ResolvedBuildSite.Adaptation.FOUNDATION_PIERS||site.adaptation()==ResolvedBuildSite.Adaptation.STAIRS_RETAINING?6:4;
         for(BlockPlacement p:blueprint.placements()){
             int rx=p.dx(),rz=p.dz();for(int i=0;i<turns;i++){int t=rx;rx=-rz;rz=t;}int wx=cx+rx,wz=cz+rz;
             out.add(new BuildOperation(wx,baseY+p.dy(),wz,p.slot(),p.phase()));
-            if(p.dy()==0&&p.slot()==PaletteSlot.FOUNDATION){int surface=naturalSurfaceY(level,wx,wz);for(int y=baseY-1;y>surface&&y>=baseY-4;y--)out.add(new BuildOperation(wx,y,wz,PaletteSlot.FOUNDATION,p.phase()));}
+            if(p.dy()==0&&p.slot()==PaletteSlot.FOUNDATION){
+                int surface=naturalSurfaceY(level,wx,wz);
+                for(int y=baseY-1;y>surface&&y>=baseY-pierDepth;y--) out.add(new BuildOperation(wx,y,wz,PaletteSlot.FOUNDATION,p.phase()));
+            }
             if(p.slot()==PaletteSlot.DOOR&&p.dy()==1){doorLocalX=p.dx();doorLocalZ=p.dz();}
         }
         if(doorLocalX!=null){
             int ox=doorLocalX,oz=doorLocalZ;
             for(int i=0;i<turns;i++){int t=ox;ox=-oz;oz=t;}
             int approachX=cx+ox,approachZ=cz+oz;
-            // Sample sidewalk/street one block further outside the doorway.
             int stepX=0,stepZ=-1;for(int i=0;i<turns;i++){int t=stepX;stepX=-stepZ;stepZ=t;}
             int streetX=approachX+stepX,streetZ=approachZ+stepZ;
-            int approachY=naturalSurfaceY(level,streetX,streetZ);
+            int approachY=site.entrance()!=null?site.entrance().approachY():naturalSurfaceY(level,streetX,streetZ);
             for(var fix:EntranceAccessPlanner.plan(doorLocalX,doorLocalZ,baseY,approachY)){
                 int fx=fix.dx(),fz=fix.dz();for(int i=0;i<turns;i++){int t=fx;fx=-fz;fz=t;}
                 out.add(new BuildOperation(cx+fx,fix.dy(),cz+fz,fix.slot(),dev.livingrealms.sim.construction.ConstructionPhase.DETAIL));
@@ -427,7 +504,6 @@ public final class SettlementConstructionMaterializer {
     }
 
     private record TerrainStats(int min,int max){}
-    private record BuildSite(ConstructionIntent intent,int baseY){}
 
     private static boolean nearPlayer(ServerLevel level,Settlement settlement) {
         double x=settlement.position().x(),z=settlement.position().z();
