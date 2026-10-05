@@ -159,25 +159,30 @@ public final class SettlementConstructionMaterializer {
     public static Object boundLevelIdentity(){return boundLevelIdentity;}
 
     private static void discoverLoadedWork(ServerLevel level, LivingRealmsSavedData data) {
-        if(QUEUE.size()>=MAX_QUEUED_JOBS || level.players().isEmpty()) return;
+        if(QUEUE.size()>=MAX_QUEUED_JOBS) return;
         boolean catchingUp=catchupTicks>0;
         long day=data.state().clock().day();
         java.util.List<Faction> factions=new java.util.ArrayList<>(data.state().factions());
-        java.util.List<Settlement> near=new java.util.ArrayList<>();
+        java.util.List<Settlement> loaded=new java.util.ArrayList<>();
         java.util.Map<Long,Faction> owners=new HashMap<>();
         for(Faction faction:factions) for(Settlement settlement:faction.settlements()) {
-            if(!nearPlayer(level,settlement)) continue;
-            near.add(settlement);
+            // WORLD FABRIC is chunk-presence driven, never player-distance driven. hasChunkAt() is
+            // deliberately non-loading: only settlements whose core chunk already exists in memory
+            // participate in this bounded discovery pass.
+            BlockPos core=new BlockPos((int)Math.round(settlement.position().x()),level.getSeaLevel(),
+                    (int)Math.round(settlement.position().z()));
+            if(!level.hasChunkAt(core)) continue;
+            loaded.add(settlement);
             owners.put(settlement.id(),faction);
         }
-        if(near.isEmpty()) return;
+        if(loaded.isEmpty()) return;
         // Fair rotation: do not let one early settlement monopolize discovery forever.
-        settlementScanCursor=Math.floorMod(settlementScanCursor,near.size());
+        settlementScanCursor=Math.floorMod(settlementScanCursor,loaded.size());
         Set<Long> queuedSettlements=new HashSet<>();
         for(ConstructionJob job:QUEUE.jobs()) queuedSettlements.add(job.intent().settlementId());
         int scanned=0;
-        for(int n=0;n<near.size()&&scanned<MAX_SETTLEMENTS_PER_DISCOVERY&&QUEUE.size()<MAX_QUEUED_JOBS;n++){
-            Settlement settlement=near.get(Math.floorMod(settlementScanCursor+n,near.size()));
+        for(int n=0;n<loaded.size()&&scanned<MAX_SETTLEMENTS_PER_DISCOVERY&&QUEUE.size()<MAX_QUEUED_JOBS;n++){
+            Settlement settlement=loaded.get(Math.floorMod(settlementScanCursor+n,loaded.size()));
             scanned++;
             // One active job per settlement keeps budgets fair across the realm.
             if(queuedSettlements.contains(settlement.id()) && !catchingUp) continue;
@@ -219,7 +224,7 @@ public final class SettlementConstructionMaterializer {
                 if(enqueued>=allow) break;
             }
         }
-        settlementScanCursor=Math.floorMod(settlementScanCursor+Math.max(1,scanned),Math.max(1,near.size()));
+        settlementScanCursor=Math.floorMod(settlementScanCursor+Math.max(1,scanned),Math.max(1,loaded.size()));
     }
 
     private static void refreshPresentationScope(ServerLevel level,LivingRealmsSavedData data){
