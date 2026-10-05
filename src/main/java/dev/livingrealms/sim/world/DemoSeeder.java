@@ -21,7 +21,7 @@ public final class DemoSeeder {
         s.addRegion(savanna);
         HabitatPopulationSeeder.seedMissingSpecies(s,savanna,64);
 
-        // Sparse authored lattice is the sole capital/satellite authority (2000-block policy).
+        // Seed deterministic capital→town→village→hamlet civilization fabric for a fresh world.
         SettlementDensitySeeder.ensureStarterDensity(s);
         WizardTreesSeeder.ensure(s);
         s.history().add(new WorldEvent(0,"world_created","Living Realms simulation initialized."));
