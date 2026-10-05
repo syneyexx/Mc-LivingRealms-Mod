@@ -19,6 +19,7 @@ import dev.livingrealms.sim.construction.PaletteSlot;
 import dev.livingrealms.sim.construction.PhysicalDevelopmentReconciler;
 import dev.livingrealms.sim.construction.ResolvedBuildSite;
 import dev.livingrealms.sim.construction.SettlementParcelPlanner;
+import dev.livingrealms.sim.construction.SettlementCoreCompleteness;
 import dev.livingrealms.sim.construction.SettlementPlanCache;
 import dev.livingrealms.sim.construction.StructureAccessValidator;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
@@ -213,7 +214,11 @@ public final class SettlementConstructionMaterializer {
                 pending.addAll(PrimaryEconomyPlanner.pending(data.state(),faction,settlement));
                 allow=catchingUp?PhysicalDevelopmentReconciler.catchupIntentsPerSettlement(catchupSimulatedDays,deficit):1;
             }
-            pending.sort(java.util.Comparator.comparingInt(ConstructionIntent::priority).reversed()
+            SettlementCoreCompleteness.Status coreStatus=wizardTrees?null
+                    :SettlementCoreCompleteness.analyze(faction,settlement);
+            pending.sort(java.util.Comparator
+                    .comparingInt((ConstructionIntent i)->coreStatus!=null&&coreStatus.prioritizes(i)?0:1)
+                    .thenComparing(java.util.Comparator.comparingInt(ConstructionIntent::priority).reversed())
                     .thenComparing(ConstructionIntent::key));
             int enqueued=0;
             for(ConstructionIntent intent:pending) {
