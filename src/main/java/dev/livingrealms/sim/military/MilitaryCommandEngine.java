@@ -96,6 +96,8 @@ public final class MilitaryCommandEngine {
         return home==null?null:new Target(MilitaryObjectiveType.DEFEND,0,home.id(),home.position(),30);
     }
 
+    public static void reevaluateObjectives(SimulationState state){cleanup(state);}
+
     private static void cleanup(SimulationState state){
         for(MilitaryObjective o:state.objectives()){
             if(o.complete())continue;

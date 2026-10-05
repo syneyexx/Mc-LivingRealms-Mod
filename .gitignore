@@ -2,3 +2,7 @@ build/
 .gradle/
 .gradle-bootstrap/
 javac.*.args
+/run/
+/gradle/
+/gradlew
+/gradlew.bat

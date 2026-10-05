@@ -85,9 +85,6 @@ public final class RealmDashboardScreen extends Screen {
         if (tab == Tab.LAW) rebuildLawButtons(left, contentY, panelWidth);
         if (tab == Tab.SETTINGS) rebuildSettingsButtons(left,contentY,panelWidth);
         if (tab == Tab.MAP) {
-            int panelHeight = Math.min(panelHeightPref(), height - 20);
-            int top = Math.max(10, (height - panelHeight) / 2);
-            int footerY = top + panelHeight - 26;
             addRenderableWidget(Button.builder(Component.literal("Open world map (M)"),
                     b -> DashboardClientState.requestOpenMap())
                     .bounds(left + panelWidth - 158, Math.max(contentY, footerY - 22), 148, 18).build());
@@ -540,7 +537,8 @@ public final class RealmDashboardScreen extends Screen {
         lines.add(header("Active wars"));
         for (var w : snapshot.wars()) {
             lines.add(warn(w.attackerName() + " vs " + w.defenderName()));
-            lines.add(dim(w.goal() + " • since day " + w.startDay() + " • score " + one(w.attackerScore()), 1));
+            lines.add(dim(w.goal() + (w.targetSettlementName().isBlank() ? "" : " → " + w.targetSettlementName())
+                    + " • since day " + w.startDay() + " • score " + one(w.attackerScore()), 1));
             lines.add(dim("Exhaustion A " + pct(w.attackerExhaustion()) + " / D " + pct(w.defenderExhaustion()), 1));
         }
         if (snapshot.wars().isEmpty()) lines.add(dim("No active wars relevant to this realm.", 0));
@@ -636,7 +634,8 @@ public final class RealmDashboardScreen extends Screen {
         int px=mapX(map,map.playerX(),x,w),py=mapY(map,map.playerZ(),y,h);
         graphics.fill(px-4,py,px+5,py+1,0xFFFFFFFF);graphics.fill(px,py-4,px+1,py+5,0xFFFFFFFF);
         graphics.drawString(font,"Geographic map · settlements labeled · press M for full terrain",x+4,y+4,0xFFB9C2CC,false);
-        graphics.drawString(font,"You @ X "+whole(map.playerX())+"  Z "+whole(map.playerZ())+"  ·  founding needs 2000m clearance",x+4,y+h-11,0xFFB9C2CC,false);
+        graphics.drawString(font,"You @ X "+whole(map.playerX())+"  Z "+whole(map.playerZ())+"  ·  founding needs "
+                +(int)Math.round(dev.livingrealms.sim.player.PlayerSettlementFounder.MIN_SETTLEMENT_SPACING)+"m clearance",x+4,y+h-11,0xFFB9C2CC,false);
     }
 
     private static int mapX(RealmDashboardSnapshot.StrategicMapView map,double worldX,int x,int w){return x+(int)Math.round((worldX-map.minX())/Math.max(1,map.maxX()-map.minX())*(w-1));}

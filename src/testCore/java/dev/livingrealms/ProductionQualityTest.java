@@ -3,6 +3,8 @@ package dev.livingrealms;
 import dev.livingrealms.sim.compat.WaystoneProvenance;
 import dev.livingrealms.sim.construction.*;
 import dev.livingrealms.sim.faction.*;
+import dev.livingrealms.sim.naval.PortState;
+import dev.livingrealms.sim.civilization.RuinSite;
 import dev.livingrealms.sim.transport.*;
 import dev.livingrealms.sim.world.*;
 import java.util.*;
@@ -89,6 +91,7 @@ public final class ProductionQualityTest {
         DemoSeeder.seed(state);
         SettlementDensitySeeder.ensureStarterDensity(state);
         SimPosition origin = new SimPosition(0, 0);
+        Faction host = state.factions().stream().filter(f -> !WizardTreesSeeder.isWizardTrees(f)).findFirst().orElseThrow();
         var city = LocateQuery.nearestCity(state, origin);
         check(city.isPresent(), "locate city must find a settlement");
         check(city.get().distance() >= 0, "city locate must report a real hit");
@@ -97,6 +100,19 @@ public final class ProductionQualityTest {
         check(mine.get().label().equals("mine"), "mine locate label");
         var kingdom = LocateQuery.nearestKingdom(state, origin);
         check(kingdom.isPresent(), "locate kingdom must work");
+        var market = LocateQuery.nearestMarket(state, origin);
+        check(market.isPresent(), "locate market must find a market-bearing settlement");
+        var wizards = LocateQuery.nearestWizardTrees(state, origin);
+        check(wizards.isPresent(), "locate wizardtrees must find the hidden theocracy");
+        check(LocateQuery.nearestRuin(state, origin).isEmpty(), "locate ruin empty before any ruin exists");
+        state.addRuinSite(new RuinSite(state.nextId(), host.settlements().getFirst().id(), host.id(), 0,
+                new SimPosition(50, 50), "Old Keep", "abandonment"));
+        check(LocateQuery.nearestRuin(state, origin).isPresent(), "locate ruin finds seeded ruins");
+        check(LocateQuery.nearestPort(state, origin).isEmpty(), "locate port must stay empty before discovery");
+        Settlement coastal = host.settlements().getFirst();
+        coastal.setGeography(new SettlementGeographyProfile(true, false, true, false, 0.8, 64, 1, .4, .2, .1, "minecraft:beach", true));
+        state.addPort(new PortState(state.nextId(), host.id(), coastal.id(), coastal.position(), 1));
+        check(LocateQuery.nearestPort(state, origin).isPresent(), "locate port works after discovery");
     }
 
     private static void doorsAreNotAirSlots() {

@@ -44,7 +44,7 @@ public final class FinalProductSystemsTest {
         testProductionContracts();
         testBuildingCondition();
         testInfluenceUnlockActions();
-        System.out.println("PASS final product systems: appearance48 + influence + debt + projects + campaigns + schema17 logistics + heroes + mobility + siege + contracts + building condition + influence unlocks");
+        System.out.println("PASS final product systems: appearance48 + influence + debt + projects + campaigns + schema18 logistics + heroes + mobility + siege + contracts + building condition + influence unlocks");
     }
 
     private static void testAppearanceRange() {
@@ -156,9 +156,9 @@ public final class FinalProductSystemsTest {
         TradeShipment shipment = new TradeShipment(state.nextId(), seller.id(), buyer.id(), ResourceType.FOOD, 20, 40, origin.position(), destination.position());
         shipment.restoreLogistics(origin.id(), destination.id(), 0, 0, 3, 10, .25, .6, TradeShipment.LossState.NONE, 0);
         state.addShipment(shipment);
-        check(SimulationStateCodec.SCHEMA_VERSION == 17, "schema 17 pin");
+        check(SimulationStateCodec.SCHEMA_VERSION == 18, "schema 18 pin");
         byte[] bytes = SimulationStateCodec.encode(state);
-        check(SimulationStateCodec.inspectSchema(bytes) == 17, "encoded schema 17");
+        check(SimulationStateCodec.inspectSchema(bytes) == SimulationStateCodec.SCHEMA_VERSION, "encoded current schema");
         SimulationState loaded = SimulationStateCodec.decode(bytes);
         TradeShipment round = loaded.findShipment(shipment.id()).orElseThrow();
         check(round.originSettlementId() == origin.id() && round.destinationSettlementId() == destination.id(), "logistics settlements roundtrip");

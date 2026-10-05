@@ -4,6 +4,7 @@ import dev.livingrealms.sim.faction.Army;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.world.SettlementDensitySeeder;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.WorldEvent;
@@ -18,8 +19,8 @@ import java.util.Objects;
 public final class PlayerSettlementFounder {
     public record Result(boolean success,String reason,long factionId,long settlementId,String realmName,String settlementName) {}
 
-    /** Hard product floor: every settlement is ≥2000 blocks from every other. */
-    public static final double MIN_SETTLEMENT_SPACING = 2000.0D;
+    /** Hard product floor shared with {@link dev.livingrealms.sim.world.SettlementDensitySeeder}. */
+    public static final double MIN_SETTLEMENT_SPACING = SettlementDensitySeeder.MIN_SETTLEMENT_SPACING;
 
     private PlayerSettlementFounder(){}
 
@@ -83,7 +84,7 @@ public final class PlayerSettlementFounder {
         return best;
     }
 
-    /** Uniform 2000m clearance — larger cities do not get softer founding rules. */
+    /** Uniform clearance — larger cities do not get softer founding rules. */
     public static double requiredSpacing(Settlement settlement){
         Objects.requireNonNull(settlement,"settlement");
         return MIN_SETTLEMENT_SPACING;

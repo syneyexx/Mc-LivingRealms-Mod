@@ -93,7 +93,7 @@ public final class CivilizationLifecycleEngine {
         SocialCitizen ruler=dynasty.rulerCitizenId()>0?state.findSocialCitizen(dynasty.rulerCitizenId()).filter(SocialCitizen::alive).orElse(null):null;
         if(ruler==null)ruler=state.socialCitizens().stream().filter(SocialCitizen::alive).filter(c->c.factionId()==faction.id()&&c.name().equals(faction.rulerName())).findFirst().orElse(null);
         if(ruler==null&&state.socialCitizens().size()<MAX_NAMED_CITIZENS&&!faction.settlements().isEmpty()){
-            Settlement capital=faction.settlements().stream().max(Comparator.comparingInt(Settlement::population)).orElseThrow();long id=state.nextId();int slot=virtualSlot(state,capital.id(),id);CitizenRole role=faction.government().type()==GovernmentType.THEOCRACY?CitizenRole.PRIEST:CitizenRole.OFFICIAL;long birth=state.clock().day()-faction.government().ruler().ageYears()*365L-120;DeterministicRng r=new DeterministicRng(state.seed()^id);CitizenPersonality personality=new CitizenPersonality(r.between(.2,.8),r.between(.2,.8),r.between(.2,.8),r.between(.15,.8),r.between(.35,.95),r.between(.02,.5));int ageYears=Math.max(18,faction.government().ruler().ageYears());var appearance=dev.livingrealms.sim.civilian.AppearanceProfile.forCitizen(state.seed(),id,role,ageYears,faction.id());ruler=new SocialCitizen(id,faction.id(),capital.id(),slot,faction.rulerName(),appearance.textureIndex(),role,birth,personality);ruler.restoreAppearance(appearance.pack());ruler.addMoney(Math.max(40,faction.treasury()*.02));state.addSocialCitizen(ruler);state.history().add(new WorldEvent(state.clock().day(),"ruler_personified","faction="+faction.id()+", citizen="+id+", name="+ruler.name()));
+            Settlement capital=faction.settlements().stream().max(Comparator.comparingInt(Settlement::population)).orElseThrow();long id=state.nextId();int slot=SocialPopulationEngine.allocateVirtualProjectionSlot(state,capital.id(),id);CitizenRole role=faction.government().type()==GovernmentType.THEOCRACY?CitizenRole.PRIEST:CitizenRole.OFFICIAL;long birth=state.clock().day()-faction.government().ruler().ageYears()*365L-120;DeterministicRng r=new DeterministicRng(state.seed()^id);CitizenPersonality personality=new CitizenPersonality(r.between(.2,.8),r.between(.2,.8),r.between(.2,.8),r.between(.15,.8),r.between(.35,.95),r.between(.02,.5));int ageYears=Math.max(18,faction.government().ruler().ageYears());var appearance=dev.livingrealms.sim.civilian.AppearanceProfile.forCitizen(state.seed(),id,role,ageYears,faction.id());ruler=new SocialCitizen(id,faction.id(),capital.id(),slot,faction.rulerName(),appearance.textureIndex(),role,birth,personality);ruler.restoreAppearance(appearance.pack());ruler.addMoney(Math.max(40,faction.treasury()*.02));state.addSocialCitizen(ruler);state.history().add(new WorldEvent(state.clock().day(),"ruler_personified","faction="+faction.id()+", citizen="+id+", name="+ruler.name()));
         }
         if(ruler!=null)dynasty.setRulerCitizenId(ruler.id());
     }
@@ -104,6 +104,8 @@ public final class CivilizationLifecycleEngine {
             if(citizen.householdId()>0&&byId.containsKey(citizen.householdId()))continue;
             HouseholdState partnerHouse=null;
             for(var e:citizen.relationships().entrySet())if(e.getValue().familyBond()==FamilyBond.PARTNER){long otherId=parseCitizenKey(e.getKey());SocialCitizen other=state.findSocialCitizen(otherId).filter(SocialCitizen::alive).orElse(null);if(other!=null&&other.householdId()>0){partnerHouse=byId.get(other.householdId());if(partnerHouse!=null)break;}}
+            // Never attach a citizen to a household that lives in another settlement/faction.
+            if(partnerHouse!=null&&(partnerHouse.factionId()!=citizen.factionId()||partnerHouse.settlementId()!=citizen.settlementId()))partnerHouse=null;
             if(partnerHouse==null){
                 partnerHouse=new HouseholdState(state.nextId(),citizen.factionId(),citizen.settlementId(),state.clock().day());
                 Faction owner=state.findFaction(citizen.factionId()).orElse(null);
@@ -118,9 +120,48 @@ public final class CivilizationLifecycleEngine {
             }
             partnerHouse.addMember(citizen.id());citizen.setHouseholdId(partnerHouse.id());
         }
+        // Drop dead members so transfers that leave corpses behind do not desync household location checks.
+        for(HouseholdState household:state.households())if(household.active())for(long memberId:List.copyOf(household.memberIds())){
+            SocialCitizen member=state.findSocialCitizen(memberId).orElse(null);
+            if(member==null||!member.alive()){household.removeMember(memberId);if(member!=null&&member.householdId()==household.id())member.setHouseholdId(0);}
+        }
         // Merge households after partnership formation; oldest household survives to preserve a stable identity.
-        for(SocialCitizen citizen:state.socialCitizens())if(citizen.alive()&&citizen.householdId()>0)for(var e:citizen.relationships().entrySet())if(e.getValue().familyBond()==FamilyBond.PARTNER){SocialCitizen partner=state.findSocialCitizen(parseCitizenKey(e.getKey())).filter(SocialCitizen::alive).orElse(null);if(partner==null||partner.householdId()<=0||partner.householdId()==citizen.householdId())continue;HouseholdState a=byId.get(citizen.householdId()),b=byId.get(partner.householdId());if(a==null||b==null||a.factionId()!=b.factionId()||a.settlementId()!=b.settlementId())continue;HouseholdState keep=a.id()<b.id()?a:b,drop=keep==a?b:a;for(long member:new ArrayList<>(drop.memberIds()))if(keep.addMember(member)){state.findSocialCitizen(member).ifPresent(c->c.setHouseholdId(keep.id()));drop.removeMember(member);}for(DependentChild child:drop.children())keep.addChild(child);keep.adjustWealth(drop.sharedWealth());drop.deactivate();}
+        for(SocialCitizen citizen:state.socialCitizens())if(citizen.alive()&&citizen.householdId()>0)for(var e:citizen.relationships().entrySet())if(e.getValue().familyBond()==FamilyBond.PARTNER){
+            SocialCitizen partner=state.findSocialCitizen(parseCitizenKey(e.getKey())).filter(SocialCitizen::alive).orElse(null);
+            if(partner==null||partner.householdId()<=0||partner.householdId()==citizen.householdId())continue;
+            HouseholdState a=byId.get(citizen.householdId()),b=byId.get(partner.householdId());
+            if(a==null||b==null||a.factionId()!=b.factionId()||a.settlementId()!=b.settlementId())continue;
+            HouseholdState keep=a.id()<b.id()?a:b,drop=keep==a?b:a;
+            for(long member:new ArrayList<>(drop.memberIds()))if(keep.addMember(member)){state.findSocialCitizen(member).ifPresent(c->c.setHouseholdId(keep.id()));drop.removeMember(member);}
+            // Move children once — leaving them on the deactivated household would duplicate canonical ids.
+            double transferredWealth=drop.sharedWealth();
+            List<DependentChild> moving=new ArrayList<>(drop.children());
+            for(DependentChild child:moving)keep.addChild(child);
+            drop.restore(drop.memberIds(),List.of(),0,drop.homeKey(),false);
+            keep.adjustWealth(transferredWealth);
+        }
         for(HouseholdState household:state.households())if(household.active()&&household.memberIds().stream().noneMatch(id->state.findSocialCitizen(id).map(SocialCitizen::alive).orElse(false))&&household.children().isEmpty())household.deactivate();
+        // Repair residual location drift (e.g. transfer/migration race): sync household to unanimous member location or clear links.
+        for(HouseholdState household:state.households()){
+            if(!household.active())continue;
+            Long unanimousFaction=null,unanimousSettlement=null;boolean mixed=false;
+            for(long memberId:household.memberIds()){
+                SocialCitizen member=state.findSocialCitizen(memberId).filter(SocialCitizen::alive).orElse(null);
+                if(member==null)continue;
+                if(unanimousFaction==null){unanimousFaction=member.factionId();unanimousSettlement=member.settlementId();}
+                else if(unanimousFaction!=member.factionId()||unanimousSettlement!=member.settlementId()){mixed=true;break;}
+            }
+            if(mixed){
+                for(long memberId:List.copyOf(household.memberIds())){
+                    SocialCitizen member=state.findSocialCitizen(memberId).orElse(null);
+                    if(member!=null&&(member.factionId()!=household.factionId()||member.settlementId()!=household.settlementId())){
+                        household.removeMember(memberId);member.setHouseholdId(0);
+                    }
+                }
+            }else if(unanimousFaction!=null&&(household.factionId()!=unanimousFaction||household.settlementId()!=unanimousSettlement)){
+                household.migrate(unanimousFaction,unanimousSettlement);
+            }
+        }
     }
 
     private static void simulateAssistanceTasks(SimulationState state){
@@ -319,7 +360,7 @@ public final class CivilizationLifecycleEngine {
     }
 
     private static void attachHouseholds(SimulationState state,MigrationGroup group,long sourceSettlementId,int people){int represented=0;List<HouseholdState> candidates=state.households().stream().filter(HouseholdState::active).filter(h->h.settlementId()==sourceSettlementId).sorted(Comparator.comparingLong(HouseholdState::id)).toList();for(HouseholdState h:candidates){if(represented>=people||group.householdIds().size()>=8)break;if(group.addHousehold(h.id()))represented+=h.representedPeople();}}
-    private static void moveAttachedHouseholds(SimulationState state,MigrationGroup group,long factionId,long settlementId){for(long hid:group.householdIds())state.findHousehold(hid).ifPresent(h->{h.migrate(factionId,settlementId);for(long cid:h.memberIds())state.findSocialCitizen(cid).filter(SocialCitizen::alive).ifPresent(c->c.migrateTo(factionId,settlementId));});}
+    private static void moveAttachedHouseholds(SimulationState state,MigrationGroup group,long factionId,long settlementId){for(long hid:group.householdIds())state.findHousehold(hid).ifPresent(h->{h.migrate(factionId,settlementId);for(long cid:h.memberIds())state.findSocialCitizen(cid).filter(SocialCitizen::alive).ifPresent(c->{c.migrateTo(factionId,settlementId);SocialPopulationEngine.rebindAfterMigration(state,c);});});}
 
     private static void diffuseKnowledge(SimulationState state){
         for(Faction faction:state.factions())for(Settlement settlement:faction.settlements()){
@@ -514,7 +555,7 @@ public final class CivilizationLifecycleEngine {
         if(target==null){state.ensureSettlementCivilization(settlement.id(),faction.id()).adjustBanditPressure(.08);return;}
         Faction owner=state.findSettlementOwner(target.id()).orElseThrow();long oldHouseholdId=accused.householdId();state.findHousehold(oldHouseholdId).ifPresent(h->h.removeMember(accused.id()));
         HouseholdState exileHousehold=new HouseholdState(state.nextId(),owner.id(),target.id(),state.clock().day());exileHousehold.addMember(accused.id());exileHousehold.adjustWealth(accused.money()*.2);exileHousehold.setHomeKey("exile:"+target.id());state.addHousehold(exileHousehold);
-        accused.setHouseholdId(exileHousehold.id());accused.migrateTo(owner.id(),target.id());state.history().add(new WorldEvent(state.clock().day(),"citizen_exiled","citizen="+accused.id()+", from="+settlement.id()+", to="+target.id()+", oldHousehold="+oldHouseholdId));
+        accused.setHouseholdId(exileHousehold.id());accused.migrateTo(owner.id(),target.id());SocialPopulationEngine.rebindAfterMigration(state,accused);state.history().add(new WorldEvent(state.clock().day(),"citizen_exiled","citizen="+accused.id()+", from="+settlement.id()+", to="+target.id()+", oldHousehold="+oldHouseholdId));
     }
 
     private static void simulateHiddenCaches(SimulationState state){
@@ -578,7 +619,7 @@ public final class CivilizationLifecycleEngine {
         HouseholdState hostHouse=state.findHousehold(host.householdId()).filter(HouseholdState::active).orElse(null);if(hostHouse==null||hostHouse.memberIds().size()>=HouseholdState.MAX_NAMED_MEMBERS)return false;
         Settlement destination=state.findSettlement(hostHouse.settlementId()).orElse(null);Settlement source=state.findSettlement(guest.settlementId()).orElse(null);if(destination==null)return false;
         state.findHousehold(guest.householdId()).ifPresent(h->h.removeMember(guest.id()));if(source!=null&&source.id()!=destination.id()&&source.population()>1){source.addPopulation(-1);destination.addPopulation(1);}
-        guest.migrateTo(hostFaction.id(),destination.id());guest.setHouseholdId(hostHouse.id());hostHouse.addMember(guest.id());return true;
+        guest.migrateTo(hostFaction.id(),destination.id());SocialPopulationEngine.rebindAfterMigration(state,guest);guest.setHouseholdId(hostHouse.id());hostHouse.addMember(guest.id());return true;
     }
     private static boolean isDynasticCourtMember(SimulationState state,Faction faction,SocialCitizen citizen){DynastyState d=state.dynasties().get(faction.id());return d!=null&&(d.rulerCitizenId()==citizen.id()||d.heirCitizenId()==citizen.id());}
     private static SocialCitizen eligiblePoliticalPartner(SimulationState state,Faction faction){DynastyState dynasty=state.dynasties().get(faction.id());List<SocialCitizen> candidates=state.socialCitizens().stream().filter(SocialCitizen::alive).filter(c->c.factionId()==faction.id()).filter(c->c.ageYears(state.clock().day())>=18&&c.ageYears(state.clock().day())<=55).filter(c->!hasLivingPartner(state,c)).filter(c->c.role()==CitizenRole.OFFICIAL||c.role()==CitizenRole.PRIEST||dynasty!=null&&c.householdId()>0&&state.findHousehold(c.householdId()).map(h->h.memberIds().contains(dynasty.rulerCitizenId())).orElse(false)).sorted(Comparator.comparingLong(SocialCitizen::id)).toList();return candidates.isEmpty()?null:candidates.getFirst();}
@@ -598,7 +639,17 @@ public final class CivilizationLifecycleEngine {
             if(target==null){PirateHideout hideout=state.findPirateHideoutByBand(band.id()).orElse(null);if(hideout!=null&&band.position().distanceTo(hideout.position())>40)band.moveToward(hideout.position(),55);if(rng.chance(.0015)){band.disband();if(hideout!=null)hideout.destroy();}continue;}
             band.moveToward(target.position(),80+band.strength()*1.5);
             if(band.position().distanceTo(target.position())<90&&rng.chance(Math.min(.7,.08+band.strength()*.012))){double captured=target.value();band.addLoot(captured*.45);state.findPirateHideoutByBand(band.id()).ifPresent(h->h.addLoot(captured*.55));long shipmentId=target.id();state.recordPhysicalShipmentLoss(shipmentId,"piracy:band="+band.id());state.history().add(new WorldEvent(day,"piracy","pirates="+band.id()+", shipment="+shipmentId+", loot="+Math.round(captured)));band.adjustMorale(.03);}
-            if(band.strength()<3||band.morale()<.12){band.disband();state.history().add(new WorldEvent(day,"pirate_band_disbanded","pirates="+band.id()+", reason=collapse"));}
+            if(band.strength()<3||band.morale()<.12){
+                band.disband();
+                state.findPirateHideoutByBand(band.id()).ifPresent(PirateHideout::destroy);
+                state.history().add(new WorldEvent(day,"pirate_band_disbanded","pirates="+band.id()+", reason=collapse"));
+            }
+        }
+        // Hideouts cannot outlive their band: prune orphaned active records after attrition/disband.
+        for(PirateHideout hideout:state.pirateHideouts()){
+            if(!hideout.active())continue;
+            PirateBand band=state.findPirateBand(hideout.bandId()).orElse(null);
+            if(band==null||!band.active())hideout.destroy();
         }
     }
 
@@ -703,7 +754,6 @@ public final class CivilizationLifecycleEngine {
     private static boolean acceptableMigrationTarget(SimulationState state,Faction sourceOwner,Settlement target){Faction owner=state.findSettlementOwner(target.id()).orElse(null);if(owner==null)return false;if(owner.id()==sourceOwner.id())return true;DiplomaticRelation rel=sourceOwner.relations().get(owner.id());return rel==null||rel.status()==RelationStatus.NEUTRAL||rel.status()==RelationStatus.FRIENDLY||rel.status()==RelationStatus.ALLIED;}
     private static double migrationScore(SimulationState state,Settlement s){Faction owner=state.findSettlementOwner(s.id()).orElse(null);if(owner==null)return 0;SettlementCivilizationState c=state.ensureSettlementCivilization(s.id(),owner.id());double housing=Mathx.clamp((s.housing()-s.population()+20)/(double)Math.max(20,s.population()),0,1);return s.foodSecurity()*.28+s.publicOrder()*.23+s.prosperity()*.16+housing*.15+(1-c.diseasePressure())*.12+owner.government().stability()*.06;}
     private static CitizenRole chooseProfession(Settlement s,long id){List<CitizenRole> roles=new ArrayList<>(List.of(CitizenRole.FARMER,CitizenRole.BUILDER,CitizenRole.TRADER,CitizenRole.GUARD,CitizenRole.BUTCHER));if(has(s,"mine:"))roles.add(CitizenRole.MINER);if(has(s,"lumber_camp:")){roles.add(CitizenRole.LUMBERJACK);roles.add(CitizenRole.CARPENTER);}if(has(s,"fishery:")){roles.add(CitizenRole.FISHER);roles.add(CitizenRole.SAILOR);}if(has(s,"dock:")){roles.add(CitizenRole.DOCKWORKER);roles.add(CitizenRole.SAILOR);}if(has(s,"workshop:"))roles.add(CitizenRole.ARTISAN);if(has(s,"clinic:"))roles.add(CitizenRole.HEALER);if(has(s,"temple:"))roles.add(CitizenRole.PRIEST);if(has(s,"school:")){roles.add(CitizenRole.SCHOLAR);roles.add(CitizenRole.TEACHER);}if(has(s,"warehouse:")){roles.add(CitizenRole.DOCKWORKER);}return roles.get(Math.floorMod(Long.hashCode(id*31),roles.size()));}
-    private static int virtualSlot(SimulationState state,long settlementId,long id){int slot=60_000+Math.floorMod(Long.hashCode(id),39_000);Set<Integer> used=new HashSet<>();for(SocialCitizen c:state.socialCitizens())if(c.settlementId()==settlementId)used.add(c.projectionSlot());while(used.contains(slot)&&slot<99_999)slot++;if(used.contains(slot)){slot=59_999;while(slot>1&&used.contains(slot))slot--;}return slot;}
     private static boolean hasLivingPartner(SimulationState state,SocialCitizen c){return c.relationships().entrySet().stream().filter(e->e.getValue().familyBond()==FamilyBond.PARTNER).mapToLong(e->parseCitizenKey(e.getKey())).anyMatch(id->state.findSocialCitizen(id).filter(SocialCitizen::alive).isPresent());}
     private static boolean hasHouseholdPartner(SocialCitizen c,List<SocialCitizen> householdAdults){return c.relationships().entrySet().stream().filter(e->e.getValue().familyBond()==FamilyBond.PARTNER).mapToLong(e->parseCitizenKey(e.getKey())).anyMatch(id->householdAdults.stream().anyMatch(other->other.id()==id&&other.alive()));}
     private static long parseCitizenKey(String key){if(key==null||!key.startsWith("citizen:"))return 0;try{return Long.parseLong(key.substring(8));}catch(NumberFormatException ignored){return 0;}}

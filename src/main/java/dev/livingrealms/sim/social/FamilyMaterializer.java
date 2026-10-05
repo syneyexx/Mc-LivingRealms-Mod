@@ -13,7 +13,7 @@ public final class FamilyMaterializer {
     public static SocialCitizen materialize(SimulationState state,HouseholdState household,DependentChild dependent,CitizenRole role){
         Objects.requireNonNull(state,"state");Objects.requireNonNull(household,"household");Objects.requireNonNull(dependent,"dependent");Objects.requireNonNull(role,"role");
         SocialCitizen existing=state.findSocialCitizen(dependent.id()).orElse(null);if(existing!=null)return existing;
-        long id=dependent.id();int slot=projectionSlot(state,household.settlementId(),id);
+        long id=dependent.id();int slot=SocialPopulationEngine.allocateVirtualProjectionSlot(state,household.settlementId(),id);
         CitizenIdentity identity=CitizenIdentity.forAgent(state.seed(),id,household.factionId(),household.settlementId(),slot,role);
         DeterministicRng rng=new DeterministicRng(state.seed()^id*0x9E3779B97F4A7C15L^dependent.birthDay());
         CitizenPersonality personality=new CitizenPersonality(rng.between(.05,.95),rng.between(.05,.95),rng.between(.05,.95),rng.between(.05,.95),rng.between(.05,.95),rng.between(.02,.75));
@@ -36,7 +36,4 @@ public final class FamilyMaterializer {
         });
     }
 
-    private static int projectionSlot(SimulationState state,long settlementId,long id){
-        int slot=60_000+Math.floorMod(Long.hashCode(id),39_000);Set<Integer> used=new HashSet<>();for(SocialCitizen c:state.socialCitizens())if(c.settlementId()==settlementId)used.add(c.projectionSlot());while(used.contains(slot)&&slot<99_999)slot++;if(used.contains(slot)){slot=59_999;while(slot>1&&used.contains(slot))slot--;}return slot;
-    }
 }
