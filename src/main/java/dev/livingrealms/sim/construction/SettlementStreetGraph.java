@@ -94,20 +94,33 @@ public final class SettlementStreetGraph {
             if (intent.role() != StructureRole.ROAD) continue;
             RoadSegment segment = segmentFromIntent(intent);
             segments.add(segment);
-            long startId = nodeId(nodeIndex, nodes, segment.start(), nextNode);
-            long endId = nodeId(nodeIndex, nodes, segment.end(), nextNode);
-            edges.add(new StreetEdge(startId, endId, segment.key()));
+            // Sample centerline so crossing arterials share quantized intersection nodes.
+            List<SimPosition> samples = segment.centerline();
+            if (samples.size() < 2) {
+                samples = List.of(segment.start(), segment.end());
+            }
+            long prev = -1;
+            for (SimPosition sample : samples) {
+                long id = nodeId(nodeIndex, nodes, sample, nextNode);
+                if (prev > 0 && prev != id) {
+                    edges.add(new StreetEdge(prev, id, segment.key()));
+                }
+                prev = id;
+            }
         }
         return new SettlementStreetGraph(settlementId, nodes, segments, edges);
     }
 
     private static long nodeId(Map<String, Long> index, List<RoadNode> nodes, SimPosition pos, long[] nextId) {
-        String key = Math.round(pos.x()) + ":" + Math.round(pos.z());
+        // Quantize so orthogonal crossings land on the same node key.
+        long qx = Math.round(pos.x() / 8.0) * 8;
+        long qz = Math.round(pos.z() / 8.0) * 8;
+        String key = qx + ":" + qz;
         Long existing = index.get(key);
         if (existing != null) return existing;
         long id = nextId[0]++;
         index.put(key, id);
-        nodes.add(new RoadNode(id, pos));
+        nodes.add(new RoadNode(id, new SimPosition(qx, qz)));
         return id;
     }
 

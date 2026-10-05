@@ -307,9 +307,8 @@ public final class SettlementPlanner {
             addAt(out, faction, settlement, StructureRole.HOUSE, emitted, parcel.center(), w, d, face, 88);
             emitted++;
         }
-        // Fallback: if the street graph could not yield enough parcels (tiny camp / empty roads),
-        // keep sparse spiral fill so population still gets housing intents.
-        if (emitted < Math.min(houses, 5)) {
+        // Fallback: fill remaining house demand when the street graph cannot supply enough parcels.
+        if (emitted < houses) {
             addHousingSpiralFallback(out, faction, settlement, morph, baseRotation, culture, houses, emitted);
         }
     }

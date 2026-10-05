@@ -2,6 +2,7 @@ package dev.livingrealms.sim.construction;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Generates compact vanilla-safe structure geometry. Visual palettes are resolved later by the
@@ -122,7 +123,7 @@ public final class StructureBlueprintFactory {
     }
 
     private static StructureBlueprint house(ConstructionIntent intent) {
-        CultureArchitecture culture=CultureArchitecture.fromStyleIndex(Math.floorMod((int)intent.factionId(),8));
+        CultureArchitecture culture=CultureArchitectureProfile.forIntent(intent);
         int w=Math.max(intent.width(),culture.minHouseWidth());
         int d=Math.max(intent.depth(),culture.minHouseDepth());
         if(w>=13&&d>=13)return mansion(w,d);
@@ -141,6 +142,19 @@ public final class StructureBlueprintFactory {
             case TIMBER_PAVILION -> switch(variant(intent,2)){case 0->courtyardHouse(w,d);default->L_shapedHouse(w,d);};
             case SCHOLAR_VILLA -> switch(variant(intent,2)){case 0->courtyardHouse(w,d);default->hallHouse(w,d);};
         };
+    }
+
+    /** Explicit culture override for planners/tests that already resolved a profile. */
+    public static StructureBlueprint create(ConstructionIntent intent, CultureArchitecture culture) {
+        Objects.requireNonNull(intent, "intent");
+        Objects.requireNonNull(culture, "culture");
+        if (intent.role() != StructureRole.HOUSE) return create(intent);
+        CultureArchitectureProfile.bind(intent.settlementId(), culture);
+        try {
+            return house(intent);
+        } finally {
+            // leave binding for subsequent same-settlement jobs
+        }
     }
 
     /** Inner courtyard cottage — denser cultural variety inspired by compact village compounds. */
