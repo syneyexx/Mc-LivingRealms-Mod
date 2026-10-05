@@ -8,24 +8,19 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.RegisterGameTestsEvent;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Real Minecraft GameTests for construction/provenance safety.
- * Templates are created in-world; no prebaked structure NBT required.
+ * Uses data/livingrealms/structure/gametests/empty.nbt as the batch template.
  */
-@EventBusSubscriber(modid = LivingRealms.MOD_ID)
+@GameTestHolder(LivingRealms.MOD_ID)
+@PrefixGameTestTemplate(false)
 public final class LivingRealmsGameTests {
     private LivingRealmsGameTests() {}
 
-    @SubscribeEvent
-    public static void register(RegisterGameTestsEvent event) {
-        event.register(LivingRealmsGameTests.class);
-    }
-
-    @GameTest(template = "minecraft:empty", timeoutTicks = 20)
+    @GameTest(template = "gametests/empty", timeoutTicks = 20)
     public static void alreadyCorrectDoesNotClaimOwnership(GameTestHelper helper) {
         BlockPos pos = new BlockPos(1, 2, 1);
         helper.setBlock(pos, Blocks.STONE_BRICKS);
@@ -47,7 +42,7 @@ public final class LivingRealmsGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "minecraft:empty", timeoutTicks = 20)
+    @GameTest(template = "gametests/empty", timeoutTicks = 20)
     public static void unknownStructureIsProtected(GameTestHelper helper) {
         BlockPos pos = new BlockPos(2, 2, 2);
         helper.setBlock(pos, Blocks.OAK_PLANKS);
@@ -66,7 +61,7 @@ public final class LivingRealmsGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "minecraft:empty", timeoutTicks = 20)
+    @GameTest(template = "gametests/empty", timeoutTicks = 20)
     public static void naturalTerrainMayBeAuthored(GameTestHelper helper) {
         BlockPos pos = new BlockPos(3, 2, 3);
         helper.setBlock(pos, Blocks.GRASS_BLOCK);
@@ -88,7 +83,7 @@ public final class LivingRealmsGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "minecraft:empty", timeoutTicks = 20)
+    @GameTest(template = "gametests/empty", timeoutTicks = 20)
     public static void typedOwnersDoNotOverwriteEachOther(GameTestHelper helper) {
         BlockPos pos = new BlockPos(4, 2, 4);
         helper.setBlock(pos, Blocks.GRASS_BLOCK);

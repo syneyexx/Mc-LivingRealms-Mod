@@ -1,11 +1,10 @@
 package dev.livingrealms.sim.faction;
 
-import dev.livingrealms.sim.construction.SettlementPlanner;
-import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.military.*;
 import dev.livingrealms.sim.util.DeterministicRng;
 import dev.livingrealms.sim.util.Mathx;
 import dev.livingrealms.sim.world.*;
+import static dev.livingrealms.sim.world.SettlementTransfer.transfer;
 import java.util.*;
 
 /** Deterministic strategic economy, diplomacy, movement, battle, siege and conquest simulation. */
@@ -26,49 +25,52 @@ public final class FactionEngine {
     private void simulateEconomy(SimulationState state,List<Faction> factions) {
         for (Faction f : factions) {
             int pop = f.population();
-            // Free pop*FOOD/WOOD/STONE minting is gone. Local production + primary industry + tithes
-            // feed settlement/faction stockpiles via SettlementEconomyEngine / PrimaryEconomyEngine.
-            double foodNeed = pop * .04; // residual court/army reserve draw on faction stores only
-            double fed = f.stockpile().take(ResourceType.FOOD, foodNeed);
+            // Tithe from settlements is the treasury income; army upkeep drains it. No pop*constant gold mint.
+            double militaryUpkeep = f.armies().stream().mapToDouble(a -> a.totalPersonnel() * .002).sum();
+            double titheGold = 0;
+            for (Settlement s : f.settlements()) {
+                // Convert a slice of tithed grain/bread value as cash proxy for court payroll.
+                double localGrain = s.stockpile().get(ResourceType.GRAIN) + s.stockpile().get(ResourceType.BREAD);
+                titheGold += Math.min(12.0, localGrain * 0.0008 * f.government().taxRate());
+            }
+            f.addTreasury(titheGold - militaryUpkeep);
+            double foodNeed = pop * .04;
+            double fed = f.stockpile().take(ResourceType.BREAD, foodNeed);
+            if (fed < foodNeed) fed += f.stockpile().take(ResourceType.GRAIN, foodNeed - fed);
+            if (fed < foodNeed) fed += f.stockpile().take(ResourceType.FOOD, foodNeed - fed);
             double foodRatio = Mathx.clamp(Mathx.safeDiv(fed + localFood(f), Math.max(1, pop * .20)), 0, 1);
             for (Settlement s : f.settlements()) {
-                // The integrated SimulationState delegates births/deaths/refugees to CivilizationEngine so there is
-                // exactly one demographic authority. The list-only compatibility overload retains legacy net growth.
-                if(state==null){double growth=.00012*(foodRatio-.45)*(1-s.unrest()*.7);int delta=(int)Math.round(s.population()*growth);if(s.housingShortage()>0)delta=Math.min(delta,0);s.addPopulation(delta);}
+                if(state==null){double growth=.00012*(foodRatio-.45)*(1-s.unrest()*.7);if(s.foodSecurity()<0.55)growth=Math.min(growth,0);int delta=(int)Math.round(s.population()*growth);if(s.housingShortage()>0)delta=Math.min(delta,0);s.addPopulation(delta);}
                 double woodAvail=s.stockpile().get(ResourceType.WOOD)+f.stockpile().get(ResourceType.WOOD);
                 double stoneAvail=s.stockpile().get(ResourceType.STONE)+f.stockpile().get(ResourceType.STONE);
-                boolean physicalHouseBacklog=state!=null&&hasPendingHouses(f,s);
-                boolean playerActivated=state!=null&&state.presentationScope().anyActivated()&&state.presentationScope().isActivated(s.id());
-                // Near players: stop (or sharply cut) phantom housing — beds come from completed house: intents.
-                // Headless / unloaded: keep the implied housing floor so soak tests stay continuous.
-                if (s.housingShortage() > Math.max(5, s.population() * .05) && woodAvail > 20) {
+                // Housing only rises when both wood and stone can actually be paid.
+                if (s.housingShortage() > Math.max(5, s.population() * .05) && woodAvail > 20 && stoneAvail > 8) {
                     int build = (int)Math.min(s.housingShortage() + 10, 25 + f.technology() * 25);
-                    drawBuildMaterials(f,s,build*.4,build*.15);
-                    if(!playerActivated){
-                        s.addHousing(build);
-                    }else if(!physicalHouseBacklog&&s.housingShortage()>s.population()*.3){
-                        s.addHousing(Math.min(6,Math.max(2,build/5)));
-                    }
-                    s.improveInfrastructure(.001 * build);
+                    double woodCost=build*.4,stoneCost=build*.15;
+                    if(woodAvail<woodCost||stoneAvail<stoneCost)continue;
+                    drawBuildMaterials(f,s,woodCost,stoneCost);
+                    s.addHousing(build);s.improveInfrastructure(.001 * build);
                 }
-                if(state!=null&&s.housing()-s.population()<Math.max(10,s.population()/12)&&woodAvail>45&&Math.floorMod(state.clock().day()+s.id(),7L)==0L){
+                if(state!=null&&s.housing()-s.population()<Math.max(10,s.population()/12)&&woodAvail>45&&stoneAvail>18&&Math.floorMod(state.clock().day()+s.id(),7L)==0L){
                     int build=Math.min(36,Math.max(12,s.population()/30));
-                    drawBuildMaterials(f,s,build*.45,build*.18);
-                    if(!playerActivated){
-                        s.addHousing(build);
-                    }
-                    s.improveInfrastructure(.0007*build);
+                    double woodCost=build*.45,stoneCost=build*.18;
+                    if(woodAvail<woodCost||stoneAvail<stoneCost)continue;
+                    drawBuildMaterials(f,s,woodCost,stoneCost);
+                    s.addHousing(build);s.improveInfrastructure(.0007*build);
                 }
             }
-            f.advanceTechnology(.00002 * Math.sqrt(Math.max(1, pop))*(.6+.6*f.government().ruler().stewardship()));
-            double militaryUpkeep = f.armies().stream().mapToDouble(a -> a.totalPersonnel() * .002).sum();double taxIncome=pop*f.government().taxRate()*(.10+f.settlements().stream().mapToDouble(Settlement::prosperity).average().orElse(.5)*.12);f.addTreasury(taxIncome - militaryUpkeep);
+            // Technology only from schools/workshops/scholarly structures — no free sqrt(pop) drip.
+            boolean scholarly=f.settlements().stream().anyMatch(s->
+                    s.countProductionPrefix("school:")>0||s.countProductionPrefix("workshop:")>0||s.countProductionPrefix("library:")>0||s.countProductionPrefix("university:")>0);
+            if(scholarly)f.advanceTechnology(Math.min(.002,.00015*(.6+.6*f.government().ruler().stewardship())));
         }
     }
 
-    private static boolean hasPendingHouses(Faction f,Settlement s){
-        return SettlementPlanner.pending(f,s).stream().anyMatch(i->i.role()==StructureRole.HOUSE);
+    private static double localFood(Faction f){
+        double t=0;
+        for(Settlement s:f.settlements())t+=s.edibleStock();
+        return t;
     }
-    private static double localFood(Faction f){double t=0;for(Settlement s:f.settlements())t+=s.stockpile().get(ResourceType.FOOD);return t;}
     private static void drawBuildMaterials(Faction f,Settlement s,double wood,double stone){
         double fromLocalWood=s.stockpile().take(ResourceType.WOOD,wood);if(fromLocalWood<wood)f.stockpile().take(ResourceType.WOOD,wood-fromLocalWood);
         double fromLocalStone=s.stockpile().take(ResourceType.STONE,stone);if(fromLocalStone<stone)f.stockpile().take(ResourceType.STONE,stone-fromLocalStone);
@@ -169,8 +171,10 @@ public final class FactionEngine {
         boolean crossedHigh=breachBefore<.75&&siege.breach()>=.75;
         if(!(crossedLow||crossedMid||crossedHigh))return;
         for(String prefix:prefixes){
-            String hit=settlement.damageAuthoredStructure(prefix);
-            if(hit!=null){state.history().add(new WorldEvent(state.clock().day(),"siege_structure_damage",settlement.name()+" lost "+hit+" (breach="+String.format(java.util.Locale.ROOT,"%.2f",siege.breach())+")"));break;}
+            String hit;
+            while((hit=settlement.damageAuthoredStructure(prefix))!=null){
+                state.history().add(new WorldEvent(state.clock().day(),"siege_structure_damage",settlement.name()+" lost "+hit+" (breach="+String.format(java.util.Locale.ROOT,"%.2f",siege.breach())+")"));
+            }
         }
     }
     private static void provisionSiegeEquipment(Faction attacker,Army army,SiegeState siege){
@@ -178,7 +182,13 @@ public final class FactionEngine {
         if(siege.ladders()<6&&attacker.stockpile().get(ResourceType.WOOD)>=6){attacker.stockpile().take(ResourceType.WOOD,6);siege.addEquipment(0,2,0);}
         if(siege.artilleryPieces()<Math.max(0,Math.min(6,army.artillery()/12))&&attacker.stockpile().get(ResourceType.IRON)>=8&&attacker.stockpile().get(ResourceType.MACHINERY)>=4){attacker.stockpile().take(ResourceType.IRON,8);attacker.stockpile().take(ResourceType.MACHINERY,4);siege.addEquipment(0,0,1);}
     }
-    private static void capture(SimulationState state,Faction attacker,Faction defender,Army army,Settlement settlement){Settlement captured=defender.removeSettlement(settlement.id());if(captured==null)return;attacker.addSettlement(captured);attacker.relationWith(defender.id()).adjust(-8);defender.relationWith(attacker.id()).adjust(-8);army.resupply(-.12);captured.adjustUnrest(.18);if(state!=null){state.history().add(new WorldEvent(state.clock().day(),"settlement_captured",attacker.name()+" captured "+captured.name()+" from "+defender.name()));state.activeWar(attacker.id(),defender.id()).ifPresent(w->w.adjustScore(18));}}
+    private static void capture(SimulationState state,Faction attacker,Faction defender,Army army,Settlement settlement){
+        Settlement captured=state==null?defender.removeSettlement(settlement.id()):transfer(state,settlement,defender,attacker);
+        if(captured==null)return;
+        if(state==null)attacker.addSettlement(captured);
+        attacker.relationWith(defender.id()).adjust(-8);defender.relationWith(attacker.id()).adjust(-8);army.resupply(-.12);captured.adjustUnrest(.18);
+        if(state!=null){state.history().add(new WorldEvent(state.clock().day(),"settlement_captured",attacker.name()+" captured "+captured.name()+" from "+defender.name()));state.activeWar(attacker.id(),defender.id()).ifPresent(w->w.adjustScore(18));}
+    }
 
     private static void resupplyNearFriendlySettlement(Faction owner, Army army) {for (Settlement settlement : owner.settlements()) if (army.position().distanceTo(settlement.position()) <= 120) {double food = owner.stockpile().take(ResourceType.FOOD, Math.max(1, army.totalPersonnel() * .01));if (food > 0) army.resupply(.08);return;}}
     private static EnemyTarget nearestTarget(Army army, List<Faction> enemies) {EnemyTarget best = null; double bestDistance = Double.POSITIVE_INFINITY;for (Faction enemy : enemies) for (Settlement settlement : enemy.settlements()) {double distance = army.position().distanceTo(settlement.position());if (distance < bestDistance) { bestDistance = distance; best = new EnemyTarget(enemy, settlement); }}return best;}

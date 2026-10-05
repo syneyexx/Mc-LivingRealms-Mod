@@ -91,7 +91,7 @@ public final class RealmDashboardBuilder {
         List<RealmDashboardSnapshot.WarView> wars=state.wars().stream().filter(w->w.active()&&(realmId<=0||w.involves(realmId)))
                 .sorted(Comparator.comparingLong(dev.livingrealms.sim.diplomacy.WarState::startDay).reversed())
                 .limit(MAX_WARS)
-                .map(w->new RealmDashboardSnapshot.WarView(w.id(),w.attackerFactionId(),nameOf(state,w.attackerFactionId()),w.defenderFactionId(),nameOf(state,w.defenderFactionId()),w.goal().name(),w.startDay(),w.attackerScore(),w.attackerExhaustion(),w.defenderExhaustion()))
+                .map(w->new RealmDashboardSnapshot.WarView(w.id(),w.attackerFactionId(),nameOf(state,w.attackerFactionId()),w.defenderFactionId(),nameOf(state,w.defenderFactionId()),w.goal().name(),w.targetSettlementId(),w.targetSettlementId()>0?settlementName(state,w.targetSettlementId()):"",w.startDay(),w.attackerScore(),w.attackerExhaustion(),w.defenderExhaustion()))
                 .toList();
 
         RealmDashboardSnapshot.WarfareView warfare=warfareView(state,realmId,position);

@@ -67,9 +67,13 @@ public final class AssistanceContributionEngine {
 
         PlayerStanding standing = state.playerStanding(actorKey);
         standing.adjustReputation(faction.id(), 2.5 + relief * 8);
+        ProductionContract contract = new ProductionContract(task);
+        standing.adjustReputation(faction.id(), contract.rewardReputation() * .15);
+        faction.addTreasury(contract.rewardTreasury() * .35 * relief);
         if (standing.isMemberOf(faction.id())) {
-            try { state.grantFactionService(actorKey, faction.id(), 4 + relief * 20); }
-            catch (RuntimeException ignored) { /* non-member path already handled */ }
+            try {
+                state.grantFactionService(actorKey, faction.id(), 4 + relief * 20 + contract.rewardInfluence() * .5);
+            } catch (RuntimeException ignored) { /* non-member path already handled */ }
         }
 
         state.history().add(new WorldEvent(state.clock().day(), "assistance_contribution",

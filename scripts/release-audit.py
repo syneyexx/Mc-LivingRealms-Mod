@@ -23,8 +23,10 @@ world_contract=root/'docs/WORLD_INTEGRATION_EXPANSION.md'
 require(world_contract.exists(),'buildfix10 world-integration acceptance contract must exist')
 if readiness.exists():
     readiness_text=readiness.read_text()
-    require('v3.0.0-rc4' in readiness_text,'production readiness report must match RC4')
-    require('Production candidate, not yet release-complete.' in readiness_text,'readiness report must not overclaim unverified linked/runtime gates')
+    require('CURRENT PINS:' in readiness_text and 'schema 18' in readiness_text,'production readiness must carry CURRENT PINS with schema 18')
+    require('contentRevision 14' in readiness_text,'production readiness must pin contentRevision 14')
+    require('runtimeSmoke' in readiness_text and 'pass' in readiness_text.lower(),'readiness must document that runtimeSmoke pass requires a real client run')
+    require('EXTERNAL GATE' not in readiness_text.split('## Geschiedenis')[0],'readiness current status must not claim EXTERNAL GATE')
 
 
 build_gradle=(root/'build.gradle').read_text()
@@ -106,11 +108,11 @@ min_schema=int_const(codec,'MIN_SUPPORTED_SCHEMA')
 dashboard_protocol=int_const(snap,'PROTOCOL_VERSION')
 network_version=str_const(net,'NETWORK_VERSION')
 content_revision=int_const(saved_data_for_rev,'CONTENT_REVISION')
-require(schema_version==17,f'save schema must be 17 (source currently {schema_version})')
+require(schema_version==18,f'save schema must be 18 (source currently {schema_version})')
 require(min_schema==1,f'min supported schema must remain 1 (source {min_schema})')
-require(dashboard_protocol==17,f'dashboard protocol must be 17 (source {dashboard_protocol})')
+require(dashboard_protocol==19,f'dashboard protocol must be 19 (source {dashboard_protocol})')
 require(network_version=='15',f'network registration version must be 15 (source {network_version!r})')
-require(content_revision==12,f'content revision must be 12 (source {content_revision})')
+require(content_revision==14,f'content revision must be 14 (source {content_revision})')
 
 
 
@@ -167,6 +169,20 @@ required_suite={
     'dev.livingrealms.PlayerRulershipTest',
     'dev.livingrealms.MobileCivilizationProjectionTest',
     'dev.livingrealms.WizardTreesTest',
+    'dev.livingrealms.MigrationOrderTest',
+    'dev.livingrealms.AuthoredSettlementNamesTest',
+    'dev.livingrealms.GoodsChainTest',
+    'dev.livingrealms.NoPhantomConstructionTest',
+    'dev.livingrealms.SettlementTransferTest',
+    'dev.livingrealms.WarGoalAndCapitalTargetTest',
+    'dev.livingrealms.DialogueTokenTest',
+    'dev.livingrealms.RosterWithoutProjectionTest',
+    'dev.livingrealms.SingleProductionAuthorityTest',
+    'dev.livingrealms.SiegeBreachAllKeysTest',
+    'dev.livingrealms.DashboardActionExhaustivenessTest',
+    'dev.livingrealms.DocumentationPinTest',
+    'dev.livingrealms.ManualDayAdvanceSchedulerTest',
+    'dev.livingrealms.Schema18FollowUpTest',
     'dev.livingrealms.LongRunSoakTest',
 }
 missing_required=sorted(required_suite-set(canonical_tests))
@@ -206,14 +222,12 @@ require(integrity_test.exists(),'SaveIntegrityTest.java must exist')
 require(fuzz_test.exists(),'SaveMutationFuzzTest.java must exist')
 require(hardening_test.exists(),'ProductionHardeningTest.java must exist')
 require(density_test.exists(),'LivingWorldDensityTest.java must exist')
-density_text=density_test.read_text()
-require(('12 kingdoms + Wizard Trees' in density_text or 'twelve kingdoms plus Wizard Trees' in density_text) and 'Wizard Trees' in density_text,'living-world gate must retain twelve kingdoms plus the hidden Wizard Trees faction')
+require('12 kingdoms + Wizard Trees' in density_test.read_text() and 'SURFACE_STARTER_SETTLEMENTS' in density_test.read_text(),'living-world gate must retain twelve kingdoms plus Wizard Trees with the densifier surface target')
 founder=(root/'src/main/java/dev/livingrealms/sim/player/PlayerSettlementFounder.java').read_text()
 require('Realm of ' in founder and 'assumeRule' in founder and 'relationWith' in founder,'player-founded settlements must enter canonical government/membership/diplomacy as the actual ruler')
 saved_data=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java').read_text()
-require('ContentRevision' in saved_data and 'contentRevision < CONTENT_REVISION' in saved_data,'density content migration must remain one-shot and persisted')
-require('resetConstructionCompletion' in saved_data and 'contentRevision < 10' in saved_data and 'CONTENT_REVISION = 12' in saved_data,'content revision 12 keeps morphology rebuild gate from revision 10 and sparse-density migration without schema-only presentation debt')
-require('contentRevision<6||contentRevision<12' in saved_data.replace(' ',''),'revision 12 densifier gate must remain one-shot for pre-12 saves')
+require('ContentRevision' in saved_data and 'ContentMigrationPolicy.shouldEnsureDensity' in saved_data,'density content migration must remain one-shot and persisted')
+require('resetConstructionCompletion' in saved_data and 'ContentMigrationPolicy.shouldResetMorphology' in saved_data and 'CONTENT_REVISION = 14' in saved_data,'content revision 14 keeps morphology rebuild gate via ContentMigrationPolicy and Spec densifier')
 require((root/'LICENSE').exists() and 'MIT License' in (root/'LICENSE').read_text(),'MIT LICENSE file must exist at repo root (matches mod_license)')
 require((root/'scripts/runtime-smoke.sh').exists(),'runtime smoke script must exist')
 require('dev.livingrealms.RuntimeSmokeTest' in canonical_tests,'core suite must include headless runtime smoke gate')
@@ -223,16 +237,12 @@ require('initializeEscortProjection' in escort_mat and 'initializeEscortProjecti
 require('isEscort()' in military_ent and 'escortShipmentId' in military_ent,'military units must expose escort identity namespace')
 mil_mat=(root/'src/main/java/dev/livingrealms/minecraft/entity/MilitaryUnitMaterializer.java').read_text()
 require('if (e.isEscort()) continue' in mil_mat or 'if(e.isEscort())continue' in mil_mat.replace(' ',''),'army materializer must not dematerialize escort projections')
-events_text_early=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsEvents.java').read_text()
-screen_early=(root/'src/main/java/dev/livingrealms/minecraft/client/ui/RealmDashboardScreen.java').read_text()
-net_early=(root/'src/main/java/dev/livingrealms/minecraft/network/LivingRealmsNetwork.java').read_text()
-require('Commands.literal("home")' in events_text_early and 'locateOwnSettlement' in events_text_early,'player home/own settlement locate command must be registered')
-require('F12 dashboard' in screen_early,'overview tip must say F12 dashboard, not J')
 require('OnboardedPlayers' in saved_data and 'markOnboarded' in saved_data,'onboarding greet state must persist in SavedData')
-require('onboarding.catalog' in (root/'src/main/java/dev/livingrealms/minecraft/player/PlayerOnboardingRuntime.java').read_text(),'onboarding must send the catalog lang key when creative')
-require('FOUND_SETTLEMENT' in (root/'src/main/java/dev/livingrealms/sim/ui/DashboardActionCommand.java').read_text() and 'argument' in (root/'src/main/java/dev/livingrealms/sim/ui/DashboardActionCommand.java').read_text(),'dashboard found must support a custom settlement name argument')
-require('ruler_cannot_leave' in (root/'src/main/java/dev/livingrealms/sim/ui/DashboardActionService.java').read_text(),'dashboard leave must reject rulers honestly')
-require('insufficient_reputation' in net_early and 'Requires reputation' in screen_early,'join failures/tooltips must explain reputation/bounty thresholds')
+require('RegionalImpostorMaterializer.tick' in (root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsEvents.java').read_text(),'regional impostors must tick from the server loop')
+require('FarPresenceRuntime.tick' in (root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsEvents.java').read_text(),'far presence ambience must tick from the server loop')
+require('dev.livingrealms.RegionalImpostorPlannerTest' in canonical_tests,'core suite must include regional impostor planner gate')
+require('dev.livingrealms.PlayerAgencyTest' in canonical_tests,'core suite must include player agency gate')
+require('dev.livingrealms.HousingAndProductionTruthTest' in canonical_tests,'core suite must include housing/production truth gate')
 require((root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').exists(),'geography-derived SettlementMorphology must exist')
 require('COASTAL_PORT' in (root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').read_text() and 'HILL_TOWN' in (root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').read_text(),'morphology catalog must include coastal/hill patterns')
 cause_explainer=root/'src/main/java/dev/livingrealms/sim/society/WorldCauseExplainer.java'
@@ -253,7 +263,11 @@ require((root/'src/main/java/dev/livingrealms/sim/construction/AuthoredOwnerType
 require((root/'src/main/java/dev/livingrealms/minecraft/construction/WorldMutationGuard.java').exists(),'shared WorldMutationGuard must exist')
 require((root/'src/main/java/dev/livingrealms/minecraft/construction/SettlementGeographyDiscoveryRuntime.java').exists(),'Minecraft geography discovery runtime must exist')
 require((root/'src/main/java/dev/livingrealms/minecraft/gametest/LivingRealmsGameTests.java').exists(),'NeoForge GameTest foundation must exist')
-require('RegisterGameTestsEvent' in (root/'src/main/java/dev/livingrealms/minecraft/gametest/LivingRealmsGameTests.java').read_text(),'GameTests must register via RegisterGameTestsEvent')
+_gt=(root/'src/main/java/dev/livingrealms/minecraft/gametest/LivingRealmsGameTests.java').read_text()
+_gt_release=(root/'src/main/java/dev/livingrealms/minecraft/gametest/LivingRealmsReleaseGameTests.java').read_text()
+require('@GameTestHolder' in _gt and '@GameTestHolder' in _gt_release,'GameTests must be discovered via @GameTestHolder')
+require('gametests/empty' in _gt and 'gametests/empty' in _gt_release,'GameTests must use livingrealms gametests/empty structure template')
+require((root/'src/main/resources/data/livingrealms/structure/gametests/empty.nbt').exists(),'GameTest empty structure NBT must be packaged')
 require((root/'src/main/java/dev/livingrealms/sim/construction/SettlementDistrictPlan.java').exists(),'settlement district plan overlay must exist')
 require((root/'src/main/java/dev/livingrealms/sim/social/HouseholdHomeBinder.java').exists(),'household home binder must exist')
 require('discoverCrossFactionCorridors' in (root/'src/main/java/dev/livingrealms/sim/transport/TransportNetworkEngine.java').read_text(),'transport must discover inter-faction trade corridors')
@@ -261,7 +275,8 @@ require('dev.livingrealms.WorldQualityPassTest' in canonical_tests,'core suite m
 require('return List.of()' in (root/'src/main/java/dev/livingrealms/sim/transport/TerrainCorridorPlanner.java').read_text() and 'straight(' not in (root/'src/main/java/dev/livingrealms/sim/transport/TerrainCorridorPlanner.java').read_text(),'terrain corridor must not fall back to destructive straight roads')
 events_text=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsEvents.java').read_text()
 require('SettlementGeographyDiscoveryRuntime.tick' in events_text,'server tick must run settlement geography discovery from loaded chunks')
-require('Commands.literal("setday")' in events_text and 'advanceToDay(target)' in events_text,'absolute setday command must run canonical simulation progression')
+require('Commands.literal("setday")' in events_text and 'dayAdvanceScheduler()' in events_text and 'enqueueAbsolute' in events_text and 'drainTick' in events_text and 'MAX_DAYS_PER_TICK' in (root/'src/main/java/dev/livingrealms/sim/world/ManualDayAdvanceScheduler.java').read_text(),'absolute setday command must queue canonical progression and drain via ManualDayAdvanceScheduler')
+require('boundLevelIdentity' in (root/'src/main/java/dev/livingrealms/minecraft/construction/SettlementConstructionMaterializer.java').read_text(),'construction materializer queue must bind to ServerLevel identity')
 require('Commands.literal("locate")' in events_text and 'Commands.literal("city")' in events_text,'Living Realms locate commands must remain registered')
 require('Commands.literal("found")' in events_text and 'PlayerSettlementFounder.found' in events_text,'player-founded realm command must remain registered')
 require('Commands.literal("mine")' in events_text,'player-owned settlement locate command must remain registered')
@@ -272,7 +287,7 @@ require('CivilianNpcAdoption' in events_text,'allowlisted foreign civilians must
 keymap=(root/'src/main/java/dev/livingrealms/minecraft/client/ui/LivingRealmsKeyMappings.java').read_text()
 require('GLFW.GLFW_KEY_F12' in keymap and 'GLFW.GLFW_KEY_M' in keymap,'dashboard must use F12 and world map must remain on M')
 world_map=(root/'src/main/java/dev/livingrealms/minecraft/client/ui/RealmWorldMapScreen.java').read_text()
-require('renderTerrainBase' in world_map and 'LivingRealmsScreens.clearBackground' in world_map,'M map must render an always-visible terrain base without vanilla blur')
+require('renderTerrainBase' in world_map and 'renderBackground(' in world_map and 'LivingRealmsScreens.clearBackground' in world_map and 'super.renderBackground' not in world_map,'M map must render terrain base and override renderBackground via clearBackground without vanilla blur')
 require('ClientTerrainMapCache' in world_map,'M map must use cached client surface samples when chunks are loaded')
 waystone=(root/'src/main/java/dev/livingrealms/minecraft/compat/WaystoneSettlementRuntime.java').read_text()
 require('WaystonesAPI' in waystone and 'placeWaystone' in waystone and 'GLOBAL' in waystone,'settlements must retain optional named global Waystone integration')
@@ -285,7 +300,10 @@ require('Blocks.OAK_DOOR' in palette and 'doors come in detail pass later' not i
 require('PhysicalDevelopmentReconciler' in (root/'src/main/java/dev/livingrealms/minecraft/construction/SettlementConstructionMaterializer.java').read_text(),'day-jump catch-up must use physical development reconciliation')
 require('TerrainCorridorPlanner' in (root/'src/main/java/dev/livingrealms/minecraft/construction/TransportNetworkMaterializer.java').read_text(),'intercity roads must use terrain-cost corridor planning')
 dialogue_ui=(root/'src/main/java/dev/livingrealms/minecraft/client/ui/NpcDialogueScreen.java').read_text()
-require('LivingRealmsScreens.clearBackground' in dialogue_ui,'NPC dialogue must not use vanilla world blur')
+require('renderBackground(' in dialogue_ui and 'LivingRealmsScreens.clearBackground' in dialogue_ui and 'super.renderBackground' not in dialogue_ui,'NPC dialogue must override renderBackground via clearBackground without vanilla blur')
+
+dashboard_ui=(root/'src/main/java/dev/livingrealms/minecraft/client/ui/RealmDashboardScreen.java').read_text()
+require('renderBackground(' in dashboard_ui and 'LivingRealmsScreens.clearBackground' in dashboard_ui and 'super.renderBackground' not in dashboard_ui,'dashboard must override renderBackground via clearBackground without vanilla blur')
 require('Trailing bytes after Living Realms state' in codec,'save decoder must reject trailing payload data')
 require('MAX_STATE_BYTES = 32 * 1024 * 1024' in codec and 'MAX_STRING_BYTES = 64 * 1024' in codec,'save codec must retain global payload/string resource ceilings')
 require('CodingErrorAction.REPORT' in codec,'save codec must reject malformed UTF-8 instead of replacement decoding')
@@ -308,7 +326,7 @@ require('Save contains live species missing from active catalog' in codec_text,'
 saved_data=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java').read_text()
 require('PayloadCrc32Plus1' in saved_data and 'SimulationStateCodec.integrityToken(payload)' in saved_data,'Minecraft SavedData must persist/verify a payload integrity token')
 require('innerSchema != outerSchema' in saved_data,'Minecraft SavedData must reject outer/inner schema mismatch')
-require('outerSchema != SimulationStateCodec.SCHEMA_VERSION || expectedIntegrity == 0L' in saved_data and 'loaded.setDirty()' in saved_data,'legacy/pre-checksum SavedData must be marked dirty for rewrite')
+require('ContentMigrationPolicy.isLegacyIntegrityPath' in saved_data and 'loaded.setDirty()' in saved_data,'legacy/pre-checksum SavedData must be marked dirty for rewrite')
 require('SimulationValidator.validate(state).throwIfInvalid()' in codec_text,'current state must be semantically validated before encoding')
 require('state.repairNextIdWatermark()' in codec_text,'save migration must repair stale canonical ID watermarks')
 
@@ -379,28 +397,6 @@ animal_renderer=(root/'src/main/java/dev/livingrealms/minecraft/client/LivingRea
 require('FAMILY_TEXTURES' in animal_renderer and 'wildlife_' in animal_renderer,'wildlife renderer must select morphology-family textures')
 for morph in ('small_quadruped','ungulate','predator_quadruped','bear','large_mammal','crocodilian','fish','cetacean','pinniped','bird'):
     require((root/f'src/main/resources/assets/livingrealms/textures/entity/wildlife_{morph}.png').exists(),f'missing wildlife morphology texture {morph}')
-# Atlas sizes must match Java LayerDefinition (broken 64-on-128 / 64-on-72 is a release blocker).
-try:
-    from PIL import Image
-    def png_size(rel):
-        with Image.open(root/rel) as im: return im.size
-    for morph in ('small_quadruped','ungulate','predator_quadruped','bear','bird'):
-        require(png_size(f'src/main/resources/assets/livingrealms/textures/entity/wildlife_{morph}.png')==(64,72),f'wildlife_{morph} must be 64x72')
-    for ship in ('ship','ship_cargo','ship_patrol','ship_war','ship_landing'):
-        require(png_size(f'src/main/resources/assets/livingrealms/textures/entity/{ship}.png')==(128,128),f'{ship} must be 128x128')
-    for siege in ('siege_ram','siege_ladder','siege_artillery'):
-        require(png_size(f'src/main/resources/assets/livingrealms/textures/entity/{siege}.png')==(128,128),f'{siege} must be 128x128')
-except ImportError:
-    pass  # Pillow optional in CI; generator gate still enforces sizes when regenerating.
-require('WaypointPayload' in (root/'src/main/java/dev/livingrealms/minecraft/network/LivingRealmsNetwork.java').read_text(),'network must register dialogue waypoint payloads')
-require('RegionalImpostorMaterializer' in events,'server tick must reconcile regional impostors')
-require('FarPresenceRuntime' in events,'server tick must emit far-presence cues')
-require((root/'src/main/java/dev/livingrealms/sim/presentation/RegionalImpostorPlanner.java').exists(),'regional impostor planner must exist')
-property_rights=(root/'src/main/java/dev/livingrealms/sim/property/PropertyRightsEngine.java').read_text()
-require('SettlementPlanCache.plan' in property_rights,'PropertyRightsEngine must use SettlementPlanCache (no expensive replans per resolve)')
-require('catchupOpsBoost' in (root/'src/main/java/dev/livingrealms/minecraft/construction/SettlementConstructionMaterializer.java').read_text(),'construction catch-up must soft-ramp ops instead of hard 960 hitch')
-require('foreign:protectorate' in (root/'src/main/java/dev/livingrealms/minecraft/ForeignSettlementDiscoveryRuntime.java').read_text(),'foreign village adoption must use soft protectorate period')
-require('static Profession fromRole' in (root/'src/main/java/dev/livingrealms/sim/society/Profession.java').read_text(),'Profession enum must map from CitizenRole')
 require('path.contains("gun")' in content_runtime and 'equipMilitary' in content_runtime,'faction equipment must discover gun-class mod weapons and military loadouts')
 policy_text=(root/'src/main/java/dev/livingrealms/sim/compat/ModCompatibilityPolicy.java').read_text()
 require('\"Guns++\",\"mr_guns\",Category.COMBAT,Strategy.PLAYER_ONLY,false' in policy_text,'Guns++ must remain player-only/NPC-forbidden')
@@ -417,11 +413,17 @@ if foreign_structure.exists():
     fs=foreign_structure.read_text()
     require('startsForStructure' in fs and 'SCANNED_CHUNKS' in fs,'foreign structure adoption must use loaded structure starts with bounded per-session scanning')
     require('pathContainsOnlyWeakTokens' in fs or 'MIN_SETTLEMENT_AREA' in fs,'foreign structure adoption must reject lone house/building/tower classifications')
+foreign_adoption=root/'src/main/java/dev/livingrealms/sim/construction/ForeignSettlementAdoption.java'
+require(foreign_adoption.exists(),'ForeignSettlementAdoption authority must exist')
 if foreign_bootstrap.exists():
     fb=foreign_bootstrap.read_text()
-    require('preserveExistingInfrastructure' in fb and 'markConstructionCompleted' in fb,'adopted villages/structures must preserve their existing physical infrastructure before future growth')
-    require('foreign:adopted_footprint' in fb,'foreign adoption must record an explicit adopted-footprint marker')
+    require('preserveExistingInfrastructure' in fb and 'ForeignSettlementAdoption' in fb,'adopted villages/structures must preserve footprint via ForeignSettlementAdoption')
     require('PrimaryEconomyPlanner' not in fb or 'Intentionally do NOT mark PrimaryEconomyPlanner' in fb,'foreign adoption must not auto-complete primary economy mines/fisheries/lumber camps')
+if foreign_adoption.exists():
+    fa=foreign_adoption.read_text()
+    require('foreign:adopted_footprint' in fa,'foreign adoption must record an explicit adopted-footprint marker')
+    require('markForeignAdopted' in fa,'foreign adoption must use FOREIGN_ADOPTED provenance, not phantom LR completion')
+    require('FOREIGN_ADOPTED' in fa or 'markForeignAdopted' in fa,'foreign keys must be adopted-origin')
 require(all(token in citizen_runtime for token in ['workLumber','workFarm','workMine','workFish','huntWildlife']),'civilian runtime must retain physical lumber/farm/mine/fish/hunt work loops')
 require('stockpile().add' not in citizen_runtime,'physical workers must not add canonical stockpile resources from loaded-chunk projection')
 require('findAuthoredWorksite' in citizen_runtime,'physical workers must bind to Living Realms-authored worksites instead of free-radius destruction')

@@ -10,8 +10,8 @@ public final class TradeShipment {
     public enum LossState { NONE,PARTIAL,TOTAL }
 
     private final long id;
-    private final long sellerFactionId;
-    private final long buyerFactionId;
+    private long sellerFactionId;
+    private long buyerFactionId;
     private final ResourceType resource;
     private final double amount;
     private final double value;
@@ -44,6 +44,9 @@ public final class TradeShipment {
 
     public void advanceDistance(double blocks){if(blocks<0||!Double.isFinite(blocks))throw new IllegalArgumentException("blocks");double d=distance();progress=d<1e-9?1.0:Math.min(1.0,progress+blocks/d);}
     public void restoreProgress(double value){if(!Double.isFinite(value)||value<0||value>1)throw new IllegalArgumentException("progress");progress=value;}
+    public void transferSellerFaction(long factionId){if(factionId<=0)throw new IllegalArgumentException("seller faction");sellerFactionId=factionId;}
+    public void transferBuyerFaction(long factionId){if(factionId<=0)throw new IllegalArgumentException("buyer faction");buyerFactionId=factionId;}
+
     public void restoreLogistics(long originSettlementId,long destinationSettlementId,long routeId,int transportModeOrdinal,long departureDay,long expectedArrivalDay,double risk,double escortStrength,LossState lossState,int delayDays){
         if(originSettlementId<0||destinationSettlementId<0||routeId<0||transportModeOrdinal<-1||departureDay<0||expectedArrivalDay<0||delayDays<0)throw new IllegalArgumentException("logistics ids");
         if(!Double.isFinite(risk)||risk<0||risk>1||!Double.isFinite(escortStrength)||escortStrength<0)throw new IllegalArgumentException("logistics risk");

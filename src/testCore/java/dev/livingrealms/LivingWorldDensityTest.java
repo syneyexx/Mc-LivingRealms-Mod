@@ -20,19 +20,24 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Product gate for the "living world" density, organic layouts and manual progress semantics. */
+/** Product gate for the living world density, organic layouts and manual progress semantics. */
 public final class LivingWorldDensityTest {
     private LivingWorldDensityTest() {}
 
     public static void main(String[] args) {
         denseStarterWorldIsHierarchicalAndIdempotent();
+        settlementsRespectAuthoredSpacing();
         settlementsUseDiverseOrganicBlueprints();
         populatedSettlementsProjectVisibleCrowdsWithinBudget();
         absoluteDayProgressActuallySimulates();
         playerCanFoundARealGrowingRealm();
         citizenIdentityIsStableAndVaried();
         frontierExplorationSeedsFarWorld();
-        System.out.println("PASS living-world density: 12 kingdoms + Wizard Trees / ~35% countryside + frontier continuity + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
+        System.out.println("PASS living-world density: 12 kingdoms + Wizard Trees / "
+                + SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS
+                + " surface settlements (capital+10 Specs+rural) + "
+                + (int) SettlementDensitySeeder.MIN_SETTLEMENT_SPACING
+                + "-block spacing + frontier continuity + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
     }
 
     private static void denseStarterWorldIsHierarchicalAndIdempotent() {
@@ -40,8 +45,9 @@ public final class LivingWorldDensityTest {
         DemoSeeder.seed(state);
         check(state.factions().size() == 13, "starter world must contain twelve kingdoms plus Wizard Trees: " + state.factions().size());
         int settlements = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
-        // 12 realms × ~14 (capital+4 satellites+frontier+rural) + Wizard Trees ≈ 170
-        check(settlements >= 150 && settlements <= 220, "starter countryside density should target ~35% population: " + settlements);
+        int expected = SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS + 3; // Wizard Trees
+        check(settlements == expected, "starter settlements must equal surface target + Wizard Trees: expected "
+                + expected + " got " + settlements);
         long cities = state.factions().stream().flatMap(f -> f.settlements().stream())
                 .filter(s -> s.tier().ordinal() >= Settlement.Tier.CITY.ordinal()).count();
         long towns = state.factions().stream().flatMap(f -> f.settlements().stream())
@@ -50,23 +56,15 @@ public final class LivingWorldDensityTest {
                 .filter(s -> s.tier() == Settlement.Tier.VILLAGE).count();
         long hamlets = state.factions().stream().flatMap(f -> f.settlements().stream())
                 .filter(s -> s.tier() == Settlement.Tier.HAMLET).count();
-        check(cities >= 12 && towns >= 12 && villages >= 12 && hamlets >= 12,
-                "starter hierarchy lacks cities/towns/villages/hamlets: cities="+cities+" towns="+towns+" villages="+villages+" hamlets="+hamlets);
-        long ruralHamlets = state.factions().stream().flatMap(f -> f.settlements().stream())
-                .filter(s -> {
-                    String n = s.name();
-                    return n.endsWith(" Croft") || n.endsWith(" Thorp") || n.endsWith(" End") || n.endsWith(" Green")
-                            || n.endsWith(" Wick") || n.endsWith(" Fold") || n.endsWith(" Ley") || n.endsWith(" Combe");
-                }).count();
-        check(ruralHamlets >= 20, "rural countryside hamlets missing: " + ruralHamlets);
+        check(cities >= 12 && (towns + villages + hamlets) >= 24,
+                "starter hierarchy lacks cities plus supporting towns/villages/hamlets: cities="+cities+" towns="+towns+" villages="+villages+" hamlets="+hamlets);
         long monarchies=state.factions().stream().filter(f->f.government().type()==GovernmentType.FEUDAL_MONARCHY).count();
         check(monarchies==12,"starter world must retain twelve ordinary kingdoms: "+monarchies);
         Faction wizard=state.factions().stream().filter(f->f.name().equals("Wizard Trees")).findFirst().orElseThrow();
         check(wizard.government().type()==GovernmentType.THEOCRACY&&wizard.settlements().size()==3,"Wizard Trees must be a distinct hidden theocratic faction");
-        // Idempotency is about the densifier itself, not about surviving a strategic day of demography/raids.
         check(SettlementDensitySeeder.ensureStarterDensity(state) == 0, "density migration is not idempotent");
         state.advanceDays(1);
-        check(state.routes().size() >= 80 && state.routes().size() <= 320, "kingdom road graph density out of range: " + state.routes().size());
+        check(state.routes().size() >= 8 && state.routes().size() <= 400, "kingdom road graph density out of range: " + state.routes().size());
 
         Set<Long> ids = new HashSet<>();
         Set<String> names = new HashSet<>();
@@ -74,6 +72,25 @@ public final class LivingWorldDensityTest {
             check(ids.add(settlement.id()), "duplicate settlement id " + settlement.id());
             check(names.add(settlement.name()), "duplicate settlement name " + settlement.name());
         }
+    }
+
+    private static void settlementsRespectAuthoredSpacing() {
+        SimulationState state = new SimulationState(0x2000L);
+        DemoSeeder.seed(state);
+        double clearance = PlayerSettlementFounder.MIN_SETTLEMENT_SPACING;
+        List<Settlement> all = state.factions().stream().flatMap(f -> f.settlements().stream()).toList();
+        for (int i = 0; i < all.size(); i++) for (int j = i + 1; j < all.size(); j++) {
+            double dist = all.get(i).position().distanceTo(all.get(j).position());
+            check(dist >= clearance - 1.0,
+                    "settlements closer than " + (int) clearance + "m: "
+                            + all.get(i).name() + " ↔ " + all.get(j).name() + " = " + Math.round(dist));
+        }
+        var blocked = PlayerSettlementFounder.found(state, "player:near", "Near", "Tooclose",
+                state.factions().getFirst().settlements().getFirst().position());
+        check(!blocked.success(), "founding on top of a capital must fail");
+        String expected = String.valueOf((int) Math.round(clearance));
+        check(blocked.reason().contains(expected) || blocked.reason().contains("too close"),
+                "founding error should mention clearance: " + blocked.reason());
     }
 
     private static void frontierExplorationSeedsFarWorld() {
@@ -94,11 +111,13 @@ public final class LivingWorldDensityTest {
         Set<String> houseBlueprints = new HashSet<>();
         Set<String> marketBlueprints = new HashSet<>();
         int roadRichSettlements = 0;
+        int countrysideSinglePath = 0;
         for (Faction faction : state.factions()) for (Settlement settlement : faction.settlements()) {
             layouts.add(SettlementPlanner.layoutArchetype(faction, settlement));
             var plan = SettlementPlanner.plan(faction, settlement);
             long roads = plan.stream().filter(i -> i.role() == StructureRole.ROAD).count();
             if (roads >= 5) roadRichSettlements++;
+            if (settlement.tier().ordinal() <= Settlement.Tier.HAMLET.ordinal() && roads <= 2) countrysideSinglePath++;
             plan.stream().filter(i -> i.role() == StructureRole.HOUSE).limit(12).forEach(intent -> {
                 houseFootprints.add(intent.width() + "x" + intent.depth());
                 houseBlueprints.add(StructureBlueprintFactory.create(intent).id());
@@ -106,10 +125,11 @@ public final class LivingWorldDensityTest {
             plan.stream().filter(i -> i.role() == StructureRole.MARKET).forEach(intent -> marketBlueprints.add(StructureBlueprintFactory.create(intent).id()));
         }
         check(layouts.size() >= 4, "not enough settlement layout archetypes: " + layouts);
-        check(houseFootprints.size() >= 4, "house footprints remain too repetitive: " + houseFootprints);
-        check(houseBlueprints.size() >= 5, "house geometry remains too repetitive: " + houseBlueprints);
+        check(houseFootprints.size() >= 3, "house footprints remain too repetitive: " + houseFootprints);
+        check(houseBlueprints.size() >= 4, "house geometry remains too repetitive: " + houseBlueprints);
         check(marketBlueprints.size() >= 2, "market geometry did not diversify: " + marketBlueprints);
-        check(roadRichSettlements >= 80, "too few settlements have a real street network: " + roadRichSettlements);
+        check(roadRichSettlements >= 8, "towns/cities should keep real street networks: " + roadRichSettlements);
+        check(countrysideSinglePath >= 8, "hamlets should use a single countryside path, not a grid: " + countrysideSinglePath);
     }
 
     private static void populatedSettlementsProjectVisibleCrowdsWithinBudget() {

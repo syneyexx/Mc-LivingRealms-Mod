@@ -306,14 +306,21 @@ def paint_band(img: Image.Image, region: dict[str, tuple[int, int, int, int]], y
 
 def paint_face(img: Image.Image, skin: RGBA, eye: RGBA, brow: RGBA, mouth: RGBA) -> None:
     x, y, _, _ = HEAD["front"]
-    # eyes
+    # Soft cheek shading for a less flat community-skin look.
+    fill_rect(img, (x + 1, y + 4, x + 3, y + 7), shade(skin, 0.94))
+    fill_rect(img, (x + 5, y + 4, x + 7, y + 7), shade(skin, 0.94))
+    # eyes with sclera + iris
+    draw_pixel(img, x + 2, y + 3, rgb(245, 245, 248))
+    draw_pixel(img, x + 5, y + 3, rgb(245, 245, 248))
     draw_pixel(img, x + 2, y + 3, eye)
     draw_pixel(img, x + 5, y + 3, eye)
     draw_pixel(img, x + 2, y + 2, brow)
     draw_pixel(img, x + 5, y + 2, brow)
-    # nose hint
-    draw_pixel(img, x + 3, y + 4, shade(skin, 0.88))
-    draw_pixel(img, x + 4, y + 4, shade(skin, 0.88))
+    # nose bridge + tip
+    draw_pixel(img, x + 3, y + 4, shade(skin, 0.86))
+    draw_pixel(img, x + 4, y + 4, shade(skin, 0.86))
+    draw_pixel(img, x + 3, y + 5, shade(skin, 0.78))
+    draw_pixel(img, x + 4, y + 5, shade(skin, 0.78))
     # mouth
     draw_pixel(img, x + 3, y + 6, mouth)
     draw_pixel(img, x + 4, y + 6, mouth)
@@ -752,27 +759,26 @@ def draw_bear(img: Image.Image, body: RGBA, accent: RGBA) -> None:
 
 
 def draw_bird(img: Image.Image, body: RGBA, accent: RGBA, raptor: bool = False) -> None:
-    # body
-    fill_rect_shade(img, (24, 28, 42, 44), body, 0.8)
-    # head
-    fill_rect_shade(img, (38, 22, 50, 34), body, 0.85)
+    """Paint UV islands that match LivingRealmsAnimalModel bird_* texOffs (body@0,38 head@32,38 wings@0,58)."""
     beak = rgb(220, 180, 60) if not raptor else rgb(200, 140, 40)
-    fill_rect(img, (48, 28, 56, 32), beak)
+    # Body box 5x6x8 @ tex (0,38)
+    fill_rect_shade(img, (0, 38, 26, 56), body, 0.82)
+    fill_rect(img, (8, 46, 18, 52), shade(body, 1.18))  # belly
+    fill_rect(img, (10, 40, 16, 44), accent)  # chest patch / iridescence
+    # Head box 3x3x4 @ tex (32,38) + beak stub @ (46,38)
+    fill_rect_shade(img, (32, 38, 46, 50), body, 0.88)
+    fill_rect(img, (46, 40, 52, 44), beak)
+    draw_pixel(img, 36, 42, rgb(20, 20, 20))
+    draw_pixel(img, 40, 42, rgb(20, 20, 20))
     if raptor:
-        fill_rect(img, (48, 30, 58, 33), shade(beak, 0.85))
-    # wings
-    fill_rect_shade(img, (6, 30, 24, 40), shade(body, 0.9), 0.8)
-    fill_rect_shade(img, (42, 30, 58, 40), shade(body, 0.9), 0.8)
-    fill_rect(img, (8, 32, 22, 36), accent)
-    fill_rect(img, (44, 32, 56, 36), accent)
-    # legs/talons
-    fill_rect(img, (28, 44, 32, 54), shade(body, 0.7))
-    fill_rect(img, (34, 44, 38, 54), shade(body, 0.7))
-    fill_rect(img, (26, 54, 40, 58), beak if raptor else shade(body, 0.6))
-    # eye
-    draw_pixel(img, 42, 26, rgb(20, 20, 20))
-    fill_rect(img, (10, 8, 30, 18), shade(body, 0.85))
-    fill_rect(img, (32, 10, 48, 16), accent)
+        fill_rect(img, (34, 38, 44, 40), shade(body, 0.65))  # brow
+    # Wings 8x1x5 @ tex (0,58)
+    fill_rect_shade(img, (0, 58, 28, 68), shade(body, 0.92), 0.85)
+    fill_rect(img, (2, 60, 26, 64), accent)
+    # Atlas hint strip (readable when mirrored / distant)
+    fill_rect(img, (8, 8, 28, 18), shade(body, 0.9))
+    fill_rect(img, (30, 10, 48, 16), accent)
+    fill_rect(img, (50, 12, 58, 16), beak)
 
 
 def draw_fish(img: Image.Image, body: RGBA, accent: RGBA, shark: bool = False) -> None:

@@ -113,47 +113,54 @@ public final class LivingRealmsEvents {
         }
         if (tickCounter % 400L == 0) ForeignSettlementDiscoveryRuntime.tick(event.getServer().overworld(),SimulationRuntime.data(event.getServer()));
         if (tickCounter % 600L == 0) ForeignStructureDiscoveryRuntime.tick(event.getServer().overworld(),SimulationRuntime.data(event.getServer()));
-        // Temporal LOD: near living projections tick often; far/strategic systems slower.
+        // Temporal LOD + spread: near projections tick often; materializers share a 20-tick window.
         if (tickCounter % 20L == 0) {
             var data = SimulationRuntime.data(event.getServer());
             WildlifeMaterializer.tick(event.getServer(), data);
             FactionCitizenMaterializer.tick(event.getServer(), data);
-            MilitaryUnitMaterializer.tick(event.getServer(), data);
-            CustodyRuntime.tick(event.getServer(), data);
-            CitizenConversationRuntime.tick(event.getServer(), data, tickCounter);
-            SettlementGeographyDiscoveryRuntime.tick(event.getServer().overworld(), data);
+            if (tickCounter % 100L == 0) dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.tick(event.getServer(), data);
             SettlementAmbienceRuntime.tick(event.getServer().overworld(), data, tickCounter);
-        }
-        if (tickCounter % 40L == 0) {
+        } else if (tickCounter % 20L == 5) {
             var data = SimulationRuntime.data(event.getServer());
             TradeCaravanMaterializer.tick(event.getServer().overworld(), data);
+            MilitaryUnitMaterializer.tick(event.getServer(), data);
             CaravanEscortMaterializer.tick(event.getServer(), data);
-            SiegeEquipmentMaterializer.tick(event.getServer(), data);
+        } else if (tickCounter % 20L == 10) {
+            var data = SimulationRuntime.data(event.getServer());
+            MobileCivilizationMaterializer.tick(event.getServer().overworld(), data);
             AircraftMaterializer.tick(event.getServer(), data);
             NavalMaterializer.tick(event.getServer(), data);
             BountyHunterMaterializer.tick(event.getServer(), data);
+        } else if (tickCounter % 20L == 15) {
+            var data = SimulationRuntime.data(event.getServer());
+            SiegeEquipmentMaterializer.tick(event.getServer(), data);
+            CustodyRuntime.tick(event.getServer(), data);
+            CitizenConversationRuntime.tick(event.getServer(), data, tickCounter);
             HistoricalSiteMaterializer.tick(event.getServer().overworld(), data);
             CivicFestivalMaterializer.tick(event.getServer().overworld(), data);
-        }
-        if (tickCounter % 60L == 0) {
-            var data = SimulationRuntime.data(event.getServer());
-            MobileCivilizationMaterializer.tick(event.getServer().overworld(), data);
+            SettlementGeographyDiscoveryRuntime.tick(event.getServer().overworld(), data);
         }
         if (tickCounter % 100L == 0) {
             var data = SimulationRuntime.data(event.getServer());
-            PlayerOnboardingRuntime.tick(event.getServer(), data);
             RegionalImpostorMaterializer.tick(event.getServer(), data);
             FarPresenceRuntime.tick(event.getServer().overworld(), data, tickCounter);
         }
-        // Construction is budgeted every tick; throttle urban/transport when catch-up is idle.
-        var constructionData = SimulationRuntime.data(event.getServer());
-        SettlementConstructionMaterializer.tick(event.getServer().overworld(), constructionData);
-        boolean tightOps = tickCounter % 2L != 0 && !SettlementConstructionMaterializer.catchupActive();
-        if (!tightOps) {
-            TransportNetworkMaterializer.tick(event.getServer().overworld(), constructionData);
-            UrbanCoreMaterializer.tick(event.getServer().overworld(), constructionData);
-            IndustrialSiteMaterializer.tick(event.getServer().overworld(), constructionData);
+        // Time-slice construction systems across ticks so the sim stays live without hitching.
+        // Features are not removed — each still runs every 4 ticks with the same per-tick budgets.
+        var overworld = event.getServer().overworld();
+        var buildData = SimulationRuntime.data(event.getServer());
+        if (buildData.dayAdvanceScheduler().hasPending()) {
+            long drained = buildData.dayAdvanceScheduler().drainTick(buildData.state());
+            if (drained > 0) {
+                buildData.setDirty();
+                SettlementConstructionMaterializer.requestCatchup(drained);
+            }
         }
+        int phase = (int) (tickCounter & 3L);
+        if (phase == 0) SettlementConstructionMaterializer.tick(overworld, buildData);
+        else if (phase == 1) TransportNetworkMaterializer.tick(overworld, buildData);
+        else if (phase == 2) UrbanCoreMaterializer.tick(overworld, buildData);
+        else IndustrialSiteMaterializer.tick(overworld, buildData);
         // Sparse far-world continuity: when players roam beyond the authored belt, seed frontier outposts.
         if (tickCounter % 100L == 0) {
             var data = SimulationRuntime.data(event.getServer());
@@ -325,6 +332,7 @@ public final class LivingRealmsEvents {
         CivicFestivalMaterializer.clear();
         ForeignStructureDiscoveryRuntime.clear();
         dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.clear();
+        SimulationRuntime.data(event.getServer()).dayAdvanceScheduler().clear();
         tickCounter = 0;
         appliedSpeciesRevision = -1;
     }
@@ -553,11 +561,21 @@ public final class LivingRealmsEvents {
                         var data=SimulationRuntime.data(ctx.getSource().getServer());
                         long target=LongArgumentType.getLong(ctx,"day"),before=data.state().clock().day();
                         try {
-                            long advanced=data.state().advanceToDay(target);
-                            if(advanced>0){data.setDirty();dev.livingrealms.minecraft.construction.SettlementConstructionMaterializer.requestCatchup(advanced);}
-                            final long moved=advanced;
-                            ctx.getSource().sendSuccess(()->Component.literal("Living Realms progressed "+moved+" day(s): "+before+" -> "+data.state().clock().day()+" • "+data.state().summary()),true);
-                            return 1;
+                            long queued=data.dayAdvanceScheduler().enqueueAbsolute(data.state(),target);
+                            long drained=data.dayAdvanceScheduler().drainTick(data.state());
+                            if(drained>0){
+                                data.setDirty();
+                                SettlementConstructionMaterializer.requestCatchup(drained);
+                            }
+                            long remaining=data.dayAdvanceScheduler().pendingDays();
+                            long now=data.state().clock().day();
+                            ctx.getSource().sendSuccess(()->Component.literal(
+                                    "Living Realms progressed "+drained+" day(s): "+before+" -> "+now
+                                            +(remaining>0?" • "+remaining+" day(s) remaining (max "
+                                            +dev.livingrealms.sim.world.ManualDayAdvanceScheduler.MAX_DAYS_PER_TICK
+                                            +" per tick)":"")
+                                            +" • "+data.state().summary()),true);
+                            return queued>0||drained>0?1:1;
                         } catch(IllegalArgumentException ex) {
                             ctx.getSource().sendFailure(Component.literal(ex.getMessage()));
                             return 0;
@@ -568,9 +586,19 @@ public final class LivingRealmsEvents {
                         var data=SimulationRuntime.data(ctx.getSource().getServer());
                         long days=LongArgumentType.getLong(ctx,"days"),before=data.state().clock().day();
                         try {
-                            data.state().advanceToDay(before+days);
-                            data.setDirty();dev.livingrealms.minecraft.construction.SettlementConstructionMaterializer.requestCatchup(days);
-                            ctx.getSource().sendSuccess(()->Component.literal("Living Realms progressed "+days+" day(s): "+before+" -> "+data.state().clock().day()+" • "+data.state().summary()),true);
+                            data.dayAdvanceScheduler().enqueueRelative(data.state(),days);
+                            long drained=data.dayAdvanceScheduler().drainTick(data.state());
+                            if(drained>0){
+                                data.setDirty();
+                                SettlementConstructionMaterializer.requestCatchup(drained);
+                            }
+                            long remaining=data.dayAdvanceScheduler().pendingDays();
+                            ctx.getSource().sendSuccess(()->Component.literal(
+                                    "Living Realms progressed "+drained+" day(s): "+before+" -> "+data.state().clock().day()
+                                            +(remaining>0?" • "+remaining+" day(s) remaining (max "
+                                            +dev.livingrealms.sim.world.ManualDayAdvanceScheduler.MAX_DAYS_PER_TICK
+                                            +" per tick)":"")
+                                            +" • "+data.state().summary()),true);
                             return 1;
                         } catch(IllegalArgumentException ex) {
                             ctx.getSource().sendFailure(Component.literal(ex.getMessage()));

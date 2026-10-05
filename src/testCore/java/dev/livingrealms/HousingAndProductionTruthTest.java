@@ -9,7 +9,6 @@ import dev.livingrealms.sim.player.PlayerSettlementFounder;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
-import java.util.List;
 
 /** WAVE 1 gates: housing credit, player-activated production truth, founder catch-up request. */
 public final class HousingAndProductionTruthTest {
@@ -37,22 +36,23 @@ public final class HousingAndProductionTruthTest {
     }
 
     private static void activatedSettlementsRequireFarms() {
-        // Use fixed day in autumn so farm seasonMul > 0.
+        // Main A–R authority: farm: completion keys (not presentation activation) gate real GRAIN yield.
         SimulationState state = new SimulationState(22);
         state.advanceToDay(100); // autumn-ish calendar window
         var founded = PlayerSettlementFounder.found(state, "player:farm", "Farmer", "Farmless", new SimPosition(60_000, 60_000));
         check(founded.success(), founded.reason());
         var capital = state.findSettlement(founded.settlementId()).orElseThrow();
         capital.stockpile().set(ResourceType.FOOD, 0);
-        state.presentationScope().setActivated(List.of(capital.id()));
+        capital.stockpile().set(ResourceType.GRAIN, 0);
         new SettlementEconomyEngine().simulateDay(state);
-        double activatedFood = capital.stockpile().get(ResourceType.FOOD);
+        double withoutFarm = capital.stockpile().get(ResourceType.GRAIN) + capital.stockpile().get(ResourceType.FOOD);
         capital.stockpile().set(ResourceType.FOOD, 0);
-        state.presentationScope().clear();
+        capital.stockpile().set(ResourceType.GRAIN, 0);
+        check(capital.markConstructionCompleted("farm:0"), "farm key marked");
         new SettlementEconomyEngine().simulateDay(state);
-        double unloadedFood = capital.stockpile().get(ResourceType.FOOD);
-        check(unloadedFood > activatedFood * 1.5 + 1, "unloaded implied farms must outproduce activated farmless kitchen gardens: act=" + activatedFood + " unload=" + unloadedFood);
-        check(activatedFood < capital.population() * .25, "activated settlement without farms must stay near subsistence");
+        double withFarm = capital.stockpile().get(ResourceType.GRAIN) + capital.stockpile().get(ResourceType.FOOD);
+        check(withFarm > withoutFarm * 1.5 + 1, "completed farm must outproduce subsistence: bare=" + withoutFarm + " farm=" + withFarm);
+        check(withoutFarm < capital.population() * .25, "settlement without farms must stay near subsistence");
     }
 
     private static void founderRequestsCatchupAndLandmark() {

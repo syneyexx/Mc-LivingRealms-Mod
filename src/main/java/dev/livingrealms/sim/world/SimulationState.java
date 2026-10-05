@@ -186,7 +186,20 @@ public final class SimulationState {
         observeCanonicalId(value.id());justiceCases.add(value);
     }
     public void addHiddenCache(HiddenCache value){Objects.requireNonNull(value);if(hiddenCaches.size()>=MAX_HIDDEN_CACHES)hiddenCaches.removeIf(HiddenCache::recovered);if(hiddenCaches.size()>=MAX_HIDDEN_CACHES)return;observeCanonicalId(value.id());hiddenCaches.add(value);}
-    public void addPirateBand(PirateBand value){Objects.requireNonNull(value);if(pirateBands.size()>=MAX_PIRATE_BANDS)pirateBands.removeIf(p->!p.active());if(pirateBands.size()>=MAX_PIRATE_BANDS)return;observeCanonicalId(value.id());pirateBands.add(value);}
+    public void addPirateBand(PirateBand value){
+        Objects.requireNonNull(value);
+        if(pirateBands.size()>=MAX_PIRATE_BANDS){
+            pirateBands.removeIf(p->{
+                if(p.active())return false;
+                findPirateHideoutByBand(p.id()).ifPresent(PirateHideout::destroy);
+                return true;
+            });
+            pirateHideouts.removeIf(h->!h.active());
+        }
+        if(pirateBands.size()>=MAX_PIRATE_BANDS)return;
+        observeCanonicalId(value.id());
+        pirateBands.add(value);
+    }
     public void addPirateHideout(PirateHideout value){Objects.requireNonNull(value);if(pirateHideouts.size()>=MAX_PIRATE_HIDEOUTS)pirateHideouts.removeIf(h->!h.active());if(pirateHideouts.size()>=MAX_PIRATE_HIDEOUTS)return;observeCanonicalId(value.id());pirateHideouts.add(value);}
     public void addDiplomaticMarriage(DiplomaticMarriage value){Objects.requireNonNull(value);if(diplomaticMarriages.size()>=MAX_DIPLOMATIC_MARRIAGES)diplomaticMarriages.removeIf(m->!m.active());if(diplomaticMarriages.size()>=MAX_DIPLOMATIC_MARRIAGES)return;observeCanonicalId(value.id());diplomaticMarriages.add(value);}
     public void addCivicEvent(CivicEvent value){Objects.requireNonNull(value);if(civicEvents.size()>=MAX_CIVIC_EVENTS)civicEvents.removeIf(e->!e.active());if(civicEvents.size()>=MAX_CIVIC_EVENTS)return;observeCanonicalId(value.id());civicEvents.add(value);}
@@ -204,6 +217,8 @@ public final class SimulationState {
     public Optional<IndustrialSite> findIndustrialSite(long id){return industrialSites.stream().filter(s->s.id()==id).findFirst();}
     public Optional<SocialCitizen> findSocialCitizen(long id){return socialCitizens.stream().filter(c->c.id()==id).findFirst();}
     public SocialCitizen ensureSocialCitizen(long factionId,long settlementId,int slot,dev.livingrealms.sim.civilian.CitizenRole role){return socialPopulationEngine.ensureProjectionCitizen(this,factionId,settlementId,slot,role);}
+    /** Ensures each settlement has a bounded named roster (slots 0..tierCap-1) for dialogue and court binding. */
+    public void ensureNamedRosters(){socialPopulationEngine.seedSettlementRosters(this);}
     public TradeShipment removeShipment(long id){for(var it=shipments.iterator();it.hasNext();){TradeShipment s=it.next();if(s.id()==id){it.remove();return s;}}return null;}
     public void removeDestroyedAirWings(){airWings.removeIf(AirWing::destroyed);}
     public void removeDestroyedFleets(){fleets.removeIf(Fleet::destroyed);}

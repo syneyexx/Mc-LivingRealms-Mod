@@ -17,10 +17,16 @@ public final class TradeEngine {
     private static final double CARAVAN_SPEED_PER_DAY=180.0;
     /** Fraction of paid value the seller refunds the buyer when a caravan is lost (guild/insurance bond). */
     private static final double INTERCEPT_INSURANCE_RATE=.55;
-    private static final List<ResourceType> TRADED=List.of(ResourceType.FOOD,ResourceType.IRON,ResourceType.FUEL,ResourceType.TOOLS,ResourceType.TEXTILES,ResourceType.MACHINERY);
+    private static final List<ResourceType> TRADED=List.of(
+            ResourceType.GRAIN,ResourceType.BREAD,ResourceType.MEAT,ResourceType.WOOL,
+            ResourceType.FOOD,ResourceType.IRON,ResourceType.FUEL,ResourceType.TOOLS,ResourceType.TEXTILES,ResourceType.MACHINERY);
 
     public void simulateDay(SimulationState state, DeterministicRng rng) {
-        Objects.requireNonNull(state,"state");Objects.requireNonNull(rng,"rng");advanceShipments(state,rng,1.0);dispatchShipments(state);
+        Objects.requireNonNull(state,"state");Objects.requireNonNull(rng,"rng");
+        ResourceDominanceEngine.withMemo(state, () -> {
+            advanceShipments(state,rng,1.0);
+            dispatchShipments(state);
+        });
     }
 
     /**
@@ -154,12 +160,14 @@ public final class TradeEngine {
 
     private static void dispatchOne(SimulationState state,Faction seller,Faction buyer,ResourceType resource) {
         if(state.shipments().stream().anyMatch(s->s.sellerFactionId()==seller.id()&&s.buyerFactionId()==buyer.id()&&s.resource()==resource))return;
+        if(seller.settlements().isEmpty()||buyer.settlements().isEmpty())return;
         double desired=desiredReserve(buyer,resource);
         double need=Math.max(0,desired-buyer.stockpile().get(resource));
         double sellerHeld=seller.stockpile().get(resource)+localHeld(seller,resource);
         double sellerReserve=desiredReserve(seller,resource)*.75;
         double surplus=Math.max(0,sellerHeld-sellerReserve);
         SettlementPair pair=chooseTradePair(state,seller,buyer);
+        if(pair==null)return;
         Settlement origin=pair.origin(),destination=pair.destination();
         long day=state.clock().day();
         double sellerAsk=LocalMarketEngine.quote(seller,origin,resource,day).unitPrice();
@@ -168,7 +176,7 @@ public final class TradeEngine {
         if(!arbitrage&&need<desired*.35)return;
         if(need<=0&&arbitrage)need=Math.min(64,surplus*.15);
         double leverage=ResourceDominanceEngine.sellerLeverageMultiplier(state,seller.id(),resource);double price=Math.max(.01,(sellerAsk+buyerBid)*.5*leverage);
-        double amount=Math.min(Math.min(need,surplus),buyer.treasury()/Math.max(.01,price));amount=Math.min(amount,256.0);if(amount<1.0||seller.settlements().isEmpty()||buyer.settlements().isEmpty())return;
+        double amount=Math.min(Math.min(need,surplus),buyer.treasury()/Math.max(.01,price));amount=Math.min(amount,256.0);if(amount<1.0)return;
         // Capacity: skip dispatch if the best route is already overloaded with active shipments.
         Optional<TransportRoute> route=TransportNetworkEngine.bestRoute(state,seller.id(),origin.id(),destination.id());
         if(route.isPresent()){
@@ -210,8 +218,11 @@ public final class TradeEngine {
             if(score<bestScore){bestScore=score;best=new SettlementPair(s,b);}
         }
         if(best!=null)return best;
+        if(seller.settlements().isEmpty()||buyer.settlements().isEmpty())return null;
         Settlement origin=seller.settlements().getFirst();
-        return new SettlementPair(origin,closestTo(buyer,origin.position()));
+        Settlement destination=closestTo(buyer,origin.position());
+        if(destination==null)return null;
+        return new SettlementPair(origin,destination);
     }
 
     private static List<Settlement> tradeCandidates(Faction faction){
@@ -222,7 +233,17 @@ public final class TradeEngine {
                 .limit(4)
                 .toList();
     }
-    private static Settlement closestTo(Faction faction,SimPosition target){return faction.settlements().stream().min(Comparator.comparingDouble(s->s.position().distanceTo(target))).orElseThrow();}
-    private static double desiredReserve(Faction f,ResourceType r){return switch(r){case FOOD->Math.max(30,f.population()*.30);case IRON->Math.max(12,f.population()*.03);case FUEL->Math.max(24,f.population()*.004);case TOOLS->Math.max(8,f.population()*.008);case TEXTILES->Math.max(8,f.population()*.01);case MACHINERY->Math.max(4,f.population()*.001);default->10;};}
+    private static Settlement closestTo(Faction faction,SimPosition target){
+        return faction.settlements().stream().min(Comparator.comparingDouble(s->s.position().distanceTo(target))).orElse(null);
+    }
+    private static double desiredReserve(Faction f,ResourceType r){return switch(r){
+        case GRAIN,BREAD,MEAT,FOOD -> Math.max(30,f.population()*.30);
+        case WOOL,TEXTILES -> Math.max(8,f.population()*.01);
+        case IRON -> Math.max(12,f.population()*.03);
+        case FUEL -> Math.max(24,f.population()*.004);
+        case TOOLS -> Math.max(8,f.population()*.008);
+        case MACHINERY -> Math.max(4,f.population()*.001);
+        default -> 10;
+    };}
     private static String describe(TradeShipment s){return "shipment="+s.id()+", "+s.resource()+"="+s.amount()+", seller="+s.sellerFactionId()+", buyer="+s.buyerFactionId();}
 }

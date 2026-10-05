@@ -58,7 +58,8 @@ public final class TransportNetworkEngine {
                         .sorted(Comparator.comparingDouble(b->a.position().distanceTo(b.position())))
                         .limit(2).toList();
                 for(Settlement b:nearest){
-                    double d=a.position().distanceTo(b.position());if(!(d>1)||d>2_200)continue;
+                    // Settlements sit at least MIN_SETTLEMENT_SPACING apart; allow long countryside trunks so realms still connect.
+                    double d=a.position().distanceTo(b.position());if(!(d>1)||d>4_800)continue;
                     TransportMode mode=chooseMode(faction,a,b);
                     RouteKey key=RouteKey.of(a.id(),b.id(),mode);
                     if(existing.contains(key))continue;

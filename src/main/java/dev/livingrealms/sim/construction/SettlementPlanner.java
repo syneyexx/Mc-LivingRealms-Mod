@@ -101,8 +101,20 @@ public final class SettlementPlanner {
                                        SettlementMorphology morph, int baseRotation) {
         int tier = settlement.tier().ordinal();
         int spacing = spacing(morph);
+        // Countryside: one through-path is enough. Full street grids only in inhabited TOWN+ cores.
+        if (tier <= Settlement.Tier.HAMLET.ordinal()) {
+            int len = Math.max(48, spacing + 18);
+            addRoad(out, faction, settlement, 0, local(settlement, baseRotation, 0, 0), 3, len * 2 + 3, baseRotation, 130);
+            return;
+        }
+        if (tier == Settlement.Tier.VILLAGE.ordinal()) {
+            int len = Math.max(56, spacing + 24);
+            addRoad(out, faction, settlement, 0, local(settlement, baseRotation, 0, 0), 5, len * 2 + 5, baseRotation, 132);
+            addRoad(out, faction, settlement, 1, local(settlement, baseRotation, 0, 0), 3, spacing + 16, baseRotation + 1, 118);
+            return;
+        }
         int rings = switch (settlement.tier()) {
-            case CAMP -> 0; case HAMLET -> 1; case VILLAGE -> 1; case TOWN -> 2; case CITY -> 3; case METROPOLIS -> 4;
+            case CAMP, HAMLET, VILLAGE -> 0; case TOWN -> 1; case CITY -> 2; case METROPOLIS -> 3;
         };
         int halfLength = Math.max(42, spacing * (rings + 1));
         int index = 0;
@@ -289,6 +301,7 @@ public final class SettlementPlanner {
             if (Math.abs(lx) > maxRadius || Math.abs(lz) > maxRadius) continue;
             SimPosition center = local(settlement, baseRotation, lx, lz);
             int variant = Math.floorMod((int) mix(settlement.id() ^ (long) emitted * 0x9E3779B97F4A7C15L), 7);
+            CultureArchitecture culture = CultureArchitecture.fromStyleIndex(Math.floorMod((int) faction.id(), 8));
             int w, d;
             boolean pressure = settlement.housingShortage() > 40 || settlement.population() > settlement.housing();
             if (settlement.tier().ordinal() >= Settlement.Tier.CITY.ordinal() && (emitted % 5 == 0 || (pressure && emitted % 3 == 0))) {
@@ -298,9 +311,11 @@ public final class SettlementPlanner {
             } else if (settlement.tier() == Settlement.Tier.METROPOLIS && emitted % 2 == 0) {
                 w = 13; d = 11;
             } else {
-                w = switch (variant) { case 0 -> 7; case 1, 4 -> 9; default -> 7; };
-                d = switch (variant) { case 2 -> 9; case 5 -> 7; default -> 9; };
+                w = switch (variant) { case 0 -> 9; case 1, 4 -> 11; default -> 9; };
+                d = switch (variant) { case 2 -> 11; case 5 -> 9; default -> 9; };
             }
+            w = Math.max(w, culture.minHouseWidth());
+            d = Math.max(d, culture.minHouseDepth());
             int face = houseFacing(lx, lz, spacing, baseRotation);
             addAt(out, faction, settlement, StructureRole.HOUSE, emitted, center, w, d, face, 88);
             emitted++;
@@ -349,18 +364,30 @@ public final class SettlementPlanner {
         if (morph == SettlementMorphology.HILL_TOWN) radius = (int) (radius * 0.82);
         if (morph == SettlementMorphology.WALLED_CORE) radius = (int) (radius * 0.9);
         int segment = 34, index = 0;
+        int gateClear = 8; // skip curtain cells that would seal the cardinal gate portals
         for (int x = -radius; x <= radius; x += segment) {
-            addAt(out, faction, settlement, StructureRole.WALL, index++, local(settlement, baseRotation, x, -radius), 5, segment + 4, baseRotation + 1, 108);
-            addAt(out, faction, settlement, StructureRole.WALL, index++, local(settlement, baseRotation, x, radius), 5, segment + 4, baseRotation + 1, 108);
+            if (Math.abs(x) >= gateClear) {
+                addAt(out, faction, settlement, StructureRole.WALL, index++, local(settlement, baseRotation, x, -radius), 5, segment + 4, baseRotation + 1, 108);
+                addAt(out, faction, settlement, StructureRole.WALL, index++, local(settlement, baseRotation, x, radius), 5, segment + 4, baseRotation + 1, 108);
+            }
         }
         for (int z = -radius + segment; z <= radius - segment; z += segment) {
-            addAt(out, faction, settlement, StructureRole.WALL, index++, local(settlement, baseRotation, -radius, z), 5, segment + 4, baseRotation, 108);
-            addAt(out, faction, settlement, StructureRole.WALL, index++, local(settlement, baseRotation, radius, z), 5, segment + 4, baseRotation, 108);
+            if (Math.abs(z) >= gateClear) {
+                addAt(out, faction, settlement, StructureRole.WALL, index++, local(settlement, baseRotation, -radius, z), 5, segment + 4, baseRotation, 108);
+                addAt(out, faction, settlement, StructureRole.WALL, index++, local(settlement, baseRotation, radius, z), 5, segment + 4, baseRotation, 108);
+            }
         }
+        // Gates first in priority so portals carve open before nearby curtain segments settle.
         addAt(out, faction, settlement, StructureRole.GATE, 0, local(settlement, baseRotation, 0, -radius), 11, 7, baseRotation, 150);
         addAt(out, faction, settlement, StructureRole.GATE, 1, local(settlement, baseRotation, 0, radius), 11, 7, baseRotation + 2, 150);
         addAt(out, faction, settlement, StructureRole.GATE, 2, local(settlement, baseRotation, -radius, 0), 11, 7, baseRotation + 1, 150);
         addAt(out, faction, settlement, StructureRole.GATE, 3, local(settlement, baseRotation, radius, 0), 11, 7, baseRotation + 3, 150);
+        // Approach roads through each gate so countryside connectors meet openings, not sealed walls.
+        int approach = Math.max(28, spacing(morph) / 2);
+        addRoad(out, faction, settlement, 900, local(settlement, baseRotation, 0, -radius), 5, approach, baseRotation + 1, 145);
+        addRoad(out, faction, settlement, 901, local(settlement, baseRotation, 0, radius), 5, approach, baseRotation + 1, 145);
+        addRoad(out, faction, settlement, 902, local(settlement, baseRotation, -radius, 0), 5, approach, baseRotation, 145);
+        addRoad(out, faction, settlement, 903, local(settlement, baseRotation, radius, 0), 5, approach, baseRotation, 145);
     }
 
     private static void addCivic(List<ConstructionIntent> out, Faction faction, Settlement settlement,
@@ -477,16 +504,25 @@ public final class SettlementPlanner {
     private static int adjustPriority(dev.livingrealms.sim.faction.DevelopmentPriority policy, StructureRole role, int base) {
         int bonus = switch (policy) {
             case BALANCED -> 0;
-            case FOOD -> (role == StructureRole.FARM || role == StructureRole.FISHERY || role == StructureRole.IRRIGATION
-                    || role == StructureRole.AQUEDUCT || role == StructureRole.WELL || role == StructureRole.MILL
-                    || role == StructureRole.BAKERY || role == StructureRole.PASTURE) ? 35 : 0;
+            case FOOD -> {
+                if (role == StructureRole.FARM || role == StructureRole.FISHERY || role == StructureRole.IRRIGATION
+                        || role == StructureRole.AQUEDUCT || role == StructureRole.WELL || role == StructureRole.MILL
+                        || role == StructureRole.BAKERY || role == StructureRole.PASTURE) {
+                    yield 70;
+                }
+                if (role == StructureRole.PLAZA || role == StructureRole.MONUMENT || role == StructureRole.TAVERN
+                        || role == StructureRole.TEMPLE) {
+                    yield -45;
+                }
+                yield 0;
+            }
             case HOUSING -> role == StructureRole.HOUSE ? 60 : 0;
             case INDUSTRY -> (role == StructureRole.WORKSHOP || role == StructureRole.FACTORY || role == StructureRole.MINE
                     || role == StructureRole.LUMBER_CAMP || role == StructureRole.BREWERY) ? 35 : 0;
             case DEFENSE -> (role == StructureRole.KEEP || role == StructureRole.BARRACKS || role == StructureRole.WALL
                     || role == StructureRole.GATE || role == StructureRole.AIRFIELD) ? 35 : 0;
         };
-        return Math.min(240, base + bonus);
+        return Math.max(1, Math.min(240, base + bonus));
     }
 
     private static int spacing(SettlementMorphology morph) {

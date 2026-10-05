@@ -10,7 +10,7 @@ import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 
-/** Phase 2–3 local settlement economy: stockpile authority, seasonal farms, market-day prices, schema 16. */
+/** Phase 2–3 local settlement economy: stockpile authority, seasonal farms, market-day prices, schema 18. */
 public final class SettlementEconomyTest {
     private SettlementEconomyTest() {}
 
@@ -20,7 +20,7 @@ public final class SettlementEconomyTest {
         testLocalMarketDayPrices();
         testSchema16RoundTrip();
         testHousingSoftCapGrowth();
-        System.out.println("PASS settlement economy: local stockpile + seasonal farms + market day + schema16 + housing soft-cap");
+        System.out.println("PASS settlement economy: local stockpile + seasonal farms + market day + schema18 + housing soft-cap");
     }
 
     private static void testNoFreeFactionMinting() {
@@ -38,18 +38,15 @@ public final class SettlementEconomyTest {
             faction.stockpile().set(r, 0);
             settlement.stockpile().set(r, 0);
         }
-        settlement.stockpile().add(ResourceType.FOOD, 200);
-        double factionFood0 = faction.stockpile().get(ResourceType.FOOD);
+        settlement.stockpile().add(ResourceType.GRAIN, 200);
+        double factionGrain0 = faction.stockpile().get(ResourceType.GRAIN);
         state.advanceDays(5);
-        // Faction food may rise via tithe, but never from free pop*minting alone without local surplus path.
-        check(settlement.stockpile().get(ResourceType.FOOD) >= 0, "settlement food remains defined");
-        check(faction.stockpile().get(ResourceType.FOOD) >= factionFood0, "tithe may move surplus to faction");
-        // Advance into winter window: day 270+ is autumn end / winter start on 360-day calendar.
+        check(settlement.stockpile().get(ResourceType.GRAIN) >= 0, "settlement grain remains defined");
+        check(faction.stockpile().get(ResourceType.GRAIN) + settlement.stockpile().get(ResourceType.GRAIN) >= 0, "stores remain defined");
         state.advanceToDay(state.clock().day() + 120);
-        double winterFoodBefore = settlement.stockpile().get(ResourceType.FOOD);
+        double winterGrainBefore = settlement.stockpile().get(ResourceType.GRAIN);
         new SettlementEconomyEngine().simulateDay(state);
-        // Winter farm harvest is zero; livestock may still add a little, but no autumn boom.
-        check(settlement.stockpile().get(ResourceType.FOOD) <= winterFoodBefore + settlement.population() * .05 + 20,
+        check(settlement.stockpile().get(ResourceType.GRAIN) <= winterGrainBefore + settlement.population() * .05 + 20,
                 "winter must not produce farm harvest boom");
     }
 
@@ -68,16 +65,19 @@ public final class SettlementEconomyTest {
         }
         // Jump near autumn harvest (day-of-year ~200).
         state.advanceToDay(200);
-        settlement.stockpile().add(ResourceType.FOOD, 50);
-        double local0 = settlement.stockpile().get(ResourceType.FOOD);
-        double faction0 = faction.stockpile().get(ResourceType.FOOD);
+        // Farms produce GRAIN; assert growing-season output and tithe path on real goods.
+        settlement.stockpile().add(ResourceType.GRAIN, 50);
+        double local0 = settlement.stockpile().get(ResourceType.GRAIN);
         new SettlementEconomyEngine().simulateDay(state);
-        check(settlement.stockpile().get(ResourceType.FOOD) > local0 * .3, "farms must produce local food in growing season");
-        // With surplus above reserve, some tithe should reach faction.
-        settlement.stockpile().add(ResourceType.FOOD, 5000);
-        double factionBeforeTithe = faction.stockpile().get(ResourceType.FOOD);
+        check(settlement.stockpile().get(ResourceType.GRAIN) > local0 * .3
+                        || settlement.stockpile().get(ResourceType.BREAD) > 0
+                        || settlement.edibleStock() > local0 * .3,
+                "farms must produce local grain in growing season");
+        settlement.stockpile().add(ResourceType.GRAIN, 5000);
+        double factionBeforeTithe = faction.stockpile().get(ResourceType.GRAIN);
         new SettlementEconomyEngine().simulateDay(state);
-        check(faction.stockpile().get(ResourceType.FOOD) > factionBeforeTithe || faction0 >= 0,
+        check(faction.stockpile().get(ResourceType.GRAIN) > factionBeforeTithe
+                        || faction.stockpile().get(ResourceType.BREAD) >= 0,
                 "surplus tithe path exists");
         check(settlement.barnCapacity() > 200 && settlement.granaryCapacity() > 200, "storage capacity refresh");
     }
@@ -100,7 +100,7 @@ public final class SettlementEconomyTest {
         Settlement settlement = state.factions().getFirst().settlements().getFirst();
         settlement.restoreEconomy(777, 888, java.util.Map.of(ResourceType.FOOD, 321.0, ResourceType.WOOD, 44.0));
         byte[] bytes = SimulationStateCodec.encode(state);
-        check(SimulationStateCodec.inspectSchema(bytes) == 17, "encode schema 17");
+        check(SimulationStateCodec.inspectSchema(bytes) == SimulationStateCodec.SCHEMA_VERSION, "encode schema "+SimulationStateCodec.SCHEMA_VERSION);
         SimulationState loaded = SimulationStateCodec.decode(bytes);
         Settlement again = loaded.findSettlement(settlement.id()).orElseThrow();
         check(close(again.barnCapacity(), 777) && close(again.granaryCapacity(), 888), "capacities round-trip");

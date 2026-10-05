@@ -88,6 +88,11 @@ public final class RealmDashboardScreen extends Screen {
         int contentY=contentTop(top,panelWidth);
         if (tab == Tab.LAW) rebuildLawButtons(left, contentY, panelWidth);
         if (tab == Tab.SETTINGS) rebuildSettingsButtons(left,contentY,panelWidth);
+        if (tab == Tab.MAP) {
+            addRenderableWidget(Button.builder(Component.literal("Open world map (M)"),
+                    b -> DashboardClientState.requestOpenMap())
+                    .bounds(left + panelWidth - 158, Math.max(contentY, footerY - 22), 148, 18).build());
+        }
         if (tab == Tab.OVERVIEW) {
             rebuildFactionButton(left,contentY,panelWidth);
             rebuildInfluenceButtons(left,contentY,panelWidth);
@@ -285,16 +290,22 @@ public final class RealmDashboardScreen extends Screen {
         DashboardActionCommand.Action[] actions={DashboardActionCommand.Action.CONFIG_PERFORMANCE,DashboardActionCommand.Action.CONFIG_BALANCED,DashboardActionCommand.Action.CONFIG_IMMERSIVE,DashboardActionCommand.Action.CONFIG_CINEMATIC};
         String[] labels={"Performance","Balanced","Immersive","Cinematic"};
         int gap=6,buttonWidth=Math.max(90,(panelWidth-26-gap)/2);
+        int panelHeight = Math.min(panelHeightPref(), height - 20);
+        int top = Math.max(10, (height - panelHeight) / 2);
+        int footerY = top + panelHeight - 26;
+        // Keep all settings controls above the footer so LARGE UI never clips off-screen.
+        int stackTop = Math.min(contentY + 72, footerY - 22 * 4 - 8);
         for (int i = 0; i < actions.length; i++) {
             final DashboardActionCommand.Action action = actions[i];
             final String label = labels[i];
             int col = i % 2;
             int row = i / 2;
+            int by = Math.min(stackTop + row * 22, footerY - 44);
             addRenderableWidget(Button.builder(Component.literal(label),
                     b -> DashboardClientState.sendAction(new DashboardActionCommand(action, 1)))
-                    .bounds(left + 10 + col * (buttonWidth + gap), contentY + 104 + row * 22, buttonWidth, 18).build());
+                    .bounds(left + 10 + col * (buttonWidth + gap), by, buttonWidth, 18).build());
         }
-        int a11yY = contentY + 152;
+        int a11yY = Math.min(stackTop + 48, footerY - 22);
         var scaleBtn = Button.builder(Component.translatable("button.livingrealms.ui_scale", DashboardAccessibility.scale().name()),
                 b -> { DashboardAccessibility.cycleScale(); rebuildDashboardWidgets(); })
                 .bounds(left + 10, a11yY, buttonWidth, 18).build();
@@ -630,7 +641,8 @@ public final class RealmDashboardScreen extends Screen {
         lines.add(header("Active wars"));
         for (var w : snapshot.wars()) {
             lines.add(warn(w.attackerName() + " vs " + w.defenderName()));
-            lines.add(dim(w.goal() + " • since day " + w.startDay() + " • score " + one(w.attackerScore()), 1));
+            lines.add(dim(w.goal() + (w.targetSettlementName().isBlank() ? "" : " → " + w.targetSettlementName())
+                    + " • since day " + w.startDay() + " • score " + one(w.attackerScore()), 1));
             lines.add(dim("Exhaustion A " + pct(w.attackerExhaustion()) + " / D " + pct(w.defenderExhaustion()), 1));
         }
         if (snapshot.wars().isEmpty()) lines.add(dim("No active wars relevant to this realm.", 0));
@@ -700,17 +712,24 @@ public final class RealmDashboardScreen extends Screen {
         graphics.fill(x,y,x+w,y+h,0xFF0D1117);
         graphics.fill(x,y,x+w,y+1,0xFF3A4654);graphics.fill(x,y+h-1,x+w,y+h,0xFF3A4654);
         graphics.fill(x,y,x+1,y+h,0xFF3A4654);graphics.fill(x+w-1,y,x+w,y+h,0xFF3A4654);
+        // Soft geographic wash so the panel reads as a map, not an abstract icon soup.
+        ClientTerrainMapCache.paintIfAvailable(graphics,snapshot,x+1,y+1,w-2,h-2);
         double spanX=Math.max(1,map.maxX()-map.minX()),spanZ=Math.max(1,map.maxZ()-map.minZ());
         for(var c:map.claims())drawClaim(graphics,map,c,x,y,w,h,spanX,spanZ,factionColor(c.factionId(),0x88));
         for(var r:map.routes()){
-            int color=r.operational()?("RAIL".equals(r.mode())?0xFFD1B56A:0xFF88919C):0xFF4A4F56;
+            int color=r.operational()?("RAIL".equals(r.mode())?0xFFD1B56A:"CARAVAN".equals(r.mode())?0xFF8B7355:0xFF88919C):0xFF4A4F56;
             drawWorldLine(graphics,map,r.fromX(),r.fromZ(),r.toX(),r.toZ(),x,y,w,h,color);
         }
         for(var f:map.fronts())drawWorldLine(graphics,map,f.fromX(),f.fromZ(),f.toX(),f.toZ(),x,y,w,h,0xFFFF625E);
+        int labeled=0;
         for(var s:map.settlements()){
             int sx=mapX(map,s.x(),x,w),sy=mapY(map,s.z(),y,h),color=factionColor(s.factionId(),0xFF);
             int size=s.population()>=10000?4:s.population()>=2000?3:2;
             graphics.fill(sx-size,sy-size,sx+size+1,sy+size+1,color);
+            if(labeled<18 && s.name()!=null && !s.name().isBlank()){
+                graphics.drawString(font,s.name(),sx+size+2,sy-3,0xFFE8EEF5,false);
+                labeled++;
+            }
         }
         for(var a:map.armies()){
             int sx=mapX(map,a.x(),x,w),sy=mapY(map,a.z(),y,h),color=factionColor(a.factionId(),0xFF);
@@ -718,8 +737,9 @@ public final class RealmDashboardScreen extends Screen {
         }
         int px=mapX(map,map.playerX(),x,w),py=mapY(map,map.playerZ(),y,h);
         graphics.fill(px-4,py,px+5,py+1,0xFFFFFFFF);graphics.fill(px,py-4,px+1,py+5,0xFFFFFFFF);
-        graphics.drawString(font,"Claims • routes • armies • fronts",x+4,y+4,0xFFB9C2CC,false);
-        graphics.drawString(font,"X "+whole(map.playerX())+"  Z "+whole(map.playerZ()),x+4,y+h-11,0xFFB9C2CC,false);
+        graphics.drawString(font,"Geographic map · settlements labeled · press M for full terrain",x+4,y+4,0xFFB9C2CC,false);
+        graphics.drawString(font,"You @ X "+whole(map.playerX())+"  Z "+whole(map.playerZ())+"  ·  founding needs "
+                +(int)Math.round(dev.livingrealms.sim.player.PlayerSettlementFounder.MIN_SETTLEMENT_SPACING)+"m clearance",x+4,y+h-11,0xFFB9C2CC,false);
     }
 
     private static int mapX(RealmDashboardSnapshot.StrategicMapView map,double worldX,int x,int w){return x+(int)Math.round((worldX-map.minX())/Math.max(1,map.maxX()-map.minX())*(w-1));}

@@ -171,7 +171,8 @@ public final class CompatibleContentRuntime {
         return ModCompatibilityPolicy.find(namespace).map(e->e.usableByLivingWorld()&&(e.category()==ModCompatibilityPolicy.Category.COMBAT||e.category()==ModCompatibilityPolicy.Category.MAGIC||e.category()==ModCompatibilityPolicy.Category.CONTENT)).orElse(true);
     }
     private static boolean supportsForeignPalette(PaletteSlot slot){return switch(slot){
-        case FOUNDATION,FLOOR,WALL,BEAM,ROOF,GLASS,FENCE,PATH,LIGHT,DOOR -> true;
+        // N2: foreign blocks only in non-load-bearing roles unless explicitly allowed elsewhere.
+        case GLASS,FENCE,PATH,LIGHT,DOOR,DECORATION -> true;
         default -> false;
     };}
     private static boolean matchesBlock(PaletteSlot slot,String path,BlockState state){

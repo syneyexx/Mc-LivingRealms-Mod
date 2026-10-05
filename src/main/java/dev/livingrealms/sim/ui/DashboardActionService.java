@@ -49,6 +49,8 @@ public final class DashboardActionService {
             if(settlement.developmentPriority()==priority)return new Result(false,false,"policy_unchanged");settlement.setDevelopmentPriority(priority);return new Result(true,true,"policy_"+priority.name().toLowerCase());
         }
         if(command.action()==DashboardActionCommand.Action.FOUND_SETTLEMENT){
+            // Ensure standing exists so founding / influence never fail with opaque no_standing.
+            state.playerStanding(actorKey);
             String playerName=actorKey.contains(":")?actorKey.substring(actorKey.indexOf(':')+1):actorKey;
             if(playerName.length()>24)playerName=playerName.substring(0,24);
             String settlementName=command.argument();

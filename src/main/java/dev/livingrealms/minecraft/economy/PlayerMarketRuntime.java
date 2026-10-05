@@ -60,7 +60,22 @@ public final class PlayerMarketRuntime {
         return false;
     }
     private static ResourceType decodeResource(long encoded){if(encoded<=0||encoded>ResourceType.values().length)return null;return ResourceType.values()[(int)encoded-1];}
-    private static Item item(ResourceType r){return switch(r){case FOOD->Items.BREAD;case WOOD->Items.OAK_LOG;case STONE->Items.STONE;case IRON->Items.IRON_INGOT;case COAL->Items.COAL;case COPPER->Items.COPPER_INGOT;case GOLD->Items.GOLD_INGOT;case FUEL->Items.CHARCOAL;case AMMUNITION->Items.ARROW;case TEXTILES->Items.WHITE_WOOL;default->null;};}
+    private static Item item(ResourceType r){return switch(r){
+        case FOOD,BREAD -> Items.BREAD;
+        case GRAIN,FLOUR -> Items.WHEAT;
+        case MEAT -> Items.BEEF;
+        case ALE -> Items.HONEY_BOTTLE;
+        case WOOL,TEXTILES -> Items.WHITE_WOOL;
+        case WOOD -> Items.OAK_LOG;
+        case STONE -> Items.STONE;
+        case IRON -> Items.IRON_INGOT;
+        case COAL -> Items.COAL;
+        case COPPER -> Items.COPPER_INGOT;
+        case GOLD -> Items.GOLD_INGOT;
+        case FUEL -> Items.CHARCOAL;
+        case AMMUNITION -> Items.ARROW;
+        case TOOLS,MACHINERY -> null;
+    };}
     private static int count(Inventory inv,Item item){int n=0;for(int i=0;i<inv.getContainerSize();i++){ItemStack s=inv.getItem(i);if(!s.isEmpty()&&s.getItem()==item)n+=s.getCount();}return n;}
     private static int remove(Inventory inv,Item item,int count){int remaining=count;for(int i=0;i<inv.getContainerSize()&&remaining>0;i++){ItemStack s=inv.getItem(i);if(s.isEmpty()||s.getItem()!=item)continue;int n=Math.min(remaining,s.getCount());s.shrink(n);remaining-=n;}return count-remaining;}
     private static boolean canFit(Inventory inv,Item item,int count){int capacity=0;int max=new ItemStack(item).getMaxStackSize();for(int i=0;i<inv.getContainerSize();i++){ItemStack s=inv.getItem(i);if(s.isEmpty())capacity+=max;else if(s.getItem()==item)capacity+=Math.max(0,s.getMaxStackSize()-s.getCount());if(capacity>=count)return true;}return false;}

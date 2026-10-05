@@ -25,7 +25,7 @@ public final class LocalMarketEngine {
         int weekday = Math.floorMod((int) Math.max(0, day), 7);
         double marketDay = (weekday == 0 || weekday == 3) ? 1.08 : (weekday == 6 ? .94 : 1.0);
         CivilizationCalendar.Season season = CivilizationCalendar.season(day);
-        double seasonMul = resource == ResourceType.FOOD
+        double seasonMul = (resource == ResourceType.FOOD || resource == ResourceType.GRAIN || resource == ResourceType.BREAD || resource == ResourceType.FLOUR)
                 ? switch (season) {
                     case WINTER -> 1.22;
                     case SPRING -> 1.06;

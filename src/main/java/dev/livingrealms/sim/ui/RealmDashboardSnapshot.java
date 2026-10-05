@@ -28,7 +28,7 @@ public record RealmDashboardSnapshot(
         StrategicMapView map,
         List<HistoryView> history
 ) {
-    public static final int PROTOCOL_VERSION = 17;
+    public static final int PROTOCOL_VERSION = 19;
 
     public RealmDashboardSnapshot {
         if (protocolVersion != PROTOCOL_VERSION) throw new IllegalArgumentException("protocolVersion");
@@ -111,8 +111,8 @@ public record RealmDashboardSnapshot(
         }
     }
 
-    public record WarView(long id,long attackerFactionId,String attackerName,long defenderFactionId,String defenderName,String goal,long startDay,double attackerScore,double attackerExhaustion,double defenderExhaustion){
-        public WarView{attackerName=safe(attackerName);defenderName=safe(defenderName);goal=safe(goal);attackerScore=finite(attackerScore);attackerExhaustion=bounded(attackerExhaustion);defenderExhaustion=bounded(defenderExhaustion);}
+    public record WarView(long id,long attackerFactionId,String attackerName,long defenderFactionId,String defenderName,String goal,long targetSettlementId,String targetSettlementName,long startDay,double attackerScore,double attackerExhaustion,double defenderExhaustion){
+        public WarView{attackerName=safe(attackerName);defenderName=safe(defenderName);goal=safe(goal);targetSettlementName=safe(targetSettlementName);attackerScore=finite(attackerScore);attackerExhaustion=bounded(attackerExhaustion);defenderExhaustion=bounded(defenderExhaustion);}
     }
 
 

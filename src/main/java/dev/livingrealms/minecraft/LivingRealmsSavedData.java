@@ -4,8 +4,10 @@ import dev.livingrealms.minecraft.compat.WaystoneSettlementRuntime;
 import dev.livingrealms.minecraft.construction.AuthoredBlockLedgerNbt;
 import dev.livingrealms.minecraft.construction.SettlementGeographyNbt;
 import dev.livingrealms.sim.construction.AuthoredBlockLedger;
+import dev.livingrealms.sim.persistence.ContentMigrationPolicy;
 import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.world.DemoSeeder;
+import dev.livingrealms.sim.world.ManualDayAdvanceScheduler;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.SettlementDensitySeeder;
 import dev.livingrealms.sim.world.WizardTreesSeeder;
@@ -23,7 +25,9 @@ import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.saveddata.SavedData;
 
-/** Persistent canonical state stored in the Overworld data directory. */
+/**
+ * Persistent canonical state stored in the Overworld data directory.
+ */
 public final class LivingRealmsSavedData extends SavedData {
     public static final String FILE_ID = "livingrealms_world";
     private static final String KEY_SCHEMA = "Schema";
@@ -32,11 +36,10 @@ public final class LivingRealmsSavedData extends SavedData {
     private static final String KEY_CONTENT_REVISION = "ContentRevision";
     private static final String KEY_ONBOARDED_PLAYERS = "OnboardedPlayers";
     /**
-     * Revision 12: ~35% countryside density (fewer authored satellites, sparse roads) plus far-world
-     * frontier continuity. Does not shrink already-dense migrated worlds; new seeds use the sparse
-     * target. Morphology rebuild gates from revision 10 remain intact.
+     * Revision 14: migration order fix (morphology reset before densifier), no seeder completion
+     * keys, all 10 Specs per realm, goods-chain ContentRevision alignment with schema 18.
      */
-    private static final int CONTENT_REVISION = 12;
+    private static final int CONTENT_REVISION = 14;
 
     private final SimulationState state;
     /** settlementId -> packed BlockPos of Living Realms-authored Waystone only. */
@@ -45,9 +48,15 @@ public final class LivingRealmsSavedData extends SavedData {
     private final AuthoredBlockLedger authoredBlocks = new AuthoredBlockLedger();
     /** Players who already received first-contact onboarding (outer NBT; not schema payload). */
     private final Set<UUID> onboardedPlayers = new HashSet<>();
+    /** Transient setday/advance backlog; not persisted across reload. */
+    private final ManualDayAdvanceScheduler dayAdvanceScheduler = new ManualDayAdvanceScheduler();
 
     private LivingRealmsSavedData(SimulationState state) {
         this.state = state;
+    }
+
+    public ManualDayAdvanceScheduler dayAdvanceScheduler() {
+        return dayAdvanceScheduler;
     }
 
     public static LivingRealmsSavedData create(long worldSeed) {
@@ -76,7 +85,8 @@ public final class LivingRealmsSavedData extends SavedData {
             throw new IllegalStateException("Living Realms save schema mismatch: outer=" + outerSchema + ", payload=" + innerSchema);
         }
         long expectedIntegrity = tag.getLong(KEY_PAYLOAD_INTEGRITY);
-        if (expectedIntegrity != 0L && expectedIntegrity != SimulationStateCodec.integrityToken(payload)) {
+        long actualIntegrity = SimulationStateCodec.integrityToken(payload);
+        if (ContentMigrationPolicy.shouldRejectCorruptPayload(expectedIntegrity, actualIntegrity)) {
             throw new IllegalStateException("Living Realms save payload checksum mismatch");
         }
         int contentRevision = tag.getInt(KEY_CONTENT_REVISION);
@@ -86,25 +96,28 @@ public final class LivingRealmsSavedData extends SavedData {
         AuthoredBlockLedgerNbt.read(tag, loaded.authoredBlocks);
         SettlementGeographyNbt.read(tag, loaded.state());
         readOnboardedPlayers(tag, loaded.onboardedPlayers);
-        // Revision 3 rebuilt unsafe early-RC structures. Revision 4 expands the canonical world
-        // to the twelve-kingdom target while preserving already-migrated physical construction.
-        // Revision 12 re-runs densifier for worlds that never received the sparse ~35% target
-        // (idempotent add-only — existing dense saves keep their settlements).
-        int densityChanges = contentRevision < 6 || contentRevision < 12 ? SettlementDensitySeeder.ensureStarterDensity(loaded.state()) : 0;
-        int wizardChanges = contentRevision < 5 ? WizardTreesSeeder.ensure(loaded.state()) : 0;
-        int constructionResets=0;
-        // Revision 6 replaces the old curved/free-form settlement layouts with connected street
-        // blocks, accessible floors, denser housing and capital castles. Completion keys must be
-        // rebuilt once so old saves do not incorrectly treat the new geometry as already present.
-        // Revision 10 replaces universal orthogonal rings with geography-derived morphologies
-        // (coastal/river/hill/radial/organic) plus plazas and street furniture — reset once.
-        if(contentRevision < 6 || contentRevision < 10){
-            for(var faction:loaded.state().factions())for(var settlement:faction.settlements())constructionResets+=settlement.resetConstructionCompletion();
+        // Morphology reset MUST run before densifier so new hamlets keep empty completion, while
+        // already-present settlements lose obsolete geometry keys exactly once (revision < 10).
+        int constructionResets = 0;
+        if (ContentMigrationPolicy.shouldResetMorphology(contentRevision)) {
+            for (var faction : loaded.state().factions()) for (var settlement : faction.settlements()) {
+                constructionResets += settlement.resetConstructionCompletion();
+            }
         }
-        // Revision 8 introduced authored-block provenance. Revision 9 adds typed ownership in the
-        // same NBT key (legacy type bits=0 => SETTLEMENT_STRUCTURE). Revision 10 only rebuilds
-        // settlement morphology completion keys (above). Revision 11 is presentation/social only.
-        if (outerSchema != SimulationStateCodec.SCHEMA_VERSION || expectedIntegrity == 0L || contentRevision < CONTENT_REVISION || densityChanges > 0 || wizardChanges > 0 || constructionResets > 0) loaded.setDirty();
+        int densityChanges = ContentMigrationPolicy.shouldEnsureDensity(contentRevision, CONTENT_REVISION)
+                ? SettlementDensitySeeder.ensureStarterDensity(loaded.state()) : 0;
+        int wizardChanges = ContentMigrationPolicy.shouldEnsureWizardTrees(contentRevision)
+                ? WizardTreesSeeder.ensure(loaded.state()) : 0;
+        densityChanges += SettlementDensitySeeder.enforceSpacing(loaded.state());
+        // Revision 8 introduced authored-block provenance. Revision 9 adds typed ownership.
+        // Revision 10 morphology rebuild is gated above. Revision 11–13 are presentation/spacing.
+        // Revision 14 is densifier Spec completeness + seeder completion-key ban.
+        if (outerSchema != SimulationStateCodec.SCHEMA_VERSION
+                || ContentMigrationPolicy.isLegacyIntegrityPath(expectedIntegrity)
+                || contentRevision < CONTENT_REVISION
+                || densityChanges > 0 || wizardChanges > 0 || constructionResets > 0) {
+            loaded.setDirty();
+        }
         return loaded;
     }
 

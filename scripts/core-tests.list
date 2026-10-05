@@ -21,6 +21,9 @@ dev.livingrealms.WorldgenQualityTest
 dev.livingrealms.ProductionQualityTest
 dev.livingrealms.ProductionCompletionPassTest
 dev.livingrealms.SocietyDialogueTest
+dev.livingrealms.DialogueTokenTest
+dev.livingrealms.RosterWithoutProjectionTest
+dev.livingrealms.DashboardActionExhaustivenessTest
 dev.livingrealms.RumorNetworkTest
 dev.livingrealms.SocietyInfrastructureTest
 dev.livingrealms.CivilizationLayerTest
@@ -42,4 +45,15 @@ dev.livingrealms.RuntimeSmokeTest
 dev.livingrealms.HousingAndProductionTruthTest
 dev.livingrealms.RegionalImpostorPlannerTest
 dev.livingrealms.PlayerAgencyTest
+dev.livingrealms.MigrationOrderTest
+dev.livingrealms.AuthoredSettlementNamesTest
+dev.livingrealms.GoodsChainTest
+dev.livingrealms.NoPhantomConstructionTest
+dev.livingrealms.SettlementTransferTest
+dev.livingrealms.WarGoalAndCapitalTargetTest
+dev.livingrealms.SiegeBreachAllKeysTest
+dev.livingrealms.SingleProductionAuthorityTest
+dev.livingrealms.DocumentationPinTest
+dev.livingrealms.ManualDayAdvanceSchedulerTest
+dev.livingrealms.Schema18FollowUpTest
 dev.livingrealms.LongRunSoakTest

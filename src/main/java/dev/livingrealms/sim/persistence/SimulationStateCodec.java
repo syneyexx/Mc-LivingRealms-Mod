@@ -32,7 +32,7 @@ import java.util.zip.CRC32;
 public final class SimulationStateCodec {
     private static final int MAGIC = 0x4C52534D; // LRSM
     public static final int MIN_SUPPORTED_SCHEMA = 1;
-    public static final int SCHEMA_VERSION = 17;
+    public static final int SCHEMA_VERSION = 18;
     /** Hard ceiling for one canonical world-state payload. Prevents corrupt/local saves from driving unbounded decode work. */
     public static final int MAX_STATE_BYTES = 32 * 1024 * 1024;
     /** Individual canonical text fields are metadata, identifiers or bounded event text; 64 KiB is intentionally generous. */
@@ -64,7 +64,7 @@ public final class SimulationStateCodec {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(bytes))) {
                 out.writeInt(MAGIC);out.writeInt(SCHEMA_VERSION);out.writeLong(state.seed());out.writeLong(state.clock().gameTicks());out.writeLong(state.peekNextId());
-                writeRegions(out,state);writeFactions(out,state);writeShipments(out,state);writeV4Strategic(out,state);writeV5Law(out,state);writeV6NavalAndPlayers(out,state);writeV7Industry(out,state);writeV9Config(out,state);writeV11Social(out,state);writeV12Civilization(out,state);writeV13Humanity(out,state);writeV14PirateHideouts(out,state);writeV15SiegeEquipment(out,state);writeV16SettlementEconomy(out,state);writeV17FinalProduct(out,state);writeHistory(out,state);
+                writeRegions(out,state);writeFactions(out,state);writeShipments(out,state);writeV4Strategic(out,state);writeV5Law(out,state);writeV6NavalAndPlayers(out,state);writeV7Industry(out,state);writeV9Config(out,state);writeV11Social(out,state);writeV12Civilization(out,state);writeV13Humanity(out,state);writeV14PirateHideouts(out,state);writeV15SiegeEquipment(out,state);writeV16SettlementEconomy(out,state);writeV17FinalProduct(out,state);writeV18GoodsAndOrigins(out,state);writeHistory(out,state);
             }
             byte[] payload=bytes.toByteArray();
             if(payload.length>MAX_STATE_BYTES)throw new IllegalStateException("Living Realms state exceeds hard size limit: "+payload.length);
@@ -261,7 +261,7 @@ public final class SimulationStateCodec {
             long seed=in.readLong();long ticks=in.readLong();long nextId=in.readLong();
             if(ticks<0)throw new IOException("Negative simulation clock: "+ticks);if(nextId<1)throw new IOException("Invalid nextId: "+nextId);
             SimulationState state=new SimulationState(seed,speciesCatalog);state.clock().restore(ticks);state.restoreNextId(nextId);
-            readRegions(in,state,version);readFactions(in,state,version);if(version>=3)readShipments(in,state);if(version>=4)readV4Strategic(in,state);if(version>=5)readV5Law(in,state);if(version>=6)readV6NavalAndPlayers(in,state);if(version>=7)readV7Industry(in,state);if(version>=9)readV9Config(in,state);if(version>=11)readV11Social(in,state);if(version>=12)readV12Civilization(in,state);if(version>=13)readV13Humanity(in,state);if(version>=14)readV14PirateHideouts(in,state);if(version>=15)readV15SiegeEquipment(in,state);if(version>=16)readV16SettlementEconomy(in,state);else migratePreV16SettlementEconomy(state);if(version>=17)readV17FinalProduct(in,state);else migratePreV17FinalProduct(state);readHistory(in,state);if(in.read()!=-1)throw new IOException("Trailing bytes after Living Realms state");
+            readRegions(in,state,version);readFactions(in,state,version);if(version>=3)readShipments(in,state,version);if(version>=4)readV4Strategic(in,state);if(version>=5)readV5Law(in,state);if(version>=6)readV6NavalAndPlayers(in,state);if(version>=7)readV7Industry(in,state);if(version>=9)readV9Config(in,state);if(version>=11)readV11Social(in,state);if(version>=12)readV12Civilization(in,state);if(version>=13)readV13Humanity(in,state,version);if(version>=14)readV14PirateHideouts(in,state);if(version>=15)readV15SiegeEquipment(in,state);if(version>=16)readV16SettlementEconomy(in,state,version);else migratePreV16SettlementEconomy(state);if(version>=17)readV17FinalProduct(in,state);else migratePreV17FinalProduct(state);if(version>=18)readV18GoodsAndOrigins(in,state);else migratePreV18Goods(state);readHistory(in,state);if(in.read()!=-1)throw new IOException("Trailing bytes after Living Realms state");
             state.repairNextIdWatermark();
             if(version==SCHEMA_VERSION){try{SimulationValidator.validate(state).throwIfInvalid();}catch(IllegalStateException invalid){throw new IOException("Current-schema Living Realms state failed semantic validation",invalid);}}
             return state;
@@ -278,7 +278,7 @@ public final class SimulationStateCodec {
     private static void readFactions(DataInputStream in,SimulationState state,int version)throws IOException{
         int factionCount=checkedCount(in.readInt(),10000,"factions");for(int i=0;i<factionCount;i++){
             long id=in.readLong();Faction f=new Faction(id,readString(in),readString(in));f.restoreTreasury(in.readDouble());f.restoreTechnology(in.readDouble());if(version>=4)f.restoreGovernment(readGovernment(in));
-            for(ResourceType rt:ResourceType.values())f.stockpile().add(rt,in.readDouble());
+            for(int ri=0;ri<resourceCount(version);ri++)f.stockpile().add(ResourceType.values()[ri],in.readDouble());
             int sc=checkedCount(in.readInt(),100000,"settlements");for(int j=0;j<sc;j++){Settlement st=new Settlement(in.readLong(),readString(in),new SimPosition(in.readDouble(),in.readDouble()),in.readInt(),in.readInt());st.improveInfrastructure(in.readDouble());if(version>=4)st.restoreSociety(in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble());if(version>=2){int cc=checkedCount(in.readInt(),1000000,"completed construction");for(int k=0;k<cc;k++)st.markConstructionCompleted(readString(in));}if(version>=10)st.setDevelopmentPriority(DevelopmentPriority.values()[enumOrdinal(in.readInt(),DevelopmentPriority.values().length,"development priority")]);f.addSettlement(st);}
             int ac=checkedCount(in.readInt(),100000,"armies");for(int j=0;j<ac;j++){Army a=new Army(in.readLong(),id,new SimPosition(in.readDouble(),in.readDouble()),in.readInt());a.restoreState(in.readInt(),in.readInt(),in.readInt(),in.readInt(),in.readDouble(),in.readDouble());f.addArmy(a);}
             int rc=checkedCount(in.readInt(),100000,"relations");for(int j=0;j<rc;j++){long other=in.readLong();double opinion=in.readDouble();int ord=enumOrdinal(in.readInt(),RelationStatus.values().length,"relation status");boolean trade=in.readBoolean();f.relationWith(other).restore(opinion,RelationStatus.values()[ord],trade);}state.addFaction(f);
@@ -290,7 +290,7 @@ public final class SimulationStateCodec {
         RulerProfile ruler=new RulerProfile(in.readLong(),readString(in),in.readInt(),in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble());GovernmentState g=new GovernmentState(type,succession,ruler);g.restore(in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble(),in.readLong());return g;
     }
 
-    private static void readShipments(DataInputStream in,SimulationState state)throws IOException{int tc=checkedCount(in.readInt(),1000000,"trade shipments");for(int i=0;i<tc;i++){long shipmentId=in.readLong(),seller=in.readLong(),buyer=in.readLong();int resourceOrdinal=enumOrdinal(in.readInt(),ResourceType.values().length,"shipment resource");TradeShipment shipment=new TradeShipment(shipmentId,seller,buyer,ResourceType.values()[resourceOrdinal],in.readDouble(),in.readDouble(),new SimPosition(in.readDouble(),in.readDouble()),new SimPosition(in.readDouble(),in.readDouble()));try{shipment.restoreProgress(in.readDouble());}catch(IllegalArgumentException e){throw new IOException("bad shipment progress",e);}state.addShipment(shipment);}}
+    private static void readShipments(DataInputStream in,SimulationState state,int version)throws IOException{int tc=checkedCount(in.readInt(),1000000,"trade shipments");for(int i=0;i<tc;i++){long shipmentId=in.readLong(),seller=in.readLong(),buyer=in.readLong();int resourceOrdinal=enumOrdinal(in.readInt(),resourceCount(version),"shipment resource");TradeShipment shipment=new TradeShipment(shipmentId,seller,buyer,ResourceType.values()[resourceOrdinal],in.readDouble(),in.readDouble(),new SimPosition(in.readDouble(),in.readDouble()),new SimPosition(in.readDouble(),in.readDouble()));try{shipment.restoreProgress(in.readDouble());}catch(IllegalArgumentException e){throw new IOException("bad shipment progress",e);}state.addShipment(shipment);}}
 
     private static void readV4Strategic(DataInputStream in,SimulationState state)throws IOException{
         int n=checkedCount(in.readInt(),100000,"treaties");for(int i=0;i<n;i++){Treaty t=new Treaty(in.readLong(),in.readLong(),in.readLong(),TreatyType.values()[enumOrdinal(in.readInt(),TreatyType.values().length,"treaty")],in.readLong(),in.readLong());t.restoreActive(in.readBoolean());state.addTreaty(t);}
@@ -349,7 +349,7 @@ public final class SimulationStateCodec {
     }
 
 
-    private static void readV13Humanity(DataInputStream in,SimulationState state)throws IOException{
+    private static void readV13Humanity(DataInputStream in,SimulationState state,int version)throws IOException{
         int n=checkedCount(in.readInt(),100000,"citizen humanity links");for(int i=0;i<n;i++){long citizenId=in.readLong(),householdId=in.readLong();double skill=in.readDouble();SocialCitizen c=state.findSocialCitizen(citizenId).orElseThrow(()->new IOException("unknown citizen in schema13 humanity link: "+citizenId));c.restoreHumanity(skill,householdId);}
         n=checkedCount(in.readInt(),100000,"settlement civilization extensions");for(int i=0;i<n;i++){long settlementId=in.readLong();SettlementCivilizationState c=state.findSettlementCivilization(settlementId).orElseThrow(()->new IOException("unknown settlement civilization extension: "+settlementId));double quarantine=in.readDouble();EnumMap<KnowledgeDomain,Double> knowledge=new EnumMap<>(KnowledgeDomain.class);for(KnowledgeDomain d:KnowledgeDomain.values())knowledge.put(d,in.readDouble());c.restoreExtended(quarantine,knowledge);}
         n=checkedCount(in.readInt(),10000,"faction civilization extensions");for(int i=0;i<n;i++){long factionId=in.readLong();FactionCivilizationState c=state.findFactionCivilization(factionId).orElseThrow(()->new IOException("unknown faction civilization extension: "+factionId));c.restoreExtended(in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble(),in.readDouble());}
@@ -357,7 +357,7 @@ public final class SimulationStateCodec {
         n=checkedCount(in.readInt(),SimulationState.MAX_EPIDEMICS,"epidemics");for(int i=0;i<n;i++){long id=in.readLong(),settlement=in.readLong(),start=in.readLong();String disease=readString(in);double severity=in.readDouble(),infected=in.readDouble();int deaths=checkedCount(in.readInt(),100000000,"epidemic deaths");long last=in.readLong();boolean active=in.readBoolean();EpidemicRecord e=new EpidemicRecord(id,settlement,start,disease,severity,infected);e.restore(severity,infected,deaths,last,active);state.addEpidemic(e);}
         n=checkedCount(in.readInt(),SimulationState.MAX_MIGRATIONS,"migration groups");for(int i=0;i<n;i++){long id=in.readLong(),origin=in.readLong(),source=in.readLong(),target=in.readLong(),camp=in.readLong(),created=in.readLong();int people=checkedCount(in.readInt(),1000000,"migration people");MigrationReason reason=MigrationReason.values()[enumOrdinal(in.readInt(),MigrationReason.values().length,"migration reason")];MigrationStatus status=MigrationStatus.values()[enumOrdinal(in.readInt(),MigrationStatus.values().length,"migration status")];double progress=in.readDouble(),food=in.readDouble(),health=in.readDouble();int hc=checkedCount(in.readInt(),8,"migration households");List<Long> households=new ArrayList<>();for(int j=0;j<hc;j++)households.add(in.readLong());MigrationGroup g=new MigrationGroup(id,origin,source,target,created,Math.max(1,people),reason);g.restore(target,camp,people,status,progress,food,health,households);state.addMigrationGroup(g);}
         n=checkedCount(in.readInt(),SimulationState.MAX_JUSTICE_CASES,"justice cases");for(int i=0;i<n;i++){long id=in.readLong(),faction=in.readLong(),settlement=in.readLong(),opened=in.readLong();String accused=readString(in);CrimeType crime=CrimeType.values()[enumOrdinal(in.readInt(),CrimeType.values().length,"justice crime")];JusticeStatus status=JusticeStatus.values()[enumOrdinal(in.readInt(),JusticeStatus.values().length,"justice status")];SentenceType sentence=SentenceType.values()[enumOrdinal(in.readInt(),SentenceType.values().length,"sentence")];double fine=in.readDouble();long release=in.readLong();JusticeCase j=new JusticeCase(id,faction,settlement,opened,accused,crime);j.restore(status,sentence,fine,release);state.addJusticeCase(j);}
-        n=checkedCount(in.readInt(),SimulationState.MAX_HIDDEN_CACHES,"hidden caches");for(int i=0;i<n;i++){long id=in.readLong(),faction=in.readLong(),settlement=in.readLong(),created=in.readLong();SimPosition pos=readPosition(in);EnumMap<ResourceType,Double> goods=new EnumMap<>(ResourceType.class);for(ResourceType r:ResourceType.values())goods.put(r,in.readDouble());long discoveredByFaction=in.readLong();boolean recovered=in.readBoolean();HiddenCache c=new HiddenCache(id,faction,settlement,created,pos,goods);c.restore(discoveredByFaction,recovered);state.addHiddenCache(c);}
+        n=checkedCount(in.readInt(),SimulationState.MAX_HIDDEN_CACHES,"hidden caches");for(int i=0;i<n;i++){long id=in.readLong(),faction=in.readLong(),settlement=in.readLong(),created=in.readLong();SimPosition pos=readPosition(in);EnumMap<ResourceType,Double> goods=new EnumMap<>(ResourceType.class);for(int ri=0;ri<resourceCount(version);ri++)goods.put(ResourceType.values()[ri],in.readDouble());long discoveredByFaction=in.readLong();boolean recovered=in.readBoolean();HiddenCache c=new HiddenCache(id,faction,settlement,created,pos,goods);c.restore(discoveredByFaction,recovered);state.addHiddenCache(c);}
         n=checkedCount(in.readInt(),SimulationState.MAX_PIRATE_BANDS,"pirate bands");for(int i=0;i<n;i++){long id=in.readLong(),origin=in.readLong(),created=in.readLong();SimPosition pos=readPosition(in);int strength=checkedCount(in.readInt(),100000,"pirate strength");double morale=in.readDouble(),loot=in.readDouble();boolean active=in.readBoolean();PirateBand b=new PirateBand(id,origin,created,pos,Math.max(1,strength));b.restore(pos,strength,morale,loot,active);state.addPirateBand(b);}
         n=checkedCount(in.readInt(),SimulationState.MAX_DIPLOMATIC_MARRIAGES,"diplomatic marriages");for(int i=0;i<n;i++){DiplomaticMarriage m=new DiplomaticMarriage(in.readLong(),in.readLong(),in.readLong(),in.readLong(),in.readLong(),in.readLong());m.restoreActive(in.readBoolean());state.addDiplomaticMarriage(m);}
         n=checkedCount(in.readInt(),10000,"dynasties");for(int i=0;i<n;i++){long faction=in.readLong(),founded=in.readLong();String house=readString(in);long ruler=in.readLong(),heir=in.readLong(),regent=in.readLong();double prestige=in.readDouble();boolean crisis=in.readBoolean();long since=in.readLong();int generation=checkedCount(in.readInt(),100000,"dynasty generation");long lastSuccession=in.readLong();DynastyState d=new DynastyState(faction,founded,house);d.restore(ruler,heir,regent,prestige,crisis,since,Math.max(1,generation),lastSuccession);state.restoreDynasty(d);}
@@ -376,13 +376,13 @@ public final class SimulationStateCodec {
         int n=checkedCount(in.readInt(),100000,"siege equipment");for(int i=0;i<n;i++){long id=in.readLong();int rams=checkedCount(in.readInt(),10000,"siege rams"),ladders=checkedCount(in.readInt(),100000,"siege ladders"),artillery=checkedCount(in.readInt(),10000,"siege artillery");double breach=in.readDouble(),counter=in.readDouble();SiegeState siege=state.sieges().stream().filter(s->s.id()==id).findFirst().orElseThrow(()->new IOException("siege equipment references missing siege "+id));siege.restoreEquipment(rams,ladders,artillery,breach,counter);}
     }
 
-    private static void readV16SettlementEconomy(DataInputStream in,SimulationState state)throws IOException{
+    private static void readV16SettlementEconomy(DataInputStream in,SimulationState state,int version)throws IOException{
         int n=checkedCount(in.readInt(),100000,"settlement economy");
         for(int i=0;i<n;i++){
             long id=in.readLong();
             double barn=in.readDouble(),granary=in.readDouble();
             EnumMap<ResourceType,Double> stores=new EnumMap<>(ResourceType.class);
-            for(ResourceType rt:ResourceType.values())stores.put(rt,in.readDouble());
+            for(int ri=0;ri<resourceCount(version);ri++)stores.put(ResourceType.values()[ri],in.readDouble());
             Settlement settlement=state.findSettlement(id).orElseThrow(()->new IOException("settlement economy references missing settlement "+id));
             try{settlement.restoreEconomy(barn,granary,stores);}catch(IllegalArgumentException bad){throw new IOException("invalid settlement economy for "+id,bad);}
         }
@@ -436,6 +436,67 @@ public final class SimulationStateCodec {
                 if(c.faithKey()==null||c.faithKey().isBlank())c.setFaithKey(civ.faithName());
             }
         }
+    }
+
+    private static void writeV18GoodsAndOrigins(DataOutputStream out,SimulationState state)throws IOException{
+        // Construction origins for every completed key (MATERIALIZED default for older saves).
+        List<Settlement> settlements=new ArrayList<>();
+        for(Faction f:state.factions())settlements.addAll(f.settlements());
+        settlements.sort(Comparator.comparingLong(Settlement::id));
+        out.writeInt(settlements.size());
+        for(Settlement s:settlements){
+            out.writeLong(s.id());
+            var completed=new ArrayList<>(s.completedConstruction());
+            Collections.sort(completed);
+            out.writeInt(completed.size());
+            for(String key:completed){
+                writeString(out,key);
+                out.writeInt(s.constructionOrigin(key).ordinal());
+            }
+        }
+    }
+
+    private static void readV18GoodsAndOrigins(DataInputStream in,SimulationState state)throws IOException{
+        int n=checkedCount(in.readInt(),100000,"construction origins");
+        for(int i=0;i<n;i++){
+            long id=in.readLong();
+            Settlement settlement=state.findSettlement(id).orElseThrow(()->new IOException("construction origins missing settlement "+id));
+            int kc=checkedCount(in.readInt(),1000000,"origin keys");
+            for(int k=0;k<kc;k++){
+                String key=readString(in);
+                ConstructionOrigin origin=ConstructionOrigin.values()[enumOrdinal(in.readInt(),ConstructionOrigin.values().length,"construction origin")];
+                if(settlement.isConstructionCompleted(key))settlement.restoreConstructionOrigin(key,origin);
+            }
+        }
+    }
+
+    private static void migratePreV18Goods(SimulationState state){
+        for(Faction f:state.factions()){
+            migrateStockpileToGoods(f.stockpile());
+            for(Settlement s:f.settlements()){
+                migrateStockpileToGoods(s.stockpile());
+                for(String key:s.completedConstruction())s.restoreConstructionOrigin(key,ConstructionOrigin.MATERIALIZED);
+            }
+        }
+    }
+
+    private static void migrateStockpileToGoods(Stockpile stockpile){
+        double food=stockpile.get(ResourceType.FOOD);
+        if(food<=0){
+            // Already seeded as GRAIN/BREAD (fresh constructors) or empty — keep as-is.
+            return;
+        }
+        // Clear constructor seed for post-legacy goods before mapping FOOD so values are not doubled.
+        zeroNewGoods(stockpile);
+        ResourceType.migrateLegacyFood(stockpile);
+    }
+
+    private static void zeroNewGoods(Stockpile stockpile){
+        for(int i=ResourceType.LEGACY_COUNT;i<ResourceType.values().length;i++)stockpile.set(ResourceType.values()[i],0);
+    }
+
+    private static int resourceCount(int version){
+        return version>=18?ResourceType.values().length:ResourceType.LEGACY_COUNT;
     }
 
     private static void readCrimeLedger(DataInputStream in,CrimeLedger ledger)throws IOException{

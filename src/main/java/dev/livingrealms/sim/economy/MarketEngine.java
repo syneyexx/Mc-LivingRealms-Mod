@@ -11,6 +11,8 @@ public final class MarketEngine {
         BASE.put(ResourceType.FOOD,.45);BASE.put(ResourceType.WOOD,.65);BASE.put(ResourceType.STONE,.55);BASE.put(ResourceType.IRON,1.8);
         BASE.put(ResourceType.COAL,1.2);BASE.put(ResourceType.COPPER,1.5);BASE.put(ResourceType.GOLD,8.0);BASE.put(ResourceType.FUEL,2.2);
         BASE.put(ResourceType.AMMUNITION,4.5);BASE.put(ResourceType.TOOLS,3.2);BASE.put(ResourceType.MACHINERY,12.0);BASE.put(ResourceType.TEXTILES,2.0);
+        BASE.put(ResourceType.GRAIN,.38);BASE.put(ResourceType.FLOUR,.42);BASE.put(ResourceType.BREAD,.55);
+        BASE.put(ResourceType.MEAT,.70);BASE.put(ResourceType.ALE,.48);BASE.put(ResourceType.WOOL,.90);
     }
     private MarketEngine(){}
 
@@ -30,7 +32,19 @@ public final class MarketEngine {
     }
     public static double unitPrice(Faction faction,ResourceType resource){return quote(faction,resource).unitPrice();}
     public static Map<ResourceType,MarketQuote> all(Faction faction){EnumMap<ResourceType,MarketQuote> out=new EnumMap<>(ResourceType.class);for(ResourceType r:ResourceType.values())out.put(r,quote(faction,r));return Collections.unmodifiableMap(out);}
-    public static double localDailyNeed(int pop,ResourceType r){return switch(r){case FOOD->pop*.20;case TEXTILES->pop*.002;case TOOLS->pop*.0012;case FUEL->pop*.0008;case AMMUNITION->pop*.00015;case WOOD->pop*.002;case STONE->pop*.001;default->Math.max(1,pop*.0004);};}
+    public static double localDailyNeed(int pop,ResourceType r){return switch(r){
+        case FOOD,BREAD -> pop*.20;
+        case GRAIN,FLOUR -> pop*.16;
+        case MEAT -> pop*.05;
+        case ALE -> pop*.02;
+        case TEXTILES,WOOL -> pop*.002;
+        case TOOLS -> pop*.0012;
+        case FUEL -> pop*.0008;
+        case AMMUNITION -> pop*.00015;
+        case WOOD -> pop*.002;
+        case STONE -> pop*.001;
+        default -> Math.max(1,pop*.0004);
+    };}
     public static double localDaysOfSupply(Settlement settlement,ResourceType resource){
         double need=localDailyNeed(Math.max(1,settlement.population()),resource);
         if(need<=0)return 999;
