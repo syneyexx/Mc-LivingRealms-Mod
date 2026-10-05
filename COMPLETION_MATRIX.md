@@ -1,6 +1,6 @@
 # Living Realms — Definition of Done matrix
 
-CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 ## Maturity levels (documentation truth)
 
@@ -21,7 +21,7 @@ A subsystem may be **CANONICAL** without being **PHYSICALIZED**, or **PLAYABLE**
 |---|---|---|---|---|---|---|---|---|
 | World clock/history | ✅ | ✅ | ✅ | ✅ | ✅ History tab + commands | n/a | ✅ | POLISHED |
 | Factions/kingdoms | ✅ 12 + Wizard Trees + player realms | ✅ diplomacy/war/trade/growth + SettlementTransfer | ✅ | ✅ citizen + military projection | ✅ Overview/Realms/Map + Join/Leave + found/locate | ✅ heraldry + citizen skins | ✅ | DEEP |
-| Settlements/growth | ✅ capital+1 Spec+1 rural (36 surface) + Spec expansion catalog + spacing 2000 | ✅ organic planning + immigration + causal expansion | ✅ schema 20 + ContentRevision 15 | ✅ terrain-aware construction + provenance + Waystone bridge | ✅ management + locate/found + player register building | ✅ hut→mansion + culture geometry families | ✅ density/authored-names/worldgen | DEEP |
+| Settlements/growth | ✅ capital + 10 authored satellites + 6–14 rural hamlets (204–300 surface) + role-aware spacing | ✅ organic planning + immigration + causal expansion | ✅ schema 20 + ContentRevision 15 | ✅ terrain-aware construction + provenance + Waystone bridge | ✅ management + locate/found + player register building | ✅ hut→mansion + culture geometry families | ✅ density/authored-names/worldgen | DEEP |
 | Society/needs/unrest | ✅ SocialCitizen roster + SocialMobilityEngine | ✅ needs/memory + roster simulateDay | ✅ schema 20 | ✅ physical jobs as animation of sim authority | ✅ Society tab + tokenized dialogue | ✅ 48 citizen skins | ✅ roster/dialogue/society | DEEP |
 | Government/succession | ✅ + SovereignDebt + GrandProject | ✅ debt/projects/succession | ✅ | ✅ court projection | ✅ Politics | ✅ heraldry court kits | ✅ | DEEP |
 | Diplomacy/treaties | ✅ | ✅ typed war goals + peace treaties | ✅ | ✅ strategic | ✅ Politics | n/a | ✅ WarGoal* | DEEP |
