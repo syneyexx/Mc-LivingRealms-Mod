@@ -192,7 +192,16 @@ public final class FactionEngine {
         if(captured==null)return;
         if(state==null)attacker.addSettlement(captured);
         attacker.relationWith(defender.id()).adjust(-8);defender.relationWith(attacker.id()).adjust(-8);army.resupply(-.12);captured.adjustUnrest(.18);
-        if(state!=null){long warId=state.activeWar(attacker.id(),defender.id()).map(w->w.id()).orElse(0L);state.history().add(new WorldEvent(state.clock().day(),"settlement_captured",attacker.name()+" captured "+captured.name()+" from "+defender.name()+", settlement="+settlementId+", toFaction="+attacker.id()+", fromFaction="+defender.id()+(warId>0?", war="+warId:""));state.activeWar(attacker.id(),defender.id()).ifPresent(w->w.adjustScore(18));dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.SettlementCaptured(state.clock().day(),settlementId,defender.id(),attacker.id(),warId));}
+        if(state!=null){
+            long warId=state.activeWar(attacker.id(),defender.id()).map(w->w.id()).orElse(0L);
+            String msg=attacker.name()+" captured "+captured.name()+" from "+defender.name()
+                    +", settlement="+settlementId+", toFaction="+attacker.id()+", fromFaction="+defender.id()
+                    +(warId>0?", war="+warId:"");
+            state.history().add(new WorldEvent(state.clock().day(),"settlement_captured",msg));
+            state.activeWar(attacker.id(),defender.id()).ifPresent(w->w.adjustScore(18));
+            dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.SettlementCaptured(
+                    state.clock().day(),settlementId,defender.id(),attacker.id(),warId));
+        }
     }
     private static Settlement nearestSettlementAny(SimulationState state,SimPosition pos){Settlement best=null;double bestD=Double.POSITIVE_INFINITY;for(Faction f:state.factions())for(Settlement s:f.settlements()){double d=s.position().distanceTo(pos);if(d<bestD){bestD=d;best=s;}}return best;}
 
