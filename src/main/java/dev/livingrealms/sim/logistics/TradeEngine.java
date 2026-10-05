@@ -20,7 +20,11 @@ public final class TradeEngine {
     private static final List<ResourceType> TRADED=List.of(ResourceType.FOOD,ResourceType.IRON,ResourceType.FUEL,ResourceType.TOOLS,ResourceType.TEXTILES,ResourceType.MACHINERY);
 
     public void simulateDay(SimulationState state, DeterministicRng rng) {
-        Objects.requireNonNull(state,"state");Objects.requireNonNull(rng,"rng");advanceShipments(state,rng);dispatchShipments(state);
+        Objects.requireNonNull(state,"state");Objects.requireNonNull(rng,"rng");
+        ResourceDominanceEngine.withMemo(state, () -> {
+            advanceShipments(state,rng);
+            dispatchShipments(state);
+        });
     }
 
     private static void advanceShipments(SimulationState state,DeterministicRng rng) {

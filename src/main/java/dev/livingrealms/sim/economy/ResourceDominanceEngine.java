@@ -7,29 +7,43 @@ import dev.livingrealms.sim.industry.*;
 import dev.livingrealms.sim.util.Mathx;
 import dev.livingrealms.sim.world.SimulationState;
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * Derived world-market concentration. There is deliberately no mutable monopoly flag: dominance
  * follows real stock, resource access and operating industry and disappears when those advantages do.
  *
- * <p>Per-day leverage is memoized so trade dispatch does not recompute O(factions × routes) scores
- * for every seller/buyer/resource pair.</p>
+ * <p>Trade dispatch may opt into a short-lived memoization scope so seller leverage is not recomputed
+ * for every seller/buyer/resource pair. Mutations outside that scope always recompute.</p>
  */
 public final class ResourceDominanceEngine {
-    private static long cacheDay = Long.MIN_VALUE;
-    private static int cacheIdentity;
-    private static final EnumMap<ResourceType, ResourceDominance> dominanceCache = new EnumMap<>(ResourceType.class);
-    private static final EnumMap<ResourceType, Map<Long, Double>> scoreCache = new EnumMap<>(ResourceType.class);
+    private static final ThreadLocal<Cache> CACHE = new ThreadLocal<>();
 
     private ResourceDominanceEngine() {}
+
+    /** Runs {@code body} with per-resource dominance memoization for the current thread. */
+    public static void withMemo(SimulationState state, Runnable body) {
+        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(body, "body");
+        Cache previous = CACHE.get();
+        CACHE.set(new Cache(state));
+        try {
+            body.run();
+        } finally {
+            if (previous == null) CACHE.remove();
+            else CACHE.set(previous);
+        }
+    }
 
     public static ResourceDominance analyze(SimulationState state, ResourceType resource) {
         Objects.requireNonNull(state);
         Objects.requireNonNull(resource);
-        ensureDayCache(state);
-        ResourceDominance cached = dominanceCache.get(resource);
-        if (cached != null) return cached;
-        Map<Long, Double> scoresByFaction = scoreCache.computeIfAbsent(resource, r -> new LinkedHashMap<>());
+        Cache cache = activeCache(state);
+        if (cache != null) {
+            ResourceDominance cached = cache.dominance.get(resource);
+            if (cached != null) return cached;
+        }
+        Map<Long, Double> scoresByFaction = new LinkedHashMap<>();
         List<Share> scores = new ArrayList<>();
         double total = 0;
         for (Faction faction : state.factions()) {
@@ -50,19 +64,31 @@ public final class ResourceDominanceEngine {
             boolean monopoly = leaderShare >= .62 && leaderShare >= runnerShare * 1.75;
             result = new ResourceDominance(resource, leader.factionId(), leaderShare, runner.factionId(), runnerShare, monopoly);
         }
-        dominanceCache.put(resource, result);
+        if (cache != null) {
+            cache.dominance.put(resource, result);
+            cache.scores.put(resource, scoresByFaction);
+        }
         return result;
     }
 
     public static double share(SimulationState state, long factionId, ResourceType resource) {
         if (factionId <= 0) return 0;
-        ensureDayCache(state);
-        analyze(state, resource);
-        Map<Long, Double> scores = scoreCache.getOrDefault(resource, Map.of());
+        Cache cache = activeCache(state);
+        if (cache != null) {
+            analyze(state, resource);
+            Map<Long, Double> scores = cache.scores.getOrDefault(resource, Map.of());
+            double total = 0;
+            for (double score : scores.values()) total += score;
+            if (total <= 0) return 0;
+            return scores.getOrDefault(factionId, 0.0) / total;
+        }
+        ResourceDominance d = analyze(state, resource);
+        if (d.leaderFactionId() == factionId) return d.leaderShare();
         double total = 0;
-        for (double score : scores.values()) total += score;
+        for (Faction f : state.factions()) total += capacityScore(state, f, resource);
         if (total <= 0) return 0;
-        return scores.getOrDefault(factionId, 0.0) / total;
+        Faction f = state.findFaction(factionId).orElse(null);
+        return f == null ? 0 : capacityScore(state, f, resource) / total;
     }
 
     /** Market leverage is intentionally capped so one realm cannot create runaway prices. */
@@ -72,14 +98,9 @@ public final class ResourceDominanceEngine {
         return 1.0 + Math.min(.22, (share - .40) * .42);
     }
 
-    private static void ensureDayCache(SimulationState state) {
-        long day = state.clock().day();
-        int identity = System.identityHashCode(state);
-        if (cacheDay == day && cacheIdentity == identity) return;
-        cacheDay = day;
-        cacheIdentity = identity;
-        dominanceCache.clear();
-        scoreCache.clear();
+    private static Cache activeCache(SimulationState state) {
+        Cache cache = CACHE.get();
+        return cache != null && cache.state == state ? cache : null;
     }
 
     private static double capacityScore(SimulationState state, Faction faction, ResourceType resource) {
@@ -139,6 +160,16 @@ public final class ResourceDominanceEngine {
             case MUNITIONS -> resource == ResourceType.AMMUNITION ? 1.0 : 0;
             case TEXTILE_MILL -> resource == ResourceType.TEXTILES ? 1.0 : 0;
         };
+    }
+
+    private static final class Cache {
+        private final SimulationState state;
+        private final EnumMap<ResourceType, ResourceDominance> dominance = new EnumMap<>(ResourceType.class);
+        private final EnumMap<ResourceType, Map<Long, Double>> scores = new EnumMap<>(ResourceType.class);
+
+        private Cache(SimulationState state) {
+            this.state = state;
+        }
     }
 
     private record Share(long factionId, double score) {}
