@@ -54,8 +54,14 @@ public final class ForeignSettlementDiscoveryRuntime {
         Settlement adopted=new Settlement(data.state().nextId(),name,pos,pop,housing);
         owner.addSettlement(adopted);
         ForeignSettlementBootstrap.preserveExistingInfrastructure(data.state(),owner,adopted);
-        owner.stockpile().add(ResourceType.FOOD,Math.max(250,cluster.size()*45));owner.stockpile().add(ResourceType.WOOD,180);owner.stockpile().add(ResourceType.TOOLS,20);
-        data.state().history().add(new dev.livingrealms.sim.world.WorldEvent(data.state().clock().day(),"foreign_village_adopted",name+" integrated into "+owner.name()+" from a loaded vanilla/modded villager settlement; existing structures preserved, future growth enabled"));
+        // Soft protectorate: lighter initial aid + explicit marker; not an instant hard annex dump.
+        adopted.markConstructionCompleted("foreign:protectorate");
+        adopted.adjustUnrest(-.02);
+        owner.stockpile().add(ResourceType.FOOD,Math.max(120,cluster.size()*25));
+        owner.stockpile().add(ResourceType.WOOD,90);
+        owner.stockpile().add(ResourceType.TOOLS,10);
+        data.state().history().add(new dev.livingrealms.sim.world.WorldEvent(data.state().clock().day(),"foreign_village_adopted",
+                name+" entered a soft protectorate under "+owner.name()+" from a loaded villager settlement; footprint preserved, gradual integration enabled"));
         data.setDirty();
     }
 

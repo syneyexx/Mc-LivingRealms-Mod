@@ -13,6 +13,9 @@ public final class ForeignSettlementBootstrap {
     private ForeignSettlementBootstrap() {}
 
     public static int preserveExistingInfrastructure(SimulationState state, Faction faction, Settlement settlement) {
-        return ForeignSettlementAdoption.preserveExistingInfrastructure(state, faction, settlement);
+        int marked = ForeignSettlementAdoption.preserveExistingInfrastructure(state, faction, settlement);
+        // Wave protectorate marker — non-productive FOREIGN_ADOPTED credit only.
+        if (settlement.markForeignAdopted("foreign:protectorate")) marked++;
+        return marked;
     }
 }

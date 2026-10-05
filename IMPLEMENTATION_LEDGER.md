@@ -1,6 +1,6 @@
 # LivingRealms Implementation Ledger
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 14 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
 
 **Authority rule:** source wins over docs. No parallel engines.
 

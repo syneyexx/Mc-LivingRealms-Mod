@@ -61,6 +61,9 @@ public final class GrandProjectEngine {
         if(project.effectLegend()&&state.legends().size()<SimulationState.MAX_LEGENDS){
             state.addLegend(new LegendRecord(state.nextId(),state.clock().day(),faction.id(),settlement.id(),"project:"+project.id(),"The "+pretty(project.type()),"Completion of the "+pretty(project.type())+" in "+settlement.name()+".",.55));
         }
+        // World marker: prioritize the settlement monument so completed projects become visible.
+        settlement.requestLandmark("monument:0");
+        state.requestConstructionCatchup(20);
         state.history().add(new WorldEvent(state.clock().day(),"grand_project_complete","faction="+faction.id()+", settlement="+settlement.id()+", type="+project.type()));
     }
 

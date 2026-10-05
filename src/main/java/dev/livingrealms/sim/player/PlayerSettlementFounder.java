@@ -65,6 +65,9 @@ public final class PlayerSettlementFounder {
         state.addFaction(faction);
         standing.restoreReputation(factionId,100);
         standing.assumeRule(factionId,state.clock().day());
+        // Kick physical catch-up so keep/first houses appear quickly near the founder.
+        state.requestConstructionCatchup(45);
+        capital.requestLandmark("keep:0");
         state.history().add(new WorldEvent(state.clock().day(),"player_realm_founded",player+" founded "+realmName+" at "+settlement));
         return new Result(true,"ok",factionId,settlementId,realmName,settlement);
     }

@@ -30,6 +30,10 @@ public final class Settlement {
     private double granaryCapacity=600;
     /** Geography is sidecar/runtime state; name heuristic bootstraps until world discovery authors it. */
     private SettlementGeographyProfile geography=SettlementGeographyProfile.unknown();
+    /** Ephemeral: intent key of the active physical construction job near players (not saved). */
+    private String activeConstructionKey="";
+    /** Ephemeral priority landmark keys (grand projects / hero monuments) forcing planner backlog. */
+    private final Set<String> priorityLandmarks=new LinkedHashSet<>();
 
     private long lastGrainBookDay = Long.MIN_VALUE;
 
@@ -67,7 +71,11 @@ public final class Settlement {
     public boolean isConstructionCompleted(String key){return completedConstruction.contains(key);}
     public ConstructionOrigin constructionOrigin(String key){return constructionOrigins.getOrDefault(key,ConstructionOrigin.MATERIALIZED);}
     /** Headless/test receipt-equivalent: marks a Living Realms production-eligible completion. */
-    public boolean markConstructionCompleted(String key){return markConstruction(key,ConstructionOrigin.MATERIALIZED);}
+    public boolean markConstructionCompleted(String key){
+        boolean changed=markConstruction(key,ConstructionOrigin.MATERIALIZED);
+        if(changed)priorityLandmarks.remove(key);
+        return changed;
+    }
     /** Foreign village footprint credit — never counted as Living Realms farm/mine production. */
     public boolean markForeignAdopted(String key){return markConstruction(key,ConstructionOrigin.FOREIGN_ADOPTED);}
     public boolean markConstruction(String key,ConstructionOrigin origin){
@@ -82,6 +90,10 @@ public final class Settlement {
         if(key==null||key.isBlank()||!completedConstruction.contains(key))return;
         constructionOrigins.put(key,origin==null?ConstructionOrigin.MATERIALIZED:origin);
     }
+    public String activeConstructionKey(){return activeConstructionKey;}
+    public void setActiveConstructionKey(String key){activeConstructionKey=key==null?"":key;}
+    public Set<String> priorityLandmarks(){return Collections.unmodifiableSet(priorityLandmarks);}
+    public void requestLandmark(String key){if(key==null||key.isBlank())throw new IllegalArgumentException("key");if(!completedConstruction.contains(key))priorityLandmarks.add(key);}
     /**
      * Removes one LivingRealms-authored structure matching a prefix (e.g. wall:/gate:/keep:).
      * Used for siege damage against simulation construction keys — never player/foreign builds.

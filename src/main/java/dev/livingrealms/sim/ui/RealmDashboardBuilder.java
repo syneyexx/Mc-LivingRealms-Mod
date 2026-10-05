@@ -260,8 +260,22 @@ public final class RealmDashboardBuilder {
 
     private static RealmDashboardSnapshot.StrategicMapView mapView(SimulationState state,SimPosition player,long viewerFactionId){
         record OwnedSettlement(long factionId,Settlement settlement){}
-        List<OwnedSettlement> owned=new ArrayList<>();for(Faction faction:state.factions())for(Settlement settlement:faction.settlements())owned.add(new OwnedSettlement(faction.id(),settlement));
-        owned.sort(Comparator.comparingDouble((OwnedSettlement o)->o.settlement().position().distanceTo(player)).thenComparingLong(o->o.settlement().id()));if(owned.size()>MAX_MAP_SETTLEMENTS)owned=new ArrayList<>(owned.subList(0,MAX_MAP_SETTLEMENTS));
+        // Capitals first (continent/faction anchors), then nearest fill — never only truncate to nearest 256.
+        List<OwnedSettlement> capitals=new ArrayList<>();
+        List<OwnedSettlement> rest=new ArrayList<>();
+        for(Faction faction:state.factions()){
+            Settlement capital=faction.settlements().stream().max(Comparator.comparingInt(Settlement::population).thenComparingLong(Settlement::id)).orElse(null);
+            if(capital==null)continue;
+            capitals.add(new OwnedSettlement(faction.id(),capital));
+            for(Settlement settlement:faction.settlements()){
+                if(settlement.id()!=capital.id())rest.add(new OwnedSettlement(faction.id(),settlement));
+            }
+        }
+        rest.sort(Comparator.comparingDouble((OwnedSettlement o)->o.settlement().position().distanceTo(player)).thenComparingLong(o->o.settlement().id()));
+        List<OwnedSettlement> owned=new ArrayList<>();
+        Set<Long> picked=new HashSet<>();
+        for(OwnedSettlement c:capitals){if(owned.size()>=MAX_MAP_SETTLEMENTS)break;if(picked.add(c.settlement().id()))owned.add(c);}
+        for(OwnedSettlement o:rest){if(owned.size()>=MAX_MAP_SETTLEMENTS)break;if(picked.add(o.settlement().id()))owned.add(o);}
         Set<Long> settlementIds=new HashSet<>();List<RealmDashboardSnapshot.MapSettlement> settlementViews=new ArrayList<>();List<RealmDashboardSnapshot.MapClaim> claims=new ArrayList<>();
         for(OwnedSettlement o:owned){Settlement st=o.settlement();settlementIds.add(st.id());settlementViews.add(new RealmDashboardSnapshot.MapSettlement(st.id(),o.factionId(),st.name(),st.tier().name(),st.position().x(),st.position().z(),st.population()));claims.add(new RealmDashboardSnapshot.MapClaim(st.id(),o.factionId(),st.position().x(),st.position().z(),TerritoryEngine.claimRadius(st)));}
         Map<Long,OwnedSettlement> byId=new HashMap<>();for(OwnedSettlement o:owned)byId.put(o.settlement().id(),o);

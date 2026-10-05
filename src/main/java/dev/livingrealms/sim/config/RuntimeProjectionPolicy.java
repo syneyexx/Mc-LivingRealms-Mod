@@ -61,4 +61,44 @@ public final class RuntimeProjectionPolicy {
     /** Pirates share the naval envelope but remain much more tightly bounded than real fleets. */
     public static int pirateBudget(SimulationConfig config) {Objects.requireNonNull(config,"config");return Math.max(2,Math.min(24,Math.max(2,config.maxPhysicalNavalEntities()/2)));}
     public static double pirateRadiusBlocks(SimulationConfig config) {Objects.requireNonNull(config,"config");return navalRadiusBlocks(config);}
+
+    public static double militaryRadiusBlocks(SimulationConfig config) {
+        Objects.requireNonNull(config, "config");
+        return config.physicalRadiusBlocks();
+    }
+
+    public static double escortRadiusBlocks(SimulationConfig config) {
+        Objects.requireNonNull(config, "config");
+        return config.physicalRadiusBlocks();
+    }
+
+    public static double siegeRadiusBlocks(SimulationConfig config) {
+        Objects.requireNonNull(config, "config");
+        return Math.max(config.physicalRadiusBlocks(), 420.0D);
+    }
+
+    /** Cheap regional impostors between physical and regional radii (~150 budget ≈ 10–20 full NPCs). */
+    public static double regionalImpostorInnerRadius(SimulationConfig config) {
+        Objects.requireNonNull(config, "config");
+        return config.physicalRadiusBlocks();
+    }
+
+    public static double regionalImpostorOuterRadius(SimulationConfig config) {
+        Objects.requireNonNull(config, "config");
+        return config.regionalRadiusBlocks();
+    }
+
+    public static int regionalImpostorBudget(SimulationConfig config) {
+        Objects.requireNonNull(config, "config");
+        return Math.max(48, Math.min(160, config.maxPhysicalMilitaryEntities() + 40));
+    }
+
+    /** Split citizen budget: denser near capitals, thinner far tokens inside citizen radius. */
+    public static int citizenNearBudget(SimulationConfig config) {
+        return Math.max(40, (int) Math.round(citizenBudget(config) * 0.7));
+    }
+
+    public static int citizenFarBudget(SimulationConfig config) {
+        return Math.max(16, citizenBudget(config) - citizenNearBudget(config));
+    }
 }

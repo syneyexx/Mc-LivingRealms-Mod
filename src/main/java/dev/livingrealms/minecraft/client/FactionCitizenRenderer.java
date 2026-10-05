@@ -34,6 +34,7 @@ public final class FactionCitizenRenderer extends MobRenderer<FactionCitizenEnti
                 new HumanoidModel<FactionCitizenEntity>(context.bakeLayer(ModelLayers.PLAYER_INNER_ARMOR)),
                 new HumanoidModel<FactionCitizenEntity>(context.bakeLayer(ModelLayers.PLAYER_OUTER_ARMOR)),
                 context.getModelManager()));
+        addLayer(new FactionCitizenOverlayLayer(this));
         addLayer(new ClothingOverlayLayer(this));
     }
 

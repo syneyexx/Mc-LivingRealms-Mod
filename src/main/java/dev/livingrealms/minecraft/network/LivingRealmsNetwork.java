@@ -24,7 +24,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Custom payload registration for bounded strategic UI synchronization. */
 public final class LivingRealmsNetwork {
-    public static final String NETWORK_VERSION = "14";
+    public static final String NETWORK_VERSION = "15";
 
     private LivingRealmsNetwork() {}
 
@@ -41,6 +41,7 @@ public final class LivingRealmsNetwork {
         registrar.playToClient(DashboardSnapshotPayload.TYPE, DashboardSnapshotPayload.STREAM_CODEC, LivingRealmsNetwork::handleDashboardSnapshot);
         registrar.playToClient(DialogueOpenPayload.TYPE, DialogueOpenPayload.STREAM_CODEC, LivingRealmsNetwork::handleDialogueOpen);
         registrar.playToClient(DialogueResponsePayload.TYPE, DialogueResponsePayload.STREAM_CODEC, LivingRealmsNetwork::handleDialogueResponse);
+        registrar.playToClient(WaypointPayload.TYPE, WaypointPayload.STREAM_CODEC, LivingRealmsNetwork::handleWaypoint);
     }
 
     private static void handleDashboardRequest(DashboardRequestPayload ignored, IPayloadContext context) {
@@ -62,7 +63,7 @@ public final class LivingRealmsNetwork {
                 if(trade.dirty())data.setDirty();player.sendSystemMessage(Component.literal(trade.message()));sendDashboard(player,level);return;
             }
             var result=DashboardActionService.apply(data.state(),actor,position,command);
-            if(!result.success()){player.sendSystemMessage(Component.literal("Living Realms action failed: "+result.reason()));return;}
+            if(!result.success()){player.sendSystemMessage(Component.literal(humanActionFailure(command.action(),result.reason())));return;}
             if(result.dirty())data.setDirty();
             sendActionFeedback(player,command.action());
             sendDashboard(player,level);
@@ -76,6 +77,21 @@ public final class LivingRealmsNetwork {
         String key = actionMessageKey(action);
         if (key.startsWith("message.")) player.sendSystemMessage(Component.translatable(key));
         else player.sendSystemMessage(Component.literal(key));
+    }
+
+    private static String humanActionFailure(DashboardActionCommand.Action action, String reason) {
+        String r = reason == null ? "" : reason;
+        return switch (r) {
+            case "insufficient_reputation" -> "Cannot join: need reputation ≥ 10 with this realm.";
+            case "wanted" -> "Cannot join: bounty must be ≤ 25 (pay fine / serve custody first).";
+            case "in_custody" -> "Cannot join while in custody.";
+            case "already_member", "already_member_elsewhere" -> "You already belong to a realm. Leave first.";
+            case "ruler_cannot_leave" -> "Rulers cannot leave. Use succession/abdication to step down.";
+            case "not_member" -> "You are not a member of any realm.";
+            case "wrong_local_faction" -> "That realm is not the local jurisdiction here.";
+            case "no_usable_board" -> "No usable jurisdiction here (wilderness or contested).";
+            default -> "Living Realms action failed: " + (r.isBlank() ? action.name() : r);
+        };
     }
 
     private static String actionMessageKey(DashboardActionCommand.Action action){
@@ -102,7 +118,15 @@ public final class LivingRealmsNetwork {
             case REQUEST_MILITARY_SUPPORT -> "message.livingrealms.action.military_support";
             case PETITION_TRADE -> "message.livingrealms.action.petition_trade";
             case PETITION_CLERGY -> "message.livingrealms.action.petition_clergy";
-            case FOUND_SETTLEMENT -> "Settlement founded. Walk the world — your realm grows, trades and enters diplomacy in real time.";
+            case FOUND_SETTLEMENT -> "Settlement founded. Your realm can now grow, trade and enter diplomacy.";
+            case ABDICATE -> "You abdicated. A court successor now holds the realm.";
+            case PETITION_PEACE -> "Peace petition accepted — war ended with a treaty.";
+            case PROPOSE_TRADE_PACT -> "Trade pact signed.";
+            case ARMY_DEFEND_HOME -> "Army ordered to defend home.";
+            case ARMY_RALLY -> "Army ordered to rally / patrol the border.";
+            case ARMY_STAND_DOWN -> "Army ordered to stand down and resupply.";
+            case SURRENDER -> "You surrendered to local authorities.";
+            case PAY_FINE -> "Fine paid toward your bounty.";
         };
     }
 
@@ -137,6 +161,7 @@ public final class LivingRealmsNetwork {
 
     private static void handleDialogueOpen(DialogueOpenPayload payload,IPayloadContext context){try{DialogueClientBridge.open(payload);}catch(RuntimeException ex){LivingRealms.LOGGER.error("Rejected dialogue-open payload",ex);}}
     private static void handleDialogueResponse(DialogueResponsePayload payload,IPayloadContext context){try{DialogueClientBridge.response(payload);}catch(RuntimeException ex){LivingRealms.LOGGER.error("Rejected dialogue-response payload",ex);}}
+    private static void handleWaypoint(WaypointPayload payload,IPayloadContext context){try{WaypointClientBridge.receive(payload);}catch(RuntimeException ex){LivingRealms.LOGGER.error("Rejected waypoint payload",ex);}}
 
     private static void handleDashboardSnapshot(DashboardSnapshotPayload payload, IPayloadContext context) {
         try {

@@ -24,19 +24,31 @@ public final class TradeEngine {
     public void simulateDay(SimulationState state, DeterministicRng rng) {
         Objects.requireNonNull(state,"state");Objects.requireNonNull(rng,"rng");
         ResourceDominanceEngine.withMemo(state, () -> {
-            advanceShipments(state,rng);
+            advanceShipments(state,rng,1.0);
             dispatchShipments(state);
         });
     }
 
-    private static void advanceShipments(SimulationState state,DeterministicRng rng) {
+    /**
+     * Sub-day presentation pulse: advances shipment progress by a fraction of a day without
+     * running dispatch/intercept at full daily intensity. Does not advance the world clock.
+     */
+    public void presentationPulse(SimulationState state, DeterministicRng rng, double dayFraction) {
+        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(rng, "rng");
+        if (!(dayFraction > 0) || !Double.isFinite(dayFraction)) return;
+        advanceShipments(state, rng, Math.min(1.0, dayFraction));
+    }
+
+    private static void advanceShipments(SimulationState state,DeterministicRng rng,double dayFraction) {
         List<Long> remove=new ArrayList<>();
         for(TradeShipment shipment:new ArrayList<>(state.shipments())) {
             TransportRoute route=routeFor(state,shipment).orElse(null);
-            double speed=route==null?CARAVAN_SPEED_PER_DAY:route.speedBlocksPerDay();
+            double speed=(route==null?CARAVAN_SPEED_PER_DAY:route.speedBlocksPerDay())*dayFraction;
             if(route!=null&&!route.operational())speed*=.35; // detour on collapsed road
             shipment.advanceDistance(speed);
-            if(intercepted(state,shipment,route,rng)) {
+            // Full intercept risk only on whole-day steps; microsteps skip interception.
+            if(dayFraction>=.999&&intercepted(state,shipment,route,rng)) {
                 settleInsurance(state,shipment);
                 state.liveness().onShipmentIntercepted();
                 state.history().add(new WorldEvent(state.clock().day(),"trade_intercepted",describe(shipment)+(route==null?"":", route="+route.id())));

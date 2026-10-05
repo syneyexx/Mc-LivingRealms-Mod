@@ -138,6 +138,13 @@ public final class CitizenRoutinePlanner {
     }
     private static CitizenRoutine builder(SimulationState state,Faction faction,Settlement settlement,int slot){
         List<ConstructionIntent> pending=new ArrayList<>(SettlementPlanner.pending(faction,settlement));pending.addAll(PrimaryEconomyPlanner.pending(state,faction,settlement));pending.sort(Comparator.comparingInt(ConstructionIntent::priority).reversed().thenComparing(ConstructionIntent::key));
+        // Prefer the live physical ConstructionJob target when materializer has one active.
+        String activeKey=settlement.activeConstructionKey();
+        if(activeKey!=null&&!activeKey.isBlank()){
+            ConstructionIntent active=SettlementPlanCache.plan(faction,settlement).stream().filter(i->i.key().equals(activeKey)).findFirst().orElse(null);
+            if(active==null)active=pending.stream().filter(i->i.key().equals(activeKey)).findFirst().orElse(null);
+            if(active!=null)return at(active,CitizenActivity.BUILD,settlement,.96);
+        }
         ConstructionIntent target=pending.isEmpty()?null:pending.get(Math.floorMod(slot,pending.size()));return at(target,CitizenActivity.BUILD,settlement,.92);
     }
     private static ConstructionIntent select(List<ConstructionIntent> intents,int slot,StructureRole role){List<ConstructionIntent> matches=intents.stream().filter(i->i.role()==role).toList();return matches.isEmpty()?null:matches.get(Math.floorMod(slot,matches.size()));}

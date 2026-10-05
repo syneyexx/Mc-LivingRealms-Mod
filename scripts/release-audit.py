@@ -111,7 +111,7 @@ content_revision=int_const(saved_data_for_rev,'CONTENT_REVISION')
 require(schema_version==18,f'save schema must be 18 (source currently {schema_version})')
 require(min_schema==1,f'min supported schema must remain 1 (source {min_schema})')
 require(dashboard_protocol==19,f'dashboard protocol must be 19 (source {dashboard_protocol})')
-require(network_version=='14',f'network registration version must be 14 (source {network_version!r})')
+require(network_version=='15',f'network registration version must be 15 (source {network_version!r})')
 require(content_revision==14,f'content revision must be 14 (source {content_revision})')
 
 
@@ -121,7 +121,7 @@ entities=(root/'src/main/java/dev/livingrealms/minecraft/entity/ModEntities.java
 require('DeferredRegister.Entities' not in entities and 'createEntities(' not in entities,'NeoForge 1.21.1 must use generic DeferredRegister<EntityType<?>>; specialized Entities helper is not part of the 1.21.1 API')
 require('DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(Registries.ENTITY_TYPE' in entities,'entity register must target Registries.ENTITY_TYPE through generic DeferredRegister')
 require('.build(ResourceKey.create' not in entities,'NeoForge 1.21.1 entity builders must not use ResourceKey build overload')
-for entity_id in ['wildlife','trade_caravan','faction_citizen','military_unit','aircraft','ship','bounty_hunter']:
+for entity_id in ['wildlife','trade_caravan','faction_citizen','military_unit','aircraft','ship','bounty_hunter','regional_impostor']:
     require(f'.build(LivingRealms.MOD_ID + ":{entity_id}")' in entities,f'entity {entity_id} must use the 1.21.1 build(String) signature')
 
 # Production runners share one canonical core-suite list; never maintain duplicated test arrays.
@@ -228,6 +228,21 @@ require('Realm of ' in founder and 'assumeRule' in founder and 'relationWith' in
 saved_data=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java').read_text()
 require('ContentRevision' in saved_data and 'ContentMigrationPolicy.shouldEnsureDensity' in saved_data,'density content migration must remain one-shot and persisted')
 require('resetConstructionCompletion' in saved_data and 'ContentMigrationPolicy.shouldResetMorphology' in saved_data and 'CONTENT_REVISION = 14' in saved_data,'content revision 14 keeps morphology rebuild gate via ContentMigrationPolicy and Spec densifier')
+require((root/'LICENSE').exists() and 'MIT License' in (root/'LICENSE').read_text(),'MIT LICENSE file must exist at repo root (matches mod_license)')
+require((root/'scripts/runtime-smoke.sh').exists(),'runtime smoke script must exist')
+require('dev.livingrealms.RuntimeSmokeTest' in canonical_tests,'core suite must include headless runtime smoke gate')
+escort_mat=(root/'src/main/java/dev/livingrealms/minecraft/entity/CaravanEscortMaterializer.java').read_text()
+military_ent=(root/'src/main/java/dev/livingrealms/minecraft/entity/MilitaryUnitEntity.java').read_text()
+require('initializeEscortProjection' in escort_mat and 'initializeEscortProjection' in military_ent,'caravan escorts must use dedicated escort projection initializer')
+require('isEscort()' in military_ent and 'escortShipmentId' in military_ent,'military units must expose escort identity namespace')
+mil_mat=(root/'src/main/java/dev/livingrealms/minecraft/entity/MilitaryUnitMaterializer.java').read_text()
+require('if (e.isEscort()) continue' in mil_mat or 'if(e.isEscort())continue' in mil_mat.replace(' ',''),'army materializer must not dematerialize escort projections')
+require('OnboardedPlayers' in saved_data and 'markOnboarded' in saved_data,'onboarding greet state must persist in SavedData')
+require('RegionalImpostorMaterializer.tick' in (root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsEvents.java').read_text(),'regional impostors must tick from the server loop')
+require('FarPresenceRuntime.tick' in (root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsEvents.java').read_text(),'far presence ambience must tick from the server loop')
+require('dev.livingrealms.RegionalImpostorPlannerTest' in canonical_tests,'core suite must include regional impostor planner gate')
+require('dev.livingrealms.PlayerAgencyTest' in canonical_tests,'core suite must include player agency gate')
+require('dev.livingrealms.HousingAndProductionTruthTest' in canonical_tests,'core suite must include housing/production truth gate')
 require((root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').exists(),'geography-derived SettlementMorphology must exist')
 require('COASTAL_PORT' in (root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').read_text() and 'HILL_TOWN' in (root/'src/main/java/dev/livingrealms/sim/construction/SettlementMorphology.java').read_text(),'morphology catalog must include coastal/hill patterns')
 cause_explainer=root/'src/main/java/dev/livingrealms/sim/society/WorldCauseExplainer.java'

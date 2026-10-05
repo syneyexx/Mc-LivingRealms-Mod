@@ -88,13 +88,31 @@ public final class RealmWorldMapScreen extends Screen {
         for(var migration:map.migrations()){int mx=mapX(map,migration.x(),x,w),mz=mapY(map,migration.z(),y,h);g.fill(mx-2,mz-1,mx+3,mz+2,0xFFE0E0E0);}
         for(var raid:map.raids()){int rx=mapX(map,raid.x(),x,w),rz=mapY(map,raid.z(),y,h);g.fill(rx-2,rz-2,rx+3,rz+3,raid.bandit()?0xFFD84315:0xFFE53935);}
         for(var front:map.fronts())drawLine(g,mapX(map,front.fromX(),x,w),mapY(map,front.fromZ(),y,h),mapX(map,front.toX(),x,w),mapY(map,front.toZ(),y,h),0xFFFF5E57);
+        boolean continent=viewSpan(map)>6_000;
+        // Continent mode: largest settlement per faction as capital aggregate; detail mode: all tokens.
+        java.util.Map<Long,RealmDashboardSnapshot.MapSettlement> capitals=new java.util.HashMap<>();
+        if(continent){
+            for(var settlement:map.settlements()){
+                var prev=capitals.get(settlement.factionId());
+                if(prev==null||settlement.population()>prev.population())capitals.put(settlement.factionId(),settlement);
+            }
+        }
         for(var settlement:map.settlements()){
+            if(continent&&capitals.get(settlement.factionId())!=settlement)continue;
             int sx=mapX(map,settlement.x(),x,w),sz=mapY(map,settlement.z(),y,h);if(sx<x||sx>=x+w||sz<y||sz>=y+h)continue;
-            int size=switch(settlement.tier()){case "METROPOLIS"->5;case "CITY"->4;case "TOWN"->3;default->2;};
+            int size=continent?5:switch(settlement.tier()){case "METROPOLIS"->5;case "CITY"->4;case "TOWN"->3;default->2;};
             g.fill(sx-size,sz-size,sx+size+1,sz+size+1,factionColor(settlement.factionId(),0xFF));
-            // Declutter: only label towns+ or nearby settlements.
             double dist=Math.hypot(settlement.x()-map.playerX(),settlement.z()-map.playerZ());
-            if(size>=3||dist<900)g.drawString(font,settlement.name(),sx+size+2,sz-4,0xFFE8EDF2,false);
+            if(continent||size>=3||dist<900){
+                String label=continent?settlement.name()+" ★":settlement.name();
+                g.drawString(font,label,sx+size+2,sz-4,0xFFE8EDF2,false);
+            }
+        }
+        for(var wp:ClientWaypointState.active()){
+            int wx=mapX(map,wp.x(),x,w),wz=mapY(map,wp.z(),y,h);
+            if(wx<x||wx>=x+w||wz<y||wz>=y+h)continue;
+            g.fill(wx-2,wz-6,wx+3,wz+1,0xFF4DD0E1);
+            g.drawString(font,wp.label(),wx+4,wz-8,0xFF4DD0E1,false);
         }
         for(var port:map.ports()){int px0=mapX(map,port.x(),x,w),pz0=mapY(map,port.z(),y,h);g.fill(px0-2,pz0-2,px0+3,pz0+3,port.operational()?0xFF42A5F5:0xFF607D8B);}
         for(var fleet:map.fleets()){int fx=mapX(map,fleet.x(),x,w),fz=mapY(map,fleet.z(),y,h);g.fill(fx-3,fz-1,fx+4,fz+2,0xFF26C6DA);}

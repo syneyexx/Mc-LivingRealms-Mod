@@ -1,6 +1,6 @@
 # LivingRealms Wave 0 — System Inventory
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 14 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
 
 | Subsystem | Authority | Persistence | Runtime | UI | Tests | Status |
 |---|---|---|---|---|---|---|
@@ -14,7 +14,7 @@ CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 14 / contentRevisi
 | Industry | IndustryEngine | schema 18 | Create yards | Ops | completeness | COMPLETE |
 | Ecology | EcologyEngine + 134 species | schema 8+ | wildlife | Ecology | SpeciesPack | COMPLETE |
 | Naval/air | NavalEngine / AviationEngine | schema 18 | ships/aircraft | Forces | projection | COMPLETE |
-| Dashboard/map | protocol 19 / net 14 | n/a | F12/M/K | screens | codec | COMPLETE |
+| Dashboard/map | protocol 19 / net 15 | n/a | F12/M/K | screens | codec | COMPLETE |
 | Modpack policy | ModCompatibilityPolicy | n/a | Create hard; guns player-only | n/a | audit | COMPLETE |
 
 ## Geschiedenis

@@ -32,7 +32,7 @@ public final class DialogueTradeBridge {
         var foodSell = MarketTransactionEngine.quote(faction, ResourceType.FOOD, MarketTransactionEngine.Side.SELL_TO_REALM);
         sb.append(". Realm package FOOD buy ").append(foodBuy.available() ? foodBuy.emeralds() + " emeralds" : "unavailable")
                 .append(", sell ").append(foodSell.available() ? foodSell.emeralds() + " emeralds" : "unavailable")
-                .append(". Open F12 Economy to complete a transaction.");
+                .append(". Ask a trader to trade (dialogue can complete a FOOD package when a market is nearby), or use F12 Economy.");
         return sb.toString();
     }
 }

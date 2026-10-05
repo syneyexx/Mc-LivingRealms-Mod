@@ -1,6 +1,6 @@
 # Living Realms
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 14 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
 
 **Living Realms is a simulation-first civilization, society and ecosystem overhaul for Minecraft 1.21.1 on NeoForge.**
 
@@ -584,7 +584,7 @@ The attached/current development line uses **save schema 18** (schemas 1–17 re
 
 ## Current development status
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 14 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
 
 - 12 surface kingdoms plus Wizard Trees;
 - 156 surface starter settlements (capital + 10 authored Specs + 2 rural per realm) at 800-block spacing;

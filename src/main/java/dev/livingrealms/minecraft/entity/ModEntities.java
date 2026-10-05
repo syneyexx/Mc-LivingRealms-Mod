@@ -73,8 +73,25 @@ public final class ModEntities {
                     .build(LivingRealms.MOD_ID + ":siege_equipment")
     );
 
+    public static final Supplier<EntityType<RegionalImpostorEntity>> REGIONAL_IMPOSTOR = ENTITY_TYPES.register(
+            "regional_impostor", () -> EntityType.Builder.of(RegionalImpostorEntity::new, MobCategory.MISC)
+                    .sized(0.6F, 1.8F).clientTrackingRange(64).updateInterval(20)
+                    .build(LivingRealms.MOD_ID + ":regional_impostor")
+    );
+
     private ModEntities() {}
 
     public static void register(IEventBus modBus) {ENTITY_TYPES.register(modBus);modBus.addListener(ModEntities::createAttributes);}
-    private static void createAttributes(EntityAttributeCreationEvent event) {event.put(WILDLIFE.get(), LivingRealmsAnimalEntity.createAttributes().build());event.put(CARAVAN.get(),TradeCaravanEntity.createAttributes().build());event.put(CITIZEN.get(),FactionCitizenEntity.createAttributes().build());event.put(MILITARY_UNIT.get(),MilitaryUnitEntity.createAttributes().build());event.put(MOBILE_CIVILIZATION.get(),MobileCivilizationEntity.createAttributes().build());event.put(AIRCRAFT.get(),LivingRealmsAircraftEntity.createAttributes().build());event.put(SHIP.get(),LivingRealmsShipEntity.createAttributes().build());event.put(BOUNTY_HUNTER.get(),BountyHunterEntity.createAttributes().build());event.put(SIEGE_EQUIPMENT.get(),SiegeEquipmentEntity.createAttributes().build());}
+    private static void createAttributes(EntityAttributeCreationEvent event) {
+        event.put(WILDLIFE.get(), LivingRealmsAnimalEntity.createAttributes().build());
+        event.put(CARAVAN.get(), TradeCaravanEntity.createAttributes().build());
+        event.put(CITIZEN.get(), FactionCitizenEntity.createAttributes().build());
+        event.put(MILITARY_UNIT.get(), MilitaryUnitEntity.createAttributes().build());
+        event.put(MOBILE_CIVILIZATION.get(), MobileCivilizationEntity.createAttributes().build());
+        event.put(AIRCRAFT.get(), LivingRealmsAircraftEntity.createAttributes().build());
+        event.put(SHIP.get(), LivingRealmsShipEntity.createAttributes().build());
+        event.put(BOUNTY_HUNTER.get(), BountyHunterEntity.createAttributes().build());
+        event.put(SIEGE_EQUIPMENT.get(), SiegeEquipmentEntity.createAttributes().build());
+        // Regional impostors are Entity (not LivingEntity) — no attribute supplier required.
+    }
 }

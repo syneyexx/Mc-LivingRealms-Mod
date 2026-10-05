@@ -6,6 +6,8 @@ import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.economy.MarketTransactionEngine;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -22,6 +24,8 @@ public final class RealmDashboardScreen extends Screen {
     private int page;
     /** Pixel scroll offset inside the content pane (mouse wheel). */
     private int contentScroll;
+    private EditBox foundNameBox;
+    private String foundNameDraft = "";
 
     private static int panelWidthPref() { return DashboardAccessibility.scale().panelWidth; }
     private static int panelHeightPref() { return DashboardAccessibility.scale().panelHeight; }
@@ -93,11 +97,25 @@ public final class RealmDashboardScreen extends Screen {
             rebuildFactionButton(left,contentY,panelWidth);
             rebuildInfluenceButtons(left,contentY,panelWidth);
         }
+        if (tab == Tab.POLITICS) rebuildDiplomacyButtons(left,contentY,panelWidth);
+        if (tab == Tab.FORCES) rebuildArmyOrderButtons(left,contentY,panelWidth);
         if (tab == Tab.ECONOMY) rebuildEconomyButtons(left,contentY,panelWidth);
         if (tab == Tab.SETTLEMENTS) rebuildSettlementButtons(left,contentY,panelWidth);
     }
 
     private void rebuildLawButtons(int left,int top,int panelWidth){
+        var player=snapshot.player();
+        var jurisdiction=snapshot.jurisdiction();
+        if(jurisdiction.claimed()&&!jurisdiction.contested()&&jurisdiction.primaryFactionId()>0
+                &&(!"NONE".equalsIgnoreCase(player.wantedLevel())||player.bounty()>0||player.inCustody())){
+            long fid=jurisdiction.primaryFactionId();
+            addRenderableWidget(Button.builder(Component.literal("Surrender"),b->DashboardClientState.sendAction(
+                    new DashboardActionCommand(DashboardActionCommand.Action.SURRENDER,fid)))
+                    .bounds(left+10,top-2,78,16).build());
+            addRenderableWidget(Button.builder(Component.literal("Pay fine"),b->DashboardClientState.sendAction(
+                    new DashboardActionCommand(DashboardActionCommand.Action.PAY_FINE,fid,"25")))
+                    .bounds(left+92,top-2,78,16).build());
+        }
         int start=Math.min(snapshot.bounties().size(),page*BOUNTIES_PER_PAGE);
         int end=Math.min(snapshot.bounties().size(),start+BOUNTIES_PER_PAGE);
         for(int i=start;i<end;i++){
@@ -109,18 +127,101 @@ public final class RealmDashboardScreen extends Screen {
         }
     }
 
+    private void rebuildDiplomacyButtons(int left,int contentY,int panelWidth){
+        if(snapshot.player().memberFactionId()<=0||snapshot.wars().isEmpty()&&snapshot.factions().size()<2)return;
+        int y=contentY+4;
+        int shown=0;
+        long selfId=snapshot.player().memberFactionId();
+        for(var war:snapshot.wars()){
+            if(shown>=3)break;
+            if(war.attackerFactionId()!=selfId&&war.defenderFactionId()!=selfId)continue;
+            long enemy=war.attackerFactionId()==selfId?war.defenderFactionId():war.attackerFactionId();
+            if(enemy<=0)continue;
+            String name=snapshot.factions().stream().filter(f->f.id()==enemy).map(RealmDashboardSnapshot.FactionSummary::name).findFirst().orElse("Enemy");
+            addRenderableWidget(Button.builder(Component.literal("Peace vs "+name),b->DashboardClientState.sendAction(
+                    new DashboardActionCommand(DashboardActionCommand.Action.PETITION_PEACE,enemy)))
+                    .bounds(left+10,y,Math.min(180,panelWidth-20),16).build());
+            y+=18;shown++;
+        }
+        // Offer trade pact with nearest foreign capital on the map.
+        for(var f:snapshot.factions()){
+            if(f.id()==selfId||f.localRealm())continue;
+            addRenderableWidget(Button.builder(Component.literal("Trade pact: "+f.name()),b->DashboardClientState.sendAction(
+                    new DashboardActionCommand(DashboardActionCommand.Action.PROPOSE_TRADE_PACT,f.id())))
+                    .bounds(left+10,y,Math.min(180,panelWidth-20),16).build());
+            break;
+        }
+    }
+
+    private void rebuildArmyOrderButtons(int left,int contentY,int panelWidth){
+        if(snapshot.player().memberFactionId()<=0||snapshot.map().armies().isEmpty())return;
+        var army=snapshot.map().armies().stream()
+                .filter(a->a.factionId()==snapshot.player().memberFactionId())
+                .findFirst().orElse(null);
+        if(army==null)return;
+        int bw=Math.max(70,(panelWidth-28)/3);
+        addRenderableWidget(Button.builder(Component.literal("Defend home"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_DEFEND_HOME,army.id())))
+                .bounds(left+10,contentY+4,bw-3,16).build());
+        addRenderableWidget(Button.builder(Component.literal("Rally"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_RALLY,army.id())))
+                .bounds(left+10+bw,contentY+4,bw-3,16).build());
+        addRenderableWidget(Button.builder(Component.literal("Stand down"),b->DashboardClientState.sendAction(
+                new DashboardActionCommand(DashboardActionCommand.Action.ARMY_STAND_DOWN,army.id())))
+                .bounds(left+10+bw*2,contentY+4,bw-3,16).build());
+    }
+
     private void rebuildFactionButton(int left,int contentY,int panelWidth){
         var player=snapshot.player();var jurisdiction=snapshot.jurisdiction();
         int panelHeight = Math.min(panelHeightPref(), height - 20);
         int top = Math.max(10, (height - panelHeight) / 2);
         int footerY = top + panelHeight - 26;
         int joinY = Math.min(contentY + 146, footerY - 22);
+        foundNameBox = null;
         if(player.memberFactionId()>0){
-            addRenderableWidget(Button.builder(Component.literal("Leave "+player.memberFactionName()),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_LEAVE,1))).bounds(left+panelWidth-150,joinY,136,18).build());
+            if("RULER".equalsIgnoreCase(player.rank())){
+                var abdicate=Button.builder(Component.literal("Abdicate"),b->DashboardClientState.sendAction(
+                        new DashboardActionCommand(DashboardActionCommand.Action.ABDICATE,player.memberFactionId())))
+                        .bounds(left+panelWidth-150,joinY,136,18).build();
+                abdicate.setTooltip(Tooltip.create(Component.literal("Step down as ruler. A court successor takes the name; you become an outsider.")));
+                addRenderableWidget(abdicate);
+            }else{
+                addRenderableWidget(Button.builder(Component.literal("Leave "+player.memberFactionName()),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_LEAVE,1))).bounds(left+panelWidth-150,joinY,136,18).build());
+            }
         }else if(jurisdiction.claimed()&&!jurisdiction.contested()&&jurisdiction.primaryFactionId()>0){
-            addRenderableWidget(Button.builder(Component.literal("Join "+jurisdiction.primaryName()),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_JOIN_LOCAL,jurisdiction.primaryFactionId()))).bounds(left+panelWidth-150,joinY,136,18).build());
+            boolean canJoin = player.localReputation() >= 10 && player.bounty() <= 25 && !player.inCustody();
+            var join = Button.builder(Component.literal("Join "+jurisdiction.primaryName()), b -> {
+                if (!canJoin) return;
+                DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FACTION_JOIN_LOCAL, jurisdiction.primaryFactionId()));
+            }).bounds(left + panelWidth - 150, joinY, 136, 18).build();
+            join.active = canJoin;
+            String tip = canJoin
+                    ? "Join this realm (reputation " + Math.round(player.localReputation()) + ")."
+                    : "Requires reputation ≥ 10 and bounty ≤ 25"
+                            + (player.inCustody() ? "; you are in custody." : ".")
+                            + " Current: rep " + Math.round(player.localReputation())
+                            + ", bounty " + Math.round(player.bounty()) + ".";
+            join.setTooltip(Tooltip.create(Component.literal(tip)));
+            addRenderableWidget(join);
         }else if(player.memberFactionId()<=0){
-            addRenderableWidget(Button.builder(Component.literal("Found settlement here"),b->DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FOUND_SETTLEMENT,1))).bounds(left+panelWidth-150,joinY,136,18).build());
+            int nameWidth = Math.max(90, panelWidth - 170);
+            foundNameBox = new EditBox(font, left + 10, joinY, nameWidth, 18, Component.literal("Settlement name"));
+            foundNameBox.setMaxLength(40);
+            foundNameBox.setHint(Component.literal("Settlement name"));
+            if (foundNameDraft == null || foundNameDraft.isBlank()) {
+                String actor = player.actorKey();
+                String base = actor.contains(":") ? actor.substring(actor.indexOf(':') + 1) : actor;
+                if (base.length() > 24) base = base.substring(0, 24);
+                foundNameDraft = base.length() >= 2 ? base + "stead" : "Newstead";
+            }
+            foundNameBox.setValue(foundNameDraft);
+            foundNameBox.setResponder(value -> foundNameDraft = value == null ? "" : value);
+            addRenderableWidget(foundNameBox);
+            addRenderableWidget(Button.builder(Component.literal("Found settlement"), b -> {
+                String name = foundNameBox != null ? foundNameBox.getValue().trim() : foundNameDraft;
+                if (name.length() < 2) name = "Newstead";
+                DashboardClientState.sendAction(new DashboardActionCommand(DashboardActionCommand.Action.FOUND_SETTLEMENT, 1, name));
+            }).bounds(left + panelWidth - 150, joinY, 136, 18).build());
         }
     }
 
@@ -375,8 +476,11 @@ public final class RealmDashboardScreen extends Screen {
         lines.add(text("Wanted: " + p.wantedLevel() + "   Bounty: " + whole(p.bounty())));
         if (p.inCustody()) lines.add(warn("IN CUSTODY until day " + p.custodyReleaseDay()));
         lines.add(header("Player actions"));
-        lines.add(dim("J dashboard: settlements, economy, politics, wars. M opens the world map. Chat NPCs freely.", 0));
+        lines.add(dim("F12 dashboard: settlements, economy, politics, wars. M opens the world map. Chat NPCs freely.", 0));
         lines.add(dim("Found a growing realm with Found settlement (Overview) or /livingrealms found <name>.", 0));
+        if ("RULER".equalsIgnoreCase(p.rank())) {
+            lines.add(dim("As ruler you cannot Leave — succession/abdication is required to step down.", 0));
+        }
         lines.add(dim("Policy buttons on Settlements change what your towns build next.", 0));
         if (r.factionId() > 0) {
             lines.add(header("Realm"));

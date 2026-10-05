@@ -1,6 +1,6 @@
 # Living Realms — Definition of Done matrix
 
-CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 14 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
+CURRENT PINS: schema 18 / minSchema 1 / protocol 19 / network 15 / contentRevision 14 / surfaceSettlements 156 / perRealm 13 / spacing 800
 
 A subsystem is **COMPLETE** only when model, simulation, persistence/migration, Minecraft runtime projection, player feedback/UI, required content/assets, and regression tests are all real for the pins above.
 

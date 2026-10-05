@@ -13,8 +13,10 @@ import dev.livingrealms.sim.construction.ConstructionJob;
 import dev.livingrealms.sim.construction.ConstructionQueue;
 import dev.livingrealms.sim.construction.ConstructionRetryKey;
 import dev.livingrealms.sim.construction.EntranceAccessPlanner;
+import dev.livingrealms.sim.construction.HousingCapacity;
 import dev.livingrealms.sim.construction.PaletteSlot;
 import dev.livingrealms.sim.construction.PhysicalDevelopmentReconciler;
+import dev.livingrealms.sim.construction.SettlementPlanCache;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
 import dev.livingrealms.sim.construction.StructureGeometryRules;
 import dev.livingrealms.sim.construction.StructureRole;
@@ -60,6 +62,7 @@ public final class SettlementConstructionMaterializer {
     private static int catchupTicks;
     private static long catchupSimulatedDays;
     private static int catchupIntentsPerSettlement=1;
+    private static int catchupOpsBoost;
     private static int settlementScanCursor;
 
     private SettlementConstructionMaterializer() {}
@@ -68,9 +71,21 @@ public final class SettlementConstructionMaterializer {
         if(level==null)return;
         if(boundLevelIdentity==null)boundLevelIdentity=level;
         else if(boundLevelIdentity!=level)return; // E8: foreign level must not drain this world's queue
+        long catchup=data.state().consumeConstructionCatchup();
+        if(catchup>0)requestCatchup(catchup);
+        refreshPresentationScope(level,data);
         discoverLoadedWork(level,data);
         int operationBudget=Math.max(320,data.state().config().constructionBlockOpsPerTick());
-        if(catchupTicks>0){operationBudget=Math.max(operationBudget,960);catchupTicks--;}
+        if(catchupTicks>0){
+            // Soft-ramp catch-up ops to avoid a 960 ops/tick hitch with many nearby settlements/players.
+            int players=Math.max(1,level.players().size());
+            int peak=Math.max(480,960/Math.min(4,players));
+            if(catchupOpsBoost<=0)catchupOpsBoost=Math.min(peak,operationBudget+80);
+            else catchupOpsBoost=Math.min(peak,catchupOpsBoost+48);
+            operationBudget=Math.max(operationBudget,catchupOpsBoost);
+            catchupTicks--;
+            if(catchupTicks<=0)catchupOpsBoost=0;
+        }
         AuthoredBlockLedger ledger=data.authoredBlocks();
         var result=QUEUE.tick(operationBudget,(job,operation)->apply(level,job,operation,ledger));
         boolean dirty=result.applied()>0;
@@ -79,7 +94,11 @@ public final class SettlementConstructionMaterializer {
             Settlement owner=JOB_OWNERS.remove(completed);
             ConstructionRetryKey retryKey=ConstructionRetryKey.parse(completed);
             RETRY_AFTER_DAY.remove(retryKey.wire());
-            if(owner!=null && owner.markConstructionCompleted(retryKey.intentKey())) dirty=true;
+            if(owner!=null && owner.markConstructionCompleted(retryKey.intentKey())) {
+                dirty=true;
+                creditHousingFromCompletedHouse(data,owner,retryKey.intentKey());
+                if(retryKey.intentKey().equals(owner.activeConstructionKey()))owner.setActiveConstructionKey("");
+            }
         }
         for(String rejected:result.rejectedJobKeys()) {
             Settlement owner=JOB_OWNERS.remove(rejected);
@@ -95,16 +114,20 @@ public final class SettlementConstructionMaterializer {
     public static void requestCatchup(long simulatedDays){
         if(simulatedDays<=0)return;
         int requested=(int)Math.min(400L,40L+Math.min(120L,simulatedDays)*3L);
+        boolean fresh=catchupTicks<=0;
         catchupTicks=Math.max(catchupTicks,requested);
         catchupSimulatedDays=Math.max(catchupSimulatedDays,simulatedDays);
         // Per-settlement refinement uses PhysicalDevelopmentReconciler inside discoverLoadedWork.
         catchupIntentsPerSettlement=Math.max(2,Math.min(12,1+(int)Math.min(8L,simulatedDays/12L)));
+        if(fresh)catchupOpsBoost=0; // restart soft ramp for a new catch-up wave
     }
+
+    public static boolean catchupActive(){return catchupTicks>0;}
 
     public static void clear() {
         QUEUE.clear(); JOB_OWNERS.clear(); RETRY_AFTER_DAY.clear();
         boundLevelIdentity=null;
-        catchupTicks=0; catchupSimulatedDays=0; catchupIntentsPerSettlement=1; settlementScanCursor=0;
+        catchupTicks=0; catchupSimulatedDays=0; catchupIntentsPerSettlement=1; catchupOpsBoost=0; settlementScanCursor=0;
     }
 
     /** Test/hook: whether the static queue currently owns jobs. */
@@ -167,6 +190,7 @@ public final class SettlementConstructionMaterializer {
                 }
                 if(QUEUE.enqueue(job)){
                     JOB_OWNERS.put(job.key(),settlement);
+                    settlement.setActiveConstructionKey(intent.key());
                     queuedSettlements.add(settlement.id());
                     enqueued++;
                 }
@@ -174,6 +198,27 @@ public final class SettlementConstructionMaterializer {
             }
         }
         settlementScanCursor=Math.floorMod(settlementScanCursor+Math.max(1,scanned),Math.max(1,near.size()));
+    }
+
+    private static void refreshPresentationScope(ServerLevel level,LivingRealmsSavedData data){
+        java.util.Set<Long> activated=new HashSet<>();
+        for(Faction faction:data.state().factions())for(Settlement settlement:faction.settlements()){
+            if(nearPlayer(level,settlement))activated.add(settlement.id());
+        }
+        data.state().presentationScope().setActivated(activated);
+    }
+
+    private static void creditHousingFromCompletedHouse(LivingRealmsSavedData data,Settlement owner,String intentKey){
+        if(intentKey==null||!intentKey.startsWith("house:"))return;
+        Faction faction=null;
+        for(Faction f:data.state().factions()){
+            if(f.settlements().stream().anyMatch(s->s.id()==owner.id())){faction=f;break;}
+        }
+        if(faction==null){owner.addHousing(8);return;}
+        ConstructionIntent intent=SettlementPlanCache.plan(faction,owner).stream()
+                .filter(i->i.key().equals(intentKey)&&i.role()==StructureRole.HOUSE).findFirst().orElse(null);
+        int beds=intent==null?HousingCapacity.representedResidents(7,7):HousingCapacity.representedResidents(intent);
+        owner.addHousing(Math.max(4,beds));
     }
 
 

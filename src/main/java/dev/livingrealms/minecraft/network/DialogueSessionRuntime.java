@@ -1,13 +1,16 @@
 package dev.livingrealms.minecraft.network;
 
 import dev.livingrealms.minecraft.*;
+import dev.livingrealms.minecraft.economy.PlayerMarketRuntime;
 import dev.livingrealms.minecraft.entity.*;
 import dev.livingrealms.minecraft.law.CrimeRuntime;
 import dev.livingrealms.sim.dialogue.*;
 import dev.livingrealms.sim.civilian.CitizenRole;
 import dev.livingrealms.sim.faction.Faction;
+import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.social.*;
+import dev.livingrealms.sim.world.SimPosition;
 import java.util.*;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -60,7 +63,12 @@ public final class DialogueSessionRuntime {
     private static String responseText(DialogueResult result){return result.response();}
     private static String applyActions(ServerPlayer player,SocialCitizen citizen,DialogueResult result,String response){StringBuilder extra=new StringBuilder();for(DialogueAction action:result.actions()){switch(action.type()){
         case ACCEPT_GIFT -> {ItemStack held=player.getMainHandItem();if(held.isEmpty()){extra.append("\n[You are not holding a gift.]");break;}String item=held.getHoverName().getString();held.shrink(1);double rep=SocialInteractionService.applyGift(SimulationRuntime.data(player.serverLevel().getServer()).state(),citizen,CrimeRuntime.actorKey(player),item,4);extra.append("\n[Gift accepted: ").append(item).append(" • faction reputation ").append(Math.round(rep)).append(']');}
-        case MARK_LOCATION -> {if(action.location()!=null)extra.append("\n[Location: ").append(action.subject()).append(" @ ").append(Math.round(action.location().x())).append(", ").append(Math.round(action.location().z())).append(']');}
+        case MARK_LOCATION -> {
+            if(action.location()!=null){
+                extra.append("\n[Location: ").append(action.subject()).append(" @ ").append(Math.round(action.location().x())).append(", ").append(Math.round(action.location().z())).append(']');
+                PacketDistributor.sendToPlayer(player,new WaypointPayload(action.subject(),action.location().x(),action.location().z(),900));
+            }
+        }
         case OPEN_TRADE -> extra.append(tradeBridge(player,citizen));
         case ALERT_GUARDS -> {for(FactionCitizenEntity guard:FactionCitizenIndex.loaded())if(guard.factionId()==citizen.factionId()&&guard.role()==dev.livingrealms.sim.civilian.CitizenRole.GUARD&&guard.distanceToSqr(player)<48.0D*48.0D)guard.setTarget(player);extra.append("\n[Nearby guards have been alerted to you as a threat.]");}
         case NOTIFY_GUARDS -> {var data=SimulationRuntime.data(player.serverLevel().getServer());var state=data.state();String actor=CrimeRuntime.actorKey(player);int notified=0;for(FactionCitizenEntity guard:FactionCitizenIndex.loaded())if(guard.factionId()==citizen.factionId()&&guard.role()==dev.livingrealms.sim.civilian.CitizenRole.GUARD&&guard.distanceToSqr(player)<48.0D*48.0D){SocialCitizen social=state.findSocialCitizen(guard.citizenId()).orElse(null);if(social!=null){var pos=action.location()!=null?action.location():state.findSettlement(citizen.settlementId()).orElseThrow().position();social.remember(new CitizenMemory(state.clock().day(),MemoryType.RUMOR,action.subject(),actor,"A player reported "+action.subject().replace('-',' ')+" nearby.",pos,.38,action.magnitude()));notified++;}}if(notified>0)data.setDirty();extra.append("\n[Report passed to ").append(notified).append(" nearby guard").append(notified==1?"":"s").append(" without marking you hostile.]");}
@@ -69,10 +77,19 @@ public final class DialogueSessionRuntime {
     }}return response+extra;}
     public static void close(UUID player){if(player!=null)SESSIONS.remove(player);} public static void clear(){SESSIONS.clear();}
 
-    /** Server-authoritative trade bridge; emerald commit stays on F12 Economy. */
+    /** Server-authoritative trade bridge: attempt a small FOOD emerald package, else quote. */
     private static String tradeBridge(ServerPlayer player,SocialCitizen citizen){
-        var state=SimulationRuntime.data(player.serverLevel().getServer()).state();
-        return "\n["+DialogueTradeBridge.quoteSummary(state,citizen)+']';
+        var data=SimulationRuntime.data(player.serverLevel().getServer());
+        var state=data.state();
+        var attempt=PlayerMarketRuntime.trade(state,CrimeRuntime.actorKey(player),player,
+                new SimPosition(player.getX(),player.getZ()),true,ResourceType.FOOD.ordinal()+1L);
+        if(attempt.success()){
+            if(attempt.dirty())data.setDirty();
+            return "\n[Trade completed: "+attempt.message()+']';
+        }
+        return "\n["+DialogueTradeBridge.quoteSummary(state,citizen)
+                +(attempt.message().isBlank()?"":"; note: "+attempt.message())
+                +" Open F12 Economy if dialogue trade is unavailable here.]";
     }
 
     private record Session(long citizenId,DialogueContext context,UUID physicalEntityId){}
