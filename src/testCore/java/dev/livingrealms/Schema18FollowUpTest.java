@@ -84,7 +84,8 @@ public final class Schema18FollowUpTest {
         state.addWar(war);
 
         RealmDashboardSnapshot snap = RealmDashboardBuilder.build(state, "player:test", new SimPosition(0, 0));
-        check(snap.protocolVersion() == 19, "builder emits protocol 19");
+        check(snap.protocolVersion() == RealmDashboardSnapshot.PROTOCOL_VERSION,
+                "builder emits protocol " + RealmDashboardSnapshot.PROTOCOL_VERSION);
         check(!snap.wars().isEmpty(), "war visible");
         var view = snap.wars().getFirst();
         check(view.targetSettlementId() == capital.id(), "war view targets capital id");
@@ -95,11 +96,11 @@ public final class Schema18FollowUpTest {
         check(round.wars().getFirst().targetSettlementId() == capital.id(), "codec keeps target id");
         boolean rejected = false;
         try {
-            RealmDashboardCodec.decode(json.replaceFirst("\"v\":19", "\"v\":18"));
+            RealmDashboardCodec.decode(json.replaceFirst("\"v\":" + RealmDashboardSnapshot.PROTOCOL_VERSION, "\"v\":18"));
         } catch (IllegalArgumentException expected) {
             rejected = true;
         }
-        check(rejected, "protocol 18 must be rejected after bump to 19");
+        check(rejected, "stale protocol must be rejected after bump");
     }
 
     private static void check(boolean ok, String message) {

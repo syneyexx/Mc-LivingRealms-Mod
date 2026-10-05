@@ -418,12 +418,8 @@ public final class SimulationState {
             lawEnforcementEngine.releaseExpired(this);
             reputationEngine.simulateDay(this);
             rebellionEngine.simulateDay(this,new DeterministicRng(seed^day^0xA54FF53A5F1D36F1L),config.rebellionThreshold());
-            // Causal frontier expansion is rare — not exploration-triggered.
-            if(day%30==15)SettlementExpansionEngine.tick(this);
-            // Road-life journeys progress while unloaded.
-            for(CitizenJourney journey:citizenJourneys){
-                if(journey.active())journey.advance(.03+((day+journey.id())%7)*.005);
-            }
+            RoadLifeEngine.simulateDay(this,new DeterministicRng(seed^day^0xC2B2AE3D27D4EB4FL));
+            if(day%30==15)SettlementExpansionEngine.simulateDay(this,new DeterministicRng(seed^day^0xCA05A15L));
             clock.advance(SimClock.TICKS_PER_DAY);
             if(day%30==0)history.add(new WorldEvent(day,"monthly_snapshot",summary()));
         }

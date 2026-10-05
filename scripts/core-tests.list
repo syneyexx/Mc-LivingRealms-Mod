@@ -63,4 +63,7 @@ dev.livingrealms.Schema18FollowUpTest
 dev.livingrealms.SparseWorldPolicyTest
 dev.livingrealms.SettlementAnchorInvariantTest
 dev.livingrealms.ForeignSettlementSpacingTest
+dev.livingrealms.PlayerWarRoomTest
+dev.livingrealms.UnderworldGameplayTest
+dev.livingrealms.RoadLifeLayerTest
 dev.livingrealms.LongRunSoakTest

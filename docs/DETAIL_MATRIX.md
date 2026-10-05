@@ -19,7 +19,7 @@ Source wins over docs. Status values for current work: EXISTS · IMPLEMENTING ·
 | UI blur removed | clearBackground overrides | COMPLETE | M / dialogue / dashboard |
 | M-map terrain | RealmWorldMapScreen + ClientTerrainMapCache | COMPLETE | |
 | Named roster | SocialPopulationEngine | COMPLETE | hamlet6…capital64; no projection required |
-| Goods chains | ResourceType + SettlementEconomyEngine | COMPLETE | schema 18; no FOOD×mill fountain |
+| Goods chains | ResourceType + SettlementEconomyEngine | COMPLETE | schema 19; no FOOD×mill fountain |
 | Farms/pastures/hinterland keys | completion keys + receipts | COMPLETE | No seeder phantoms |
 | Settlement transfer | SettlementTransfer | COMPLETE | Capture + rebellion |
 | War capital targets | DiplomacyEngine | COMPLETE | Typed goals |

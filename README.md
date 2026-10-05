@@ -578,7 +578,7 @@ The current RC4 line includes:
 - canonical ID high-watermark repair;
 - long deterministic soak testing.
 
-The attached/current development line uses **save schema 18** (schemas 1–17 remain readable; schema 18 adds the goods chain GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL) with older schemas retained through migration support.
+The attached/current development line uses **save schema 19** (schemas 1–18 remain readable; schema 18 adds the goods chain GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL) with older schemas retained through migration support.
 
 ---
 
@@ -587,7 +587,7 @@ The attached/current development line uses **save schema 18** (schemas 1–17 re
 CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
 - 12 surface kingdoms plus Wizard Trees;
-- 36 surface starter settlements (capital + 10 authored Specs + 2 rural per realm) at 800-block spacing;
+- 36 surface starter settlements (capital + 1 authored Spec + 1 rural per realm) at 2000-block spacing;
 - persistent named roster per settlement; aggregate population for demographic scale;
 - goods chain without FOOD mill fountain; construction keys only via materializer / FOREIGN_ADOPTED;
 - SettlementTransfer on capture/rebellion; capital war targets; tokenized dialogue;

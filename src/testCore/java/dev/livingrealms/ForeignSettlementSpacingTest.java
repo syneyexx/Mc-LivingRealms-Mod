@@ -13,7 +13,7 @@ public final class ForeignSettlementSpacingTest {
     private ForeignSettlementSpacingTest() {}
 
     public static void main(String[] args) {
-        SimulationState state = new SimulationState(0xF0RE1L);
+        SimulationState state = new SimulationState(0xF0CE1L);
         DemoSeeder.seed(state);
         var host = state.factions().getFirst().settlements().getFirst();
         int before = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();

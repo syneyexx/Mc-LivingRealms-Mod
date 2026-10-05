@@ -42,6 +42,7 @@ public final class HousingAndProductionTruthTest {
         var founded = PlayerSettlementFounder.found(state, "player:farm", "Farmer", "Farmless", new SimPosition(60_000, 60_000));
         check(founded.success(), founded.reason());
         var capital = state.findSettlement(founded.settlementId()).orElseThrow();
+        check(!capital.isConstructionCompleted("farm:0"), "founding camp must not start with a free farm");
         capital.stockpile().set(ResourceType.FOOD, 0);
         capital.stockpile().set(ResourceType.GRAIN, 0);
         new SettlementEconomyEngine().simulateDay(state);
@@ -59,9 +60,11 @@ public final class HousingAndProductionTruthTest {
         SimulationState state = new SimulationState(33);
         var founded = PlayerSettlementFounder.found(state, "player:catch", "Catch", "Catchburg", new SimPosition(70_000, 70_000));
         check(founded.success(), founded.reason());
-        check(state.consumeConstructionCatchup() >= 45, "founder must request construction catch-up");
+        check(state.consumeConstructionCatchup() >= 20, "founder must request construction catch-up");
         var capital = state.findSettlement(founded.settlementId()).orElseThrow();
-        check(capital.priorityLandmarks().contains("keep:0"), "founder prioritizes keep landmark");
+        check(capital.priorityLandmarks().contains("town_hall:0"), "founder prioritizes town hall landmark");
+        check(capital.population() == PlayerSettlementFounder.FOUNDING_POPULATION, "founder camp population");
+        check(capital.developmentMode() == dev.livingrealms.sim.faction.DevelopmentMode.HYBRID, "default HYBRID");
     }
 
     private static void presentationPulseAdvancesShipments() {
@@ -78,11 +81,10 @@ public final class HousingAndProductionTruthTest {
         var shipment = state.shipments().getFirst();
         double before = shipment.progress();
         state.advancePresentationPulse(0.5);
-        check(shipment.progress() >= before, "microstep must not rewind shipment progress");
-        check(state.clock().day() >= 0, "microstep must not require clock advance");
+        check(shipment.progress() >= before, "presentation pulse must not rewind shipments");
     }
 
-    private static void check(boolean cond, String msg) {
-        if (!cond) throw new AssertionError(msg);
+    private static void check(boolean condition, String message) {
+        if (!condition) throw new AssertionError(message);
     }
 }

@@ -149,7 +149,7 @@ public final class PlayerAgencyActions {
         Settlement home = faction.settlements().stream()
                 .max(Comparator.comparingInt(Settlement::population)).orElse(null);
         if (home == null) return Result.fail("no_home");
-        replaceArmyObjective(state, army, factionId, MilitaryObjectiveType.DEFEND, home.id(), home.position(), 120);
+        replaceArmyObjective(state, army, factionId, MilitaryObjectiveType.DEFEND, 0, home.id(), home.position(), 120);
         standing.adjustInfluence(factionId, InfluenceInstitution.MILITARY, -5);
         standing.grantCareerService(CareerTrack.MILITARY, 20);
         army.adjustMorale(.04);

@@ -64,9 +64,11 @@ public final class PlayerSettlementFounder {
                 SettlementOrigin.PLAYER_FOUNDED,true,DevelopmentMode.HYBRID);
         faction.addSettlement(capital);
         faction.addArmy(new Army(state.nextId(),factionId,new SimPosition(position.x()+12,position.z()+10),FOUNDING_ARMY));
-        stock(faction,ResourceType.GRAIN,180);stock(faction,ResourceType.BREAD,120);
+        stock(faction,ResourceType.GRAIN,420);stock(faction,ResourceType.BREAD,280);
         stock(faction,ResourceType.WOOD,220);stock(faction,ResourceType.STONE,160);
         stock(faction,ResourceType.IRON,24);stock(faction,ResourceType.TOOLS,18);stock(faction,ResourceType.TEXTILES,20);
+        capital.stockpile().add(ResourceType.GRAIN,80);
+        capital.stockpile().add(ResourceType.BREAD,60);
         for(Faction other:state.factions()){
             double initial=initialOpinion(state.seed(),factionId,other.id());
             faction.relationWith(other.id()).adjust(initial);
@@ -75,7 +77,7 @@ public final class PlayerSettlementFounder {
         state.addFaction(faction);
         standing.restoreReputation(factionId,100);
         standing.assumeRule(factionId,state.clock().day());
-        // First civic anchor is a town hall / charter hall — not an instant keep.
+        // First civic anchor is a town hall / charter hall — not an instant keep or free farm.
         state.requestConstructionCatchup(20);
         capital.requestLandmark("town_hall:0");
         state.history().add(new WorldEvent(state.clock().day(),"player_realm_founded",

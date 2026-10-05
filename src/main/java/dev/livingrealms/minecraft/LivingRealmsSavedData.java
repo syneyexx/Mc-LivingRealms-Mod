@@ -108,7 +108,7 @@ public final class LivingRealmsSavedData extends SavedData {
                 ? SettlementDensitySeeder.ensureStarterDensity(loaded.state()) : 0;
         int wizardChanges = ContentMigrationPolicy.shouldEnsureWizardTrees(contentRevision)
                 ? WizardTreesSeeder.ensure(loaded.state()) : 0;
-        densityChanges += SettlementDensitySeeder.enforceSpacing(loaded.state());
+        densityChanges += 0; // spacing is planned at creation; anchored settlements are never relocated
         // Revision 8 introduced authored-block provenance. Revision 9 adds typed ownership.
         // Revision 10 morphology rebuild is gated above. Revision 11–13 are presentation/spacing.
         // Revision 14 is densifier Spec completeness + seeder completion-key ban.

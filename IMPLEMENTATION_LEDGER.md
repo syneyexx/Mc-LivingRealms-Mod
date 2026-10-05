@@ -17,7 +17,7 @@ CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 | Network | **14** |
 | ContentRevision | **14** |
 | Surface settlements | **36** (12 × 3: capital + 1 Spec + 1 rural) |
-| Spacing | **800** blocks |
+| Spacing | **2000** blocks |
 | Dashboard / map / catalog | F12 / M / K |
 
 ## Release authorities

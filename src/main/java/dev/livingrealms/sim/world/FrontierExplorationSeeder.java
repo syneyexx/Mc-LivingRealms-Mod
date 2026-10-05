@@ -7,15 +7,11 @@ package dev.livingrealms.sim.world;
 public final class FrontierExplorationSeeder {
     public static final double GAP_BEFORE_SEED = 3_400.0;
     public static final double FRONTIER_SPACING = SettlementDensitySeeder.MIN_SETTLEMENT_SPACING;
-    public static final int MAX_FRONTIER_PER_REALM = SettlementExpansionEngine.MAX_CAUSAL_PER_REALM;
+    public static final int MAX_FRONTIER_PER_REALM = 12;
 
     private FrontierExplorationSeeder() {}
 
-    /**
-     * @deprecated Player proximity is not a foundation cause. Always returns 0.
-     * Use {@link SettlementExpansionEngine#tick(SimulationState)} for causal expansion.
-     */
-    @Deprecated
+    /** Always returns 0 — player proximity is not a foundation cause. */
     public static int ensureNear(SimulationState state, SimPosition observer) {
         return SettlementExpansionEngine.ensureNear(state, observer);
     }

@@ -184,6 +184,7 @@ public final class SaveMigrationMatrixTest {
             if (schema >= 16) writeSettlementEconomy(out, schema);
             if (schema >= 17) writeFinalProduct(out);
             if (schema >= 18) writeGoodsOrigins(out);
+            if (schema >= 19) writeProvenanceAndSites(out);
             writeHistory(out);
         }
         return bytes.toByteArray();
@@ -224,6 +225,17 @@ public final class SaveMigrationMatrixTest {
         out.writeInt(2);
         out.writeLong(SETTLEMENT_ID);out.writeInt(1);writeString(out,"keep:legacy");out.writeInt(0);
         out.writeLong(301L);out.writeInt(0);
+    }
+
+    private static void writeProvenanceAndSites(DataOutputStream out) throws IOException {
+        // Settlement provenance for both fixture settlements.
+        out.writeInt(2);
+        out.writeLong(SETTLEMENT_ID);out.writeInt(0);out.writeBoolean(false);out.writeInt(0); // AUTHORED_SEED, not anchored, AUTO
+        out.writeLong(301L);out.writeInt(0);out.writeBoolean(false);out.writeInt(0);
+        out.writeInt(0); // outlying sites
+        out.writeInt(0); // citizen journeys
+        out.writeInt(0); // roadside sites
+        out.writeInt(0); // underworld profiles
     }
 
     private static void writeRegions(DataOutputStream out, int schema) throws IOException {

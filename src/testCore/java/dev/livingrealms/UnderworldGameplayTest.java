@@ -16,7 +16,7 @@ public final class UnderworldGameplayTest {
     public static void main(String[] args) {
         SimulationState state = new SimulationState(0x554E4457L);
         Faction realm = new Faction(state.nextId(), "Shadowvale", "Mayor");
-        realm.government().setCorruption(.55);
+        realm.government().adjustCorruption(.43); // ~0.55 with default .12
         Settlement town = new Settlement(state.nextId(), "Shadowport", new SimPosition(100, 100), 600, 700);
         realm.addSettlement(town);
         state.addFaction(realm);
