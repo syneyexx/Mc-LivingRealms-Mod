@@ -9,7 +9,7 @@ CURRENT PINS: schema 19 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 
 ## v3.0 — release-ready singleplayer
 - [x] Deterministic civilization/ecology core.
-- [x] Versioned persistent world state through schema **19** (schemas 1–17 readable).
+- [x] Versioned persistent world state through schema **19** (schemas 1–18 readable).
 - [x] Dashboard protocol **20**, network **16**, ContentRevision **15**.
 - [x] Surface density: 12 kingdoms × 3 settlements (capital + 1 Spec + 1 rural) = **36**, spacing **2000**, plus Wizard Trees (3).
 - [x] Goods chain GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL; construction keys only via materializer / FOREIGN_ADOPTED.
