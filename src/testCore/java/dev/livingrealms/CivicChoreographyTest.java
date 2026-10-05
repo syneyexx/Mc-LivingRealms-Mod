@@ -67,10 +67,6 @@ public final class CivicChoreographyTest {
         faction.addSettlement(town);
         state.addFaction(faction);
         var civ = state.ensureFactionCivilization(faction.id());
-        // Force a known faith with documented holy days (30, 120, 210, 300).
-        // ensureFactionCivilization may pick another name — restore via FaithCatalog known profile.
-        String faithName = "The Lantern Faith";
-        // Civilization state faith is final at construction; use whatever was assigned and find a holy day.
         FaithCatalog.FaithProfile faith = FaithCatalog.of(civ.faithName());
         long holyDay = -1;
         for (int doy = 0; doy < 360; doy++) {
@@ -115,8 +111,6 @@ public final class CivicChoreographyTest {
         var quiet = CivicChoreographyPlanner.planSettlement(other, f2, s2);
         check(quiet.stream().noneMatch(e -> e.kind() == CivicChoreographyPlanner.EventKind.HOLY_DAY),
                 "HOLY_DAY must not fire off faith calendar");
-        // silence unused warning for forced name probe
-        check(!faithName.isBlank(), "faith name constant");
     }
 
     private static void directorRespectsBudgetsAndCooldowns() {

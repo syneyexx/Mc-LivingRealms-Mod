@@ -224,7 +224,7 @@ public final class SeasonalFarmPresentationRuntime {
         }
         return switch (visual) {
             case SNOW_COVER -> Blocks.SNOW.defaultBlockState();
-            case WATER_SHEET -> Blocks.WATER.defaultBlockState();
+            case WATER_SHEET -> Blocks.LIGHT_BLUE_CARPET.defaultBlockState();
             case DEAD_BUSH -> Blocks.DEAD_BUSH.defaultBlockState();
             default -> Blocks.WHEAT.defaultBlockState().setValue(CropBlock.AGE, 4);
         };
@@ -243,7 +243,7 @@ public final class SeasonalFarmPresentationRuntime {
     private static boolean isPresentationCrop(BlockState state) {
         return state.is(Blocks.WHEAT)
                 || state.is(Blocks.SNOW)
-                || state.is(Blocks.WATER)
+                || state.is(Blocks.LIGHT_BLUE_CARPET)
                 || state.is(Blocks.DEAD_BUSH)
                 || state.is(Blocks.AIR);
     }
