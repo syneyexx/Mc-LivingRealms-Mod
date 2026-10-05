@@ -5,6 +5,7 @@ import dev.livingrealms.sim.civilization.*;
 import dev.livingrealms.sim.diplomacy.TreatyType;
 import dev.livingrealms.sim.ecology.PopulationGroup;
 import dev.livingrealms.sim.faction.ResourceType;
+import dev.livingrealms.sim.faction.SettlementRole;
 import dev.livingrealms.sim.government.GovernmentType;
 import dev.livingrealms.sim.government.SuccessionLaw;
 import dev.livingrealms.sim.industry.IndustrialSiteStatus;
@@ -75,6 +76,7 @@ public final class SaveMigrationMatrixTest {
         check(faction.settlements().size() == 1, "schema " + schema + " settlement count");
         var settlement = faction.settlements().getFirst();
         check(settlement.id() == SETTLEMENT_ID && settlement.population() == 400 && settlement.housing() == 500, "schema " + schema + " settlement identity");
+        check(settlement.role() == SettlementRole.CAPITAL, "schema " + schema + " settlement role migration/persistence");
         if (schema >= 2) check(settlement.isConstructionCompleted("keep:legacy"), "schema " + schema + " construction completion");
         if (schema >= 4) {
             check(faction.government().type() == GovernmentType.FEUDAL_MONARCHY, "schema " + schema + " government type");
@@ -298,6 +300,7 @@ public final class SaveMigrationMatrixTest {
             writeString(out, "keep:legacy");
         }
         if (schema >= 10) out.writeInt(0);
+        if (schema >= 21) out.writeInt(SettlementRole.CAPITAL.ordinal());
         out.writeInt(0); // armies
         out.writeInt(0); // relations
 
@@ -324,6 +327,7 @@ public final class SaveMigrationMatrixTest {
         }
         if (schema >= 2) out.writeInt(0);
         if (schema >= 10) out.writeInt(0);
+        if (schema >= 21) out.writeInt(SettlementRole.CAPITAL.ordinal());
         out.writeInt(0); // armies
         out.writeInt(0); // relations
     }
