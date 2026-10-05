@@ -174,7 +174,8 @@ public final class SettlementStreetGraph {
             SimPosition o=p(Math.cos(a)*r,Math.sin(a)*r);
             outer.add(o);
             b.add(i%2==0?StreetType.BOULEVARD:StreetType.ARTERIAL,142-i,SettlementGrowthLayer.HISTORIC_CORE,
-                    p(0,0),p(Math.cos(a)*r*.48,Math.sin(a)*r*.48),o);
+                    p(0,0),p(Math.cos(a)*r*.48,Math.sin(a)*r*.48),
+                    p(Math.cos(a)*r*.68,Math.sin(a)*r*.68),o);
         }
         double ringRadius=r*.68;
         for(int i=0;i<spokes;i++){
@@ -354,8 +355,12 @@ public final class SettlementStreetGraph {
 
         void add(RoadSegment segment){
             segments.add(segment);
-            long from=nodeId(segment.start()),to=nodeId(segment.end());
-            if(from!=to)edges.add(new StreetEdge(from,to,segment.key()));
+            long previous=-1;
+            for(SimPosition point:segment.centerline()){
+                long current=nodeId(point);
+                if(previous>0&&previous!=current)edges.add(new StreetEdge(previous,current,segment.key()));
+                previous=current;
+            }
         }
 
         long nodeId(SimPosition pos){
