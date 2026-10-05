@@ -82,7 +82,8 @@ public final class MigrationEngine {
         SimPosition p=new SimPosition(source.position().x()+Math.cos(angle)*radius,source.position().z()+Math.sin(angle)*radius);
         // Housing slightly below population so SettlementPlanner enqueues visible shelters for materialization.
         int shelter=Math.max(8,group.people()/3);
-        Settlement camp=new Settlement(state.nextId(),"Refugee Camp "+group.id(),p,group.people(),shelter);
+        Settlement camp=new Settlement(state.nextId(),"Refugee Camp "+group.id(),p,group.people(),shelter,
+                SettlementOrigin.CAUSAL_EXPANSION,false,DevelopmentMode.AUTO,SettlementRole.SPECIAL);
         camp.setDevelopmentPriority(DevelopmentPriority.HOUSING);
         // Seed only a completed well so water security exists; farms/pastures/houses remain pending
         // construction so camps physically appear near players instead of staying abstract markers.
@@ -92,7 +93,7 @@ public final class MigrationEngine {
         camp.stockpile().add(ResourceType.STONE,Math.max(8,group.people()*.5));
         camp.setFoodSecurity(Mathx.clamp(group.food(),.15,.7));
         origin.addSettlement(camp);
-        // Ensure planner exposes pending shelters/farms/roads for physical materialization near players.
+        // Ensure planner exposes pending shelters/farms/roads for chunk-driven physical materialization.
         long pendingShelter=SettlementPlanner.pending(origin,camp).stream()
                 .filter(i->i.role()==StructureRole.HOUSE||i.role()==StructureRole.FARM||i.role()==StructureRole.ROAD)
                 .count();
