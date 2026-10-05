@@ -25,7 +25,7 @@ CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 
 | Domain | Modules | Role |
 |--------|---------|------|
-| Simulation | `SimulationEngine`, lifecycle engines (household / demography / epidemic / migration / knowledge / dynasty), `FactionEngine`, civilization sub-engines | Day pipeline orchestration; aggregate demography and named mortality live in `DemographyEngine` |
+| Simulation | `SimulationEngine`, lifecycle engines (household / demography / epidemic / migration / knowledge / dynasty), `FactionEngine`, civilization sub-engines, `PhysicalLossService`, `PlayerLawService` | Day pipeline orchestration; aggregate demography/named mortality are isolated; physical feedback and law/bounty orchestration are no longer implemented inline in `SimulationState` |
 | Runtime scheduler | `LivingRealmsRuntimeScheduler`, `LivingRealmsRuntimeTaskCatalog`, `RuntimeTask`, `RuntimeDomain` / `RuntimePriority` / `RuntimeTaskClass` | Server tick catalog; `LivingRealmsEvents` only drives `runtimeScheduler.tick` |
 | Budgets / pressure | `RuntimeBudgetController`, `ProjectionBudget`, `RuntimePressureBridge` | Lane caps + HEALTHY/SOFT/HARD degradation for physical projection |
 | Failure isolation | `RuntimeFailureIsolator`, `StructuredErrorReporter` (waves 34/35) | Recoverable tasks disable; critical tasks do not swallow |
@@ -64,8 +64,8 @@ Approximate LOC (baseline `2180af6` → current):
 | `NaturalLanguageDialogueEngine` | ~215 | ~121 | Orchestrates pipeline; answers extracted |
 | `SimulationStateCodec` | ~743 | ~118 | Envelope only; domains in `codec/` |
 | `RealmDashboardScreen` | ~975 | thinner façade | Tab panels (e.g. `EconomyPanel`) own section UI |
-| `SimulationState` | ~509 | ~495 | Still large store/orchestrator; package-private engines |
-| `SettlementPlanner` | still large (~713) | still large | Intent planning; further peel deferred |
+| `SimulationState` | ~509 | reduced façade/store | Physical-loss and player-law orchestration extracted; canonical stores + engine ownership remain |
+| `SettlementPlanner` | ~674 baseline / ~713 pre-Final+ | reduced orchestrator | Street topology moved to `SettlementRoadPlanner`; parcel housing moved to `SettlementHousingPlanner` |
 | `SettlementConstructionMaterializer` | still large (~699) | still large | Physical build; further peel deferred |
 
 Net: god-tick and god-codec split; remaining hotspots are construction + `SimulationState`.
@@ -127,7 +127,7 @@ Honest matrix for this finalize pass:
 
 ## H Remaining limitations
 
-- `SettlementPlanner`, `SettlementConstructionMaterializer`, `SimulationState` still oversized
+- `SettlementConstructionMaterializer` and `LivingRealmsEvents` remain the main Minecraft-side hotspots; `SettlementPlanner`/`SimulationState` were reduced further in Final+ but still retain orchestration/store density
 - Household-pair formation and several claims/raid helpers remain in `CivilizationEngine`; aggregate demography and named mortality are extracted to `DemographyEngine`
 - Linked build + GameTest + client runtime smoke need CI/agent with NeoForge deps
 - Some player loops are CONSEQUENCE WIRED / DEEP without POLISHED UX

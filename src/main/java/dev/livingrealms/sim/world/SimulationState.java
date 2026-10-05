@@ -372,64 +372,33 @@ public final class SimulationState {
     public Optional<PlayerStanding> findPlayerStanding(String actorKey){return Optional.ofNullable(playerStandings.get(actorKey));} public Optional<PlayerStanding> playerRuler(long factionId){return playerStandings.values().stream().filter(p->p.isRulerOf(factionId)).findFirst();}
     public void restorePlayerStanding(PlayerStanding standing){PlayerStanding v=Objects.requireNonNull(standing);playerStandings.put(v.actorKey(),v);}
 
-    public boolean recordPhysicalShipmentLoss(long id,String cause){TradeShipment shipment=removeShipment(id);if(shipment==null)return false;history.add(new WorldEvent(clock.day(),"trade_caravan_lost","shipment="+id+", resource="+shipment.resource()+", amount="+shipment.amount()+", cause="+Objects.requireNonNullElse(cause,"unknown")));return true;}
+    public boolean recordPhysicalShipmentLoss(long id,String cause){return PhysicalLossService.recordPhysicalShipmentLoss(this,id,cause);}
     public Optional<PopulationGroup> findPopulationGroup(long groupId){for(EcosystemRegion region:regions)for(PopulationGroup group:region.populations())if(group.id()==groupId)return Optional.of(group);return Optional.empty();}
-    public boolean recordPhysicalAnimalDeath(long groupId,double count,String cause){if(count<=0||!Double.isFinite(count))throw new IllegalArgumentException("count");PopulationGroup group=findPopulationGroup(groupId).orElse(null);if(group==null||group.extinct())return false;double before=group.population();group.addPopulation(-Math.min(count,before));history.add(new WorldEvent(clock.day(),"wildlife_death","group="+groupId+", species="+group.speciesId()+", count="+count+", cause="+Objects.requireNonNullElse(cause,"unknown")));return true;}
-    public boolean recordIndustrialDamage(long siteId,double damage,int downtime,String cause){IndustrialSite site=findIndustrialSite(siteId).orElse(null);if(site==null)return false;site.damage(damage,downtime);history.add(new WorldEvent(clock.day(),"industry_damaged","site="+siteId+", kind="+site.kind()+", damage="+damage+", cause="+Objects.requireNonNullElse(cause,"unknown")));return true;}
-    public boolean recordPhysicalCitizenDeath(long settlementId,String cause){return recordPhysicalCitizenDeath(settlementId,0,cause);}
-    public boolean recordPhysicalCitizenDeath(long settlementId,long socialCitizenId,String cause){Settlement settlement=findSettlement(settlementId).orElse(null);if(settlement==null||settlement.population()<=0)return false;SocialCitizen citizen=socialCitizenId>0?findSocialCitizen(socialCitizenId).orElse(null):null;if(citizen!=null&&!citizen.alive())return false;if(citizen!=null)citizen.markDead();settlement.addPopulation(-1);settlement.adjustUnrest(.0025);settlement.setPublicOrder(settlement.publicOrder()-.001);String safeCause=Objects.requireNonNullElse(cause,"unknown");history.add(new WorldEvent(clock.day(),"citizen_death","settlement="+settlementId+(citizen==null?"":", citizen="+citizen.id()+", name="+citizen.name())+", cause="+safeCause));dev.livingrealms.api.LivingRealmsApi.publish(new dev.livingrealms.api.event.CitizenDeath(clock.day(),settlementId,citizen==null?0:citizen.id(),safeCause));return true;}
-    public boolean recordPhysicalArmyLoss(long armyId,int representedPersonnel,String cause){Army army=findArmy(armyId).orElse(null);if(army==null||army.destroyed())return false;army.recordRepresentativeLoss(representedPersonnel);history.add(new WorldEvent(clock.day(),"military_loss","army="+armyId+", represented="+representedPersonnel+", cause="+Objects.requireNonNullElse(cause,"unknown")));return true;}
-    public boolean recordPhysicalAircraftLoss(long wingId,int count,String cause){AirWing wing=airWings.stream().filter(w->w.id()==wingId).findFirst().orElse(null);if(wing==null||wing.destroyed())return false;wing.loseAircraft(count);history.add(new WorldEvent(clock.day(),"aircraft_loss","wing="+wingId+", count="+count+", cause="+Objects.requireNonNullElse(cause,"unknown")));removeDestroyedAirWings();return true;}
-    public boolean recordPhysicalShipLoss(long fleetId,ShipClass shipClass,int count,String cause){if(count<=0)throw new IllegalArgumentException("count");Fleet fleet=findFleet(fleetId).orElse(null);if(fleet==null||fleet.destroyed()||fleet.count(shipClass)<=0)return false;int before=fleet.count(shipClass);fleet.loseShips(shipClass,count);int lost=before-fleet.count(shipClass);history.add(new WorldEvent(clock.day(),"ship_loss","fleet="+fleetId+", class="+shipClass+", count="+lost+", cause="+Objects.requireNonNullElse(cause,"unknown")));removeDestroyedFleets();return lost>0;}
-    public boolean recordPhysicalMigrationLoss(long groupId,int representedPeople,String cause){if(representedPeople<=0)throw new IllegalArgumentException("representedPeople");MigrationGroup group=findMigrationGroup(groupId).orElse(null);if(group==null||!group.active()||group.people()<=0)return false;int before=group.people();group.losePeople(Math.min(representedPeople,before));int lost=before-group.people();history.add(new WorldEvent(clock.day(),"migration_group_loss","group="+groupId+", people="+lost+", cause="+Objects.requireNonNullElse(cause,"unknown")));return lost>0;}
-    public boolean recordPhysicalPirateLoss(long bandId,int representedPirates,String cause){if(representedPirates<=0)throw new IllegalArgumentException("representedPirates");PirateBand band=findPirateBand(bandId).orElse(null);if(band==null||!band.active())return false;int before=band.strength();band.loseStrength(Math.min(representedPirates,before));int lost=before-band.strength();history.add(new WorldEvent(clock.day(),"pirate_loss","band="+bandId+", pirates="+lost+", cause="+Objects.requireNonNullElse(cause,"unknown")));return lost>0;}
-    /**
-     * Maps a physical traveler death onto the canonical journey exactly once.
-     * Dematerialization / LOD despawn must never call this — only real entity death.
-     */
-    public boolean recordPhysicalJourneyDeath(long journeyId,String cause){
-        CitizenJourney journey=findCitizenJourney(journeyId).orElse(null);
-        if(journey==null||!journey.active())return false;
-        journey.abort();
-        history.add(new WorldEvent(clock.day(),"citizen_journey_killed",
-                "journey="+journeyId+", purpose="+journey.purpose().name()
-                        +", cause="+Objects.requireNonNullElse(cause,"unknown")));
-        return true;
-    }
+    public boolean recordPhysicalAnimalDeath(long groupId,double count,String cause){return PhysicalLossService.recordPhysicalAnimalDeath(this,groupId,count,cause);}
+    public boolean recordIndustrialDamage(long siteId,double damage,int downtime,String cause){return PhysicalLossService.recordIndustrialDamage(this,siteId,damage,downtime,cause);}
+    public boolean recordPhysicalCitizenDeath(long settlementId,String cause){return PhysicalLossService.recordPhysicalCitizenDeath(this,settlementId,0,cause);}
+    public boolean recordPhysicalCitizenDeath(long settlementId,long socialCitizenId,String cause){return PhysicalLossService.recordPhysicalCitizenDeath(this,settlementId,socialCitizenId,cause);}
+    public boolean recordPhysicalArmyLoss(long armyId,int representedPersonnel,String cause){return PhysicalLossService.recordPhysicalArmyLoss(this,armyId,representedPersonnel,cause);}
+    public boolean recordPhysicalAircraftLoss(long wingId,int count,String cause){return PhysicalLossService.recordPhysicalAircraftLoss(this,wingId,count,cause);}
+    public boolean recordPhysicalShipLoss(long fleetId,ShipClass shipClass,int count,String cause){return PhysicalLossService.recordPhysicalShipLoss(this,fleetId,shipClass,count,cause);}
+    public boolean recordPhysicalMigrationLoss(long groupId,int representedPeople,String cause){return PhysicalLossService.recordPhysicalMigrationLoss(this,groupId,representedPeople,cause);}
+    public boolean recordPhysicalPirateLoss(long bandId,int representedPirates,String cause){return PhysicalLossService.recordPhysicalPirateLoss(this,bandId,representedPirates,cause);}
+    public boolean recordPhysicalJourneyDeath(long journeyId,String cause){return PhysicalLossService.recordPhysicalJourneyDeath(this,journeyId,cause);}
 
-    public CrimeResult reportCrime(String actorKey,long jurisdictionFactionId,CrimeType type,double value,SimPosition position,boolean witnessed,int witnessCount,String victimKey,String evidence){
-        CrimeIncident incident=new CrimeIncident(nextId(),clock.day(),actorKey,jurisdictionFactionId,type,value,position,witnessed,witnessCount,victimKey,evidence);
-        CrimeResult result=crimeEngine.report(this,incident);
-        reputationEngine.onCrime(this,incident,result);
-        // Only match contracts / deposit stolen goods when the crime was actually registered.
-        if(result.registered())UnderworldActions.observeCrime(this,incident);
-        return result;
-    }
-    public double captureCriminal(String actorKey,long factionId){return crimeEngine.capture(this,actorKey,factionId);} public double payFine(String actorKey,long factionId,double amount){return crimeEngine.payFine(this,actorKey,factionId,amount);}
-    public LawResponse lawResponse(String actorKey,long factionId){return lawEnforcementEngine.response(this,actorKey,factionId);}
-    public ArrestOutcome arrestCriminal(String actorKey,long factionId,String reason){return lawEnforcementEngine.arrest(this,actorKey,factionId,reason);}
-    public BountyClaim claimBounty(long contractId,String hunterKey){return bountyOfficeEngine.claim(this,contractId,hunterKey);}
-    public BountyAssignment acceptBounty(long contractId,String hunterKey){return bountyOfficeEngine.accept(this,contractId,hunterKey);}
-    public BountyAssignment abandonBounty(long contractId,String hunterKey){return bountyOfficeEngine.abandon(this,contractId,hunterKey);}
-    public BountyClaim captureBountyAlive(long contractId,String hunterKey,String reason){
-        BountyContract contract=bounties.stream().filter(b->b.id()==contractId).findFirst().orElse(null);
-        if(contract==null)return new BountyClaim(false,contractId,"",hunterKey,0,0,0,"unknown_contract");
-        LawResponse response=lawResponse(contract.actorKey(),contract.issuerFactionId());
-        if(response.action()!=EnforcementAction.ARREST&&response.action()!=EnforcementAction.LETHAL_FORCE)return new BountyClaim(false,contract.id(),contract.actorKey(),hunterKey,contract.issuerFactionId(),contract.reward(),0,"no_capture_warrant");
-        double bountyBefore=crimeLedger.findProfile(contract.actorKey()).flatMap(p->p.find(contract.issuerFactionId())).map(JurisdictionWanted::bounty).orElse(0.0);
-        BountyClaim claim=bountyOfficeEngine.claim(this,contractId,hunterKey);
-        if(!claim.claimed())return claim;
-        int sentence=Math.max(1,response.sentenceDays());
-        CustodyRecord record=new CustodyRecord(nextId(),contract.actorKey(),contract.issuerFactionId(),clock.day(),clock.day()+sentence,bountyBefore,reason);
-        addCustody(record);
-        history.add(new WorldEvent(clock.day(),"bounty_target_captured_alive","contract="+contractId+", actor="+contract.actorKey()+", hunter="+hunterKey+", days="+sentence));
-        return claim;
-    }
-    public Optional<CustodyRecord> activeCustody(String actorKey,long factionId){return custody.stream().filter(CustodyRecord::active).filter(c->c.actorKey().equals(actorKey)&&c.factionId()==factionId).findFirst();}
-    public FactionJoinResult joinFaction(String actorKey,long factionId){return reputationEngine.join(this,actorKey,factionId);}
-    public boolean leaveFaction(String actorKey){return reputationEngine.leave(this,actorKey);}
-    public void grantFactionService(String actorKey,long factionId,double points){reputationEngine.grantService(this,actorKey,factionId,points);}
-    public boolean pardonCriminal(String actorKey,long factionId){WantedProfile profile=crimeLedger.findProfile(actorKey).orElse(null);if(profile==null)return false;JurisdictionWanted wanted=profile.find(factionId).orElse(null);if(wanted==null)return false;wanted.pardon();history.add(new WorldEvent(clock.day(),"criminal_pardoned","actor="+actorKey+", faction="+factionId));for(BountyContract b:bounties)if(b.actorKey().equals(actorKey)&&b.issuerFactionId()==factionId&&b.status()!=BountyContract.Status.CLAIMED)b.cancel();return true;}
+    public CrimeResult reportCrime(String actorKey,long jurisdictionFactionId,CrimeType type,double value,SimPosition position,boolean witnessed,int witnessCount,String victimKey,String evidence){return PlayerLawService.reportCrime(this,actorKey,jurisdictionFactionId,type,value,position,witnessed,witnessCount,victimKey,evidence);}
+    public double captureCriminal(String actorKey,long factionId){return PlayerLawService.captureCriminal(this,actorKey,factionId);}
+    public double payFine(String actorKey,long factionId,double amount){return PlayerLawService.payFine(this,actorKey,factionId,amount);}
+    public LawResponse lawResponse(String actorKey,long factionId){return PlayerLawService.lawResponse(this,actorKey,factionId);}
+    public ArrestOutcome arrestCriminal(String actorKey,long factionId,String reason){return PlayerLawService.arrestCriminal(this,actorKey,factionId,reason);}
+    public BountyClaim claimBounty(long contractId,String hunterKey){return PlayerLawService.claimBounty(this,contractId,hunterKey);}
+    public BountyAssignment acceptBounty(long contractId,String hunterKey){return PlayerLawService.acceptBounty(this,contractId,hunterKey);}
+    public BountyAssignment abandonBounty(long contractId,String hunterKey){return PlayerLawService.abandonBounty(this,contractId,hunterKey);}
+    public BountyClaim captureBountyAlive(long contractId,String hunterKey,String reason){return PlayerLawService.captureBountyAlive(this,contractId,hunterKey,reason);}
+    public Optional<CustodyRecord> activeCustody(String actorKey,long factionId){return PlayerLawService.activeCustody(this,actorKey,factionId);}
+    public FactionJoinResult joinFaction(String actorKey,long factionId){return PlayerLawService.joinFaction(this,actorKey,factionId);}
+    public boolean leaveFaction(String actorKey){return PlayerLawService.leaveFaction(this,actorKey);}
+    public void grantFactionService(String actorKey,long factionId,double points){PlayerLawService.grantFactionService(this,actorKey,factionId,points);}
+    public boolean pardonCriminal(String actorKey,long factionId){return PlayerLawService.pardonCriminal(this,actorKey,factionId);}
 
     public void replaceSpeciesCatalog(Map<String,SpeciesDefinition> replacement){
         Objects.requireNonNull(replacement,"replacement");

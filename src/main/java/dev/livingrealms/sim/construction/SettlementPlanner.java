@@ -56,10 +56,10 @@ public final class SettlementPlanner {
             addAt(out, faction, settlement, StructureRole.KEEP, 0, keep, keepW, keepD, baseRotation, capital ? 190 : 120);
         }
 
-        addRoadNetwork(out, faction, settlement, morph, baseRotation);
+        SettlementRoadPlanner.addRoadNetwork(out, faction, settlement, morph, baseRotation);
         SettlementStreetGraph streetGraph = SettlementStreetGraph.fromRoadIntents(settlement.id(),
                 out.stream().filter(i -> i.role() == StructureRole.ROAD).toList());
-        addHousing(out, faction, settlement, morph, baseRotation, streetGraph, cultureProfile.architecture());
+        SettlementHousingPlanner.addHousing(out, faction, settlement, morph, baseRotation, streetGraph, cultureProfile.architecture());
         addFarms(out, faction, settlement, morph, baseRotation);
         addPastures(out, faction, settlement, morph, baseRotation);
 
@@ -118,324 +118,6 @@ public final class SettlementPlanner {
 
     public static String layoutArchetype(Faction faction, Settlement settlement) {
         return SettlementMorphology.derive(faction, settlement).wireName();
-    }
-
-    private static void addRoadNetwork(List<ConstructionIntent> out, Faction faction, Settlement settlement,
-                                       SettlementMorphology morph, int baseRotation) {
-        int tier = settlement.tier().ordinal();
-        int spacing = spacing(morph);
-        // Countryside: one through-path is enough. Full street grids only in inhabited TOWN+ cores.
-        if (tier <= Settlement.Tier.HAMLET.ordinal()) {
-            int len = Math.max(48, spacing + 18);
-            addRoad(out, faction, settlement, 0, local(settlement, baseRotation, 0, 0), 3, len * 2 + 3, baseRotation, 130);
-            return;
-        }
-        if (tier == Settlement.Tier.VILLAGE.ordinal()) {
-            int len = Math.max(56, spacing + 24);
-            addRoad(out, faction, settlement, 0, local(settlement, baseRotation, 0, 0), 5, len * 2 + 5, baseRotation, 132);
-            addRoad(out, faction, settlement, 1, local(settlement, baseRotation, 0, 0), 3, spacing + 16, baseRotation + 1, 118);
-            return;
-        }
-        int rings = switch (settlement.tier()) {
-            case CAMP, HAMLET, VILLAGE -> 0; case TOWN -> 1; case CITY -> 2; case METROPOLIS -> 3;
-        };
-        int halfLength = Math.max(42, spacing * (rings + 1));
-        int index = 0;
-        switch (morph) {
-            case COASTAL_PORT -> {
-                // Harbor spine toward water (+Z) plus a coastal boulevard and short pier approaches.
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, 0), 9, halfLength * 2 + 9, baseRotation + 1, 136);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, halfLength / 3), 9, halfLength + 18, baseRotation, 128);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, -halfLength / 4), 7, halfLength, baseRotation, 118);
-                for (int i = 1; i <= Math.max(1, rings); i++) {
-                    int off = spacing * i / 2;
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, off, halfLength / 5), 5, halfLength, baseRotation + 1, 104);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -off, halfLength / 5), 5, halfLength, baseRotation + 1, 104);
-                }
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, halfLength / 2 + 12), 7, 28, baseRotation + 1, 120);
-            }
-            case RIVER_TOWN, LINEAR_VALLEY -> {
-                // Long valley/river spine with short perpendicular streets.
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, 0), 9, halfLength * 2 + 18, baseRotation, 134);
-                for (int i = -rings; i <= rings; i++) {
-                    if (i == 0) continue;
-                    int along = i * Math.max(28, spacing / 2);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, along, 0), 5, spacing + 12, baseRotation + 1, 108);
-                }
-                if (tier >= Settlement.Tier.VILLAGE.ordinal()) {
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, spacing / 2), 5, halfLength, baseRotation, 100);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, -spacing / 2), 5, halfLength, baseRotation, 100);
-                }
-            }
-            case HILL_TOWN -> {
-                // Contour rings + limited radials (switchback-friendly orthogonal approximation).
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, 0), 7, spacing + 18, baseRotation, 130);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, 0), 7, spacing + 18, baseRotation + 1, 130);
-                for (int ring = 1; ring <= rings; ring++) {
-                    int offset = Math.max(24, spacing - 6) * ring;
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset, 0), 5, offset * 2 + 9, baseRotation + 1, 110);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -offset, 0), 5, offset * 2 + 9, baseRotation + 1, 110);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, offset), 5, offset * 2 + 9, baseRotation, 110);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, -offset), 5, offset * 2 + 9, baseRotation, 110);
-                }
-                // One diagonal-ish connector via offset stub roads for hillside access.
-                if (rings >= 1) {
-                    int mid = Math.max(20, spacing / 2);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, mid, mid / 2), 5, mid + 10, baseRotation, 96);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -mid / 2, mid), 5, mid + 10, baseRotation + 1, 96);
-                }
-            }
-            case RADIAL_CAPITAL, WALLED_CORE -> {
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, 0), 11, halfLength * 2 + 11, baseRotation, 140);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, 0), 11, halfLength * 2 + 11, baseRotation + 1, 140);
-                // Diagonal boulevards approximated as offset arterials from the keep.
-                int spoke = Math.max(36, spacing);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, spoke / 2, spoke / 2), 7, halfLength, baseRotation, 124);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -spoke / 2, spoke / 2), 7, halfLength, baseRotation + 1, 124);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, spoke / 2, -spoke / 2), 7, halfLength, baseRotation + 1, 124);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -spoke / 2, -spoke / 2), 7, halfLength, baseRotation, 124);
-                for (int ring = 1; ring <= rings; ring++) {
-                    int offset = spacing * ring;
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset, 0), 7, halfLength * 2 + 7, baseRotation, 112);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -offset, 0), 7, halfLength * 2 + 7, baseRotation, 112);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, offset), 7, halfLength * 2 + 7, baseRotation + 1, 112);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, -offset), 7, halfLength * 2 + 7, baseRotation + 1, 112);
-                }
-                // Residential lanes between arterials keep lot access short in capital cores.
-                if (tier >= Settlement.Tier.TOWN.ordinal()) {
-                    for (int ring = 0; ring < rings; ring++) {
-                        int offset = spacing * ring + spacing / 2;
-                        addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset, 0), 5, halfLength, baseRotation, 98);
-                        addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, offset), 5, halfLength, baseRotation + 1, 98);
-                    }
-                }
-            }
-            case INDUSTRIAL_EDGE -> {
-                index = addOrthogonalCross(out, faction, settlement, index, halfLength, spacing, rings, baseRotation, tier, true);
-                // Factory approach boulevard on the industrial edge.
-                addRoad(out, faction, settlement, index, local(settlement, baseRotation, spacing + 20, spacing / 2), 9, halfLength, baseRotation, 120);
-            }
-            case PLANNED_BOULEVARD -> {
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, 0), 13, halfLength * 2 + 13, baseRotation, 138);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, 0), 9, halfLength * 2 + 9, baseRotation + 1, 130);
-                for (int ring = 1; ring <= rings; ring++) {
-                    int offset = spacing * ring;
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, offset), 7, halfLength * 2 + 7, baseRotation, 114);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, -offset), 7, halfLength * 2 + 7, baseRotation, 114);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset, 0), 5, halfLength, baseRotation + 1, 104);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -offset, 0), 5, halfLength, baseRotation + 1, 104);
-                }
-            }
-            case MARKET_CROSS -> {
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, 0), 11, halfLength * 2 + 11, baseRotation, 136);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, 0), 11, halfLength * 2 + 11, baseRotation + 1, 136);
-                // Market plaza ring stubs.
-                int plaza = Math.max(18, spacing / 3);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, plaza, plaza), 7, plaza * 2, baseRotation, 122);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -plaza, plaza), 7, plaza * 2, baseRotation + 1, 122);
-                for (int ring = 1; ring <= rings; ring++) {
-                    int offset = spacing * ring;
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset, 0), 7, halfLength * 2 + 7, baseRotation, 110);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -offset, 0), 7, halfLength * 2 + 7, baseRotation, 110);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, offset), 7, halfLength * 2 + 7, baseRotation + 1, 110);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, -offset), 7, halfLength * 2 + 7, baseRotation + 1, 110);
-                }
-                if (tier >= Settlement.Tier.VILLAGE.ordinal()) {
-                    for (int ring = 0; ring < rings; ring++) {
-                        int offset = spacing * ring + spacing / 2;
-                        addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset, 0), 5, halfLength, baseRotation, 98);
-                        addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, offset), 5, halfLength, baseRotation + 1, 98);
-                    }
-                }
-            }
-            case ORGANIC_MEDIEVAL -> {
-                // Deterministic irregular offsets — still axis-aligned segments, not free-form diagonals through houses.
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, organicShift(settlement, 1), organicShift(settlement, 2)), 9, halfLength * 2 + 9, baseRotation, 132);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, organicShift(settlement, 3), organicShift(settlement, 4)), 7, halfLength * 2 + 7, baseRotation + 1, 128);
-                for (int ring = 1; ring <= rings; ring++) {
-                    int offset = spacing * ring;
-                    int jx = organicShift(settlement, 10 + ring);
-                    int jz = organicShift(settlement, 20 + ring);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset + jx, jz), 5, halfLength * 2 + 5, baseRotation, 108, ring);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -offset + jx / 2, -jz), 5, halfLength * 2 + 5, baseRotation, 108, ring);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, jx, offset + jz), 5, halfLength * 2 + 5, baseRotation + 1, 108, ring);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -jx, -offset + jz / 2), 5, halfLength * 2 + 5, baseRotation + 1, 108, ring);
-                }
-                if (tier >= Settlement.Tier.VILLAGE.ordinal()) {
-                    int offset = Math.max(20, spacing / 2);
-                    addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset + organicShift(settlement, 7), offset), 5, spacing + 9, baseRotation, 101);
-                    addRoad(out, faction, settlement, index, local(settlement, baseRotation, -offset, offset + organicShift(settlement, 8)), 5, spacing + 9, baseRotation + 1, 101);
-                }
-            }
-        }
-    }
-
-    private static int addOrthogonalCross(List<ConstructionIntent> out, Faction faction, Settlement settlement,
-                                          int index, int halfLength, int spacing, int rings, int baseRotation, int tier, boolean sideStreets) {
-        addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, 0), 9, halfLength * 2 + 9, baseRotation, 132);
-        addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, 0), 9, halfLength * 2 + 9, baseRotation + 1, 132);
-        for (int ring = 1; ring <= rings; ring++) {
-            int offset = spacing * ring;
-            addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset, 0), 9, halfLength * 2 + 9, baseRotation, 112, ring);
-            addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -offset, 0), 9, halfLength * 2 + 9, baseRotation, 112, ring);
-            addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, offset), 9, halfLength * 2 + 9, baseRotation + 1, 112, ring);
-            addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, -offset), 9, halfLength * 2 + 9, baseRotation + 1, 112, ring);
-        }
-        if (sideStreets && tier >= Settlement.Tier.VILLAGE.ordinal()) {
-            for (int ring = 0; ring < rings; ring++) {
-                int offset = spacing * ring + spacing / 2;
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, offset, 0), 5, halfLength * 2 + 5, baseRotation, 98, ring);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, -offset, 0), 5, halfLength * 2 + 5, baseRotation, 98, ring);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, offset), 5, halfLength * 2 + 5, baseRotation + 1, 98, ring);
-                addRoad(out, faction, settlement, index++, local(settlement, baseRotation, 0, -offset), 5, halfLength * 2 + 5, baseRotation + 1, 98, ring);
-            }
-        }
-        return index;
-    }
-
-    private static void addHousing(List<ConstructionIntent> out, Faction faction, Settlement settlement,
-                                   SettlementMorphology morph, int baseRotation,
-                                   SettlementStreetGraph streetGraph, CultureArchitecture culture) {
-        // PLAYER_LED: Living Realms does not auto-spawn houses over the player's layout.
-        if (!DevelopmentModeGuard.allowsOrdinaryHouseEmission(settlement)) return;
-        int represented = Math.max(settlement.population(), settlement.housing());
-        int softCap = switch (settlement.tier()) {
-            case CAMP -> 24; case HAMLET -> 48; case VILLAGE -> 96; case TOWN -> 220; case CITY -> 480; case METROPOLIS -> 900;
-        };
-        int houses = Math.min(softCap, Math.max(5, (int) Math.ceil(represented / 22.0)));
-        // HYBRID: fill genuine deficits only — do not instantly overwrite player design with a full town.
-        if (settlement.developmentMode() == DevelopmentMode.HYBRID) {
-            int shortage = Math.max(0, settlement.population() - settlement.housing());
-            if (shortage <= 0) return;
-            houses = Math.min(houses, Math.max(1, (int) Math.ceil(shortage / 22.0)));
-        }
-        List<SettlementParcelPlanner.ParcelPlan> remaining =
-                new java.util.ArrayList<>(SettlementParcelPlanner.plan(streetGraph, faction, settlement, houses));
-        // Determine building archetype BEFORE parcel reservation — request a parcel that fits W×D.
-        int emitted = 0;
-        boolean pressure = settlement.housingShortage() > 40 || settlement.population() > settlement.housing();
-        for (int i = 0; i < houses; i++) {
-            int variant = Math.floorMod((int) mix(settlement.id() ^ (long) i * 0x9E3779B97F4A7C15L), 7);
-            int w, d;
-            if (settlement.tier().ordinal() >= Settlement.Tier.CITY.ordinal() && (i % 5 == 0 || (pressure && i % 3 == 0))) {
-                w = 13; d = 11;
-            } else if (settlement.tier().ordinal() >= Settlement.Tier.TOWN.ordinal() && (i % 6 == 0 || (pressure && i % 4 == 0))) {
-                w = 11; d = 9;
-            } else if (settlement.tier() == Settlement.Tier.METROPOLIS && i % 2 == 0) {
-                w = 13; d = 11;
-            } else {
-                w = switch (variant) { case 0 -> 9; case 1, 4 -> 11; default -> 9; };
-                d = switch (variant) { case 2 -> 11; case 5 -> 9; default -> 9; };
-            }
-            w = Math.max(w, culture.minHouseWidth());
-            d = Math.max(d, culture.minHouseDepth());
-            int[] templated = houseFootprintFromTemplate(faction, settlement, culture, w, d);
-            w = templated[0];
-            d = templated[1];
-            SettlementParcelPlanner.ParcelPlan parcel = null;
-            int parcelIndex = -1;
-            for (int pi = 0; pi < remaining.size(); pi++) {
-                SettlementParcelPlanner.ParcelPlan candidate = remaining.get(pi);
-                if (candidate.width() >= w && candidate.depth() >= d) {
-                    parcel = candidate;
-                    parcelIndex = pi;
-                    break;
-                }
-            }
-            if (parcel == null) {
-                // No parcel fits this archetype — defer rather than place off-street.
-                continue;
-            }
-            remaining.remove(parcelIndex);
-            int face = parcel.orientationQuarterTurns();
-            addAtParcel(out, faction, settlement, StructureRole.HOUSE, emitted, parcel, w, d, face, 88);
-            emitted++;
-        }
-        // Road-first invariant: never spiral-place houses off the street graph.
-        // Remaining demand extends side streets / lanes, then fills new frontage parcels.
-        // CAMP/HAMLET keep a sparse countryside path — do not grid-extend them.
-        if (emitted < houses && settlement.tier().ordinal() >= Settlement.Tier.VILLAGE.ordinal()) {
-            extendSideStreetsForHousing(out, faction, settlement, streetGraph, baseRotation,
-                    houses - emitted, culture);
-        }
-    }
-
-    /**
-     * When parcels are insufficient, extend short side lanes from existing streets, rebuild the
-     * street graph, and reserve additional frontage parcels. Never places free-floating houses.
-     */
-    private static void extendSideStreetsForHousing(List<ConstructionIntent> out, Faction faction, Settlement settlement,
-                                                   SettlementStreetGraph streetGraph, int baseRotation, int deficit,
-                                                   CultureArchitecture culture) {
-        if (deficit <= 0 || streetGraph == null || streetGraph.segmentByKey().isEmpty()) return;
-        int startIndex = (int) out.stream().filter(i -> i.role() == StructureRole.ROAD).count();
-        int lanesNeeded = Math.min(24, Math.max(2, (int) Math.ceil(deficit / 3.0)));
-        int lane = 0;
-        List<SettlementStreetGraph.RoadSegment> spines = new ArrayList<>(streetGraph.segmentByKey().values());
-        spines.sort(Comparator.comparingInt(SettlementStreetGraph.RoadSegment::priority).reversed()
-                .thenComparing(SettlementStreetGraph.RoadSegment::key));
-        for (int ring = 1; ring <= 4 && lane < lanesNeeded; ring++) {
-            for (SettlementStreetGraph.RoadSegment segment : spines) {
-                if (lane >= lanesNeeded) break;
-                if (segment.length() < 12) continue;
-                double midX = (segment.start().x() + segment.end().x()) * 0.5;
-                double midZ = (segment.start().z() + segment.end().z()) * 0.5;
-                double dx = segment.end().x() - segment.start().x();
-                double dz = segment.end().z() - segment.start().z();
-                double len = Math.hypot(dx, dz);
-                if (len < 1) continue;
-                double ux = dx / len;
-                double uz = dz / len;
-                double nx = -uz;
-                double nz = ux;
-                int side = (lane & 1) == 0 ? 1 : -1;
-                double offset = 14.0 * ring;
-                // Shift along the spine so successive rings do not stack on the same mid-point.
-                double alongShift = ((lane / 2) % 3 - 1) * 11.0;
-                SimPosition center = new SimPosition(
-                        midX + ux * alongShift + nx * offset * side,
-                        midZ + uz * alongShift + nz * offset * side);
-                int roadRot = Math.abs(dx) >= Math.abs(dz)
-                        ? baseRotation + ((lane & 1) == 0 ? 0 : 1)
-                        : baseRotation + ((lane & 1) == 0 ? 1 : 0);
-                int roadLen = Math.max(17, Math.min(41, (int) Math.round(segment.length() * 0.45)));
-                addRoad(out, faction, settlement, startIndex + lane, center, 5, roadLen, roadRot, 90, ring);
-                lane++;
-            }
-        }
-        if (lane == 0) return;
-        // Rebuild graph including the new lanes, then place houses on the fresh parcels only.
-        SettlementStreetGraph extended = SettlementStreetGraph.fromRoadIntents(settlement.id(),
-                out.stream().filter(i -> i.role() == StructureRole.ROAD).toList());
-        int alreadyHouses = (int) out.stream().filter(i -> i.role() == StructureRole.HOUSE).count();
-        List<SettlementParcelPlanner.ParcelPlan> extraParcels = new ArrayList<>(
-                SettlementParcelPlanner.plan(extended, faction, settlement, alreadyHouses + deficit));
-        // Skip parcels that collide with already-emitted houses.
-        List<SimPosition> occupied = out.stream()
-                .filter(i -> i.role() == StructureRole.HOUSE)
-                .map(ConstructionIntent::center)
-                .toList();
-        int houseIndex = 900;
-        int placed = 0;
-        int w = Math.max(9, culture.minHouseWidth());
-        int d = Math.max(9, culture.minHouseDepth());
-        for (SettlementParcelPlanner.ParcelPlan parcel : extraParcels) {
-            if (placed >= deficit) break;
-            if (parcel.width() < w || parcel.depth() < d) continue;
-            boolean clash = false;
-            for (SimPosition pos : occupied) {
-                if (Math.abs(pos.x() - parcel.center().x()) < (w + parcel.width()) / 2.0 + 2
-                        && Math.abs(pos.z() - parcel.center().z()) < (d + parcel.depth()) / 2.0 + 2) {
-                    clash = true;
-                    break;
-                }
-            }
-            if (clash) continue;
-            addAtParcel(out, faction, settlement, StructureRole.HOUSE, houseIndex + placed, parcel,
-                    Math.min(parcel.width(), w + 2), Math.min(parcel.depth(), d + 2),
-                    parcel.orientationQuarterTurns(), 86);
-            placed++;
-        }
     }
 
     private static void addFarms(List<ConstructionIntent> out, Faction faction, Settlement settlement,
@@ -561,11 +243,11 @@ public final class SettlementPlanner {
         return switch (role) { case BARRACKS, PRISON, OBSERVATORY -> 1; default -> 0; };
     }
 
-    private static void addRoad(List<ConstructionIntent> out, Faction f, Settlement s, int i, SimPosition c, int w, int d, int rot, int p) {
+    static void addRoad(List<ConstructionIntent> out, Faction f, Settlement s, int i, SimPosition c, int w, int d, int rot, int p) {
         addRoad(out, f, s, i, c, w, d, rot, p, -1);
     }
 
-    private static void addRoad(List<ConstructionIntent> out, Faction f, Settlement s, int i, SimPosition c, int w, int d, int rot, int p, int ring) {
+    static void addRoad(List<ConstructionIntent> out, Faction f, Settlement s, int i, SimPosition c, int w, int d, int rot, int p, int ring) {
         SettlementMorphology morph = SettlementMorphology.derive(s);
         SettlementGrowthLayer layer = ring >= 0
                 ? SettlementGrowthLayer.forRing(ring, morph, s.tier().ordinal())
@@ -609,7 +291,7 @@ public final class SettlementPlanner {
         return new int[]{k, k - (m - t - n)};
     }
 
-    private static SimPosition local(Settlement s, int quarterTurns, double x, double z) {
+    static SimPosition local(Settlement s, int quarterTurns, double x, double z) {
         return switch (Math.floorMod(quarterTurns, 4)) {
             case 0 -> new SimPosition(s.position().x() + x, s.position().z() + z);
             case 1 -> new SimPosition(s.position().x() - z, s.position().z() + x);
@@ -642,7 +324,7 @@ public final class SettlementPlanner {
         return Math.max(1, Math.min(240, base + bonus));
     }
 
-    private static int spacing(SettlementMorphology morph) {
+    static int spacing(SettlementMorphology morph) {
         return switch (morph) {
             case ORGANIC_MEDIEVAL -> 40;
             case MARKET_CROSS -> 48;
@@ -655,11 +337,11 @@ public final class SettlementPlanner {
         };
     }
 
-    private static int organicShift(Settlement settlement, int salt) {
+    static int organicShift(Settlement settlement, int salt) {
         return Math.floorMod((int) mix(settlement.id() ^ (salt * 0x85EBCA77C2B2AE63L)), 11) - 5;
     }
 
-    private static long mix(long z) {
+    static long mix(long z) {
         z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
         z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
         return z ^ (z >>> 31);
@@ -670,7 +352,7 @@ public final class SettlementPlanner {
         out.add(new ConstructionIntent(key(settlement, role, index), faction.id(), settlement.id(), role, center, width, depth, Math.floorMod(rotation, 4), priority));
     }
 
-    private static void addAtParcel(List<ConstructionIntent> out, Faction faction, Settlement settlement, StructureRole role,
+    static void addAtParcel(List<ConstructionIntent> out, Faction faction, Settlement settlement, StructureRole role,
                                     int index, SettlementParcelPlanner.ParcelPlan parcel, int width, int depth,
                                     int rotation, int priority) {
         Objects.requireNonNull(parcel, "parcel");
@@ -692,7 +374,7 @@ public final class SettlementPlanner {
      * Wave 31: prefer authored building templates when culture/role/tier/wealth/footprint match,
      * falling back through family → generic LR. Never imports external schematics.
      */
-    private static int[] houseFootprintFromTemplate(Faction faction, Settlement settlement,
+    static int[] houseFootprintFromTemplate(Faction faction, Settlement settlement,
                                                     CultureArchitecture culture, int width, int depth) {
         String cultureId = SettlementIdentityProfile.resolveCultureId(faction);
         Optional<BuildingDefinition> template = BuildingTemplateRegistry.find(new BuildingTemplateRegistry.Query(
