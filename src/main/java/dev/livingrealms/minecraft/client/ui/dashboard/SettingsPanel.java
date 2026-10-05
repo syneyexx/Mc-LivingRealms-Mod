@@ -5,7 +5,6 @@ import dev.livingrealms.sim.ui.DashboardActionCommand;
 import dev.livingrealms.sim.ui.RealmDashboardSnapshot;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Runnable;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.network.chat.Component;
