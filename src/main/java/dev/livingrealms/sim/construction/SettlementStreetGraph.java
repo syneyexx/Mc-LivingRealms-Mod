@@ -65,6 +65,46 @@ public final class SettlementStreetGraph {
             }
             return false;
         }
+
+        /** World-space point at a fraction of total polyline length. */
+        public SimPosition pointAt(double fraction) {
+            double target = length() * Math.max(0.0, Math.min(1.0, fraction));
+            double walked = 0.0;
+            for (int i = 1; i < centerline.size(); i++) {
+                SimPosition a = centerline.get(i - 1), b = centerline.get(i);
+                double span = a.distanceTo(b);
+                if (span <= 1.0e-9) continue;
+                if (walked + span >= target) return a.lerp(b, (target - walked) / span);
+                walked += span;
+            }
+            return centerline.getLast();
+        }
+
+        /** Unit tangent at a fraction of total polyline length. */
+        public Tangent tangentAt(double fraction) {
+            double target = length() * Math.max(0.0, Math.min(1.0, fraction));
+            double walked = 0.0;
+            for (int i = 1; i < centerline.size(); i++) {
+                SimPosition a = centerline.get(i - 1), b = centerline.get(i);
+                double dx = b.x() - a.x(), dz = b.z() - a.z();
+                double span = Math.hypot(dx, dz);
+                if (span <= 1.0e-9) continue;
+                if (walked + span >= target || i == centerline.size() - 1) {
+                    return new Tangent(dx / span, dz / span);
+                }
+                walked += span;
+            }
+            return new Tangent(1.0, 0.0);
+        }
+    }
+
+    public record Tangent(double dx, double dz) {
+        public Tangent {
+            double len = Math.hypot(dx, dz);
+            if (!(len > 0.0) || !Double.isFinite(len)) throw new IllegalArgumentException("tangent");
+            dx /= len;
+            dz /= len;
+        }
     }
 
     public record StreetEdge(long fromNodeId, long toNodeId, String segmentKey) {
