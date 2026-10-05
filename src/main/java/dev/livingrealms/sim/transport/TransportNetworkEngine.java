@@ -8,8 +8,17 @@ import java.util.*;
 public final class TransportNetworkEngine {
     public void simulateDay(SimulationState state){
         // Route discovery is O(settlements × neighbours); run weekly so soak stays bounded as camps grow.
-        if(state.clock().day()%7==0)discoverRoutes(state);
+        if(state.clock().day()%7==0)ensureRoutes(state);
         maintainRoutes(state);
+    }
+
+    /**
+     * Ensures canonical regional edges exist without advancing time.
+     * Used during fresh-world bootstrap so chunk fabric never races ahead of its road graph.
+     */
+    public void ensureRoutes(SimulationState state){
+        Objects.requireNonNull(state,"state");
+        discoverRoutes(state);
     }
 
     /** Wear, washouts and bridge failure without treasury/stone upkeep; repair when the realm can pay. */
