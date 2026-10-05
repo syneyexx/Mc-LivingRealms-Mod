@@ -198,7 +198,22 @@ public final class SimulationValidator {
             id(canonicalIds,max,p.id(),"pirate band",errors);if(!settlementIds.contains(p.originSettlementId())||p.createdDay()>state.clock().day()||!position(p.position().x(),p.position().z())||p.strength()<0||!unit(p.morale())||!finiteNonNegative(p.loot()))errors.add("pirate band "+p.id()+" invalid state");
         }
         if(state.pirateHideouts().size()>SimulationState.MAX_PIRATE_HIDEOUTS)errors.add("too many pirate hideouts");
-        for(PirateHideout h:state.pirateHideouts()){id(canonicalIds,max,h.id(),"pirate hideout",errors);if(state.findPirateBand(h.bandId()).isEmpty()||!settlementIds.contains(h.originSettlementId())||h.createdDay()>state.clock().day()||!position(h.position().x(),h.position().z())||!unit(h.defense())||!finiteNonNegative(h.storedLoot())||h.discoveredByFactionId()>0&&!factionIds.contains(h.discoveredByFactionId()))errors.add("pirate hideout "+h.id()+" invalid state/references");}
+        for(PirateHideout h:state.pirateHideouts()){
+            id(canonicalIds,max,h.id(),"pirate hideout",errors);
+            if(h.active()){
+                if(state.findPirateBand(h.bandId()).filter(PirateBand::active).isEmpty()
+                        ||!settlementIds.contains(h.originSettlementId())
+                        ||h.createdDay()>state.clock().day()
+                        ||!position(h.position().x(),h.position().z())
+                        ||!unit(h.defense())
+                        ||!finiteNonNegative(h.storedLoot())
+                        ||h.discoveredByFactionId()>0&&!factionIds.contains(h.discoveredByFactionId())){
+                    errors.add("pirate hideout "+h.id()+" invalid state/references");
+                }
+            } else if(!position(h.position().x(),h.position().z())||!finiteNonNegative(h.storedLoot())||h.createdDay()>state.clock().day()){
+                errors.add("pirate hideout "+h.id()+" invalid destroyed record");
+            }
+        }
         if(state.diplomaticMarriages().size()>SimulationState.MAX_DIPLOMATIC_MARRIAGES)errors.add("too many diplomatic marriages");
         for(DiplomaticMarriage m:state.diplomaticMarriages()){
             id(canonicalIds,max,m.id(),"diplomatic marriage",errors);if(m.day()>state.clock().day()||!pair(factionIds,m.factionA(),m.factionB())||!citizenIds.contains(m.citizenA())||!citizenIds.contains(m.citizenB())||m.citizenA()==m.citizenB())errors.add("diplomatic marriage "+m.id()+" invalid state/references");

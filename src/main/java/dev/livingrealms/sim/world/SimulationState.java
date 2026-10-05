@@ -179,7 +179,20 @@ public final class SimulationState {
         observeCanonicalId(value.id());justiceCases.add(value);
     }
     public void addHiddenCache(HiddenCache value){Objects.requireNonNull(value);if(hiddenCaches.size()>=MAX_HIDDEN_CACHES)hiddenCaches.removeIf(HiddenCache::recovered);if(hiddenCaches.size()>=MAX_HIDDEN_CACHES)return;observeCanonicalId(value.id());hiddenCaches.add(value);}
-    public void addPirateBand(PirateBand value){Objects.requireNonNull(value);if(pirateBands.size()>=MAX_PIRATE_BANDS)pirateBands.removeIf(p->!p.active());if(pirateBands.size()>=MAX_PIRATE_BANDS)return;observeCanonicalId(value.id());pirateBands.add(value);}
+    public void addPirateBand(PirateBand value){
+        Objects.requireNonNull(value);
+        if(pirateBands.size()>=MAX_PIRATE_BANDS){
+            pirateBands.removeIf(p->{
+                if(p.active())return false;
+                findPirateHideoutByBand(p.id()).ifPresent(PirateHideout::destroy);
+                return true;
+            });
+            pirateHideouts.removeIf(h->!h.active());
+        }
+        if(pirateBands.size()>=MAX_PIRATE_BANDS)return;
+        observeCanonicalId(value.id());
+        pirateBands.add(value);
+    }
     public void addPirateHideout(PirateHideout value){Objects.requireNonNull(value);if(pirateHideouts.size()>=MAX_PIRATE_HIDEOUTS)pirateHideouts.removeIf(h->!h.active());if(pirateHideouts.size()>=MAX_PIRATE_HIDEOUTS)return;observeCanonicalId(value.id());pirateHideouts.add(value);}
     public void addDiplomaticMarriage(DiplomaticMarriage value){Objects.requireNonNull(value);if(diplomaticMarriages.size()>=MAX_DIPLOMATIC_MARRIAGES)diplomaticMarriages.removeIf(m->!m.active());if(diplomaticMarriages.size()>=MAX_DIPLOMATIC_MARRIAGES)return;observeCanonicalId(value.id());diplomaticMarriages.add(value);}
     public void addCivicEvent(CivicEvent value){Objects.requireNonNull(value);if(civicEvents.size()>=MAX_CIVIC_EVENTS)civicEvents.removeIf(e->!e.active());if(civicEvents.size()>=MAX_CIVIC_EVENTS)return;observeCanonicalId(value.id());civicEvents.add(value);}

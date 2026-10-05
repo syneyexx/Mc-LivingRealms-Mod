@@ -639,7 +639,11 @@ public final class CivilizationLifecycleEngine {
             if(target==null){PirateHideout hideout=state.findPirateHideoutByBand(band.id()).orElse(null);if(hideout!=null&&band.position().distanceTo(hideout.position())>40)band.moveToward(hideout.position(),55);if(rng.chance(.0015)){band.disband();if(hideout!=null)hideout.destroy();}continue;}
             band.moveToward(target.position(),80+band.strength()*1.5);
             if(band.position().distanceTo(target.position())<90&&rng.chance(Math.min(.7,.08+band.strength()*.012))){double captured=target.value();band.addLoot(captured*.45);state.findPirateHideoutByBand(band.id()).ifPresent(h->h.addLoot(captured*.55));long shipmentId=target.id();state.recordPhysicalShipmentLoss(shipmentId,"piracy:band="+band.id());state.history().add(new WorldEvent(day,"piracy","pirates="+band.id()+", shipment="+shipmentId+", loot="+Math.round(captured)));band.adjustMorale(.03);}
-            if(band.strength()<3||band.morale()<.12){band.disband();state.history().add(new WorldEvent(day,"pirate_band_disbanded","pirates="+band.id()+", reason=collapse"));}
+            if(band.strength()<3||band.morale()<.12){
+                band.disband();
+                state.findPirateHideoutByBand(band.id()).ifPresent(PirateHideout::destroy);
+                state.history().add(new WorldEvent(day,"pirate_band_disbanded","pirates="+band.id()+", reason=collapse"));
+            }
         }
     }
 
