@@ -25,6 +25,7 @@ dev.livingrealms.ResolvedBuildSiteTest
 dev.livingrealms.CultureArchitectureDerivationTest
 dev.livingrealms.HonestCartographyTest
 dev.livingrealms.WorldgenQualityTest
+dev.livingrealms.WorldFabricChunkPolicyTest
 dev.livingrealms.ProductionQualityTest
 dev.livingrealms.ProductionCompletionPassTest
 dev.livingrealms.SocietyDialogueTest
