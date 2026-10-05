@@ -17,6 +17,10 @@ public final class CultureDefinitionRegistry {
         return CultureDefinitionLoader.find(id);
     }
 
+    public static CultureDefinition require(String id) {
+        return CultureDefinitionLoader.require(id);
+    }
+
     public static CultureDefinition getOrGeneric(String id) {
         Optional<CultureDefinition> found = find(id);
         if (found.isPresent()) return found.get();

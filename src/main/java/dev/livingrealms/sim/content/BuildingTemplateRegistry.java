@@ -104,17 +104,11 @@ public final class BuildingTemplateRegistry {
                     && !query.cultureId().isBlank()
                     && query.cultureId().equals(b.cultureId());
             case RELATED_FAMILY -> {
-                if (b.genericFallback()) {
+                if (culture == null || b.genericFallback()) {
                     yield false;
                 }
-                CultureArchitecture family = culture == null
-                        ? b.architectureFamily()
-                        : culture.relatedFamily();
-                CultureArchitecture exact = culture == null
-                        ? null
-                        : culture.architectureFamily();
-                yield b.architectureFamily() == family
-                        || (exact != null && b.architectureFamily() == exact);
+                yield b.architectureFamily() == culture.relatedFamily()
+                        || b.architectureFamily() == culture.architectureFamily();
             }
             case GENERIC -> b.genericFallback() || "generic".equals(b.cultureId());
         };

@@ -76,6 +76,11 @@ public final class RealmDefinitionLoader {
                 ContentJson.optionalString(m, "cultureId", ""));
     }
 
+    /** Canonical surface order matching the historical authored seed sequence (placement is order-sensitive). */
+    private static final List<String> CANONICAL_ORDER = List.of(
+            "aster", "veyran", "eldermere", "solenne", "dravik", "norwyn",
+            "sablemere", "verdance", "aurenthal", "redmarch", "stormcoast", "glassmere");
+
     private static List<RealmDefinition> loadFromFilesystem() {
         List<Path> files = ContentDataPaths.listJsonFiles(ContentDataPaths.REALMS);
         if (files.isEmpty()) throw new IllegalStateException("No realm definitions under data/livingrealms/realms");
@@ -89,6 +94,15 @@ public final class RealmDefinitionLoader {
         if (byId.size() != 12) {
             throw new IllegalStateException("Expected 12 surface realms, got " + byId.size());
         }
-        return List.copyOf(byId.values());
+        List<RealmDefinition> ordered = new ArrayList<>();
+        for (String id : CANONICAL_ORDER) {
+            RealmDefinition def = byId.get(id);
+            if (def == null) throw new IllegalStateException("Missing canonical realm id: " + id);
+            ordered.add(def);
+        }
+        if (ordered.size() != byId.size()) {
+            throw new IllegalStateException("Realm pack contains ids outside canonical order");
+        }
+        return List.copyOf(ordered);
     }
 }
