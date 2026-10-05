@@ -1,5 +1,7 @@
 # Living Society / Civilization Layer
 
+CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+
 ## Product goal
 
 Living Realms must simulate a society, not a collection of scripted NPCs. A visible citizen is a persistent person with needs, personality, memory, relationships, knowledge and a place in an existing canonical faction/settlement/economy/law/war system. The physical Minecraft entity is only a projection of that person. Off-screen simulation remains aggregate and bounded so the feature does not require an LLM, GPU VRAM or thousands of always-loaded entities.
@@ -88,7 +90,9 @@ The player may found and rule a real settlement/faction, trade, help, threaten, 
 
 ## Delivery phases
 
-### Implemented through buildfix12 development
+Maturity for society systems today: named citizens / dialogue / migration / epidemics sit at **CANONICAL→DEEP**; full named-person inheritance and physical refugee camps remain next-depth work (see `COMPLETION_MATRIX.md`).
+
+### Implemented through build fix12 development
 - persistent named social citizens;
 - needs/personality/memory/relationships;
 - schema-11 persistent social citizens plus schema-12 civilization-state persistence and migration compatibility;
@@ -99,9 +103,9 @@ The player may found and rule a real settlement/faction, trade, help, threaten, 
 - Wizard Trees canonical faction + dedicated underground construction path;
 - explicit dual gun-mod NPC deny-list.
 
-### Implemented strategic civilization layer in buildfix12
-- aggregate births/deaths, settlement attraction and push-pull migration/refugees;
-- sanitation, water security, disease pressure and epidemic consequences;
+### Implemented strategic civilization layer in build fix12
+- aggregate births/deaths, settlement attraction and push-pull migration/refugees (`MigrationEngine`);
+- sanitation, water security, disease pressure and epidemic consequences (`EpidemicEngine`);
 - education and culture/faith/dialect identity;
 - cultural cohesion and conquest assimilation;
 - resource claims and contest pressure;
@@ -109,7 +113,7 @@ The player may found and rule a real settlement/faction, trade, help, threaten, 
 - espionage networks, propaganda and tribute;
 - festivals and emergent legend/monument promotion;
 - route-aware rumor propagation;
-- broad no-LLM dialogue coverage for these systems.
+- broad no-LLM dialogue coverage for these systems (interpreter / knowledge / planner / style / realizer).
 
 ### Next depth layers
 - named-person inheritance/adoption and full household economics;
@@ -118,7 +122,8 @@ The player may found and rule a real settlement/faction, trade, help, threaten, 
 - political marriage/dynasties and succession consequences;
 - physical refugee camps, irrigation/aqueduct construction and piracy;
 - hidden caches/treasure creation tied to threats;
-- state-backed generated task records rather than scripted quests.
+- state-backed generated task records rather than scripted quests;
+- extract remaining demography helpers from `CivilizationEngine` into a dedicated engine when the day-loop split is proven.
 
-### Required external gates
-Every checkpoint still needs a linked NeoForge 1.21.1/full-target-pack compile and in-game smoke test on the user's machine before being called production-complete.
+### Release evidence (not feature maturity)
+Linked NeoForge 1.21.1 / full-target-pack compile and in-game smoke on a real client remain required before any `release-ready` claim (`docs/RELEASE_GATES.md`). Headless core maturity alone is insufficient.

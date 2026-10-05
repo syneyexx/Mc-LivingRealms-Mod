@@ -7,14 +7,21 @@ CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 - [x] No dedicated multiplayer; no LLM.
 - [x] Minecraft 1.21.1 + NeoForge 21.1.219 + Create 6.0.10 + Java 21.
 
+## Maturity vocabulary
+Feature rows track depth with FOUNDATION → CANONICAL → PLAYABLE → PHYSICALIZED → DEEP → POLISHED (see `COMPLETION_MATRIX.md`). Release claims use `docs/RELEASE_GATES.md` vocabulary only.
+
 ## v3.0 — release-ready singleplayer
-- [x] Deterministic civilization/ecology core.
+- [x] Deterministic civilization/ecology core (**DEEP** / soak-proven).
 - [x] Versioned persistent world state through schema **20** (schemas 1–19 readable).
 - [x] Dashboard protocol **20**, network **16**, ContentRevision **15**.
 - [x] Surface density: 12 kingdoms × 3 settlements (capital + 1 Spec + 1 rural) = **36**, spacing **2000**, plus Wizard Trees (3).
 - [x] Goods chain GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL; construction keys only via materializer / FOREIGN_ADOPTED.
 - [x] SettlementTransfer on capture/rebellion; capital war targets; named rosters; tokenized dialogue.
 - [x] 3650-day soak, projection stress, save fuzz, release-audit, GameTests.
+- [ ] Architecture depth pass finish: remaining hotspot shrink + final report (see `docs/ARCHITECTURE_PASS_STATUS.md`).
+
+## Architecture depth waves (summary)
+Completed themes on this branch include runtime scheduler, SimulationEngine + lifecycle domain engines, domain persistence codecs, content loaders, dialogue pipeline split, construction parcel/access gates, and player agency surfaces (underworld / war room). Documentation truth (Wave 23/40), focused domain tests (Wave 25), and deterministic refactor proof (Wave 26) land with this checkpoint. Remaining work is honest polish, further hotspot extraction where still oversized, and final report evidence — not a second product rewrite.
 
 ## Geschiedenis
 - Roadmap previously pinned schema 16–17, protocol 14–17, 216/380+ settlements, and 2000-block spacing.

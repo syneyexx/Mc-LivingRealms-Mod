@@ -2,6 +2,23 @@
 
 CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
+## Modular monolith (architecture depth pass)
+
+Living Realms is one deployable NeoForge mod with **internal kernels** instead of a microservice split. Boundaries are package/class extraction with shared `SimulationState` and a single schema-20 persistence envelope.
+
+| Kernel | Responsibility | Key types |
+|---|---|---|
+| **Simulation** | Deterministic day loop and domain engines | `SimulationEngine`, `CivilizationLifecycleEngine`, `MigrationEngine`, `EpidemicEngine`, faction/economy/diplomacy/law engines |
+| **Projection** | LOD / budgets / physical entities as animation of sim truth | `MaterializationPlanner`, `ProjectionBudget`, wildlife/citizen/caravan projectors |
+| **Construction** | Intents → geometry → terrain apply → completion keys | `SettlementPlanner`, `StructureBlueprintFactory`, `ResolvedBuildSite`, `SettlementConstructionMaterializer` |
+| **Runtime Scheduler** | Tick-phase budget, deferral, starvation promotion | `RuntimeBudgetController`, `RuntimeDeferTracker`, `RuntimePriority`, `SimulationTickBudget` |
+| **Persistence** | Versioned binary save + migrations | `SimulationStateCodec` + domain codecs (`FactionCodec`, `SettlementCodec`, `SocietyCodec`, `WarfareCodec`, `EconomyCodec`, `LawCodec`, `EcologyCodec`, `ConstructionCodec`, `DiplomacyCodec`, `HistoryCodec`, `UnderworldCodec`, `PlayerAgencyCodec`) |
+| **Dialogue** | No-LLM epistemic conversation | `DialogueInterpreter`, `DialogueKnowledgeService`, `DialoguePlanner`, `DialogueStyleProfile`, `DialogueRealizer` |
+| **Content** | Data-driven realms / cultures / buildings | `RealmDefinitionLoader`, `CultureDefinitionLoader`, `BuildingDefinitionLoader`, `BuildingTemplateRegistry` |
+| **UI contract** | Snapshot-only dashboard | `RealmDashboardBuilder` / section codecs / client panels (no direct `SimulationState` on client) |
+
+Inventory of pre-extraction hotspots and wave order: `docs/ARCHITECTURE_INVENTORY.md`. Pass progress: `docs/ARCHITECTURE_PASS_STATUS.md`.
+
 ## Authority boundaries (non-negotiable)
 
 | Concern | Authority | Projection / presentation |
@@ -44,6 +61,8 @@ Do not run civilization AI every game tick. Target schedules:
 - economic simulation: every Minecraft day or substeps when necessary
 - diplomacy: every several simulated days plus event triggers
 - ecology: daily aggregate step; local physical predation remains real-time
+
+`RuntimeBudgetController` measures spent nanos per tick and may defer **DECORATIVE** / low-priority presentation work under soft/hard pressure, with starvation promotion so deferred tasks eventually run.
 
 ## Create integration
 

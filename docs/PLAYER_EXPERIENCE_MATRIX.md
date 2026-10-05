@@ -1,14 +1,16 @@
 # Player Experience Matrix (Waves 12–14)
 
-Maturity labels:
+Shared product maturity (subsystem depth) uses FOUNDATION / CANONICAL / PLAYABLE / PHYSICALIZED / DEEP / POLISHED in `COMPLETION_MATRIX.md`.
 
-| Label | Meaning |
-|-------|---------|
-| **CANONICAL** | Simulation state mutates on the authoritative path |
-| **VISIBLE** | Dashboard / dialogue / history surfaces the change |
-| **INTERACTIVE** | Player can trigger the verb from UI or grounded chat |
-| **CONSEQUENCE COMPLETE** | Stock, mood, memory, rumor, reputation, pressure hooks fire |
-| **POLISHED** | UX clarity + regression tests cover the loop |
+This matrix grades **player-facing agency loops** with experience-specific labels that map onto that scale:
+
+| Experience label | Maps to | Meaning |
+|-------|---------|---------|
+| **CANONICAL** | CANONICAL | Simulation state mutates on the authoritative path |
+| **VISIBLE** | PLAYABLE (observe) | Dashboard / dialogue / history surfaces the change |
+| **INTERACTIVE** | PLAYABLE | Player can trigger the verb from UI or grounded chat |
+| **CONSEQUENCE WIRED** | DEEP | Stock, mood, memory, rumor, reputation, pressure hooks fire |
+| **POLISHED** | POLISHED | UX clarity + regression tests cover the loop |
 
 CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
 
@@ -16,18 +18,18 @@ CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 
 | Action | Canonical engines | Observable consequences | Maturity |
 |--------|-------------------|-------------------------|----------|
-| **Found settlement** | `PlayerSettlementFounder` | Realm appears on map/dashboard; rank RULER | CONSEQUENCE COMPLETE |
-| **Aid / famine help** | `AssistanceContributionEngine` → stock, food security, task progress, reputation | Mood / HELPED_BY memory / rumor subject `aid` / refugee pressure softener / Ops tab progress | CONSEQUENCE COMPLETE |
+| **Found settlement** | `PlayerSettlementFounder` | Realm appears on map/dashboard; rank RULER | CONSEQUENCE WIRED |
+| **Aid / famine help** | `AssistanceContributionEngine` → stock, food security, task progress, reputation | Mood / HELPED_BY memory / rumor subject `aid` / refugee pressure softener / Ops tab progress | CONSEQUENCE WIRED |
 | **Trading (market)** | `MarketTransactionEngine` | Prices / stock on Economy tab | INTERACTIVE + VISIBLE |
-| **Theft / crime** | `CrimeEngine` + `PropertyCrimeEngine` + `UnderworldActions.observeCrime` | Property loss from settlement stock, public order, heat/bounty, victim STOLEN_FROM, witness CRIME_WITNESS, stolen-goods ledger provenance | CONSEQUENCE COMPLETE |
+| **Theft / crime** | `CrimeEngine` + `PropertyCrimeEngine` + `UnderworldActions.observeCrime` | Property loss from settlement stock, public order, heat/bounty, victim STOLEN_FROM, witness CRIME_WITNESS, stolen-goods ledger provenance | CONSEQUENCE WIRED |
 | **Murder** | `CrimeType.MURDER` via `reportCrime` | Wanted escalation, reputation, underworld assassination contract match | CANONICAL + VISIBLE |
-| **War declare / orders** | `PlayerAgencyActions` + `WarRoomOptionsBuilder` | Wars tab goal select, army identity, escort gated | CONSEQUENCE COMPLETE |
+| **War declare / orders** | `PlayerAgencyActions` + `WarRoomOptionsBuilder` | Wars tab goal select, army identity, escort gated | CONSEQUENCE WIRED |
 | **Tax / policy** | Dashboard tax & settlement priority | RealmView + Cities tab | INTERACTIVE + VISIBLE |
 | **Diplomacy** | Peace / trade pact agency | Politics tab buttons | INTERACTIVE + VISIBLE |
-| **Building register** | `PlayerStructureRegistration` + `HousingCapacity` | Capacity, migration pressure, NPC LOCAL_EVENT, Cities UI registered count | CONSEQUENCE COMPLETE |
-| **Building demolish / invalidate** | `PlayerStructureRegistration.invalidate` | Housing reconcile, unrest, NPC grumble, refugee pressure | CONSEQUENCE COMPLETE |
+| **Building register** | `PlayerStructureRegistration` + `HousingCapacity` | Capacity, migration pressure, NPC LOCAL_EVENT, Cities UI registered count | CONSEQUENCE WIRED |
+| **Building demolish / invalidate** | `PlayerStructureRegistration.invalidate` | Housing reconcile, unrest, NPC grumble, refugee pressure | CONSEQUENCE WIRED |
 | **Housing / expansion** | HousingCapacity + SettlementExpansionEngine | Cities deficit / verified housing | VISIBLE + CANONICAL |
-| **Underworld** | `UnderworldActions` + board engine + dashboard | Accept / bribe / fence; crime matcher never fabricates | CONSEQUENCE COMPLETE |
+| **Underworld** | `UnderworldActions` + board engine + dashboard | Accept / bribe / fence; crime matcher never fabricates | CONSEQUENCE WIRED |
 
 ## Aid / famine chain
 

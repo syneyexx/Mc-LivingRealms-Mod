@@ -60,7 +60,10 @@ dev.livingrealms.PlayerAgencyTest
 dev.livingrealms.MigrationOrderTest
 dev.livingrealms.AuthoredSettlementNamesTest
 dev.livingrealms.RealmDataLoaderTest
+dev.livingrealms.BuildingDefinitionLoaderTest
 dev.livingrealms.BuildingTemplateRegistryTest
+dev.livingrealms.MigrationEngineTest
+dev.livingrealms.EpidemicEngineTest
 dev.livingrealms.SettlementIdentityProfileTest
 dev.livingrealms.GoodsChainTest
 dev.livingrealms.NoPhantomConstructionTest
@@ -69,6 +72,7 @@ dev.livingrealms.WarGoalAndCapitalTargetTest
 dev.livingrealms.SiegeBreachAllKeysTest
 dev.livingrealms.SingleProductionAuthorityTest
 dev.livingrealms.DocumentationPinTest
+dev.livingrealms.DeterministicRefactorProofTest
 dev.livingrealms.ManualDayAdvanceSchedulerTest
 dev.livingrealms.Schema18FollowUpTest
 dev.livingrealms.SparseWorldPolicyTest

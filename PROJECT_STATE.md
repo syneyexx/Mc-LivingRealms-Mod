@@ -12,11 +12,22 @@ CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 - War discovery targets the capital (highest tier → population → oldest id) with typed war goals.
 - Release suite: `scripts/core-tests.list` → `./scripts/test-core.sh`; production runners emit `RELEASE_MANIFEST.json`.
 
+## Architecture depth pass (modular monolith)
+See `docs/ARCHITECTURE.md` and `docs/ARCHITECTURE_PASS_STATUS.md`. Extracted kernels so far:
+- **Simulation kernel** — `SimulationEngine` day orchestration; lifecycle domain engines (migration, epidemic, household, dynasty, …).
+- **Projection kernel** — LOD planners, materializers, runtime budget / `RuntimeScheduler`.
+- **Construction kernel** — planner → blueprint → parcel `ResolvedBuildSite` → materializer completion.
+- **Persistence** — `SimulationStateCodec` envelope + domain codecs under `sim/persistence/codec/`.
+- **Dialogue** — interpreter / knowledge / planner / style / realizer split.
+- **Content** — data-driven realm / culture / building loaders.
+
+Subsystem maturity (not release readiness) lives in `COMPLETION_MATRIX.md` using FOUNDATION / CANONICAL / PLAYABLE / PHYSICALIZED / DEEP / POLISHED.
+
 ## Verified core gates
 - Java 21 core compiles with `-Xlint:all -Werror`.
 - 365-day deterministic replay and 3650-day soak with checkpoints at day 30 / 365 / 3650.
 - Species pack audit: 134 species.
-- Mandatory gates include density, goods chain, migration order, settlement transfer, war goals, dialogue tokens, roster-without-projection, siege breach, and documentation pins.
+- Mandatory gates include density, goods chain, migration order, settlement transfer, war goals, dialogue tokens, roster-without-projection, siege breach, documentation pins, and deterministic refactor proof.
 
 ## Explicit status claim
 **core-green candidate** when `./scripts/test-core.sh` + `release-audit.py` pass for these pins.

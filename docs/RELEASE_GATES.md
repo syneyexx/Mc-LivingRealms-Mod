@@ -8,13 +8,15 @@ Release states (precise):
 - **gametest-green**: linked-green plus `./scripts/run-gametests.sh` (`gradle runGameTestServer`) exit 0.
 - **release-candidate**: linked-green + gametest-green + manual smoke (`docs/MANUAL_RUNTIME_TEST_PLAN.md`).
 
+Feature maturity (FOUNDATION→POLISHED) is tracked separately in `COMPLETION_MATRIX.md` and must not be confused with these release states.
+
 ## Automated headless gate
 ```bash
 ./scripts/test-core.sh
 python3 ./scripts/release-audit.py
 ```
 
-Must compile with `--release 21 -Xlint:all -Werror` and pass density, goods chain, migration order, settlement transfer, war goals, dialogue tokens, roster, soak (3650), save migration 1→20, fuzz, and documentation pins.
+Must compile with `--release 21 -Xlint:all -Werror` and pass density, goods chain, migration order, settlement transfer, war goals, dialogue tokens, roster, soak (3650), save migration 1→20, fuzz, documentation pins, and deterministic refactor proof.
 
 ## Full linked build
 `build-production.sh` / `build-production.ps1`: headless gates + audit + Gradle `clean --no-build-cache build` + `write-release-manifest.py` for exact HEAD.
