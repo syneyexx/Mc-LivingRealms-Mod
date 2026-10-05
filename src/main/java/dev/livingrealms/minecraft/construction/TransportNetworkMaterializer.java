@@ -8,9 +8,12 @@ import dev.livingrealms.sim.construction.PaletteSlot;
 import dev.livingrealms.sim.transport.*;
 import dev.livingrealms.sim.world.SimPosition;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.state.BlockState;
@@ -326,6 +329,8 @@ public final class TransportNetworkMaterializer {
     }
 
     private static int naturalGroundY(ServerLevel level,int x,int z){
+        BlockPos probe=new BlockPos(x,level.getSeaLevel(),z);
+        if(!level.hasChunkAt(probe))return level.getMinBuildHeight();
         int y=level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,x,z)-1;int floor=level.getMinBuildHeight()+1;
         while(y>floor){
             BlockState st=level.getBlockState(new BlockPos(x,y,z));
