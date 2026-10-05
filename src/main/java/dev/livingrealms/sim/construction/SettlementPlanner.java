@@ -34,7 +34,12 @@ public final class SettlementPlanner {
         int tier = settlement.tier().ordinal();
         int baseRotation = Math.floorMod((int) mix(settlement.id() ^ 0x4F1BBCDCBFA54001L), 2);
 
-        boolean capital = faction.settlements().stream()
+        SettlementStreetGraph streetGraph = SettlementRoadPlanner.planGraph(
+                faction, settlement, morph, baseRotation);
+        SettlementRoadPlanner.addRoadNetwork(out, faction, settlement, streetGraph);
+
+        boolean capital = settlement.role() == dev.livingrealms.sim.faction.SettlementRole.CAPITAL
+                || faction.settlements().stream()
                 .max(Comparator.comparingInt(Settlement::population).thenComparingLong(Settlement::id))
                 .map(s -> s.id() == settlement.id()).orElse(false);
         boolean playerFounded = settlement.origin() == SettlementOrigin.PLAYER_FOUNDED;
@@ -56,9 +61,6 @@ public final class SettlementPlanner {
             addAt(out, faction, settlement, StructureRole.KEEP, 0, keep, keepW, keepD, baseRotation, capital ? 190 : 120);
         }
 
-        SettlementRoadPlanner.addRoadNetwork(out, faction, settlement, morph, baseRotation);
-        SettlementStreetGraph streetGraph = SettlementStreetGraph.fromRoadIntents(settlement.id(),
-                out.stream().filter(i -> i.role() == StructureRole.ROAD).toList());
         SettlementHousingPlanner.addHousing(out, faction, settlement, morph, baseRotation, streetGraph, cultureProfile.architecture());
         addFarms(out, faction, settlement, morph, baseRotation);
         addPastures(out, faction, settlement, morph, baseRotation);
