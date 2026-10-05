@@ -94,6 +94,15 @@ final class SettlementHousingPlanner {
      * When parcels are insufficient, extend short graph-authored residential lanes from existing
      * centerline vertices. ROAD intents are downstream projections of these new graph segments.
      */
+    private static int parcelOrdinal(String parcelId) {
+        int split = parcelId == null ? -1 : parcelId.lastIndexOf(':');
+        if (split >= 0 && split + 1 < parcelId.length()) {
+            try { return Math.max(0, Integer.parseInt(parcelId.substring(split + 1))); }
+            catch (NumberFormatException ignored) { /* deterministic hash fallback below */ }
+        }
+        return Math.floorMod(parcelId == null ? 0 : parcelId.hashCode(), 100_000);
+    }
+
     private static void extendSideStreetsForHousing(List<ConstructionIntent> out, Faction faction, Settlement settlement,
                                                    SettlementMorphology morph, SettlementStreetGraph streetGraph,
                                                    int baseRotation, int deficit, CultureArchitecture culture) {
@@ -152,7 +161,6 @@ final class SettlementHousingPlanner {
                 .filter(i -> i.role() == StructureRole.HOUSE)
                 .map(ConstructionIntent::center)
                 .toList());
-        int houseIndex = 900;
         int placed = 0;
         int w = Math.max(9, culture.minHouseWidth());
         int d = Math.max(9, culture.minHouseDepth());
@@ -168,7 +176,8 @@ final class SettlementHousingPlanner {
                 }
             }
             if (clash) continue;
-            addAtParcel(out, faction, settlement, StructureRole.HOUSE, houseIndex + placed, parcel,
+            int stableHouseIndex = 900 + parcelOrdinal(parcel.id());
+            addAtParcel(out, faction, settlement, StructureRole.HOUSE, stableHouseIndex, parcel,
                     Math.min(parcel.width(), w + 2), Math.min(parcel.depth(), d + 2),
                     parcel.orientationQuarterTurns(), 86);
             occupied.add(parcel.center());
