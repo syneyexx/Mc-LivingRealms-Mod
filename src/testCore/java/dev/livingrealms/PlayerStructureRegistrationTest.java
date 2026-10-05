@@ -1,0 +1,51 @@
+package dev.livingrealms;
+
+import dev.livingrealms.sim.construction.HousingCapacity;
+import dev.livingrealms.sim.construction.RegisteredPlayerStructure;
+import dev.livingrealms.sim.faction.DevelopmentMode;
+import dev.livingrealms.sim.faction.SettlementOrigin;
+import dev.livingrealms.sim.persistence.SimulationStateCodec;
+import dev.livingrealms.sim.player.PlayerSettlementFounder;
+import dev.livingrealms.sim.world.SimPosition;
+import dev.livingrealms.sim.world.SimulationState;
+
+/** Wave 5: registered player houses contribute housing without mutating player blocks. */
+public final class PlayerStructureRegistrationTest {
+    private PlayerStructureRegistrationTest() {}
+
+    public static void main(String[] args) {
+        SimulationState state = new SimulationState(0x504C4159L);
+        var founded = PlayerSettlementFounder.found(state, "player:builder", "Builder", "Homestead",
+                new SimPosition(55_000, 55_000));
+        check(founded.success(), founded.reason());
+        var settlement = state.findSettlement(founded.settlementId()).orElseThrow();
+        check(settlement.origin() == SettlementOrigin.PLAYER_FOUNDED, "player founded");
+        check(settlement.developmentMode() == DevelopmentMode.HYBRID, "HYBRID default");
+        check(settlement.population() == PlayerSettlementFounder.FOUNDING_POPULATION, "founder camp pop");
+
+        int before = HousingCapacity.calculate(settlement, state);
+        RegisteredPlayerStructure house = new RegisteredPlayerStructure(
+                state.nextId(), settlement.id(), "player:builder", RegisteredPlayerStructure.Role.HOUSE,
+                0, 64, 0, 8, 72, 8, 4, 64, 0, 12, state.clock().day(), 0xABCDL);
+        state.addRegisteredPlayerStructure(house);
+        int after = HousingCapacity.calculate(settlement, state);
+        check(after >= before + 12, "registered house increases housing capacity");
+
+        house.markInvalid(state.clock().day());
+        check(HousingCapacity.calculate(settlement, state) == Math.max(settlement.housing(), 0),
+                "invalid house loses capacity");
+
+        house.markValid(state.clock().day(), 0xABCEL);
+        house.setCapacity(12);
+        byte[] bytes = SimulationStateCodec.encode(state);
+        SimulationState loaded = SimulationStateCodec.decode(bytes);
+        RegisteredPlayerStructure restored = loaded.findRegisteredPlayerStructure(house.id()).orElseThrow();
+        check(restored.valid() && restored.capacity() == 12, "registration survives schema 19");
+        check(restored.role() == RegisteredPlayerStructure.Role.HOUSE, "role preserved");
+        System.out.println("PASS PlayerStructureRegistrationTest");
+    }
+
+    private static void check(boolean ok, String msg) {
+        if (!ok) throw new AssertionError(msg);
+    }
+}
