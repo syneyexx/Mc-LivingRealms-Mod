@@ -100,7 +100,9 @@ public final class SettlementPlanner {
             addAt(out, faction, settlement, StructureRole.AIRFIELD, 0, edge, 25, 70, baseRotation, 64);
         }
 
-        out.replaceAll(intent -> intent.withPriority(
+        out.replaceAll(intent -> new ConstructionIntent(
+                intent.key(), intent.factionId(), intent.settlementId(), intent.role(), intent.center(),
+                intent.width(), intent.depth(), intent.rotationQuarterTurns(),
                 adjustPriority(settlement.developmentPriority(), intent.role(), intent.priority())));
         out.sort(Comparator.comparingInt(ConstructionIntent::priority).reversed().thenComparing(ConstructionIntent::key));
         return List.copyOf(out);
@@ -347,7 +349,7 @@ public final class SettlementPlanner {
             }
             remaining.remove(parcelIndex);
             int face = parcel.orientationQuarterTurns();
-            addAtParcel(out, faction, settlement, StructureRole.HOUSE, emitted, parcel, w, d, face, 88);
+            addAt(out, faction, settlement, StructureRole.HOUSE, emitted, parcel.center(), w, d, face, 88);
             emitted++;
         }
         // Road-first invariant: never spiral-place houses off the street graph.
@@ -430,7 +432,7 @@ public final class SettlementPlanner {
                 }
             }
             if (clash) continue;
-            addAtParcel(out, faction, settlement, StructureRole.HOUSE, houseIndex + placed, parcel,
+            addAt(out, faction, settlement, StructureRole.HOUSE, houseIndex + placed, parcel.center(),
                     Math.min(parcel.width(), w + 2), Math.min(parcel.depth(), d + 2),
                     parcel.orientationQuarterTurns(), 86);
             placed++;
@@ -667,16 +669,6 @@ public final class SettlementPlanner {
     private static void addAt(List<ConstructionIntent> out, Faction faction, Settlement settlement, StructureRole role,
                               int index, SimPosition center, int width, int depth, int rotation, int priority) {
         out.add(new ConstructionIntent(key(settlement, role, index), faction.id(), settlement.id(), role, center, width, depth, Math.floorMod(rotation, 4), priority));
-    }
-
-    private static void addAtParcel(List<ConstructionIntent> out, Faction faction, Settlement settlement, StructureRole role,
-                                    int index, SettlementParcelPlanner.ParcelPlan parcel, int width, int depth,
-                                    int rotation, int priority) {
-        Objects.requireNonNull(parcel, "parcel");
-        out.add(new ConstructionIntent(
-                key(settlement, role, index), faction.id(), settlement.id(), role, parcel.center(),
-                width, depth, Math.floorMod(rotation, 4), priority,
-                parcel.id(), parcel.width(), parcel.depth()));
     }
 
     private static String key(Settlement settlement, StructureRole role, int index) {
