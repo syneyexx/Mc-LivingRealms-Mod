@@ -15,6 +15,7 @@ public final class StructureAccessValidatorTest {
         cliffAndSealedFail();
         deepWaterWithoutDockFails();
         blockedStructureFails();
+        gradeWithoutRoadBlocksReceipt();
         System.out.println("PASS structure access validator: flat/stairs/switchback/bridge + fail cases");
     }
 
@@ -61,6 +62,13 @@ public final class StructureAccessValidatorTest {
     private static void blockedStructureFails() {
         check(!StructureAccessValidator.validate(new AccessSample(AccessKind.BLOCKED_STRUCTURE, 64, 64, true, false, false)).pass(),
                 "blocked player structure must fail");
+    }
+
+    private static void gradeWithoutRoadBlocksReceipt() {
+        check(!StructureAccessValidator.validateGrade(64, 65, false).pass(),
+                "walkable grade without road must fail completedConstructionReceipt");
+        check(StructureAccessValidator.validateGrade(67, 64, true).pass(),
+                "stairs with road connection may pass");
     }
 
     private static void check(boolean cond, String message) {
