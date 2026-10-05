@@ -1,6 +1,6 @@
 # LivingRealms Implementation Ledger
 
-CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 **Authority rule:** source wins over docs. No parallel engines.
 
@@ -12,12 +12,12 @@ CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 | NeoForge | 21.1.219 |
 | Java | 21 |
 | Create | 6.0.10 |
-| Save schema | **20** (1–19 readable; underworld contracts + stolen-goods ledger) |
+| Save schema | **21** (1–20 readable; settlement roles + hierarchical world-fabric migration) |
 | Dashboard protocol | **20** |
 | Network | **16** |
 | ContentRevision | **15** |
-| Surface settlements | **36** (12 × 3: capital + 1 Spec + 1 rural) |
-| Spacing | **2000** blocks |
+| Surface starter settlements | **204–300** (12 × 17–25: capital + 10 authored satellites + 6–14 rural hamlets) |
+| Spacing | **role-aware**; capital↔capital preferred **3000–4500** blocks |
 | Dashboard / map / catalog | F12 / M / K |
 
 ## Release authorities
