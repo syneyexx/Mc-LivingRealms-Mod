@@ -1,7 +1,6 @@
 package dev.livingrealms.sim.construction;
 
 import dev.livingrealms.sim.world.SimPosition;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -37,10 +36,12 @@ public record ConstructionIntent(
             parcelDepth = 0;
         }
         path = path == null ? List.of() : List.copyOf(path);
-        if (!path.isEmpty() && path.size() < 2) throw new IllegalArgumentException("path");
+        if (!path.isEmpty() && role != StructureRole.ROAD) {
+            throw new IllegalArgumentException("polyline path is only valid for ROAD intents");
+        }
     }
 
-    /** Compatibility constructor for ordinary axis-aligned intents and parcel-bound buildings. */
+    /** Backward-compatible constructor for parcel-bound/non-polyline intents. */
     public ConstructionIntent(
             String key, long factionId, long settlementId, StructureRole role, SimPosition center,
             int width, int depth, int rotationQuarterTurns, int priority,
@@ -50,6 +51,7 @@ public record ConstructionIntent(
                 parcelId, parcelWidth, parcelDepth, List.of());
     }
 
+    /** Backward-compatible constructor for ordinary intents. */
     public ConstructionIntent(
             String key, long factionId, long settlementId, StructureRole role, SimPosition center,
             int width, int depth, int rotationQuarterTurns, int priority
@@ -58,18 +60,26 @@ public record ConstructionIntent(
                 "", 0, 0, List.of());
     }
 
+    /** Road-intent constructor carrying a graph-authored world-space centerline. */
+    public ConstructionIntent(
+            String key, long factionId, long settlementId, StructureRole role, SimPosition center,
+            int width, int depth, int rotationQuarterTurns, int priority, List<SimPosition> path
+    ) {
+        this(key, factionId, settlementId, role, center, width, depth, rotationQuarterTurns, priority,
+                "", 0, 0, path);
+    }
+
     public boolean hasParcel() { return !parcelId.isBlank(); }
     public boolean hasPath() { return !path.isEmpty(); }
 
     public ConstructionIntent withCenter(SimPosition newCenter) {
         Objects.requireNonNull(newCenter, "newCenter");
-        if (path.isEmpty()) {
-            return new ConstructionIntent(key, factionId, settlementId, role, newCenter, width, depth,
-                    rotationQuarterTurns, priority, parcelId, parcelWidth, parcelDepth, path);
+        List<SimPosition> shifted = path;
+        if (!path.isEmpty()) {
+            double dx = newCenter.x() - center.x();
+            double dz = newCenter.z() - center.z();
+            shifted = path.stream().map(p -> new SimPosition(p.x() + dx, p.z() + dz)).toList();
         }
-        double dx = newCenter.x() - center.x(), dz = newCenter.z() - center.z();
-        List<SimPosition> shifted = new ArrayList<>(path.size());
-        for (SimPosition point : path) shifted.add(new SimPosition(point.x() + dx, point.z() + dz));
         return new ConstructionIntent(key, factionId, settlementId, role, newCenter, width, depth,
                 rotationQuarterTurns, priority, parcelId, parcelWidth, parcelDepth, shifted);
     }
