@@ -139,14 +139,14 @@ public final class SettlementStreetGraph {
                 p(-r,-j1),p(-r*.48,j2),p(0,0),p(r*.42,-j3),p(r,j1*.5));
         b.add(StreetType.COMMERCIAL_STREET,128,SettlementGrowthLayer.HISTORIC_CORE,
                 p(0,0),p(-r*.18,r*.28),p(r*.08,r*.58),p(r*.2,r*.88));
-        b.add(StreetType.RESIDENTIAL_STREET,112,SettlementGrowthLayer.INNER_GROWTH,
+        b.add(StreetType.RESIDENTIAL_STREET,112,SettlementGrowthLayer.EARLY_EXPANSION,
                 p(-r*.48,j2),p(-r*.56,-r*.22),p(-r*.35,-r*.55));
-        b.add(StreetType.RESIDENTIAL_STREET,110,SettlementGrowthLayer.INNER_GROWTH,
+        b.add(StreetType.RESIDENTIAL_STREET,110,SettlementGrowthLayer.EARLY_EXPANSION,
                 p(r*.42,-j3),p(r*.56,r*.2),p(r*.5,r*.52));
         if(tier>=Settlement.Tier.TOWN.ordinal()){
-            b.add(StreetType.RESIDENTIAL_LANE,98,SettlementGrowthLayer.OUTER_GROWTH,
+            b.add(StreetType.RESIDENTIAL_LANE,98,SettlementGrowthLayer.SUBURBAN_EXPANSION,
                     p(-r*.35,-r*.55),p(0,-r*.72),p(r*.44,-r*.55));
-            b.add(StreetType.RESIDENTIAL_LANE,98,SettlementGrowthLayer.OUTER_GROWTH,
+            b.add(StreetType.RESIDENTIAL_LANE,98,SettlementGrowthLayer.SUBURBAN_EXPANSION,
                     p(r*.2,r*.88),p(r*.55,r*.72),p(r*.72,r*.42));
         }
     }
@@ -159,10 +159,10 @@ public final class SettlementStreetGraph {
         b.add(StreetType.MARKET_STREET,134,SettlementGrowthLayer.HISTORIC_CORE,c,p(-3,-r*.5),p(0,-r));
         if(tier>=Settlement.Tier.TOWN.ordinal()){
             double q=r*.62;
-            b.add(StreetType.RESIDENTIAL_STREET,108,SettlementGrowthLayer.INNER_GROWTH,p(-q,0),p(-q*.9,q*.7),p(0,q));
-            b.add(StreetType.RESIDENTIAL_STREET,108,SettlementGrowthLayer.INNER_GROWTH,p(0,q),p(q*.9,q*.7),p(q,0));
-            b.add(StreetType.RESIDENTIAL_STREET,108,SettlementGrowthLayer.INNER_GROWTH,p(q,0),p(q*.9,-q*.7),p(0,-q));
-            b.add(StreetType.RESIDENTIAL_STREET,108,SettlementGrowthLayer.INNER_GROWTH,p(0,-q),p(-q*.9,-q*.7),p(-q,0));
+            b.add(StreetType.RESIDENTIAL_STREET,108,SettlementGrowthLayer.EARLY_EXPANSION,p(-q,0),p(-q*.9,q*.7),p(0,q));
+            b.add(StreetType.RESIDENTIAL_STREET,108,SettlementGrowthLayer.EARLY_EXPANSION,p(0,q),p(q*.9,q*.7),p(q,0));
+            b.add(StreetType.RESIDENTIAL_STREET,108,SettlementGrowthLayer.EARLY_EXPANSION,p(q,0),p(q*.9,-q*.7),p(0,-q));
+            b.add(StreetType.RESIDENTIAL_STREET,108,SettlementGrowthLayer.EARLY_EXPANSION,p(0,-q),p(-q*.9,-q*.7),p(-q,0));
         }
     }
 
@@ -183,54 +183,54 @@ public final class SettlementStreetGraph {
             SimPosition a=p(Math.cos(a1)*ringRadius,Math.sin(a1)*ringRadius);
             SimPosition m=p(Math.cos(am)*ringRadius*1.05,Math.sin(am)*ringRadius*1.05);
             SimPosition z=p(Math.cos(a2)*ringRadius,Math.sin(a2)*ringRadius);
-            b.add(StreetType.RESIDENTIAL_STREET,112,SettlementGrowthLayer.INNER_GROWTH,a,m,z);
+            b.add(StreetType.RESIDENTIAL_STREET,112,SettlementGrowthLayer.EARLY_EXPANSION,a,m,z);
         }
     }
 
     private static void river(Builder b, double r, int tier) {
         SimPosition a=p(-r*.12,-r),q1=p(r*.08,-r*.45),c=p(0,0),q2=p(-r*.1,r*.45),z=p(r*.08,r);
         b.add(StreetType.ARTERIAL,136,SettlementGrowthLayer.HISTORIC_CORE,a,q1,c,q2,z);
-        b.add(StreetType.RESIDENTIAL_STREET,112,SettlementGrowthLayer.INNER_GROWTH,q1,p(-r*.45,-r*.38),p(-r*.72,-r*.28));
-        b.add(StreetType.RESIDENTIAL_STREET,112,SettlementGrowthLayer.INNER_GROWTH,q2,p(r*.45,r*.36),p(r*.72,r*.26));
+        b.add(StreetType.RESIDENTIAL_STREET,112,SettlementGrowthLayer.EARLY_EXPANSION,q1,p(-r*.45,-r*.38),p(-r*.72,-r*.28));
+        b.add(StreetType.RESIDENTIAL_STREET,112,SettlementGrowthLayer.EARLY_EXPANSION,q2,p(r*.45,r*.36),p(r*.72,r*.26));
         b.add(StreetType.COMMERCIAL_STREET,120,SettlementGrowthLayer.HISTORIC_CORE,c,p(r*.4,2),p(r*.7,4));
         if(tier>=Settlement.Tier.TOWN.ordinal())
-            b.add(StreetType.RESIDENTIAL_LANE,100,SettlementGrowthLayer.OUTER_GROWTH,p(-r*.1,r*.45),p(-r*.5,r*.6),p(-r*.75,r*.52));
+            b.add(StreetType.RESIDENTIAL_LANE,100,SettlementGrowthLayer.SUBURBAN_EXPANSION,p(-r*.1,r*.45),p(-r*.5,r*.6),p(-r*.75,r*.52));
     }
 
     private static void hill(Builder b, double r, int tier) {
         SimPosition p0=p(-r*.7,-r),p1=p(r*.55,-r*.58),p2=p(-r*.5,-r*.16),p3=p(r*.48,r*.24),p4=p(-r*.34,r*.62),p5=p(0,r);
         b.add(StreetType.ARTERIAL,136,SettlementGrowthLayer.HISTORIC_CORE,p0,p1,p2,p3,p4,p5);
-        b.add(StreetType.RESIDENTIAL_STREET,112,SettlementGrowthLayer.INNER_GROWTH,p2,p(-r*.78,-r*.05),p(-r*.86,r*.16));
-        b.add(StreetType.RESIDENTIAL_STREET,112,SettlementGrowthLayer.INNER_GROWTH,p3,p(r*.78,r*.16),p(r*.86,r*.38));
+        b.add(StreetType.RESIDENTIAL_STREET,112,SettlementGrowthLayer.EARLY_EXPANSION,p2,p(-r*.78,-r*.05),p(-r*.86,r*.16));
+        b.add(StreetType.RESIDENTIAL_STREET,112,SettlementGrowthLayer.EARLY_EXPANSION,p3,p(r*.78,r*.16),p(r*.86,r*.38));
         if(tier>=Settlement.Tier.TOWN.ordinal())
-            b.add(StreetType.RESIDENTIAL_LANE,100,SettlementGrowthLayer.OUTER_GROWTH,p4,p(-r*.68,r*.72),p(-r*.82,r*.58));
+            b.add(StreetType.RESIDENTIAL_LANE,100,SettlementGrowthLayer.SUBURBAN_EXPANSION,p4,p(-r*.68,r*.72),p(-r*.82,r*.58));
     }
 
     private static void coastal(Builder b, double r, int tier) {
         SimPosition a=p(-r,r*.42),c=p(0,r*.38),z=p(r,r*.44);
         b.add(StreetType.BOULEVARD,138,SettlementGrowthLayer.HISTORIC_CORE,a,p(-r*.5,r*.36),c,p(r*.5,r*.37),z);
         b.add(StreetType.ARTERIAL,134,SettlementGrowthLayer.HISTORIC_CORE,c,p(0,0),p(0,-r));
-        b.add(StreetType.COMMERCIAL_STREET,120,SettlementGrowthLayer.INNER_GROWTH,p(-r*.5,r*.36),p(-r*.45,0),p(-r*.38,-r*.48));
-        b.add(StreetType.COMMERCIAL_STREET,120,SettlementGrowthLayer.INNER_GROWTH,p(r*.5,r*.37),p(r*.46,0),p(r*.38,-r*.48));
+        b.add(StreetType.COMMERCIAL_STREET,120,SettlementGrowthLayer.EARLY_EXPANSION,p(-r*.5,r*.36),p(-r*.45,0),p(-r*.38,-r*.48));
+        b.add(StreetType.COMMERCIAL_STREET,120,SettlementGrowthLayer.EARLY_EXPANSION,p(r*.5,r*.37),p(r*.46,0),p(r*.38,-r*.48));
         if(tier>=Settlement.Tier.TOWN.ordinal())
-            b.add(StreetType.RESIDENTIAL_STREET,104,SettlementGrowthLayer.OUTER_GROWTH,p(-r*.38,-r*.48),p(0,-r*.62),p(r*.38,-r*.48));
+            b.add(StreetType.RESIDENTIAL_STREET,104,SettlementGrowthLayer.SUBURBAN_EXPANSION,p(-r*.38,-r*.48),p(0,-r*.62),p(r*.38,-r*.48));
     }
 
     private static void industrial(Builder b, double r, int tier) {
         planned(b,r,tier);
-        b.add(StreetType.BOULEVARD,124,SettlementGrowthLayer.INDUSTRIAL_BELT,p(0,0),p(r*.55,r*.25),p(r,r*.42));
-        b.add(StreetType.RESIDENTIAL_STREET,102,SettlementGrowthLayer.INDUSTRIAL_BELT,p(r*.55,r*.25),p(r*.52,-r*.25),p(r,-r*.4));
+        b.add(StreetType.BOULEVARD,124,SettlementGrowthLayer.INDUSTRIAL_EXPANSION,p(0,0),p(r*.55,r*.25),p(r,r*.42));
+        b.add(StreetType.RESIDENTIAL_STREET,102,SettlementGrowthLayer.INDUSTRIAL_EXPANSION,p(r*.55,r*.25),p(r*.52,-r*.25),p(r,-r*.4));
     }
 
     private static void planned(Builder b, double r, int tier) {
         b.add(StreetType.BOULEVARD,140,SettlementGrowthLayer.HISTORIC_CORE,p(-r,0),p(0,0),p(r,0));
         b.add(StreetType.ARTERIAL,136,SettlementGrowthLayer.HISTORIC_CORE,p(0,-r),p(0,0),p(0,r));
         double q=r*.55;
-        b.add(StreetType.RESIDENTIAL_STREET,110,SettlementGrowthLayer.INNER_GROWTH,p(-q,-q),p(-q,0),p(-q,q));
-        b.add(StreetType.RESIDENTIAL_STREET,110,SettlementGrowthLayer.INNER_GROWTH,p(q,-q),p(q,0),p(q,q));
+        b.add(StreetType.RESIDENTIAL_STREET,110,SettlementGrowthLayer.EARLY_EXPANSION,p(-q,-q),p(-q,0),p(-q,q));
+        b.add(StreetType.RESIDENTIAL_STREET,110,SettlementGrowthLayer.EARLY_EXPANSION,p(q,-q),p(q,0),p(q,q));
         if(tier>=Settlement.Tier.TOWN.ordinal()){
-            b.add(StreetType.RESIDENTIAL_STREET,106,SettlementGrowthLayer.INNER_GROWTH,p(-q,-q),p(0,-q),p(q,-q));
-            b.add(StreetType.RESIDENTIAL_STREET,106,SettlementGrowthLayer.INNER_GROWTH,p(-q,q),p(0,q),p(q,q));
+            b.add(StreetType.RESIDENTIAL_STREET,106,SettlementGrowthLayer.EARLY_EXPANSION,p(-q,-q),p(0,-q),p(q,-q));
+            b.add(StreetType.RESIDENTIAL_STREET,106,SettlementGrowthLayer.EARLY_EXPANSION,p(-q,q),p(0,q),p(q,q));
         }
     }
 
