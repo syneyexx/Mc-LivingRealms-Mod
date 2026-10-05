@@ -25,6 +25,7 @@ public final class IndustrialSiteMaterializer {
 
     public static void tick(ServerLevel level,LivingRealmsSavedData data){
         int remaining=Math.max(8,data.state().config().constructionBlockOpsPerTick()/4);
+        double presentationRadius=Math.max(96.0D,Math.min(512.0D,data.state().config().physicalRadiusBlocks()));
         Map<String,IndustrialSite> canonical=new HashMap<>();
         for(IndustrialSite site:data.state().industrialSites())canonical.put(key(site.factionId(),site.settlementId(),site.kind()),site);
         java.util.List<IndustrySitePlanner.Site> plannedSites=new java.util.ArrayList<>();
@@ -39,14 +40,14 @@ public final class IndustrialSiteMaterializer {
             IndustrialSite site=canonical.get(key(planned.factionId(),planned.settlementId(),planned.kind()));
             if(site==null)continue;
             // materialize() refuses unloaded chunks. Player proximity is presentation-only.
-            remaining-=materialize(level,ledger,site,planned,remaining);
+            remaining-=materialize(level,ledger,site,planned,remaining,presentationRadius);
         }
         cursor=Math.floorMod(cursor+Math.max(1,scanned),plannedSites.size());
     }
 
     public static void clear(){cursor=0;}
 
-    private static int materialize(ServerLevel level,AuthoredBlockLedger ledger,IndustrialSite site,IndustrySitePlanner.Site planned,int budget){
+    private static int materialize(ServerLevel level,AuthoredBlockLedger ledger,IndustrialSite site,IndustrySitePlanner.Site planned,int budget,double presentationRadius){
         BlockPos center=new BlockPos((int)Math.round(planned.center().x()),level.getSeaLevel(),(int)Math.round(planned.center().z()));if(!level.hasChunkAt(center))return 0;
         int y=level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,center.getX(),center.getZ())-1;if(y<=level.getMinBuildHeight()+1||y>=level.getMaxBuildHeight()-5)return 0;
         int used=0;BlockPos base=new BlockPos(center.getX(),y,center.getZ());
@@ -66,8 +67,7 @@ public final class IndustrialSiteMaterializer {
         // Status beacon: active=lit lamp, idle=unlit lamp, starved=red wool, damaged=orange wool, offline/broken=black wool.
         BlockState marker=statusMarker(site);
         used+=place(level,ledger,base.offset(0,1,2),marker);
-        boolean presentationNear=nearPlayer(level,planned.center(),
-                Math.max(96.0D,Math.min(512.0D,512.0D)));
+        boolean presentationNear=nearPlayer(level,planned.center(),presentationRadius);
         if(presentationNear&&site.status()==IndustrialSiteStatus.ACTIVE&&site.operational()&&used<budget){
             // Particle cue is presentation LOD only; block existence is chunk-driven above.
             level.sendParticles(net.minecraft.core.particles.ParticleTypes.CAMPFIRE_COSY_SMOKE,base.getX()+.5,base.getY()+3.2,base.getZ()+.5,1,0.15,0.2,0.15,0.01);
