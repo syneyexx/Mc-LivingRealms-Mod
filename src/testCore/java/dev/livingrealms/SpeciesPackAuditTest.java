@@ -1,6 +1,9 @@
 package dev.livingrealms;
 
 import dev.livingrealms.sim.data.SpeciesJsonCodec;
+import dev.livingrealms.sim.animal.AnimalBrain;
+import dev.livingrealms.sim.animal.AnimalIntent;
+import dev.livingrealms.sim.animal.AnimalStimulus;
 import dev.livingrealms.sim.biome.BiomeClassifier;
 import dev.livingrealms.sim.biome.BiomeSignalNormalizer;
 import dev.livingrealms.sim.ecology.*;
@@ -61,6 +64,28 @@ public final class SpeciesPackAuditTest {
         if(!BiomeClassifier.classifyId(BiomeSignalNormalizer.observation("minecraft:deep_frozen_ocean",List.of("minecraft:is_ocean"),.05,.5)).equals("deep_ocean"))throw new AssertionError("deep ocean mapping");
         if(!BiomeClassifier.classifyId(BiomeSignalNormalizer.observation("minecraft:mangrove_swamp",List.of("c:is_wetland"),.8,.9)).equals("mangrove"))throw new AssertionError("mangrove mapping");
         if(!BiomeClassifier.classifyId(BiomeSignalNormalizer.observation("modded:ancient_mountain_forest",List.of("c:is_mountain","c:is_forest"),.35,.7)).equals("montane_forest"))throw new AssertionError("modded tagged biome mapping");
+
+        // L1: attacksHumans decision — high aggression attacks; high fear flees (Minecraft-free).
+        SpeciesDefinition aggressor = all.values().stream()
+                .filter(SpeciesDefinition::attacksHumans)
+                .filter(s -> s.aggression() >= .55)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("pack must include an attacksHumans species"));
+        var attack = AnimalBrain.decide(aggressor, new AnimalStimulus(.2, .2, .1, 1, .1,
+                false, false, true, true, true, false, false, true));
+        if (attack.intent() != AnimalIntent.DEFEND || !"human_proximity".equals(attack.reason())) {
+            throw new AssertionError("high-aggression attacksHumans must choose attack vs human: " + attack);
+        }
+        SpeciesDefinition timid = all.values().stream()
+                .filter(s -> s.fearfulness() >= .7 && !s.attacksHumans())
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("pack must include a fearful non-attacker"));
+        var fleeHuman = AnimalBrain.decide(timid, new AnimalStimulus(.2, .2, .8, 1, .1,
+                false, false, true, true, true, false, false, true));
+        if (fleeHuman.intent() != AnimalIntent.FLEE) {
+            throw new AssertionError("high-fear species must flee humans: " + fleeHuman);
+        }
+
         System.out.println("PASS bundled species pack: "+all.size()+" species + explicit physics + colonization + schema8 ecosystem positions + biome normalization");
     }
 }

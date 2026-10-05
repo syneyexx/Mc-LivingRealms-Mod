@@ -165,6 +165,7 @@ public final class SimulationValidator {
                 if(h.active()&&member.alive()&&(member.factionId()!=h.factionId()||member.settlementId()!=h.settlementId()))errors.add("household "+h.id()+" active member location mismatch "+memberId);
             }
             for(DependentChild child:h.children()){
+                if(!h.active())continue; // deactivated households must not retain children after merge/adoption
                 id(canonicalIds,max,child.id(),"dependent child",errors);dependentIds.add(child.id());allPeopleIds.add(child.id());
                 if(child.birthDay()>state.clock().day())errors.add("dependent child "+child.id()+" born in future");
                 if(citizenIds.contains(child.id()))errors.add("dependent child "+child.id()+" already materialized as citizen");

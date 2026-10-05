@@ -126,7 +126,20 @@ public final class CivilizationLifecycleEngine {
             if(member==null||!member.alive()){household.removeMember(memberId);if(member!=null&&member.householdId()==household.id())member.setHouseholdId(0);}
         }
         // Merge households after partnership formation; oldest household survives to preserve a stable identity.
-        for(SocialCitizen citizen:state.socialCitizens())if(citizen.alive()&&citizen.householdId()>0)for(var e:citizen.relationships().entrySet())if(e.getValue().familyBond()==FamilyBond.PARTNER){SocialCitizen partner=state.findSocialCitizen(parseCitizenKey(e.getKey())).filter(SocialCitizen::alive).orElse(null);if(partner==null||partner.householdId()<=0||partner.householdId()==citizen.householdId())continue;HouseholdState a=byId.get(citizen.householdId()),b=byId.get(partner.householdId());if(a==null||b==null||a.factionId()!=b.factionId()||a.settlementId()!=b.settlementId())continue;HouseholdState keep=a.id()<b.id()?a:b,drop=keep==a?b:a;for(long member:new ArrayList<>(drop.memberIds()))if(keep.addMember(member)){state.findSocialCitizen(member).ifPresent(c->c.setHouseholdId(keep.id()));drop.removeMember(member);}for(DependentChild child:drop.children())keep.addChild(child);keep.adjustWealth(drop.sharedWealth());drop.deactivate();}
+        for(SocialCitizen citizen:state.socialCitizens())if(citizen.alive()&&citizen.householdId()>0)for(var e:citizen.relationships().entrySet())if(e.getValue().familyBond()==FamilyBond.PARTNER){
+            SocialCitizen partner=state.findSocialCitizen(parseCitizenKey(e.getKey())).filter(SocialCitizen::alive).orElse(null);
+            if(partner==null||partner.householdId()<=0||partner.householdId()==citizen.householdId())continue;
+            HouseholdState a=byId.get(citizen.householdId()),b=byId.get(partner.householdId());
+            if(a==null||b==null||a.factionId()!=b.factionId()||a.settlementId()!=b.settlementId())continue;
+            HouseholdState keep=a.id()<b.id()?a:b,drop=keep==a?b:a;
+            for(long member:new ArrayList<>(drop.memberIds()))if(keep.addMember(member)){state.findSocialCitizen(member).ifPresent(c->c.setHouseholdId(keep.id()));drop.removeMember(member);}
+            // Move children once — leaving them on the deactivated household would duplicate canonical ids.
+            double transferredWealth=drop.sharedWealth();
+            List<DependentChild> moving=new ArrayList<>(drop.children());
+            for(DependentChild child:moving)keep.addChild(child);
+            drop.restore(drop.memberIds(),List.of(),0,drop.homeKey(),false);
+            keep.adjustWealth(transferredWealth);
+        }
         for(HouseholdState household:state.households())if(household.active()&&household.memberIds().stream().noneMatch(id->state.findSocialCitizen(id).map(SocialCitizen::alive).orElse(false))&&household.children().isEmpty())household.deactivate();
         // Repair residual location drift (e.g. transfer/migration race): sync household to unanimous member location or clear links.
         for(HouseholdState household:state.households()){
