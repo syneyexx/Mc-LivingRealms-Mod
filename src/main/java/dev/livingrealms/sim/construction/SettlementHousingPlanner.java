@@ -153,6 +153,9 @@ final class SettlementHousingPlanner {
 
         SettlementStreetGraph extended = streetGraph.withAdditionalSegments(additions);
         SettlementRoadPlanner.addRoadSegments(out, faction, settlement, additions);
+        java.util.Set<String> extensionRoadKeys = additions.stream()
+                .map(SettlementStreetGraph.RoadSegment::key)
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
 
         int alreadyHouses = (int) out.stream().filter(i -> i.role() == StructureRole.HOUSE).count();
         List<SettlementParcelPlanner.ParcelPlan> extraParcels = new ArrayList<>(
@@ -166,6 +169,9 @@ final class SettlementHousingPlanner {
         int d = Math.max(9, culture.minHouseDepth());
         for (SettlementParcelPlanner.ParcelPlan parcel : extraParcels) {
             if (placed >= deficit) break;
+            // Fallback houses belong only to the graph lanes created for the shortage. Reusing
+            // base-street parcels would let later ordinary demand steal them and move house keys.
+            if (!extensionRoadKeys.contains(parcel.frontageSegmentKey())) continue;
             if (parcel.width() < w || parcel.depth() < d) continue;
             boolean clash = false;
             for (SimPosition pos : occupied) {
