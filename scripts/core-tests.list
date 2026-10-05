@@ -64,6 +64,7 @@ dev.livingrealms.SparseWorldPolicyTest
 dev.livingrealms.SettlementAnchorInvariantTest
 dev.livingrealms.ForeignSettlementSpacingTest
 dev.livingrealms.PlayerWarRoomTest
+dev.livingrealms.WarRoomOptionsBuilderTest
 dev.livingrealms.UnderworldGameplayTest
 dev.livingrealms.RoadLifeLayerTest
 dev.livingrealms.PlayerStructureRegistrationTest
