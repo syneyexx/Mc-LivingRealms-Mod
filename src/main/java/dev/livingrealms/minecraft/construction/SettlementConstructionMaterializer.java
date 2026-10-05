@@ -463,6 +463,7 @@ public final class SettlementConstructionMaterializer {
      * Omitted centerline cells (unloaded/steep/unusable) are counted so receipts cannot treat them as irrelevant.
      */
     private static RoadPlan roadOperations(ServerLevel level,ConstructionIntent intent){
+        if(intent.hasPath())return polylineRoadOperations(level,intent);
         int cx=(int)Math.round(intent.center().x()),cz=(int)Math.round(intent.center().z()),turns=Math.floorMod(intent.rotationQuarterTurns(),4);
         int hx=intent.width()/2,hz=intent.depth()/2;
         boolean rural=intent.width()<=3; // countryside dirt paths: floor only, no curb/fence
@@ -524,6 +525,81 @@ public final class SettlementConstructionMaterializer {
                 }else{
                     for(int y=target-1;y>surface&&y>=target-4;y--)
                         out.add(new BuildOperation(wx,y,wz,PaletteSlot.FOUNDATION,dev.livingrealms.sim.construction.ConstructionPhase.FOUNDATION));
+                }
+            }
+        }
+        return new RoadPlan(out,omittedRequired);
+    }
+
+    /** Materialize a true curved/diagonal street centerline emitted by SettlementStreetGraph. */
+    private static RoadPlan polylineRoadOperations(ServerLevel level,ConstructionIntent intent){
+        boolean rural=intent.width()<=3;
+        int half=Math.max(0,intent.width()/2);
+        java.util.List<BuildOperation> out=new java.util.ArrayList<>();
+        java.util.Set<Long> visitedRows=new java.util.HashSet<>();
+        int omittedRequired=0;
+        Integer previousTarget=null;
+
+        for(int segment=1;segment<intent.path().size();segment++){
+            var a=intent.path().get(segment-1);
+            var b=intent.path().get(segment);
+            double vx=b.x()-a.x(),vz=b.z()-a.z(),length=Math.hypot(vx,vz);
+            if(length<1e-6)continue;
+            double nx=-vz/length,nz=vx/length;
+            int steps=Math.max(1,(int)Math.ceil(length));
+            for(int step=0;step<=steps;step++){
+                double t=step/(double)steps;
+                int centerX=(int)Math.round(a.x()+vx*t),centerZ=(int)Math.round(a.z()+vz*t);
+                long rowKey=((long)centerX<<32)^(centerZ&0xffffffffL);
+                if(!visitedRows.add(rowKey))continue;
+                BlockPos centerProbe=new BlockPos(centerX,level.getSeaLevel(),centerZ);
+                if(!level.hasChunkAt(centerProbe)){
+                    omittedRequired+=Math.max(1,intent.width());
+                    continue;
+                }
+                int raw=naturalSurfaceY(level,centerX,centerZ);
+                if(raw<=level.getMinBuildHeight()+1){
+                    omittedRequired+=Math.max(1,intent.width());
+                    continue;
+                }
+                BlockState centerGround=level.getBlockState(new BlockPos(centerX,raw,centerZ));
+                boolean flooded=!centerGround.getFluidState().isEmpty()
+                        ||!level.getFluidState(new BlockPos(centerX,raw+1,centerZ)).isEmpty();
+                int target;
+                if(flooded){
+                    target=Math.max(level.getSeaLevel(),previousTarget==null?raw:previousTarget);
+                }else{
+                    target=previousTarget==null?raw:Math.max(previousTarget-1,Math.min(previousTarget+1,raw));
+                    if(previousTarget!=null&&Math.abs(raw-target)>4)target=Math.max(raw,previousTarget);
+                }
+                previousTarget=target;
+
+                for(int side=-half;side<=half;side++){
+                    int wx=(int)Math.round(centerX+nx*side),wz=(int)Math.round(centerZ+nz*side);
+                    BlockPos probe=new BlockPos(wx,level.getSeaLevel(),wz);
+                    if(!level.hasChunkAt(probe)){omittedRequired++;continue;}
+                    int surface=naturalSurfaceY(level,wx,wz);
+                    if(surface<=level.getMinBuildHeight()+1){omittedRequired++;continue;}
+                    for(int y=target+1;y<=Math.min(surface+8,target+10);y++){
+                        BlockPos clearPos=new BlockPos(wx,y,wz);
+                        BlockState st=level.getBlockState(clearPos);
+                        if(st.isAir())continue;
+                        if(st.canBeReplaced()||st.is(BlockTags.LEAVES)||st.is(Blocks.SNOW)||st.is(Blocks.MOSS_CARPET)
+                                ||WorldMutationGuard.isNaturalTreeLog(level,clearPos)){
+                            out.add(new BuildOperation(wx,y,wz,PaletteSlot.AIR,
+                                    dev.livingrealms.sim.construction.ConstructionPhase.CLEAR));
+                        }else break;
+                    }
+                    out.add(new BuildOperation(wx,target+1,wz,PaletteSlot.AIR,
+                            dev.livingrealms.sim.construction.ConstructionPhase.CLEAR));
+                    PaletteSlot slot=(!rural&&Math.abs(side)==half)?PaletteSlot.FOUNDATION:PaletteSlot.PATH;
+                    out.add(new BuildOperation(wx,target,wz,slot,
+                            dev.livingrealms.sim.construction.ConstructionPhase.FOUNDATION));
+                    if(surface<target){
+                        for(int y=Math.max(surface+1,target-16);y<target;y++)
+                            out.add(new BuildOperation(wx,y,wz,PaletteSlot.FOUNDATION,
+                                    dev.livingrealms.sim.construction.ConstructionPhase.FOUNDATION));
+                    }
                 }
             }
         }
