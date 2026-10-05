@@ -32,7 +32,7 @@ Convert Living Realms from a few god-classes into a **modular monolith**: Simula
 
 - Fixture: `DeterministicRefactorProofTest` seed `0xA4C417EC7F00D26L`
 - Checkpoints: day 30 and day 365 count bands (factions, settlements, population band, wars, routes)
-- Golden values documented in that test; intentional bugfix deltas must be commented there
+- Golden values documented in that test; day-365 people/routes refreshed after Wave 16/21 hooks (commented in test)
 
 ## 5. Documentation truth
 

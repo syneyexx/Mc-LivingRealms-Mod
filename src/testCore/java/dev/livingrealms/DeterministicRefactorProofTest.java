@@ -28,13 +28,16 @@ public final class DeterministicRefactorProofTest {
     private static final int DAY30_ROUTES = 102;
 
     // --- day 365 goldens ---
+    // Note (post Wave 16/21 API+historical-trace hooks): people 52092→52107 and routes 210→214
+    // vs the first Wave-26 capture on d0163b0. Intentional side-effect of lifecycle event publish
+    // / historical trace wiring — not a pin or seeder change. Population band unchanged (52).
     private static final int DAY365_FACTIONS = 24;
     private static final int DAY365_SETTLEMENTS = 87;
     private static final int DAY365_SURFACE = 82;
-    private static final int DAY365_PEOPLE = 52092;
+    private static final int DAY365_PEOPLE = 52107;
     private static final int DAY365_POP_BAND = 52;
     private static final long DAY365_WARS = 10;
-    private static final int DAY365_ROUTES = 210;
+    private static final int DAY365_ROUTES = 214;
 
     private DeterministicRefactorProofTest() {}
 
