@@ -10,6 +10,7 @@ import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
+import dev.livingrealms.sim.faction.SettlementRole;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -32,15 +33,6 @@ public final class SettlementDensitySeeder {
     /** Fresh worlds seed only one authored Spec satellite; remaining Specs stay in the expansion catalog. */
     public static final int MAX_AUTHORED_SATELLITES = 1;
     public static final int RURAL_HAMLETS_PER_REALM = 1;
-    /**
-     * Authoritative product floor for settlement-to-settlement spacing. Shared by seeding, founding,
-     * causal expansion, foreign adoption, migration founding, tests, and dashboard guidance.
-     * Never encoded in datapack JSON.
-     */
-    public static final double MIN_SETTLEMENT_SPACING = 2000.0;
-    /** Preferred legal satellite radius band for fresh sparse placement. */
-    public static final double SPARSE_SATELLITE_RADIUS_MIN = 2200.0;
-    public static final double SPARSE_SATELLITE_RADIUS_MAX = 3000.0;
     /** Surface starter total excluding Wizard Trees: 12 × TARGET. */
     public static final int SURFACE_STARTER_SETTLEMENTS = 36;
     private static final String[] RURAL_SUFFIXES = {"Croft","End","Green","Thorp","Wick","Fold","Ley","Combe"};
@@ -82,7 +74,7 @@ public final class SettlementDensitySeeder {
             faction.restoreTreasury(spec.treasury());
             Settlement capital = new Settlement(state.nextId(), spec.capitalName(),
                     new SimPosition(spec.x(), spec.z()), spec.capitalPopulation(), spec.capitalHousing(),
-                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO);
+                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO, SettlementRole.CAPITAL);
             faction.addSettlement(capital);
             faction.addArmy(new Army(state.nextId(), faction.id(), new SimPosition(spec.x() + 55, spec.z() + 35), spec.armyInfantry()));
             state.addFaction(faction);
@@ -94,7 +86,7 @@ public final class SettlementDensitySeeder {
         if (capital == null) {
             capital = new Settlement(state.nextId(), spec.capitalName(),
                     new SimPosition(spec.x(), spec.z()), spec.capitalPopulation(), spec.capitalHousing(),
-                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO);
+                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO, SettlementRole.CAPITAL);
             faction.addSettlement(capital);
             changes++;
         } else {
@@ -131,10 +123,11 @@ public final class SettlementDensitySeeder {
         RealmDefinition.SatelliteDefinition spec = specs.get(pick);
         if (settlement(faction, spec.name()) != null) return 0;
 
-        SimPosition position = placeSparseSatellite(state, origin, faction.id(), spec.dx(), spec.dz(), 0);
-        if (position == null || tooCloseAny(state, position, MIN_SETTLEMENT_SPACING)) return 0;
+        SettlementRole role = SettlementRole.fromPopulation(spec.population());
+        SimPosition position = placeStarterChild(state, origin, faction.id(), spec.dx(), spec.dz(), 0, role);
+        if (position == null || tooCloseAny(state, position, role)) return 0;
         faction.addSettlement(new Settlement(state.nextId(), spec.name(), position, spec.population(), spec.housing(),
-                SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO));
+                SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO, role));
         return 1;
     }
 
@@ -152,24 +145,21 @@ public final class SettlementDensitySeeder {
             if (suffixIndex >= RURAL_SUFFIXES.length) name = name + " " + (suffixIndex / RURAL_SUFFIXES.length + 1);
             if (settlement(faction, name) != null) continue;
             // Different sector from satellite: offset angle by ~2.0 rad from satellite bias.
-            SimPosition position = placeSparseSatellite(state, origin, faction.id(),
-                    Math.cos(2.0 + attempt), Math.sin(2.0 + attempt), 50 + attempt);
-            if (position == null || tooCloseAny(state, position, MIN_SETTLEMENT_SPACING)) continue;
+            SimPosition position = placeStarterChild(state, origin, faction.id(),
+                    Math.cos(2.0 + attempt), Math.sin(2.0 + attempt), 50 + attempt, SettlementRole.HAMLET);
+            if (position == null || tooCloseAny(state, position, SettlementRole.HAMLET)) continue;
             int pop = 48 + Math.floorMod((int) mix(state.seed() ^ faction.id() ^ (attempt * 17L)), 40);
             Settlement hamlet = new Settlement(state.nextId(), name, position, pop, (int) Math.ceil(pop * 1.2),
-                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO);
+                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO, SettlementRole.HAMLET);
             faction.addSettlement(hamlet);
             added++;
         }
         return added;
     }
 
-    /**
-     * Place using authored directional bias normalized to a legal sparse radius (2200–3000).
-     * Verifies against every already-planned settlement before returning.
-     */
-    private static SimPosition placeSparseSatellite(SimulationState state, SimPosition origin, long factionId,
-                                                    double dx, double dz, int salt) {
+    /** Place a deterministic starter child inside its role-aware preferred band where possible. */
+    private static SimPosition placeStarterChild(SimulationState state, SimPosition origin, long factionId,
+                                                 double dx, double dz, int salt, SettlementRole role) {
         double len = Math.hypot(dx, dz);
         if (len < 1e-6) {
             long m = mix(state.seed() ^ factionId ^ salt);
@@ -180,17 +170,18 @@ public final class SettlementDensitySeeder {
         }
         double nx = dx / len, nz = dz / len;
         long m = mix(state.seed() ^ factionId ^ (salt * 0x9E3779B97F4A7C15L));
-        double radius = SPARSE_SATELLITE_RADIUS_MIN
-                + (((m >>> 21) & 0x3FFL) / 1023.0) * (SPARSE_SATELLITE_RADIUS_MAX - SPARSE_SATELLITE_RADIUS_MIN);
+        SettlementSpacingPolicy.Range preferred =
+                SettlementSpacingPolicy.preferredRange(SettlementRole.CAPITAL, role);
+        double radius = preferred.at(((m >>> 21) & 0x3FFL) / 1023.0);
         for (int ring = 0; ring < 16; ring++) {
-            double r = radius + ring * 140.0;
+            double r = radius + ring * 40.0;
             for (int attempt = 0; attempt < 12; attempt++) {
-                double angJitter = attempt * (Math.PI * 2.0 / 12.0) * 0.08;
+                double angJitter = attempt * (Math.PI * 2.0 / 12.0) * 0.10;
                 double cos = Math.cos(angJitter), sin = Math.sin(angJitter);
                 double bx = nx * cos - nz * sin;
                 double bz = nx * sin + nz * cos;
                 SimPosition candidate = new SimPosition(origin.x() + bx * r, origin.z() + bz * r);
-                if (!tooCloseAny(state, candidate, MIN_SETTLEMENT_SPACING)) return candidate;
+                if (!tooCloseAny(state, candidate, role)) return candidate;
             }
         }
         return null;
@@ -209,10 +200,11 @@ public final class SettlementDensitySeeder {
         return false;
     }
 
-    private static boolean tooCloseAny(SimulationState state, SimPosition p, double spacing) {
+    private static boolean tooCloseAny(SimulationState state, SimPosition p, SettlementRole role) {
         for (Faction f : state.factions()) {
             for (Settlement s : f.settlements()) {
-                if (p.distanceTo(s.position()) < spacing) return true;
+                double floor = SettlementSpacingPolicy.minimumDistance(role, s.role());
+                if (p.distanceTo(s.position()) < floor) return true;
             }
         }
         return false;
