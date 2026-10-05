@@ -29,6 +29,7 @@ public final class FactionCitizenEntity extends PathfinderMob {
     private static final EntityDataAccessor<Long> FACTION_ID=SynchedEntityData.defineId(FactionCitizenEntity.class,EntityDataSerializers.LONG);
     private static final EntityDataAccessor<Long> SETTLEMENT_ID=SynchedEntityData.defineId(FactionCitizenEntity.class,EntityDataSerializers.LONG);
     private static final EntityDataAccessor<Long> CITIZEN_ID=SynchedEntityData.defineId(FactionCitizenEntity.class,EntityDataSerializers.LONG);
+    private static final EntityDataAccessor<Long> JOURNEY_ID=SynchedEntityData.defineId(FactionCitizenEntity.class,EntityDataSerializers.LONG);
     private static final EntityDataAccessor<Integer> SLOT=SynchedEntityData.defineId(FactionCitizenEntity.class,EntityDataSerializers.INT);
     private static final EntityDataAccessor<String> ROLE=SynchedEntityData.defineId(FactionCitizenEntity.class,EntityDataSerializers.STRING);
     private static final EntityDataAccessor<String> PERSON_NAME=SynchedEntityData.defineId(FactionCitizenEntity.class,EntityDataSerializers.STRING);
@@ -40,16 +41,25 @@ public final class FactionCitizenEntity extends PathfinderMob {
     public FactionCitizenEntity(EntityType<? extends FactionCitizenEntity> type,Level level){super(type,level);setPersistenceRequired();}
     public static AttributeSupplier.Builder createAttributes(){return PathfinderMob.createMobAttributes().add(Attributes.MAX_HEALTH,20).add(Attributes.MOVEMENT_SPEED,.27).add(Attributes.FOLLOW_RANGE,28).add(Attributes.ATTACK_DAMAGE,3).add(Attributes.ARMOR,1);}
     @Override protected void registerGoals(){goalSelector.addGoal(0,new FloatGoal(this));goalSelector.addGoal(2,new MeleeAttackGoal(this,1.1,true));goalSelector.addGoal(6,new WaterAvoidingRandomStrollGoal(this,.85));goalSelector.addGoal(7,new LookAtPlayerGoal(this,Player.class,10));goalSelector.addGoal(8,new RandomLookAroundGoal(this));}
-    @Override protected void defineSynchedData(SynchedEntityData.Builder b){super.defineSynchedData(b);b.define(FACTION_ID,0L);b.define(SETTLEMENT_ID,0L);b.define(CITIZEN_ID,0L);b.define(SLOT,-1);b.define(ROLE,CitizenRole.FARMER.name());b.define(PERSON_NAME,"");b.define(SKIN_VARIANT,0);}
+    @Override protected void defineSynchedData(SynchedEntityData.Builder b){super.defineSynchedData(b);b.define(FACTION_ID,0L);b.define(SETTLEMENT_ID,0L);b.define(CITIZEN_ID,0L);b.define(JOURNEY_ID,0L);b.define(SLOT,-1);b.define(ROLE,CitizenRole.FARMER.name());b.define(PERSON_NAME,"");b.define(SKIN_VARIANT,0);}
 
-    public void initializeProjection(SocialCitizen citizen){if(citizen==null||!citizen.alive())throw new IllegalArgumentException("social citizen");entityData.set(FACTION_ID,citizen.factionId());entityData.set(SETTLEMENT_ID,citizen.settlementId());entityData.set(CITIZEN_ID,citizen.id());entityData.set(SLOT,citizen.projectionSlot());entityData.set(ROLE,citizen.role().name());entityData.set(PERSON_NAME,citizen.name());entityData.set(SKIN_VARIANT,citizen.skinVariant());applyRole();}
-    public long factionId(){return entityData.get(FACTION_ID);}public long settlementId(){return entityData.get(SETTLEMENT_ID);}public long citizenId(){return entityData.get(CITIZEN_ID);}public int projectionSlot(){return entityData.get(SLOT);}public String personName(){return entityData.get(PERSON_NAME);}public int skinVariant(){return entityData.get(SKIN_VARIANT);}public void setSkinVariant(int variant){entityData.set(SKIN_VARIANT,Math.floorMod(variant,48));}public CitizenRole role(){try{return CitizenRole.valueOf(entityData.get(ROLE));}catch(IllegalArgumentException ex){return CitizenRole.FARMER;}}
+    public void initializeProjection(SocialCitizen citizen){if(citizen==null||!citizen.alive())throw new IllegalArgumentException("social citizen");entityData.set(FACTION_ID,citizen.factionId());entityData.set(SETTLEMENT_ID,citizen.settlementId());entityData.set(CITIZEN_ID,citizen.id());entityData.set(JOURNEY_ID,0L);entityData.set(SLOT,citizen.projectionSlot());entityData.set(ROLE,citizen.role().name());entityData.set(PERSON_NAME,citizen.name());entityData.set(SKIN_VARIANT,citizen.skinVariant());applyRole();}
+    /** Physical representative of an active road {@link CitizenJourney}; distinct from settlement-slot citizens. */
+    public void initializeJourney(long journeyId,long factionId,long originSettlementId,long citizenId,CitizenRole role,String name,int skinVariant){
+        if(journeyId<=0||factionId<=0||originSettlementId<=0||role==null)throw new IllegalArgumentException("journey projection");
+        entityData.set(FACTION_ID,factionId);entityData.set(SETTLEMENT_ID,originSettlementId);entityData.set(CITIZEN_ID,Math.max(0,citizenId));entityData.set(JOURNEY_ID,journeyId);entityData.set(SLOT,-1);entityData.set(ROLE,role.name());
+        String person=name==null||name.isBlank()?"Traveler":name.strip();if(person.length()>48)person=person.substring(0,48);
+        entityData.set(PERSON_NAME,person);entityData.set(SKIN_VARIANT,Math.floorMod(skinVariant,48));applyRole();
+        setCustomName(Component.literal(person));setCustomNameVisible(false);
+    }
+    public long factionId(){return entityData.get(FACTION_ID);}public long settlementId(){return entityData.get(SETTLEMENT_ID);}public long citizenId(){return entityData.get(CITIZEN_ID);}public long journeyId(){return entityData.get(JOURNEY_ID);}public boolean isJourneyProjection(){return journeyId()>0;}public int projectionSlot(){return entityData.get(SLOT);}public String personName(){return entityData.get(PERSON_NAME);}public int skinVariant(){return entityData.get(SKIN_VARIANT);}public void setSkinVariant(int variant){entityData.set(SKIN_VARIANT,Math.floorMod(variant,48));}public CitizenRole role(){try{return CitizenRole.valueOf(entityData.get(ROLE));}catch(IllegalArgumentException ex){return CitizenRole.FARMER;}}
     public boolean isDematerializing(){return dematerializing;}public boolean deathReported(){return deathReported;}public void markDeathReported(){deathReported=true;}public boolean isSpeaking(){return tickCount<speechUntilTick;}public void speak(String text,int durationTicks){if(text==null||text.isBlank()||durationTicks<=0)return;String line=text.replace('\n',' ').trim();if(line.length()>140)line=line.substring(0,139)+"…";setCustomName(Component.literal(personName().isBlank()?line:personName()+": "+line));setCustomNameVisible(true);speechUntilTick=(long)tickCount+durationTicks;}public void dematerialize(){dematerializing=true;discard();}
 
     @Override public void tick(){
         super.tick();
         if(!level().isClientSide()&&speechUntilTick>0&&tickCount>=speechUntilTick){speechUntilTick=0;setCustomName(Component.literal(personName().isBlank()?role().name().toLowerCase().replace('_',' '):personName()));setCustomNameVisible(false);}
         if(level().isClientSide()||tickCount%20!=0||!(level() instanceof ServerLevel sl)||factionId()<=0)return;
+        if(isJourneyProjection()){tickJourney(sl);return;}
         var data=SimulationRuntime.data(sl.getServer());
         var state=data.state();
         if(citizenId()<=0&&settlementId()>0&&projectionSlot()>=0){SocialCitizen social=state.ensureSocialCitizen(factionId(),settlementId(),projectionSlot(),role());bindSocialCitizen(social);data.setDirty();}
@@ -92,6 +102,18 @@ public final class FactionCitizenEntity extends PathfinderMob {
             }
             case LETHAL_FORCE -> setTarget(suspect);
         }
+    }
+
+    private void tickJourney(ServerLevel sl){
+        var state=SimulationRuntime.data(sl.getServer()).state();
+        var journey=state.findCitizenJourney(journeyId()).orElse(null);
+        if(journey==null||!journey.active()){dematerialize();return;}
+        setTarget(null);
+        var pos=dev.livingrealms.sim.world.projection.CitizenJourneyMaterializationPlanner.positionOf(state,journey);
+        if(pos==null){dematerialize();return;}
+        double dx=pos.x()-getX(),dz=pos.z()-getZ(),drift=Math.hypot(dx,dz);
+        if(drift>140){moveTo(pos.x(),getY(),pos.z(),getYRot(),getXRot());getNavigation().stop();}
+        else if(drift>8)getNavigation().moveTo(pos.x(),getY(),pos.z(),1.05);
     }
 
     private void huntWildlife(ServerLevel level){
@@ -170,6 +192,6 @@ public final class FactionCitizenEntity extends PathfinderMob {
 
     private void applyRole(){CitizenRole role=role();double hp=role==CitizenRole.GUARD?28:20,attack=role==CitizenRole.GUARD?5:2,armor=role==CitizenRole.GUARD?4:1;setBase(Attributes.MAX_HEALTH,hp);setBase(Attributes.ATTACK_DAMAGE,attack);setBase(Attributes.ARMOR,armor);setHealth(getMaxHealth());setCustomName(Component.literal(personName().isBlank()?role.name().toLowerCase().replace('_',' '):personName()));setCustomNameVisible(false);if(!level().isClientSide()&&factionId()>0&&projectionSlot()>=0)CompatibleContentRuntime.equipCitizen(this,factionId(),role,projectionSlot());}
     private void setBase(net.minecraft.core.Holder<Attribute> attribute,double value){AttributeInstance i=getAttribute(attribute);if(i!=null)i.setBaseValue(value);}
-    @Override public void addAdditionalSaveData(CompoundTag tag){super.addAdditionalSaveData(tag);tag.putLong("LivingRealmsFaction",factionId());tag.putLong("LivingRealmsSettlement",settlementId());tag.putLong("LivingRealmsCitizen",citizenId());tag.putInt("LivingRealmsSlot",projectionSlot());tag.putString("LivingRealmsRole",role().name());tag.putString("LivingRealmsName",personName());tag.putInt("LivingRealmsSkin",skinVariant());tag.putBoolean("LivingRealmsDematerializing",dematerializing);tag.putBoolean("LivingRealmsDeathReported",deathReported);tag.putLong("LivingRealmsSpeechRemaining",Math.max(0L,speechUntilTick-tickCount));}
-    @Override public void readAdditionalSaveData(CompoundTag tag){super.readAdditionalSaveData(tag);entityData.set(FACTION_ID,tag.getLong("LivingRealmsFaction"));entityData.set(SETTLEMENT_ID,tag.getLong("LivingRealmsSettlement"));entityData.set(CITIZEN_ID,tag.getLong("LivingRealmsCitizen"));entityData.set(SLOT,tag.getInt("LivingRealmsSlot"));entityData.set(ROLE,tag.getString("LivingRealmsRole"));String restoredName=tag.getString("LivingRealmsName");if(restoredName.isBlank()){CitizenIdentity identity=CitizenIdentity.forProjection(factionId(),settlementId(),Math.max(0,projectionSlot()),role());restoredName=identity.name();entityData.set(SKIN_VARIANT,identity.skinVariant());}else entityData.set(SKIN_VARIANT,Math.floorMod(tag.getInt("LivingRealmsSkin"),48));entityData.set(PERSON_NAME,restoredName);dematerializing=tag.getBoolean("LivingRealmsDematerializing");deathReported=tag.getBoolean("LivingRealmsDeathReported");speechUntilTick=(long)tickCount+Math.max(0L,tag.getLong("LivingRealmsSpeechRemaining"));applyRole();}
+    @Override public void addAdditionalSaveData(CompoundTag tag){super.addAdditionalSaveData(tag);tag.putLong("LivingRealmsFaction",factionId());tag.putLong("LivingRealmsSettlement",settlementId());tag.putLong("LivingRealmsCitizen",citizenId());tag.putLong("LivingRealmsJourney",journeyId());tag.putInt("LivingRealmsSlot",projectionSlot());tag.putString("LivingRealmsRole",role().name());tag.putString("LivingRealmsName",personName());tag.putInt("LivingRealmsSkin",skinVariant());tag.putBoolean("LivingRealmsDematerializing",dematerializing);tag.putBoolean("LivingRealmsDeathReported",deathReported);tag.putLong("LivingRealmsSpeechRemaining",Math.max(0L,speechUntilTick-tickCount));}
+    @Override public void readAdditionalSaveData(CompoundTag tag){super.readAdditionalSaveData(tag);entityData.set(FACTION_ID,tag.getLong("LivingRealmsFaction"));entityData.set(SETTLEMENT_ID,tag.getLong("LivingRealmsSettlement"));entityData.set(CITIZEN_ID,tag.getLong("LivingRealmsCitizen"));entityData.set(JOURNEY_ID,tag.getLong("LivingRealmsJourney"));entityData.set(SLOT,tag.getInt("LivingRealmsSlot"));entityData.set(ROLE,tag.getString("LivingRealmsRole"));String restoredName=tag.getString("LivingRealmsName");if(restoredName.isBlank()){CitizenIdentity identity=CitizenIdentity.forProjection(factionId(),settlementId(),Math.max(0,projectionSlot()),role());restoredName=identity.name();entityData.set(SKIN_VARIANT,identity.skinVariant());}else entityData.set(SKIN_VARIANT,Math.floorMod(tag.getInt("LivingRealmsSkin"),48));entityData.set(PERSON_NAME,restoredName);dematerializing=tag.getBoolean("LivingRealmsDematerializing");deathReported=tag.getBoolean("LivingRealmsDeathReported");speechUntilTick=(long)tickCount+Math.max(0L,tag.getLong("LivingRealmsSpeechRemaining"));applyRole();}
 }

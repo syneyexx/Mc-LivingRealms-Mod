@@ -62,6 +62,28 @@ public final class RuntimeProjectionPolicy {
     public static int pirateBudget(SimulationConfig config) {Objects.requireNonNull(config,"config");return Math.max(2,Math.min(24,Math.max(2,config.maxPhysicalNavalEntities()/2)));}
     public static double pirateRadiusBlocks(SimulationConfig config) {Objects.requireNonNull(config,"config");return navalRadiusBlocks(config);}
 
+    /** Sparse road travelers: one physical body per active CitizenJourney near players. */
+    public static int journeyBudget(SimulationConfig config) {
+        Objects.requireNonNull(config, "config");
+        return Math.max(4, Math.min(24, citizenBudget(config) / 8));
+    }
+
+    public static double journeyRadiusBlocks(SimulationConfig config) {
+        Objects.requireNonNull(config, "config");
+        return Math.max(480.0D, config.physicalRadiusBlocks() * 1.35D);
+    }
+
+    /** Sparse roadside sites share the historical-site activation envelope. */
+    public static int roadsideSiteBudget(SimulationConfig config) {
+        Objects.requireNonNull(config, "config");
+        return Math.max(2, Math.min(12, Math.max(2, config.maxPhysicalCaravans() / 4)));
+    }
+
+    public static double roadsideSiteRadiusBlocks(SimulationConfig config) {
+        Objects.requireNonNull(config, "config");
+        return Math.max(384.0D, config.physicalRadiusBlocks());
+    }
+
     public static double militaryRadiusBlocks(SimulationConfig config) {
         Objects.requireNonNull(config, "config");
         return config.physicalRadiusBlocks();

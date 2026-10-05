@@ -346,42 +346,89 @@ public final class SettlementPlanner {
             emitted++;
         }
         // Road-first invariant: never spiral-place houses off the street graph.
-        // Remaining demand is deferred until parcels/lanes can be extended.
-        if (emitted < houses) {
-            extendSideStreetsForHousing(out, faction, settlement, streetGraph, baseRotation, houses - emitted);
+        // Remaining demand extends side streets / lanes, then fills new frontage parcels.
+        // CAMP/HAMLET keep a sparse countryside path — do not grid-extend them.
+        if (emitted < houses && settlement.tier().ordinal() >= Settlement.Tier.VILLAGE.ordinal()) {
+            extendSideStreetsForHousing(out, faction, settlement, streetGraph, baseRotation,
+                    houses - emitted, culture);
         }
     }
 
     /**
-     * When parcels are insufficient, extend short side lanes from existing streets and reserve
-     * additional frontage parcels. Does not place free-floating houses.
+     * When parcels are insufficient, extend short side lanes from existing streets, rebuild the
+     * street graph, and reserve additional frontage parcels. Never places free-floating houses.
      */
     private static void extendSideStreetsForHousing(List<ConstructionIntent> out, Faction faction, Settlement settlement,
-                                                   SettlementStreetGraph streetGraph, int baseRotation, int deficit) {
+                                                   SettlementStreetGraph streetGraph, int baseRotation, int deficit,
+                                                   CultureArchitecture culture) {
         if (deficit <= 0 || streetGraph == null || streetGraph.segmentByKey().isEmpty()) return;
         int startIndex = (int) out.stream().filter(i -> i.role() == StructureRole.ROAD).count();
-        int added = 0;
+        int lanesNeeded = Math.min(24, Math.max(2, (int) Math.ceil(deficit / 3.0)));
         int lane = 0;
-        for (SettlementStreetGraph.RoadSegment segment : streetGraph.segmentByKey().values()) {
-            if (added >= deficit) break;
-            if (segment.length() < 9) continue;
-            double midX = (segment.start().x() + segment.end().x()) * 0.5;
-            double midZ = (segment.start().z() + segment.end().z()) * 0.5;
-            double dx = segment.end().x() - segment.start().x();
-            double dz = segment.end().z() - segment.start().z();
-            double len = Math.hypot(dx, dz);
-            if (len < 1) continue;
-            double nx = -dz / len;
-            double nz = dx / len;
-            int side = (lane & 1) == 0 ? 1 : -1;
-            SimPosition center = new SimPosition(midX + nx * 14 * side, midZ + nz * 14 * side);
-            addRoad(out, faction, settlement, startIndex + lane, center, 5, 17, baseRotation + ((lane & 1) == 0 ? 0 : 1), 90, 1);
-            int face = Math.floorMod(baseRotation + (side > 0 ? 0 : 2), 4);
-            SimPosition house = new SimPosition(midX + nx * 8 * side, midZ + nz * 8 * side);
-            addAt(out, faction, settlement, StructureRole.HOUSE, 900 + lane, house, 9, 9, face, 86);
-            added++;
-            lane++;
-            if (lane >= Math.min(deficit, 8)) break;
+        List<SettlementStreetGraph.RoadSegment> spines = new ArrayList<>(streetGraph.segmentByKey().values());
+        spines.sort(Comparator.comparingInt(SettlementStreetGraph.RoadSegment::priority).reversed()
+                .thenComparing(SettlementStreetGraph.RoadSegment::key));
+        for (int ring = 1; ring <= 4 && lane < lanesNeeded; ring++) {
+            for (SettlementStreetGraph.RoadSegment segment : spines) {
+                if (lane >= lanesNeeded) break;
+                if (segment.length() < 12) continue;
+                double midX = (segment.start().x() + segment.end().x()) * 0.5;
+                double midZ = (segment.start().z() + segment.end().z()) * 0.5;
+                double dx = segment.end().x() - segment.start().x();
+                double dz = segment.end().z() - segment.start().z();
+                double len = Math.hypot(dx, dz);
+                if (len < 1) continue;
+                double ux = dx / len;
+                double uz = dz / len;
+                double nx = -uz;
+                double nz = ux;
+                int side = (lane & 1) == 0 ? 1 : -1;
+                double offset = 14.0 * ring;
+                // Shift along the spine so successive rings do not stack on the same mid-point.
+                double alongShift = ((lane / 2) % 3 - 1) * 11.0;
+                SimPosition center = new SimPosition(
+                        midX + ux * alongShift + nx * offset * side,
+                        midZ + uz * alongShift + nz * offset * side);
+                int roadRot = Math.abs(dx) >= Math.abs(dz)
+                        ? baseRotation + ((lane & 1) == 0 ? 0 : 1)
+                        : baseRotation + ((lane & 1) == 0 ? 1 : 0);
+                int roadLen = Math.max(17, Math.min(41, (int) Math.round(segment.length() * 0.45)));
+                addRoad(out, faction, settlement, startIndex + lane, center, 5, roadLen, roadRot, 90, ring);
+                lane++;
+            }
+        }
+        if (lane == 0) return;
+        // Rebuild graph including the new lanes, then place houses on the fresh parcels only.
+        SettlementStreetGraph extended = SettlementStreetGraph.fromRoadIntents(settlement.id(),
+                out.stream().filter(i -> i.role() == StructureRole.ROAD).toList());
+        int alreadyHouses = (int) out.stream().filter(i -> i.role() == StructureRole.HOUSE).count();
+        List<SettlementParcelPlanner.ParcelPlan> extraParcels = new ArrayList<>(
+                SettlementParcelPlanner.plan(extended, faction, settlement, alreadyHouses + deficit));
+        // Skip parcels that collide with already-emitted houses.
+        List<SimPosition> occupied = out.stream()
+                .filter(i -> i.role() == StructureRole.HOUSE)
+                .map(ConstructionIntent::center)
+                .toList();
+        int houseIndex = 900;
+        int placed = 0;
+        int w = Math.max(9, culture.minHouseWidth());
+        int d = Math.max(9, culture.minHouseDepth());
+        for (SettlementParcelPlanner.ParcelPlan parcel : extraParcels) {
+            if (placed >= deficit) break;
+            if (parcel.width() < w || parcel.depth() < d) continue;
+            boolean clash = false;
+            for (SimPosition pos : occupied) {
+                if (Math.abs(pos.x() - parcel.center().x()) < (w + parcel.width()) / 2.0 + 2
+                        && Math.abs(pos.z() - parcel.center().z()) < (d + parcel.depth()) / 2.0 + 2) {
+                    clash = true;
+                    break;
+                }
+            }
+            if (clash) continue;
+            addAt(out, faction, settlement, StructureRole.HOUSE, houseIndex + placed, parcel.center(),
+                    Math.min(parcel.width(), w + 2), Math.min(parcel.depth(), d + 2),
+                    parcel.orientationQuarterTurns(), 86);
+            placed++;
         }
     }
 

@@ -353,6 +353,19 @@ public final class SimulationState {
     public boolean recordPhysicalShipLoss(long fleetId,ShipClass shipClass,int count,String cause){if(count<=0)throw new IllegalArgumentException("count");Fleet fleet=findFleet(fleetId).orElse(null);if(fleet==null||fleet.destroyed()||fleet.count(shipClass)<=0)return false;int before=fleet.count(shipClass);fleet.loseShips(shipClass,count);int lost=before-fleet.count(shipClass);history.add(new WorldEvent(clock.day(),"ship_loss","fleet="+fleetId+", class="+shipClass+", count="+lost+", cause="+Objects.requireNonNullElse(cause,"unknown")));removeDestroyedFleets();return lost>0;}
     public boolean recordPhysicalMigrationLoss(long groupId,int representedPeople,String cause){if(representedPeople<=0)throw new IllegalArgumentException("representedPeople");MigrationGroup group=findMigrationGroup(groupId).orElse(null);if(group==null||!group.active()||group.people()<=0)return false;int before=group.people();group.losePeople(Math.min(representedPeople,before));int lost=before-group.people();history.add(new WorldEvent(clock.day(),"migration_group_loss","group="+groupId+", people="+lost+", cause="+Objects.requireNonNullElse(cause,"unknown")));return lost>0;}
     public boolean recordPhysicalPirateLoss(long bandId,int representedPirates,String cause){if(representedPirates<=0)throw new IllegalArgumentException("representedPirates");PirateBand band=findPirateBand(bandId).orElse(null);if(band==null||!band.active())return false;int before=band.strength();band.loseStrength(Math.min(representedPirates,before));int lost=before-band.strength();history.add(new WorldEvent(clock.day(),"pirate_loss","band="+bandId+", pirates="+lost+", cause="+Objects.requireNonNullElse(cause,"unknown")));return lost>0;}
+    /**
+     * Maps a physical traveler death onto the canonical journey exactly once.
+     * Dematerialization / LOD despawn must never call this — only real entity death.
+     */
+    public boolean recordPhysicalJourneyDeath(long journeyId,String cause){
+        CitizenJourney journey=findCitizenJourney(journeyId).orElse(null);
+        if(journey==null||!journey.active())return false;
+        journey.abort();
+        history.add(new WorldEvent(clock.day(),"citizen_journey_killed",
+                "journey="+journeyId+", purpose="+journey.purpose().name()
+                        +", cause="+Objects.requireNonNullElse(cause,"unknown")));
+        return true;
+    }
 
     public CrimeResult reportCrime(String actorKey,long jurisdictionFactionId,CrimeType type,double value,SimPosition position,boolean witnessed,int witnessCount,String victimKey,String evidence){
         CrimeIncident incident=new CrimeIncident(nextId(),clock.day(),actorKey,jurisdictionFactionId,type,value,position,witnessed,witnessCount,victimKey,evidence);

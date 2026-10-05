@@ -2,8 +2,11 @@ package dev.livingrealms.minecraft.gametest;
 
 import dev.livingrealms.LivingRealms;
 import dev.livingrealms.minecraft.construction.WorldMutationGuard;
+import dev.livingrealms.minecraft.presentation.SeasonalFarmPresentationRuntime;
 import dev.livingrealms.sim.construction.AuthoredBlockLedger;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
+import dev.livingrealms.sim.presentation.SeasonalFarmPresentation;
+import dev.livingrealms.sim.presentation.SeasonalFarmPresentationPlan;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -96,6 +99,54 @@ public final class LivingRealmsGameTests {
                 helper.getLevel(), abs, Blocks.DIRT_PATH.defaultBlockState(), ledger,
                 AuthoredOwnerType.INTERCITY_ROUTE, true, false), "route must not steal settlement structure");
         helper.assertBlockPresent(Blocks.STONE_BRICKS, pos);
+        helper.succeed();
+    }
+
+    @GameTest(template = "gametests/empty", timeoutTicks = 20)
+    public static void seasonalFarmTouchesOnlyAuthoredLand(GameTestHelper helper) {
+        AuthoredBlockLedger ledger = new AuthoredBlockLedger();
+        BlockPos authoredFarm = new BlockPos(5, 2, 5);
+        BlockPos playerFarm = new BlockPos(6, 2, 6);
+        helper.setBlock(authoredFarm, Blocks.FARMLAND);
+        helper.setBlock(authoredFarm.above(), Blocks.WHEAT.defaultBlockState().setValue(
+                net.minecraft.world.level.block.CropBlock.AGE, 3));
+        helper.setBlock(playerFarm, Blocks.FARMLAND);
+        helper.setBlock(playerFarm.above(), Blocks.WHEAT.defaultBlockState().setValue(
+                net.minecraft.world.level.block.CropBlock.AGE, 3));
+
+        BlockPos authoredAbs = helper.absolutePos(authoredFarm);
+        BlockPos playerAbs = helper.absolutePos(playerFarm);
+        helper.assertTrue(ledger.record(
+                authoredAbs.getX(), authoredAbs.getY(), authoredAbs.getZ(),
+                AuthoredOwnerType.SETTLEMENT_STRUCTURE), "record authored farmland");
+
+        var plan = SeasonalFarmPresentationPlan.fromLook(
+                new SeasonalFarmPresentation.FarmLook(
+                        SeasonalFarmPresentation.CropLook.LUSH, "test lush", 1.15));
+
+        helper.assertTrue(
+                SeasonalFarmPresentationRuntime.tryApplyAuthoredCell(
+                        helper.getLevel(), ledger, authoredAbs, plan),
+                "LR farmland may receive seasonal look");
+        helper.assertFalse(
+                SeasonalFarmPresentationRuntime.tryApplyAuthoredCell(
+                        helper.getLevel(), ledger, playerAbs, plan),
+                "player farmland without ledger must be skipped");
+
+        helper.assertBlockPresent(Blocks.WHEAT, authoredFarm.above());
+        helper.assertTrue(
+                helper.getLevel().getBlockState(helper.absolutePos(authoredFarm.above()))
+                        .getValue(net.minecraft.world.level.block.CropBlock.AGE) == 7,
+                "lush look sets wheat age 7");
+        helper.assertTrue(
+                helper.getLevel().getBlockState(helper.absolutePos(playerFarm.above()))
+                        .getValue(net.minecraft.world.level.block.CropBlock.AGE) == 3,
+                "player crop age unchanged");
+        helper.assertTrue(helper.getLevel().getEntitiesOfClass(
+                net.minecraft.world.entity.item.ItemEntity.class,
+                new net.minecraft.world.phys.AABB(helper.absolutePos(authoredFarm)).inflate(2)).isEmpty(),
+                "presentation must not drop harvest items");
+        SeasonalFarmPresentationRuntime.clear();
         helper.succeed();
     }
 }
