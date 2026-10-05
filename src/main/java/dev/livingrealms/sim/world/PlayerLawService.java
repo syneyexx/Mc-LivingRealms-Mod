@@ -1,6 +1,7 @@
 package dev.livingrealms.sim.world;
 
 import dev.livingrealms.sim.law.*;
+import dev.livingrealms.sim.player.FactionJoinResult;
 import dev.livingrealms.sim.underworld.UnderworldActions;
 import java.util.Optional;
 
