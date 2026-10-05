@@ -424,7 +424,69 @@ public final class SettlementStreetGraph {
             return id;
         }
 
-        SettlementStreetGraph build(){return new SettlementStreetGraph(settlementId,nodes,segments,edges);}
+        SettlementStreetGraph build(){
+            connectOverlappingRoadSurfaces();
+            return new SettlementStreetGraph(settlementId,nodes,segments,edges);
+        }
+
+        /**
+         * A physical junction exists when the end of one authored centerline reaches the surface
+         * width of another road, even when their centerline vertices are a few blocks apart.
+         * Keep the authored polylines unchanged and add only topology edges/nodes, preserving
+         * append-only road geometry while making graph connectivity match the actual carriageway.
+         */
+        private void connectOverlappingRoadSurfaces(){
+            for(int ai=0;ai<segments.size();ai++){
+                RoadSegment a=segments.get(ai);
+                List<SimPosition> aLine=a.centerline();
+                SimPosition[] endpoints={aLine.getFirst(),aLine.getLast()};
+                for(int bi=0;bi<segments.size();bi++){
+                    if(ai==bi)continue;
+                    RoadSegment b=segments.get(bi);
+                    double tolerance=(a.width()+b.width())*.5+.25;
+                    List<SimPosition> bLine=b.centerline();
+                    for(SimPosition endpoint:endpoints){
+                        NearestSpan nearest=nearestSpan(endpoint,bLine);
+                        if(nearest==null||nearest.distance()>tolerance)continue;
+                        long endpointNode=nodeId(endpoint);
+                        long junction=nodeId(nearest.point());
+                        long from=nodeId(bLine.get(nearest.spanIndex()));
+                        long to=nodeId(bLine.get(nearest.spanIndex()+1));
+                        addEdgeIfDistinct(endpointNode,junction,a.key());
+                        addEdgeIfDistinct(from,junction,b.key());
+                        addEdgeIfDistinct(junction,to,b.key());
+                    }
+                }
+            }
+        }
+
+        private void addEdgeIfDistinct(long from,long to,String key){
+            if(from<=0||to<=0||from==to)return;
+            for(StreetEdge edge:edges){
+                if(edge.segmentKey().equals(key)
+                        &&((edge.fromNodeId()==from&&edge.toNodeId()==to)
+                        ||(edge.fromNodeId()==to&&edge.toNodeId()==from)))return;
+            }
+            edges.add(new StreetEdge(from,to,key));
+        }
+
+        private static NearestSpan nearestSpan(SimPosition point,List<SimPosition> line){
+            NearestSpan best=null;
+            for(int i=0;i+1<line.size();i++){
+                SimPosition a=line.get(i),b=line.get(i+1);
+                double vx=b.x()-a.x(),vz=b.z()-a.z();
+                double len2=vx*vx+vz*vz;
+                if(len2<=1.0e-9)continue;
+                double t=((point.x()-a.x())*vx+(point.z()-a.z())*vz)/len2;
+                t=Math.max(0.0,Math.min(1.0,t));
+                SimPosition q=new SimPosition(a.x()+vx*t,a.z()+vz*t);
+                double distance=point.distanceTo(q);
+                if(best==null||distance<best.distance())best=new NearestSpan(i,q,distance);
+            }
+            return best;
+        }
+
+        private record NearestSpan(int spanIndex,SimPosition point,double distance){}
     }
 
     private static long mix(long z){
