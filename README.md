@@ -8,7 +8,7 @@ The goal is not to make Minecraft feel like a map with a few extra NPCs. The goa
 
 Living Realms is designed primarily for **offline singleplayer**. The integrated Minecraft server remains authoritative for simulation state, while the client renders and interacts with bounded physical projections of that world.
 
-Current development checkpoint: save schema **21**, dashboard protocol **20**, network **16**, ContentRevision **15**, surface starter **36** settlements (12×3) at **2000**-block spacing plus Wizard Trees. Feature depth uses maturity levels (FOUNDATION→POLISHED) in `COMPLETION_MATRIX.md`; release claims follow `docs/RELEASE_GATES.md`. Architecture pass status: `docs/ARCHITECTURE_PASS_STATUS.md`.
+Current development checkpoint: save schema **21**, dashboard protocol **20**, network **16**, ContentRevision **15**, **204–300** surface starter settlements (**17–25 per realm**) under role-aware spacing, plus Wizard Trees as a separate SPECIAL layer. Feature depth uses maturity levels (FOUNDATION→POLISHED) in `COMPLETION_MATRIX.md`; release claims follow `docs/RELEASE_GATES.md`. Architecture pass status: `docs/ARCHITECTURE_PASS_STATUS.md`.
 
 > **End-product vision:** a persistent living world where kingdoms, settlements, people, wildlife, economy, politics, law, culture and history continue to evolve as one connected system instead of as isolated features.
 
@@ -578,16 +578,16 @@ The current RC4 line includes:
 - canonical ID high-watermark repair;
 - long deterministic soak testing.
 
-The attached/current development line uses **save schema 20** (schemas 1–21 remain readable; schema 20 adds underworld contracts + stolen-goods ledger) with older schemas retained through migration support.
+The attached/current development line uses **save schema 21** (schemas 1–20 remain readable); schema 21 persists settlement roles and migrates legacy saves into the hierarchical world-fabric model without relocating anchored settlements.
 
 ---
 
 ## Current development status
 
-CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 - 12 surface kingdoms plus Wizard Trees;
-- 36 surface starter settlements (capital + 1 authored Spec + 1 rural per realm) at 2000-block spacing;
+- 204–300 surface starter settlements (17–25 per realm: capital + 10 authored satellites + 6–14 rural hamlets) under role-aware spacing;
 - persistent named roster per settlement; aggregate population for demographic scale;
 - goods chain without FOOD mill fountain; construction keys only via materializer / FOREIGN_ADOPTED;
 - SettlementTransfer on capture/rebellion; capital war targets; tokenized dialogue;
