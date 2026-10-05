@@ -20,6 +20,7 @@ import dev.livingrealms.sim.construction.PhysicalDevelopmentReconciler;
 import dev.livingrealms.sim.construction.ResolvedBuildSite;
 import dev.livingrealms.sim.construction.SettlementParcelPlanner;
 import dev.livingrealms.sim.construction.SettlementCoreCompleteness;
+import dev.livingrealms.sim.construction.SettlementConstructionPolicy;
 import dev.livingrealms.sim.construction.SettlementPlanCache;
 import dev.livingrealms.sim.construction.StructureAccessValidator;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
@@ -175,6 +176,7 @@ public final class SettlementConstructionMaterializer {
         java.util.List<Settlement> candidates=new java.util.ArrayList<>();
         java.util.Map<Long,Faction> owners=new HashMap<>();
         for(Faction faction:factions) for(Settlement settlement:faction.settlements()) {
+            if(!SettlementConstructionPolicy.allowsAutomaticCoreFabric(settlement)) continue;
             candidates.add(settlement);
             owners.put(settlement.id(),faction);
         }
