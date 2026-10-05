@@ -28,6 +28,7 @@ dev.livingrealms.CultureArchitectureDerivationTest
 dev.livingrealms.HonestCartographyTest
 dev.livingrealms.WorldgenQualityTest
 dev.livingrealms.WorldFabricChunkPolicyTest
+dev.livingrealms.SpecialSiteWorldFabricTest
 dev.livingrealms.ProductionQualityTest
 dev.livingrealms.ProductionCompletionPassTest
 dev.livingrealms.SocietyDialogueTest
