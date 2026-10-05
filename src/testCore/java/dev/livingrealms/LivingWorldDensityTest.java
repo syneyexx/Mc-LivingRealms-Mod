@@ -37,9 +37,7 @@ public final class LivingWorldDensityTest {
         playerCanFoundARealGrowingRealm();
         citizenIdentityIsStableAndVaried();
         frontierExplorationDoesNotSeedSettlements();
-        System.out.println("PASS living-world density: 12 kingdoms + Wizard Trees / "
-                + SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS
-                + " surface settlements (phase-1 starter topology) + role-aware spacing"
+        System.out.println("PASS living-world density: hierarchical starter realms + role-aware spacing"
                 + " + causal expansion (no exploration spawn) + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
     }
 
@@ -47,20 +45,29 @@ public final class LivingWorldDensityTest {
         SimulationState state = new SimulationState(0x51A7E5L);
         DemoSeeder.seed(state);
         check(state.factions().size() == 13, "starter world must contain twelve kingdoms plus Wizard Trees: " + state.factions().size());
-        int settlements = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
-        int expected = SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS + 3; // Wizard Trees
-        check(settlements == expected, "starter settlements must equal surface target + Wizard Trees: expected "
-                + expected + " got " + settlements);
-        long cities = state.factions().stream().flatMap(f -> f.settlements().stream())
-                .filter(s -> s.tier().ordinal() >= Settlement.Tier.CITY.ordinal()).count();
-        long towns = state.factions().stream().flatMap(f -> f.settlements().stream())
-                .filter(s -> s.tier() == Settlement.Tier.TOWN).count();
-        long villages = state.factions().stream().flatMap(f -> f.settlements().stream())
-                .filter(s -> s.tier() == Settlement.Tier.VILLAGE).count();
-        long hamlets = state.factions().stream().flatMap(f -> f.settlements().stream())
-                .filter(s -> s.tier() == Settlement.Tier.HAMLET || s.tier() == Settlement.Tier.CAMP).count();
-        check(cities >= 12 && (towns + villages + hamlets) >= 12,
-                "starter hierarchy lacks cities plus supporting towns/villages/hamlets: cities="+cities+" towns="+towns+"/villages="+villages+" hamlets="+hamlets);
+        int surface = state.factions().stream()
+                .filter(f -> !f.name().equals("Wizard Trees"))
+                .mapToInt(f -> f.settlements().size()).sum();
+        check(surface >= SettlementDensitySeeder.MIN_SURFACE_STARTER_SETTLEMENTS
+                        && surface <= SettlementDensitySeeder.MAX_SURFACE_STARTER_SETTLEMENTS,
+                "surface starter count outside bounded hierarchy range: " + surface);
+        for (Faction faction : state.factions()) {
+            if (faction.name().equals("Wizard Trees")) continue;
+            long capitals = faction.settlements().stream().filter(s -> s.role() == SettlementRole.CAPITAL).count();
+            long towns = faction.settlements().stream().filter(s -> s.role() == SettlementRole.TOWN).count();
+            long villages = faction.settlements().stream().filter(s -> s.role() == SettlementRole.VILLAGE).count();
+            long hamlets = faction.settlements().stream().filter(s -> s.role() == SettlementRole.HAMLET).count();
+            check(capitals == 1, faction.name() + " capital count " + capitals);
+            check(towns >= SettlementDensitySeeder.MIN_TOWNS_PER_REALM
+                            && towns <= SettlementDensitySeeder.MAX_TOWNS_PER_REALM,
+                    faction.name() + " town count " + towns);
+            check(villages >= SettlementDensitySeeder.MIN_VILLAGES_PER_REALM
+                            && villages <= SettlementDensitySeeder.MAX_VILLAGES_PER_REALM,
+                    faction.name() + " village count " + villages);
+            check(hamlets >= SettlementDensitySeeder.MIN_RURAL_HAMLETS_PER_REALM
+                            && hamlets <= SettlementDensitySeeder.MAX_RURAL_HAMLETS_PER_REALM,
+                    faction.name() + " hamlet count " + hamlets);
+        }
         long monarchies=state.factions().stream().filter(f->f.government().type()==GovernmentType.FEUDAL_MONARCHY).count();
         check(monarchies==12,"starter world must retain twelve ordinary kingdoms: "+monarchies);
         Faction wizard=state.factions().stream().filter(f->f.name().equals("Wizard Trees")).findFirst().orElseThrow();
