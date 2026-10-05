@@ -30,7 +30,7 @@ public final class RuntimeSchedulerTest {
         check(fail.failed() && fail.disabled(), "recoverable failure disables");
         check(!logs.isEmpty(), "failure logged");
         var skipped = isolator.execute("projection.wildlife", cls, 2L, ctx, () -> { throw new AssertionError("should not run"); });
-        check(skipped.skippedDisabled(), "disabled task skipped");
+        check(skipped.disabled() && !skipped.ran() && !skipped.failed(), "disabled task skipped");
         var ok = isolator.execute("projection.wildlife", cls, 10L, ctx, () -> {});
         check(ok.ran() && !ok.failed(), "reenabled after cooldown");
     }
