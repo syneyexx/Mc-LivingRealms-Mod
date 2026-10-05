@@ -18,6 +18,7 @@ import dev.livingrealms.sim.naval.*;
 import dev.livingrealms.sim.player.*;
 import dev.livingrealms.sim.social.*;
 import dev.livingrealms.sim.transport.*;
+import dev.livingrealms.sim.construction.RegisteredPlayerStructure;
 import dev.livingrealms.sim.underworld.UnderworldProfile;
 import dev.livingrealms.sim.validation.SimulationValidator;
 import dev.livingrealms.sim.world.*;
@@ -541,6 +542,19 @@ public final class SimulationStateCodec {
             out.writeLong(p.lastBribeDay());
             out.writeBoolean(p.blackMarketAccess());
         }
+        List<RegisteredPlayerStructure> playerStructures=new ArrayList<>(state.registeredPlayerStructures());
+        playerStructures.sort(Comparator.comparingLong(RegisteredPlayerStructure::id));
+        out.writeInt(playerStructures.size());
+        for(RegisteredPlayerStructure s:playerStructures){
+            out.writeLong(s.id());out.writeLong(s.settlementId());writeString(out,s.ownerActorKey());
+            out.writeInt(s.role().ordinal());
+            out.writeInt(s.minX());out.writeInt(s.minY());out.writeInt(s.minZ());
+            out.writeInt(s.maxX());out.writeInt(s.maxY());out.writeInt(s.maxZ());
+            out.writeInt(s.doorX());out.writeInt(s.doorY());out.writeInt(s.doorZ());
+            out.writeInt(s.capacity());out.writeLong(s.registrationDay());out.writeLong(s.fingerprint());
+            out.writeBoolean(s.valid());out.writeLong(s.lastValidatedDay());
+        }
+
     }
 
     private static void readV19ProvenanceAndSites(DataInputStream in,SimulationState state)throws IOException{
@@ -594,6 +608,19 @@ public final class SimulationStateCodec {
             profile.restore(in.readInt(),in.readDouble(),in.readDouble(),in.readLong(),in.readLong(),in.readBoolean());
             state.restoreUnderworldProfile(profile);
         }
+        n=checkedCount(in.readInt(),SimulationState.MAX_REGISTERED_PLAYER_STRUCTURES,"registered player structures");
+        for(int i=0;i<n;i++){
+            long id=in.readLong(),settlementId=in.readLong();String owner=readString(in);
+            RegisteredPlayerStructure.Role role=RegisteredPlayerStructure.Role.values()[enumOrdinal(in.readInt(),RegisteredPlayerStructure.Role.values().length,"player structure role")];
+            int minX=in.readInt(),minY=in.readInt(),minZ=in.readInt(),maxX=in.readInt(),maxY=in.readInt(),maxZ=in.readInt();
+            int doorX=in.readInt(),doorY=in.readInt(),doorZ=in.readInt();
+            int capacity=in.readInt();long regDay=in.readLong();long fingerprint=in.readLong();
+            boolean valid=in.readBoolean();long lastVal=in.readLong();
+            RegisteredPlayerStructure s=new RegisteredPlayerStructure(id,settlementId,owner,role,minX,minY,minZ,maxX,maxY,maxZ,doorX,doorY,doorZ,capacity,regDay,fingerprint);
+            s.restore(valid,capacity,fingerprint,lastVal,role);
+            state.addRegisteredPlayerStructure(s);
+        }
+
     }
 
     /** Schema ≤18 settlements become LEGACY + physicallyAnchored — never assume they lack world geometry. */
