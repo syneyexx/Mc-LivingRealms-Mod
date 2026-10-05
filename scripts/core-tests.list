@@ -45,6 +45,7 @@ dev.livingrealms.BanditAndPriceRumorTest
 dev.livingrealms.TradeHouseholdEcologyTest
 dev.livingrealms.TradeLivenessTest
 dev.livingrealms.RegionalSettlementGraphTest
+dev.livingrealms.WorldFabricActivationPolicyTest
 dev.livingrealms.HumanityLifecycleTest
 dev.livingrealms.CitizenConversationTest
 dev.livingrealms.ResourceDominanceTest
