@@ -50,4 +50,5 @@ dev.livingrealms.WarGoalAndCapitalTargetTest
 dev.livingrealms.SiegeBreachAllKeysTest
 dev.livingrealms.SingleProductionAuthorityTest
 dev.livingrealms.DocumentationPinTest
+dev.livingrealms.ManualDayAdvanceSchedulerTest
 dev.livingrealms.LongRunSoakTest

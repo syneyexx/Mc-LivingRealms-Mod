@@ -96,7 +96,7 @@ public final class LivingRealmsReleaseGameTests {
     /** Q4: encode/decode + densifier stay idempotent; SavedData content revision pin stays 14. */
     @GameTest(template = "minecraft:empty", timeoutTicks = 40)
     public static void savedDataReloadKeepsRevisionAndDensity(GameTestHelper helper) {
-        SimulationState state = new SimulationState(0xSAVE14L, SpeciesCatalog.starter());
+        SimulationState state = new SimulationState(0x5AFE_0014L, SpeciesCatalog.starter());
         DemoSeeder.seed(state);
         int before = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
         helper.assertTrue(before == SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS + 3,
@@ -108,7 +108,7 @@ public final class LivingRealmsReleaseGameTests {
         helper.assertTrue(SettlementDensitySeeder.ensureStarterDensity(restored) == 0,
                 "densifier remains idempotent after reload");
 
-        LivingRealmsSavedData data = LivingRealmsSavedData.create(0xSAVE14B, SpeciesCatalog.starter());
+        LivingRealmsSavedData data = LivingRealmsSavedData.create(0x5AFE_0015L, SpeciesCatalog.starter());
         CompoundTag tag = data.save(new CompoundTag(), helper.getLevel().registryAccess());
         helper.assertTrue(tag.getInt("ContentRevision") == 14, "CONTENT_REVISION must serialize as 14");
         helper.succeed();

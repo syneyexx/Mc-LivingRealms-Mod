@@ -55,6 +55,8 @@ public final class SettlementConstructionMaterializer {
     private static final Map<String,Settlement> JOB_OWNERS=new HashMap<>();
     /** Globally stable construction key (settlementId:intentKey) -> earliest rediscovery day. */
     private static final Map<String,Long> RETRY_AFTER_DAY=new HashMap<>();
+    /** ServerLevel identity this static queue is bound to; other levels are no-ops until clear. */
+    private static Object boundLevelIdentity;
     private static int catchupTicks;
     private static long catchupSimulatedDays;
     private static int catchupIntentsPerSettlement=1;
@@ -63,6 +65,9 @@ public final class SettlementConstructionMaterializer {
     private SettlementConstructionMaterializer() {}
 
     public static void tick(ServerLevel level, LivingRealmsSavedData data) {
+        if(level==null)return;
+        if(boundLevelIdentity==null)boundLevelIdentity=level;
+        else if(boundLevelIdentity!=level)return; // E8: foreign level must not drain this world's queue
         discoverLoadedWork(level,data);
         int operationBudget=Math.max(320,data.state().config().constructionBlockOpsPerTick());
         if(catchupTicks>0){operationBudget=Math.max(operationBudget,960);catchupTicks--;}
@@ -98,8 +103,15 @@ public final class SettlementConstructionMaterializer {
 
     public static void clear() {
         QUEUE.clear(); JOB_OWNERS.clear(); RETRY_AFTER_DAY.clear();
+        boundLevelIdentity=null;
         catchupTicks=0; catchupSimulatedDays=0; catchupIntentsPerSettlement=1; settlementScanCursor=0;
     }
+
+    /** Test/hook: whether the static queue currently owns jobs. */
+    public static boolean queueEmpty(){return QUEUE.size()==0;}
+
+    /** Test/hook: identity currently bound, or null after clear. */
+    public static Object boundLevelIdentity(){return boundLevelIdentity;}
 
     private static void discoverLoadedWork(ServerLevel level, LivingRealmsSavedData data) {
         if(QUEUE.size()>=MAX_QUEUED_JOBS || level.players().isEmpty()) return;

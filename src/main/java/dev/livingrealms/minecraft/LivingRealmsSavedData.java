@@ -7,6 +7,7 @@ import dev.livingrealms.sim.construction.AuthoredBlockLedger;
 import dev.livingrealms.sim.persistence.ContentMigrationPolicy;
 import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.world.DemoSeeder;
+import dev.livingrealms.sim.world.ManualDayAdvanceScheduler;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.SettlementDensitySeeder;
 import dev.livingrealms.sim.world.WizardTreesSeeder;
@@ -39,9 +40,15 @@ public final class LivingRealmsSavedData extends SavedData {
     private final Map<Long, Long> waystonesBySettlement = new LinkedHashMap<>();
     /** Chunk-local Living Realms-authored block provenance (not part of binary schema payload). */
     private final AuthoredBlockLedger authoredBlocks = new AuthoredBlockLedger();
+    /** Transient setday/advance backlog; not persisted across reload. */
+    private final ManualDayAdvanceScheduler dayAdvanceScheduler = new ManualDayAdvanceScheduler();
 
     private LivingRealmsSavedData(SimulationState state) {
         this.state = state;
+    }
+
+    public ManualDayAdvanceScheduler dayAdvanceScheduler() {
+        return dayAdvanceScheduler;
     }
 
     public static LivingRealmsSavedData create(long worldSeed) {
