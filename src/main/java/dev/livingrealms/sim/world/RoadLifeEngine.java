@@ -73,16 +73,26 @@ public final class RoadLifeEngine {
             if (from == null || to == null) continue;
             Faction owner = state.findFaction(route.ownerFactionId()).orElse(null);
             if (owner == null) continue;
-            // Causal gate: prosperity/order and route security encourage travel.
-            double pressure = .04 + from.prosperity() * .05 + to.prosperity() * .03
+            List<CitizenJourney.Purpose> candidates = causalPurposeCandidates(state, owner, from, to, route);
+            if (candidates.isEmpty()) continue;
+            // Causal gate: prosperity/order plus active causes (war, bandits, harvest) encourage travel.
+            double pressure = .05 + from.prosperity() * .06 + to.prosperity() * .04
                     + route.security() * .04 + route.quality() * .03;
+            if (candidates.contains(CitizenJourney.Purpose.COURIER)
+                    || candidates.contains(CitizenJourney.Purpose.DIPLOMAT)) {
+                pressure += .12; // war / dispatch pressure
+            }
+            if (candidates.contains(CitizenJourney.Purpose.PATROL)) {
+                pressure += .08;
+            }
+            if (candidates.contains(CitizenJourney.Purpose.SEASONAL_WORKER)) {
+                pressure += .05;
+            }
             if (from.unrest() > .55) pressure *= .45;
-            if (!rng.chance(Math.min(.22, pressure))) continue;
+            if (!rng.chance(Math.min(.38, pressure))) continue;
             boolean already = state.citizenJourneys().stream().anyMatch(j -> j.active()
                     && j.originSettlementId() == from.id() && j.targetSettlementId() == to.id());
             if (already) continue;
-            List<CitizenJourney.Purpose> candidates = causalPurposeCandidates(state, owner, from, to, route);
-            if (candidates.isEmpty()) continue;
             CitizenJourney.Purpose purpose = candidates.get(rng.nextInt(candidates.size()));
             long citizenId = state.socialCitizens().stream()
                     .filter(c -> c.alive() && c.settlementId() == from.id())
