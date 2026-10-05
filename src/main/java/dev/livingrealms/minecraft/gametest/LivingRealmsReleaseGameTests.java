@@ -112,7 +112,7 @@ public final class LivingRealmsReleaseGameTests {
     /** Hunter authority: physical animal death must not mint canonical FOOD. */
     @GameTest(template = "gametests/empty", timeoutTicks = 20)
     public static void hunterKillDoesNotMintCanonicalFood(GameTestHelper helper) {
-        SimulationState state = new SimulationState(0xH007F00DL, SpeciesCatalog.starter());
+        SimulationState state = new SimulationState(0x7007F00DL, SpeciesCatalog.starter());
         DemoSeeder.seed(state);
         Faction faction = state.factions().getFirst();
         double before = faction.stockpile().get(ResourceType.FOOD);
