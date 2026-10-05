@@ -75,7 +75,10 @@ final class SettlementHousingPlanner {
             }
             remaining.remove(parcelIndex);
             int face = parcel.orientationQuarterTurns();
-            addAtParcel(out, faction, settlement, StructureRole.HOUSE, emitted, parcel, w, d, face, 88);
+            // Key by stable demand slot, not by count of successful reservations. If a parcel
+            // becomes available later, it fills a previously absent key instead of renumbering/moving
+            // already-materialized houses.
+            addAtParcel(out, faction, settlement, StructureRole.HOUSE, i, parcel, w, d, face, 88);
             emitted++;
         }
         // Road-first invariant: never spiral-place houses off the street graph.
