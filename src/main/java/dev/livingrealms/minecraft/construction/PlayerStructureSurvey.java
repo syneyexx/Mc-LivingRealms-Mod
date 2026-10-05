@@ -126,10 +126,11 @@ public final class PlayerStructureSurvey {
                 : Direction.NORTH;
 
         // Candidate interior seeds on both horizontal sides of the doorway.
+        // inward = direction from the door cell toward that candidate (portal plane uses the opposite).
         BlockPos candidateA = door.relative(facing.getOpposite());
         BlockPos candidateB = door.relative(facing);
-        ScanAttempt attemptA = floodInterior(level, door, candidateA, facing);
-        ScanAttempt attemptB = floodInterior(level, door, candidateB, facing.getOpposite());
+        ScanAttempt attemptA = floodInterior(level, door, candidateA, facing.getOpposite());
+        ScanAttempt attemptB = floodInterior(level, door, candidateB, facing);
 
         ScanAttempt chosen = chooseEnclosed(attemptA, attemptB);
         if (chosen == null) {
@@ -187,8 +188,9 @@ public final class PlayerStructureSurvey {
         boolean hitUnloaded = false;
         boolean leaked = false;
 
-        // Exterior portal cell — never enqueue the door as a normal walkable cell toward outside.
+        // Exterior portal cells — never enqueue either door half as a walkable cell.
         long doorKey = door.asLong();
+        long doorUpperKey = door.above().asLong();
 
         while (!q.isEmpty()) {
             if (a.inspected >= PlayerStructureValidator.MAX_INSPECTED_BLOCKS
@@ -206,8 +208,8 @@ public final class PlayerStructureSurvey {
                 solidWallHits++;
                 continue;
             }
-            // Internal doors are traversable; the exterior entrance door cell is a portal boundary.
-            if (p.asLong() == doorKey) {
+            // Internal doors are traversable; the exterior entrance door (both halves) is a portal boundary.
+            if (p.asLong() == doorKey || p.asLong() == doorUpperKey) {
                 solidWallHits++;
                 continue;
             }
@@ -261,17 +263,16 @@ public final class PlayerStructureSurvey {
 
             for (Direction dir : Direction.values()) {
                 BlockPos n = p.relative(dir);
-                if (n.asLong() == doorKey) continue; // never cross exterior portal
-                // Crossing the entrance plane outward is leakage.
-                if (isAcrossExteriorPortal(door, inward, n)) {
-                    if (isTraversableInterior(level, n) || level.getBlockState(n).isAir()) {
-                        // Only count as leak if neighbor is open exterior air without being inside walls.
-                        // Internal rooms on the far side of non-entrance doors are allowed via other paths.
-                        continue;
-                    }
+                long nk = n.asLong();
+                if (nk == doorKey || nk == doorUpperKey) continue; // never cross exterior portal
+                // Crossing the entrance plane outward is leakage — do not enqueue exterior air.
+                if (isAcrossExteriorPortal(door, inward, n)
+                        || isAcrossExteriorPortal(door.above(), inward, n)) {
+                    // Soft barrier: skip exterior portal neighbor without failing the whole room
+                    // solely for glancing the doorway; true open shells leak via MAX bounds elsewhere.
                     continue;
                 }
-                if (seen.add(n.asLong())) q.addLast(n.immutable());
+                if (seen.add(nk)) q.addLast(n.immutable());
             }
         }
 
