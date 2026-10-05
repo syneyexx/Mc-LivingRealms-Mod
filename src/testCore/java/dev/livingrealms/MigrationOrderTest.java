@@ -49,8 +49,9 @@ public final class MigrationOrderTest {
         DemoSeeder.seed(state);
         var faction = state.factions().stream().filter(f -> !f.name().equals("Wizard Trees")).findFirst().orElseThrow();
         int before = faction.settlements().size();
-        check(before >= SettlementDensitySeeder.TARGET_SETTLEMENTS_PER_REALM,
-                "starter realm should already meet target: " + before);
+        check(before >= 1 + SettlementDensitySeeder.AUTHORED_SATELLITES_PER_REALM
+                        + SettlementDensitySeeder.MIN_RURAL_HAMLETS_PER_REALM,
+                "fresh starter realm should already contain its complete hierarchical fabric: " + before);
         int added = SettlementDensitySeeder.ensureStarterDensity(state);
         check(added == 0, "densifier must not grow an already-complete world: " + added);
         check(faction.settlements().size() == before, "settlement count must stay put");
