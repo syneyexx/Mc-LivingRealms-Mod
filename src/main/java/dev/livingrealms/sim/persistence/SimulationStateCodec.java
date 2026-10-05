@@ -18,7 +18,7 @@ import java.util.zip.CRC32;
 public final class SimulationStateCodec {
     private static final int MAGIC = 0x4C52534D; // LRSM
     public static final int MIN_SUPPORTED_SCHEMA = 1;
-    public static final int SCHEMA_VERSION = 20;
+    public static final int SCHEMA_VERSION = 21;
     /** Hard ceiling for one canonical world-state payload. Prevents corrupt/local saves from driving unbounded decode work. */
     public static final int MAX_STATE_BYTES = 32 * 1024 * 1024;
     /** Individual canonical text fields are metadata, identifiers or bounded event text; 64 KiB is intentionally generous. */
@@ -108,6 +108,7 @@ public final class SimulationStateCodec {
             else SaveMigrationRegistry.migrate18to19(state);
             if(version>=20)UnderworldCodec.readV20UnderworldContracts(in,state);
             else SaveMigrationRegistry.migrate19to20(state);
+            if(version<21)SaveMigrationRegistry.migrate20to21(state);
             HistoryCodec.readHistory(in,state);
             if(in.read()!=-1)throw new IOException("Trailing bytes after Living Realms state");
             state.repairNextIdWatermark();
