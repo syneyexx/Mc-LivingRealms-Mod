@@ -25,7 +25,13 @@ final class SettlementRoadPlanner {
         Objects.requireNonNull(faction, "faction");
         Objects.requireNonNull(settlement, "settlement");
         Objects.requireNonNull(graph, "graph");
-        for (SettlementStreetGraph.RoadSegment segment : graph.segments()) {
+        addRoadSegments(out, faction, settlement, graph.segments());
+    }
+
+    static void addRoadSegments(List<ConstructionIntent> out, Faction faction, Settlement settlement,
+                                List<SettlementStreetGraph.RoadSegment> segments) {
+        Objects.requireNonNull(segments, "segments");
+        for (SettlementStreetGraph.RoadSegment segment : segments) {
             SimPosition center = midpoint(segment.centerline());
             int nominalDepth = Math.max(segment.width(), (int) Math.ceil(segment.length()) + 1);
             out.add(new ConstructionIntent(
