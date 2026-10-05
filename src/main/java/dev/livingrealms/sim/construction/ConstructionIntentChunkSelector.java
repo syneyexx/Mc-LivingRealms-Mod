@@ -30,15 +30,28 @@ public final class ConstructionIntentChunkSelector {
     public static boolean intersects(ConstructionIntent intent, ChunkWindow chunk) {
         Objects.requireNonNull(intent, "intent");
         Objects.requireNonNull(chunk, "chunk");
-        int turns = Math.floorMod(intent.rotationQuarterTurns(), 4);
-        int width = (turns & 1) == 0 ? intent.width() : intent.depth();
-        int depth = (turns & 1) == 0 ? intent.depth() : intent.width();
-        int cx = (int) Math.round(intent.center().x());
-        int cz = (int) Math.round(intent.center().z());
-        int minX = cx - width / 2 - ACCESS_MARGIN;
-        int maxX = cx + (width - 1) / 2 + ACCESS_MARGIN;
-        int minZ = cz - depth / 2 - ACCESS_MARGIN;
-        int maxZ = cz + (depth - 1) / 2 + ACCESS_MARGIN;
+        int minX, maxX, minZ, maxZ;
+        if (intent.hasPath()) {
+            double pathMinX = intent.path().stream().mapToDouble(p -> p.x()).min().orElse(intent.center().x());
+            double pathMaxX = intent.path().stream().mapToDouble(p -> p.x()).max().orElse(intent.center().x());
+            double pathMinZ = intent.path().stream().mapToDouble(p -> p.z()).min().orElse(intent.center().z());
+            double pathMaxZ = intent.path().stream().mapToDouble(p -> p.z()).max().orElse(intent.center().z());
+            int margin = intent.width() / 2 + ACCESS_MARGIN;
+            minX = (int) Math.floor(pathMinX) - margin;
+            maxX = (int) Math.ceil(pathMaxX) + margin;
+            minZ = (int) Math.floor(pathMinZ) - margin;
+            maxZ = (int) Math.ceil(pathMaxZ) + margin;
+        } else {
+            int turns = Math.floorMod(intent.rotationQuarterTurns(), 4);
+            int width = (turns & 1) == 0 ? intent.width() : intent.depth();
+            int depth = (turns & 1) == 0 ? intent.depth() : intent.width();
+            int cx = (int) Math.round(intent.center().x());
+            int cz = (int) Math.round(intent.center().z());
+            minX = cx - width / 2 - ACCESS_MARGIN;
+            maxX = cx + (width - 1) / 2 + ACCESS_MARGIN;
+            minZ = cz - depth / 2 - ACCESS_MARGIN;
+            maxZ = cz + (depth - 1) / 2 + ACCESS_MARGIN;
+        }
         return maxX >= chunk.minX() && minX <= chunk.maxX()
                 && maxZ >= chunk.minZ() && minZ <= chunk.maxZ();
     }
