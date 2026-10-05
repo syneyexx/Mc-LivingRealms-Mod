@@ -53,7 +53,14 @@ public final class PiracyEngine {
         return false;
     }
 
-    public static SimPosition pirateHideoutPosition(SimulationState state,Settlement origin,SimPosition port,long bandId){double a=((CivilizationSupport.mix(state.seed()^bandId)&0xffff)/65535.0)*Math.PI*2.0;double r=180+((CivilizationSupport.mix(bandId^0x5DEECE66DL)>>>11)*0x1.0p-53)*260;SimPosition candidate=new SimPosition(port.x()+Math.cos(a)*r,port.z()+Math.sin(a)*r);return candidate.distanceTo(origin.position())<120?new SimPosition(origin.position().x()+Math.cos(a)*160,origin.position().z()+Math.sin(a)*160):candidate;}
+    /** Coastal hideouts remain tied to the origin port but sit beyond ordinary harbor fabric. */
+    public static SimPosition pirateHideoutPosition(SimulationState state,Settlement origin,SimPosition port,long bandId){
+        double a=((CivilizationSupport.mix(state.seed()^bandId)&0xffff)/65535.0)*Math.PI*2.0;
+        double r=400+((CivilizationSupport.mix(bandId^0x5DEECE66DL)>>>11)*0x1.0p-53)*600;
+        SimPosition candidate=new SimPosition(port.x()+Math.cos(a)*r,port.z()+Math.sin(a)*r);
+        if(candidate.distanceTo(origin.position())>=350)return candidate;
+        return new SimPosition(port.x()+Math.cos(a)*Math.max(400,r),port.z()+Math.sin(a)*Math.max(400,r));
+    }
 
     public static Faction nearestAntiPiracyFaction(SimulationState state,PirateHideout hideout){return state.factions().stream().filter(f->f.id()!=state.findSettlementOwner(hideout.originSettlementId()).map(Faction::id).orElse(-1L)).filter(f->antiPiracyPressure(state,f,hideout.position())>.2).min(Comparator.comparingDouble(f->f.settlements().stream().mapToDouble(s->s.position().distanceTo(hideout.position())).min().orElse(Double.MAX_VALUE))).orElse(null);}
 
