@@ -39,10 +39,11 @@ public final class LivingRealmsSavedData extends SavedData {
     private static final String KEY_CIVILIZATION_WORLDGEN_VERSION = "CivilizationWorldgenVersion";
     private static final String KEY_ONBOARDED_PLAYERS = "OnboardedPlayers";
     /**
-     * Revision 17: fresh saves adopt deterministic starter-worldgen receipts. Legacy saves remain
-     * explicitly worldgen-disabled even after they are re-saved at the new content revision.
+     * Revision 18: true-worldgen saves adopt Wizard Trees day-zero receipts. Version-0 legacy
+     * saves remain explicitly worldgen-disabled and keep runtime-authored physical history.
      */
-    private static final int CONTENT_REVISION = 17;
+    private static final int CONTENT_REVISION = 18;
+    private static final int STARTER_DENSITY_REVISION = 17;
     public static final int CURRENT_CIVILIZATION_WORLDGEN_VERSION = 1;
 
     private final SimulationState state;
@@ -74,8 +75,8 @@ public final class LivingRealmsSavedData extends SavedData {
         SimulationState state = new SimulationState(worldSeed, speciesCatalog);
         DemoSeeder.seed(state);
         LivingRealmsSavedData data = new LivingRealmsSavedData(state, CURRENT_CIVILIZATION_WORLDGEN_VERSION);
+        // adoptPlannedBaseline includes the ordinary realms and the frozen Wizard Trees baseline.
         StarterWorldgenCompletion.adoptPlannedBaseline(state);
-        StarterWorldgenCompletion.adoptWizardTreesBaseline(state);
         data.setDirty();
         return data;
     }
@@ -136,20 +137,29 @@ public final class LivingRealmsSavedData extends SavedData {
                 }
             }
         }
-        int densityChanges = ContentMigrationPolicy.shouldEnsureDensity(contentRevision, CONTENT_REVISION)
+        int densityChanges = ContentMigrationPolicy.shouldEnsureDensity(
+                contentRevision, STARTER_DENSITY_REVISION)
                 ? SettlementDensitySeeder.ensureStarterDensity(loaded.state()) : 0;
-        int wizardChanges = ContentMigrationPolicy.shouldEnsureWizardTrees(contentRevision)
+        boolean adoptWizardWorldgenReceipts =
+                ContentMigrationPolicy.shouldAdoptWizardWorldgenReceipts(
+                        contentRevision, worldgenVersion, CURRENT_CIVILIZATION_WORLDGEN_VERSION);
+        int wizardChanges = (ContentMigrationPolicy.shouldEnsureWizardTrees(contentRevision)
+                || adoptWizardWorldgenReceipts)
                 ? WizardTreesSeeder.ensure(loaded.state()) : 0;
+        int wizardWorldgenReceiptChanges = adoptWizardWorldgenReceipts
+                ? StarterWorldgenCompletion.adoptWizardTreesBaseline(loaded.state()) : 0;
         densityChanges += 0; // spacing is planned at creation; anchored settlements are never relocated
         // Revision 8 introduced authored-block provenance. Revision 9 adds typed ownership.
         // Revision 10 morphology rebuild is gated above. Revision 11–13 are presentation/spacing.
         // Revision 14 is densifier Spec completeness + seeder completion-key ban.
         // Revision 16 freezes already-materialized legacy road layouts instead of rebuilding them.
+        // Revision 17 introduced true surface worldgen; revision 18 adopts Wizard Trees receipts
+        // only for saves that already carry the true-worldgen version marker.
         if (outerSchema != SimulationStateCodec.SCHEMA_VERSION
                 || ContentMigrationPolicy.isLegacyIntegrityPath(expectedIntegrity)
                 || contentRevision < CONTENT_REVISION
-                || densityChanges > 0 || wizardChanges > 0 || constructionResets > 0
-                || legacyFabricFreezes > 0) {
+                || densityChanges > 0 || wizardChanges > 0 || wizardWorldgenReceiptChanges > 0
+                || constructionResets > 0 || legacyFabricFreezes > 0) {
             loaded.setDirty();
         }
         return loaded;
