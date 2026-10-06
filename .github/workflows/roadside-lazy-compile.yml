@@ -1,0 +1,32 @@
+name: Roadside Lazy Compile
+
+on:
+  pull_request:
+    paths:
+      - "src/main/java/dev/livingrealms/minecraft/worldgen/**"
+      - ".github/workflows/roadside-lazy-compile.yml"
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Compile NeoForge sources
+        run: |
+          set -euo pipefail
+          V=8.10.2
+          EXPECTED_SHA256=31c55713e40233a8303827ceb42ca48a47267a0ad4bab9177123121e71524c26
+          CACHE="$PWD/.gradle-bootstrap"
+          HOME_DIR="$CACHE/gradle-$V"
+          ZIP="$CACHE/gradle-$V-bin.zip"
+          mkdir -p "$CACHE"
+          if [ ! -x "$HOME_DIR/bin/gradle" ]; then
+            curl -fL "https://services.gradle.org/distributions/gradle-$V-bin.zip" -o "$ZIP"
+            echo "$EXPECTED_SHA256  $ZIP" | sha256sum -c -
+            unzip -qo "$ZIP" -d "$CACHE"
+          fi
+          "$HOME_DIR/bin/gradle" --no-daemon --no-build-cache compileJava
