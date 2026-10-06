@@ -21,7 +21,7 @@ import net.minecraft.server.level.ServerLevel;
  * settlements. The resulting full route is then indexed by exact chunk and reused forever.</p>
  */
 public final class LazyStarterRegionalRouteGeometryIndex {
-    private static final double ACTIVATION_DISTANCE_BLOCKS = 640.0;
+    private static final double ACTIVATION_DISTANCE_BLOCKS = 96.0;
 
     private final ServerLevel level;
     private final List<StarterRegionalRoutePlanner.RoutePlan> routes;
