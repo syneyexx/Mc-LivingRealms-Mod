@@ -1,7 +1,7 @@
 # Architecture depth pass — status
 
-Branch: `cursor/architecture-depth-pass-f4a7`  
-Pins: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+Branch: `codex/civilization-world-fabric`  
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 Final checkpoint for this modular-monolith pass. Feature maturity ≠ release readiness (`docs/RELEASE_GATES.md`).
 
@@ -39,7 +39,7 @@ Final checkpoint for this modular-monolith pass. Feature maturity ≠ release re
 | Linked / GameTest / runtime smoke | Must be taken from CI / real runtime evidence; headless core alone cannot claim them. |
 | Polish | Some player loops are CONSEQUENCE WIRED / DEEP without POLISHED UX. |
 
-The architecture pass is complete for PR #19: the major god-object edges targeted by this pass are split, persistence/schema pins are preserved, and the final report documents residual hotspots instead of claiming they disappeared.
+The earlier modular-monolith extraction pass remains the baseline. PR #20 extends it with hierarchical civilization world fabric: role-aware starter density, regional settlement/road graphs, chunk-driven persistent block fabric, graph-first streets, coherent CITY+ boundaries/gates, tier core completeness, special-site fabric, and per-kind entity LOD reconciliation.
 
 ## Documentation maturity vocabulary
 
@@ -50,6 +50,6 @@ Applied in `COMPLETION_MATRIX.md`, `DETAIL_MATRIX.md`, `WAVE0_SYSTEM_INVENTORY.m
 
 - `DocumentationPinTest` must PASS with exact CURRENT PINS line.
 - `DeterministicRefactorProofTest` locks day-30 / day-365 count bands for known seed.
-- Full `./scripts/test-core.sh` EXIT=0.
+- Full `./scripts/test-core.sh` EXIT=0 on the current world-fabric pins.
 - Wave 28–46 proof: `StateRetentionCompactorTest`, `SaveSizeAuditorTest`, `CulturalIdentityWiringTest`, `HistoricCityEvolutionTest`, `DevelopmentModeGuardTest`.
 - Demography extraction proof: `ArchitectureLifecycleEnginesTest` directly exercises `DemographyEngine`.
