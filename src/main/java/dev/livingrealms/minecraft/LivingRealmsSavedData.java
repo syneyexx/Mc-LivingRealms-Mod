@@ -1,5 +1,6 @@
 package dev.livingrealms.minecraft;
 
+import dev.livingrealms.LivingRealms;
 import dev.livingrealms.minecraft.compat.WaystoneSettlementRuntime;
 import dev.livingrealms.minecraft.construction.AuthoredBlockLedgerNbt;
 import dev.livingrealms.minecraft.construction.SettlementGeographyNbt;
@@ -72,11 +73,28 @@ public final class LivingRealmsSavedData extends SavedData {
     }
 
     public static LivingRealmsSavedData create(long worldSeed, Map<String, SpeciesDefinition> speciesCatalog) {
+        long startedNanos = System.nanoTime();
         SimulationState state = new SimulationState(worldSeed, speciesCatalog);
         DemoSeeder.seed(state);
-        LivingRealmsSavedData data = new LivingRealmsSavedData(state, CURRENT_CIVILIZATION_WORLDGEN_VERSION);
-        // adoptPlannedBaseline includes the ordinary realms and the frozen Wizard Trees baseline.
-        StarterWorldgenCompletion.adoptPlannedBaseline(state);
+        long seededMillis = (System.nanoTime() - startedNanos) / 1_000_000L;
+
+        LivingRealmsSavedData data =
+                new LivingRealmsSavedData(state, CURRENT_CIVILIZATION_WORLDGEN_VERSION);
+
+        // Surface starter settlements are true chunk-worldgen content. Do NOT derive all 267
+        // physical settlement plans here merely to create completion receipts: that happens before
+        // Minecraft can advance the spawn progress UI. Each surface settlement receives its exact
+        // WORLDGEN receipts when its lazy worldgen plan is first resolved for a relevant chunk.
+        //
+        // Wizard Trees is a tiny fixed three-settlement layer, so its baseline remains safe to
+        // adopt eagerly and keeps runtime construction quiet for those underground starters.
+        int wizardReceipts = StarterWorldgenCompletion.adoptWizardTreesBaseline(state);
+        long totalMillis = (System.nanoTime() - startedNanos) / 1_000_000L;
+        LivingRealms.LOGGER.info(
+                "Created fresh Living Realms canonical state in {} ms "
+                        + "[seedSimulation={} ms, surfaceReceipts=lazy, wizardReceiptChanges={}]",
+                totalMillis, seededMillis, wizardReceipts);
+
         data.setDirty();
         return data;
     }
