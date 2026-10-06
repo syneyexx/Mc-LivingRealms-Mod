@@ -1,7 +1,7 @@
 package dev.livingrealms.sim.world;
 
 import dev.livingrealms.sim.ecology.*;
-import dev.livingrealms.sim.transport.TransportNetworkEngine;
+import dev.livingrealms.sim.worldgen.StarterRegionalRouteBootstrap;
 
 public final class DemoSeeder {
     private DemoSeeder(){}
