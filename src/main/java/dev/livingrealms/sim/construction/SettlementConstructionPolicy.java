@@ -30,6 +30,21 @@ public final class SettlementConstructionPolicy {
                 && settlement.origin() != SettlementOrigin.LEGACY;
     }
 
+    /**
+     * Runtime construction gate layered on top of provenance. On a true-worldgen fresh save the
+     * authored seed settlements are intentionally quiet for canonical day zero: their initial
+     * physical fabric already belongs to chunk generation. Player-founded/special settlements and
+     * all later days remain eligible for normal causal construction.
+     */
+    public static boolean allowsRuntimeConstruction(
+            Settlement settlement, boolean starterWorldgenEnabled, long canonicalDay) {
+        Objects.requireNonNull(settlement, "settlement");
+        if (!allowsAutomaticCoreFabric(settlement)) return false;
+        return !(starterWorldgenEnabled
+                && canonicalDay == 0
+                && settlement.origin() == SettlementOrigin.AUTHORED_SEED);
+    }
+
     public static boolean hasLegacyStreetFabric(Settlement settlement) {
         Objects.requireNonNull(settlement, "settlement");
         return settlement.isConstructionCompleted(LEGACY_STREET_FABRIC_MARKER);
