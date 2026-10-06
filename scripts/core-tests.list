@@ -8,6 +8,8 @@ dev.livingrealms.ProductionCompletionPassTest
 dev.livingrealms.SocietyDialogueTest
 dev.livingrealms.GoodsChainTest
 dev.livingrealms.UnderworldGameplayTest
+dev.livingrealms.StateRetentionCompactorTest
+dev.livingrealms.SaveSizeAuditorTest
 dev.livingrealms.SettlementAnchorInvariantTest
 dev.livingrealms.ForeignSettlementSpacingTest
 dev.livingrealms.CoreSimulationTest
@@ -103,8 +105,6 @@ dev.livingrealms.CivicChoreographyTest
 dev.livingrealms.PlayerActorIdentityTest
 dev.livingrealms.HousingDemolitionRegressionTest
 dev.livingrealms.PlayerFoundedTownHallTest
-dev.livingrealms.StateRetentionCompactorTest
-dev.livingrealms.SaveSizeAuditorTest
 dev.livingrealms.CulturalIdentityWiringTest
 dev.livingrealms.HistoricCityEvolutionTest
 dev.livingrealms.DevelopmentModeGuardTest
