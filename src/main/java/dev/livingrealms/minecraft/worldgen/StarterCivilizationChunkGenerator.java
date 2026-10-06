@@ -128,9 +128,10 @@ public final class StarterCivilizationChunkGenerator {
             int chunkX,
             int chunkZ) {
         int minX = chunkX << 4, minZ = chunkZ << 4;
+        int halo = route.rural() ? 1 : 3;
         var points = RouteProjectionPlanner.planInBounds(
                 route.asTransportRoute(), route.from(), route.to(),
-                minX, minZ, minX + 15, minZ + 15, 4096);
+                minX - halo, minZ - halo, minX + 15 + halo, minZ + 15 + halo, 4096);
         int writes = 0;
         Set<Long> visited = new HashSet<>();
         for (RouteProjectionPlanner.RoutePoint point : points) {
