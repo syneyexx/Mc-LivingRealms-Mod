@@ -40,7 +40,6 @@ public final class SaveSizeAuditor {
 
     public static Report measure(SimulationState state) {
         Objects.requireNonNull(state, "state");
-        byte[] encoded = SimulationStateCodec.encode(state);
         Map<String, Contributor> raw = new LinkedHashMap<>();
 
         int history = state.history().size();
@@ -99,6 +98,16 @@ public final class SaveSizeAuditor {
         ranked.sort(Comparator.comparingLong(Contributor::estimateBytes).reversed()
                 .thenComparing(Contributor::name));
         String dominant = ranked.isEmpty() ? "none" : ranked.getFirst().name();
+        final byte[] encoded;
+        try {
+            encoded = SimulationStateCodec.encode(state);
+        } catch (IllegalStateException hardLimit) {
+            String top = ranked.stream().limit(8)
+                    .map(c -> c.name() + "≈" + c.estimateBytes() + "B×" + c.count())
+                    .reduce((a, b) -> a + "; " + b).orElse("none");
+            throw new IllegalStateException(hardLimit.getMessage()
+                    + "; structuralTop=[" + top + "]", hardLimit);
+        }
         return new Report(state.clock().day(), encoded.length, List.copyOf(ranked), dominant);
     }
 
