@@ -112,9 +112,20 @@ public final class StarterCivilizationFabricIndex {
 
     public static StarterCivilizationFabricIndex build(StarterCivilizationLayoutPlanner.Layout layout) {
         Objects.requireNonNull(layout, "layout");
+        return build(
+                layout,
+                StarterRegionalRoutePlanner.plan(layout),
+                StarterRoadsideSitePlanner.plan(layout));
+    }
+
+    public static StarterCivilizationFabricIndex build(
+            StarterCivilizationLayoutPlanner.Layout layout,
+            List<StarterRegionalRoutePlanner.RoutePlan> routes,
+            List<StarterRoadsideSitePlanner.SitePlan> roadsideSites) {
+        Objects.requireNonNull(layout, "layout");
+        routes = List.copyOf(Objects.requireNonNull(routes, "routes"));
+        roadsideSites = List.copyOf(Objects.requireNonNull(roadsideSites, "roadsideSites"));
         List<SettlementInitialWorldgenPlan> settlements = SettlementInitialWorldgenPlan.buildAll(layout);
-        List<StarterRegionalRoutePlanner.RoutePlan> routes = StarterRegionalRoutePlanner.plan(layout);
-        List<StarterRoadsideSitePlanner.SitePlan> roadsideSites = StarterRoadsideSitePlanner.plan(layout);
         Map<Long, MutableSlice> mutable = new HashMap<>();
 
         for (SettlementInitialWorldgenPlan settlement : settlements) {
