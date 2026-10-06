@@ -2,6 +2,7 @@ package dev.livingrealms.minecraft.worldgen;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.server.level.WorldGenRegion;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
 import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
@@ -21,8 +22,16 @@ public final class StarterCivilizationFabricFeature extends Feature<NoneFeatureC
         if (published.isEmpty()) return false;
 
         var worldgen = published.get();
-        int chunkX = Math.floorDiv(context.origin().getX(), 16);
-        int chunkZ = Math.floorDiv(context.origin().getZ(), 16);
+        int chunkX;
+        int chunkZ;
+        if (context.level() instanceof WorldGenRegion region) {
+            var center = region.getCenter();
+            chunkX = center.x;
+            chunkZ = center.z;
+        } else {
+            chunkX = Math.floorDiv(context.origin().getX(), 16);
+            chunkZ = Math.floorDiv(context.origin().getZ(), 16);
+        }
         var slice = worldgen.fabricIndex().query(chunkX, chunkZ);
         var routeSlice = worldgen.routeGeometryIndex().query(chunkX, chunkZ);
         var wizardSlice = worldgen.wizardTreesIndex().query(chunkX, chunkZ);
