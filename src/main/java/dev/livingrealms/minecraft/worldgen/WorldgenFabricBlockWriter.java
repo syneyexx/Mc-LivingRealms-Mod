@@ -168,7 +168,12 @@ public final class WorldgenFabricBlockWriter {
         if (isForeignStructurePiece(pos)) return false;
         if (current.equals(target)) return true;
         if (current.hasBlockEntity()) return false;
-        if (!mayReplace(pos, current, clearing)) return false;
+        AuthoredOwnerType existingOwner = authoredOwnerAt(pos);
+        if (existingOwner != null) {
+            if (!AuthoredOwnerType.allowsOverwrite(existingOwner, ownerType)) return false;
+        } else if (!mayReplace(pos, current, clearing)) {
+            return false;
+        }
         boolean changed = level.setBlock(pos, target, WORLDGEN_FLAGS);
         if (changed && ownerType != null) {
             authoredOwnerByPos.put(pos.asLong(), ownerType);
@@ -227,8 +232,7 @@ public final class WorldgenFabricBlockWriter {
         if (support == null || !insideCurrentChunk(support.getX(), support.getZ())) return false;
         BlockState state = level.getBlockState(support);
         if (isForeignStructurePiece(support) || state.hasBlockEntity()) return false;
-        AuthoredOwnerType owner = authoredOwnerByPos.get(support.asLong());
-        if (owner == null) owner = ModWorldgenAttachments.ownerAt(level, support);
+        AuthoredOwnerType owner = authoredOwnerAt(support);
         if (owner == AuthoredOwnerType.SETTLEMENT_ROAD
                 || owner == AuthoredOwnerType.INTERCITY_ROUTE
                 || owner == AuthoredOwnerType.ROADSIDE_SITE) {
@@ -236,6 +240,32 @@ public final class WorldgenFabricBlockWriter {
         }
         if (waterColumn) return false;
         return naturalTerrain(state) || state.is(Blocks.DIRT_PATH);
+    }
+
+    /**
+     * Non-mutating preflight used to keep one structure slice atomic inside the current chunk.
+     * Exact-target equality is intentionally not special-cased: an unknown foreign block that
+     * happens to match the palette still remains foreign rather than being silently adopted.
+     */
+    public boolean canReplaceForWorldgen(
+            BlockPos pos, boolean clearing, AuthoredOwnerType ownerType) {
+        if (pos == null || ownerType == null
+                || !insideCurrentChunk(pos.getX(), pos.getZ())) return false;
+        if (pos.getY() <= level.getMinBuildHeight()
+                || pos.getY() >= level.getMaxBuildHeight() - 1) return false;
+        if (isForeignStructurePiece(pos)) return false;
+        BlockState current = level.getBlockState(pos);
+        if (current.hasBlockEntity()) return false;
+        AuthoredOwnerType existingOwner = authoredOwnerAt(pos);
+        if (existingOwner != null) {
+            return AuthoredOwnerType.allowsOverwrite(existingOwner, ownerType);
+        }
+        return mayReplace(pos, current, clearing);
+    }
+
+    private AuthoredOwnerType authoredOwnerAt(BlockPos pos) {
+        AuthoredOwnerType owner = authoredOwnerByPos.get(pos.asLong());
+        return owner != null ? owner : ModWorldgenAttachments.ownerAt(level, pos);
     }
 
     public boolean isForeignStructurePiece(BlockPos pos) {
