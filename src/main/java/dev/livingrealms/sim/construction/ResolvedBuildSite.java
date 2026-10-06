@@ -48,11 +48,17 @@ public record ResolvedBuildSite(
         int turns = Math.floorMod(rotationQuarterTurns, 4);
         int w = (turns & 1) == 0 ? buildingWidth : buildingDepth;
         int d = (turns & 1) == 0 ? buildingDepth : buildingWidth;
+        // Parcel dimensions are authored in the same local frontage frame as the building:
+        // width runs along the street and depth runs from frontage into the lot. Rotate both
+        // together before comparing world-X/Z bounds; otherwise 90°/270° houses can falsely
+        // appear outside a legal parcel even when the local footprint fits exactly.
+        int pw = (turns & 1) == 0 ? parcelWidth : parcelDepth;
+        int pd = (turns & 1) == 0 ? parcelDepth : parcelWidth;
         double halfW = w / 2.0, halfD = d / 2.0;
         double bx0 = buildingCenter.x() - halfW, bx1 = buildingCenter.x() + halfW;
         double bz0 = buildingCenter.z() - halfD, bz1 = buildingCenter.z() + halfD;
-        double px0 = parcelCenter.x() - parcelWidth / 2.0, px1 = parcelCenter.x() + parcelWidth / 2.0;
-        double pz0 = parcelCenter.z() - parcelDepth / 2.0, pz1 = parcelCenter.z() + parcelDepth / 2.0;
+        double px0 = parcelCenter.x() - pw / 2.0, px1 = parcelCenter.x() + pw / 2.0;
+        double pz0 = parcelCenter.z() - pd / 2.0, pz1 = parcelCenter.z() + pd / 2.0;
         return bx0 >= px0 - 1e-9 && bx1 <= px1 + 1e-9 && bz0 >= pz0 - 1e-9 && bz1 <= pz1 + 1e-9;
     }
 
