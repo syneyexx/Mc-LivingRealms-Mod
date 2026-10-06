@@ -2,6 +2,9 @@ package dev.livingrealms.minecraft.worldgen;
 
 import dev.livingrealms.minecraft.construction.FactionBlockPalette;
 import dev.livingrealms.sim.construction.PaletteSlot;
+import dev.livingrealms.sim.construction.AuthoredOwnerType;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.tags.BlockTags;
@@ -26,6 +29,7 @@ public final class WorldgenFabricBlockWriter {
     private final WorldGenLevel level;
     private final int chunkX;
     private final int chunkZ;
+    private final List<StarterCivilizationWorldgenContext.AuthoredWrite> authoredWrites = new ArrayList<>();
 
     public WorldgenFabricBlockWriter(WorldGenLevel level, int chunkX, int chunkZ) {
         this.level = level;
@@ -73,7 +77,8 @@ public final class WorldgenFabricBlockWriter {
     }
 
     public boolean write(long factionId, PaletteSlot slot, BlockPos pos,
-                         int rotationQuarterTurns, boolean doorUpper, BedPart bedPart) {
+                         int rotationQuarterTurns, boolean doorUpper, BedPart bedPart,
+                         AuthoredOwnerType ownerType) {
         BlockState target = FactionBlockPalette.state(factionId, slot);
         if (slot == PaletteSlot.DOOR && target.getBlock() instanceof DoorBlock) {
             target = target
@@ -86,10 +91,11 @@ public final class WorldgenFabricBlockWriter {
                     .setValue(BedBlock.FACING, facing(rotationQuarterTurns))
                     .setValue(BedBlock.PART, bedPart == null ? BedPart.FOOT : bedPart);
         }
-        return writeState(pos, target, slot == PaletteSlot.AIR);
+        return writeState(pos, target, slot == PaletteSlot.AIR, ownerType);
     }
 
-    public boolean writeState(BlockPos pos, BlockState target, boolean clearing) {
+    public boolean writeState(BlockPos pos, BlockState target, boolean clearing,
+                              AuthoredOwnerType ownerType) {
         if (!insideCurrentChunk(pos.getX(), pos.getZ())) return false;
         if (pos.getY() <= level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight() - 1) return false;
         if (!level.ensureCanWrite(pos)) return false;
@@ -98,16 +104,23 @@ public final class WorldgenFabricBlockWriter {
         if (current.equals(target)) return true;
         if (current.hasBlockEntity()) return false;
         if (!mayReplace(pos, current, clearing)) return false;
-        return level.setBlock(pos, target, WORLDGEN_FLAGS);
+        boolean changed = level.setBlock(pos, target, WORLDGEN_FLAGS);
+        if (changed && ownerType != null) {
+            authoredWrites.add(new StarterCivilizationWorldgenContext.AuthoredWrite(
+                    pos.getX(), pos.getY(), pos.getZ(), ownerType));
+        }
+        return changed;
     }
 
-    public boolean fillFoundation(long factionId, int x, int topY, int z) {
+    public boolean fillFoundation(long factionId, int x, int topY, int z,
+                                  AuthoredOwnerType ownerType) {
         if (!insideCurrentChunk(x, z)) return false;
         int ground = terrainY(x, z);
         boolean changed = false;
         int bottom = Math.max(ground, topY - 12);
         for (int y = bottom; y <= topY; y++) {
-            changed |= write(factionId, PaletteSlot.FOUNDATION, new BlockPos(x, y, z), 0, false, null);
+            changed |= write(factionId, PaletteSlot.FOUNDATION, new BlockPos(x, y, z),
+                    0, false, null, ownerType);
         }
         return changed;
     }
@@ -117,6 +130,10 @@ public final class WorldgenFabricBlockWriter {
     }
 
     public WorldGenLevel level() { return level; }
+
+    public List<StarterCivilizationWorldgenContext.AuthoredWrite> authoredWrites() {
+        return List.copyOf(authoredWrites);
+    }
 
     private boolean mayReplace(BlockPos pos, BlockState current, boolean clearing) {
         if (current.isAir()) return true;
