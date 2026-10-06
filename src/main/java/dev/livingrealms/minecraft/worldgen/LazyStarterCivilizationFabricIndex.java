@@ -1,5 +1,6 @@
 package dev.livingrealms.minecraft.worldgen;
 
+import dev.livingrealms.minecraft.LivingRealmsSavedData;
 import dev.livingrealms.sim.construction.BlockPlacement;
 import dev.livingrealms.sim.construction.ConstructionIntent;
 import dev.livingrealms.sim.construction.StructureBlueprint;
@@ -45,6 +46,8 @@ public final class LazyStarterCivilizationFabricIndex {
 
     private record Bounds(int minX, int minZ, int maxX, int maxZ) {}
 
+    private final net.minecraft.server.level.ServerLevel level;
+    private final LivingRealmsSavedData data;
     private final StarterCivilizationLayoutPlanner.Layout source;
     private final StarterGeneratorTerrainCache terrainCache;
     private final List<SettlementRef> settlements;
@@ -61,8 +64,12 @@ public final class LazyStarterCivilizationFabricIndex {
             roadsideByChunk = new ConcurrentHashMap<>();
 
     public LazyStarterCivilizationFabricIndex(
+            net.minecraft.server.level.ServerLevel level,
+            LivingRealmsSavedData data,
             StarterCivilizationLayoutPlanner.Layout source,
             StarterGeneratorTerrainCache terrainCache) {
+        this.level = Objects.requireNonNull(level, "level");
+        this.data = Objects.requireNonNull(data, "data");
         this.source = Objects.requireNonNull(source, "source");
         this.terrainCache = Objects.requireNonNull(terrainCache, "terrainCache");
 
@@ -158,6 +165,17 @@ public final class LazyStarterCivilizationFabricIndex {
 
         StarterCivilizationLayoutPlanner.RealmPlan resolvedRealm =
                 withResolvedSettlement(ref.realm(), resolved);
+
+        if (!resolved.position().equals(ref.settlement().position())) {
+            level.getServer().execute(() -> {
+                var canonical = data.state().findSettlement(resolved.id()).orElse(null);
+                if (canonical != null && !canonical.position().equals(resolved.position())) {
+                    canonical.alignStarterWorldgenPosition(resolved.position());
+                    data.setDirty();
+                }
+            });
+        }
+
         SettlementInitialWorldgenPlan physical =
                 SettlementInitialWorldgenPlan.buildOne(resolvedRealm, resolved);
 
