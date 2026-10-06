@@ -75,6 +75,7 @@ public final class LivingRealmsSavedData extends SavedData {
         DemoSeeder.seed(state);
         LivingRealmsSavedData data = new LivingRealmsSavedData(state, CURRENT_CIVILIZATION_WORLDGEN_VERSION);
         StarterWorldgenCompletion.adoptPlannedBaseline(state);
+        StarterWorldgenCompletion.adoptWizardTreesBaseline(state);
         data.setDirty();
         return data;
     }
