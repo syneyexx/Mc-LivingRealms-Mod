@@ -74,7 +74,7 @@ public final class RoadsideSiteMaterializer {
             BlockState current = level.getBlockState(pos);
             if (groundState.hasBlockEntity()) continue;
             AuthoredOwnerType existing = ledger.ownerType(pos.getX(), pos.getY(), pos.getZ());
-            BlockState desired = RoadsideSiteTemplate.blockFor(site, i)
+            BlockState desired = RoadsideSiteTemplate.blockFor(site, i);
             if (existing == AuthoredOwnerType.ROADSIDE_SITE
                     && (current.equals(desired) || RoadsideSiteTemplate.isRoadsideMaterial(current))) {
                 PLACED.put(pos.asLong(), site.id());
