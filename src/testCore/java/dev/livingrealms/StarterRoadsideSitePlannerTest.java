@@ -52,6 +52,8 @@ public final class StarterRoadsideSitePlannerTest {
 
         check(state.roadsideSites().size() == expected.size(),
                 "bootstrap roadside count mismatch");
+        check(state.peekNextId() >= StarterRoadsideSitePlanner.STARTER_ROADSIDE_SITE_ID_LIMIT,
+                "runtime id watermark must clear reserved starter roadside range");
         for (var plan : expected) {
             var actual = state.findRoadsideSite(plan.stableSiteId()).orElseThrow();
             check(actual.type() == plan.type(), "roadside type mismatch " + plan.stableKey());
