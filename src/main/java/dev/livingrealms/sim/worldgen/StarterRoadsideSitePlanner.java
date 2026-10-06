@@ -12,6 +12,8 @@ import java.util.Objects;
 public final class StarterRoadsideSitePlanner {
     public static final long STARTER_ROADSIDE_SITE_ID_BASE = 3_000_000L;
     private static final int IDS_PER_ROUTE = 32;
+    public static final long STARTER_ROADSIDE_SITE_ID_LIMIT =
+            STARTER_ROADSIDE_SITE_ID_BASE + 12L * 100L * IDS_PER_ROUTE;
     public static final double MIN_SITE_SPACING = 160.0;
     public static final double TARGET_CORRIDOR_SPACING = 380.0;
     public static final int MAX_CORRIDOR_ANCHORS_PER_ROUTE = 16;
@@ -89,8 +91,8 @@ public final class StarterRoadsideSitePlanner {
     }
 
     public static boolean isStarterRoadsideSiteId(long siteId) {
-        long max = STARTER_ROADSIDE_SITE_ID_BASE + 12L * 100L * IDS_PER_ROUTE;
-        return siteId >= STARTER_ROADSIDE_SITE_ID_BASE && siteId < max;
+        return siteId >= STARTER_ROADSIDE_SITE_ID_BASE
+                && siteId < STARTER_ROADSIDE_SITE_ID_LIMIT;
     }
 
     private static RoadsideSite.Type corridorType(long seed, long routeId, int slot) {
