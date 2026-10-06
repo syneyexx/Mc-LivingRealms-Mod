@@ -202,6 +202,7 @@ public final class StarterCivilizationChunkGenerator {
                     && placement.slot() == PaletteSlot.FOUNDATION
                     && placement.dy() == 0) {
                 int ground = writer.terrainY(x, z);
+                if (prepared.baseY() - ground > 64) return false;
                 for (int fy = ground; fy < prepared.baseY(); fy++) {
                     BlockPos foundationPos = new BlockPos(x, fy, z);
                     if (virtuallyCleared.contains(foundationPos.asLong())) continue;
