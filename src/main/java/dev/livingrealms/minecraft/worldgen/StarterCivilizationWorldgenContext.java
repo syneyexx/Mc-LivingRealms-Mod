@@ -91,8 +91,16 @@ public final class StarterCivilizationWorldgenContext {
         long layoutMillis = elapsedMillis(phaseNanos);
         phaseNanos = System.nanoTime();
 
+        StarterGeneratorTerrainCache terrainCache = new StarterGeneratorTerrainCache(level);
+        int settlementWorkers =
+                StarterSettlementTerrainResolver.terrainPlanningWorkers(
+                        pureLayout.settlements().size());
+        LivingRealms.LOGGER.info(
+                "Starter worldgen: refining {} settlement centers with {} terrain worker(s)",
+                pureLayout.settlements().size(), settlementWorkers);
+
         StarterSettlementTerrainResolver.Resolution terrainResolution =
-                StarterSettlementTerrainResolver.resolve(level, pureLayout);
+                StarterSettlementTerrainResolver.resolve(level, pureLayout, terrainCache);
         StarterCivilizationLayoutPlanner.Layout layout = terrainResolution.layout();
         long terrainMillis = elapsedMillis(phaseNanos);
         phaseNanos = System.nanoTime();
@@ -115,7 +123,7 @@ public final class StarterCivilizationWorldgenContext {
                 "Starter worldgen: preparing {} terrain-aware regional routes with {} worker(s)",
                 starterRoutes.size(), routeWorkers);
         StarterRegionalRouteGeometryIndex routeGeometryIndex =
-                StarterRegionalRouteGeometryIndex.build(level, starterRoutes);
+                StarterRegionalRouteGeometryIndex.build(level, starterRoutes, terrainCache);
         long routeMillis = elapsedMillis(phaseNanos);
         phaseNanos = System.nanoTime();
 
@@ -165,12 +173,15 @@ public final class StarterCivilizationWorldgenContext {
                 "Starter worldgen context ready in {} ms "
                         + "[layout={} ms, settlementTerrain={} ms, routes={} ms, "
                         + "roadside={} ms, fabricIndex={} ms, wizardTrees={} ms, palettes={} ms, "
-                        + "movedSettlements={}, indexedRouteChunks={}, routeFallbacks={}]",
+                        + "movedSettlements={}, indexedRouteChunks={}, routeFallbacks={}, "
+                        + "terrainSurfaceColumns={}, terrainGroundColumns={}]",
                 totalMillis, layoutMillis, terrainMillis, routeMillis,
                 roadsideMillis, fabricIndexMillis, wizardMillis, paletteMillis,
                 terrainResolution.movedSettlements(),
                 routeGeometryIndex.indexedChunkCount(),
-                routeGeometryIndex.unresolvedRouteCount());
+                routeGeometryIndex.unresolvedRouteCount(),
+                terrainCache.cachedSurfaceColumns(),
+                terrainCache.cachedGroundColumns());
     }
 
     private static long elapsedMillis(long startedNanos) {

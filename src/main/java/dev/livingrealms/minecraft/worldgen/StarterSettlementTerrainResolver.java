@@ -10,15 +10,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
- * Main-thread terrain refinement for the pure strategic starter layout.
+ * Main-thread deterministic terrain refinement for the pure strategic starter layout.
  *
- * <p>The pure planner remains the authority for identity, hierarchy and role-aware spacing. This
- * resolver only picks a bounded nearby physical center using the active ChunkGenerator; it never
- * requests chunks and publishes a new immutable layout before worker-thread worldgen begins.</p>
+ * <p>The settlement choice order remains single-threaded and deterministic because role-aware
+ * spacing depends on previously resolved settlements. The expensive generator-only terrain
+ * sampling for each settlement's already-legal candidate positions is parallelized. This preserves
+ * the exact candidate set, scoring formula and tie-breaking order while using multiple CPU cores.</p>
  */
 public final class StarterSettlementTerrainResolver {
     public record Resolution(
@@ -40,6 +44,27 @@ public final class StarterSettlementTerrainResolver {
             int preferredRelief
     ) {}
 
+    private record Candidate(
+            SimPosition position,
+            Future<TerrainStats> terrainFuture,
+            TerrainStats immediateTerrain
+    ) {
+        TerrainStats terrain() {
+            if (immediateTerrain != null) return immediateTerrain;
+            try {
+                return terrainFuture.get();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(
+                        "Interrupted while refining starter settlement terrain", interrupted);
+            } catch (ExecutionException failed) {
+                Throwable cause = failed.getCause() == null ? failed : failed.getCause();
+                throw new IllegalStateException(
+                        "Failed to refine starter settlement terrain", cause);
+            }
+        }
+    }
+
     private static final int ANGLES_PER_RING = 12;
 
     private StarterSettlementTerrainResolver() {}
@@ -47,14 +72,16 @@ public final class StarterSettlementTerrainResolver {
     public static Resolution resolve(
             ServerLevel level,
             StarterCivilizationLayoutPlanner.Layout source) {
+        return resolve(level, source, new StarterGeneratorTerrainCache(level));
+    }
+
+    static Resolution resolve(
+            ServerLevel level,
+            StarterCivilizationLayoutPlanner.Layout source,
+            StarterGeneratorTerrainCache terrainCache) {
         Objects.requireNonNull(level, "level");
         Objects.requireNonNull(source, "source");
-
-        var chunkSource = level.getChunkSource();
-        var generator = chunkSource.getGenerator();
-        var randomState = chunkSource.randomState();
-        Map<Long, Integer> surfaceCache = new HashMap<>();
-        Map<Long, Integer> floorCache = new HashMap<>();
+        Objects.requireNonNull(terrainCache, "terrainCache");
 
         List<StarterCivilizationLayoutPlanner.SettlementPlan> all =
                 new ArrayList<>(source.settlements());
@@ -68,19 +95,31 @@ public final class StarterSettlementTerrainResolver {
                         rolePriority(s.role()))
                 .thenComparingLong(StarterCivilizationLayoutPlanner.SettlementPlan::id));
 
+        int workers = terrainPlanningWorkers(order.size());
+        ExecutorService executor = workers <= 1 ? null : Executors.newFixedThreadPool(
+                workers, runnable -> {
+                    Thread thread = new Thread(runnable, "LivingRealms-Settlement-Terrain");
+                    thread.setDaemon(true);
+                    return thread;
+                });
+
         Map<Long, SimPosition> resolved = new HashMap<>();
         int moved = 0;
-        for (var settlement : order) {
-            if (settlement.role() == SettlementRole.SPECIAL) {
-                resolved.put(settlement.id(), settlement.position());
-                continue;
+        try {
+            for (var settlement : order) {
+                if (settlement.role() == SettlementRole.SPECIAL) {
+                    resolved.put(settlement.id(), settlement.position());
+                    continue;
+                }
+                SearchSpec spec = searchSpec(settlement.role());
+                SimPosition chosen = choose(
+                        source.worldSeed(), settlement, all, byId, resolved, spec,
+                        terrainCache, executor);
+                resolved.put(settlement.id(), chosen);
+                if (chosen.distanceTo(settlement.position()) > 0.5) moved++;
             }
-            SearchSpec spec = searchSpec(settlement.role());
-            SimPosition chosen = choose(
-                    source.worldSeed(), settlement, all, byId, resolved, spec,
-                    level, generator, randomState, surfaceCache, floorCache);
-            resolved.put(settlement.id(), chosen);
-            if (chosen.distanceTo(settlement.position()) > 0.5) moved++;
+        } finally {
+            if (executor != null) executor.shutdownNow();
         }
 
         List<StarterCivilizationLayoutPlanner.RealmPlan> realms =
@@ -107,6 +146,12 @@ public final class StarterSettlementTerrainResolver {
                 source.worldSeed(), source.layoutVersion(), realms), moved);
     }
 
+    static int terrainPlanningWorkers(int settlementCount) {
+        if (settlementCount <= 1) return 1;
+        int processors = Math.max(1, Runtime.getRuntime().availableProcessors());
+        return Math.max(1, Math.min(12, processors - 1));
+    }
+
     private static SimPosition choose(
             long seed,
             StarterCivilizationLayoutPlanner.SettlementPlan settlement,
@@ -114,14 +159,10 @@ public final class StarterSettlementTerrainResolver {
             Map<Long, StarterCivilizationLayoutPlanner.SettlementPlan> byId,
             Map<Long, SimPosition> resolved,
             SearchSpec spec,
-            ServerLevel level,
-            net.minecraft.world.level.chunk.ChunkGenerator generator,
-            net.minecraft.world.level.levelgen.RandomState randomState,
-            Map<Long, Integer> surfaceCache,
-            Map<Long, Integer> floorCache) {
+            StarterGeneratorTerrainCache terrainCache,
+            ExecutorService executor) {
         SimPosition origin = settlement.position();
-        SimPosition best = origin;
-        double bestScore = Double.POSITIVE_INFINITY;
+        List<Candidate> candidates = new ArrayList<>();
 
         int rings = Math.max(1, spec.maxRadius() / spec.ringStep());
         double phase = unitAngle(mix(seed ^ settlement.id()));
@@ -136,32 +177,51 @@ public final class StarterSettlementTerrainResolver {
                                 Math.rint(origin.x() + Math.cos(angle) * radius),
                                 Math.rint(origin.z() + Math.sin(angle) * radius));
 
+                // Keep the original ordering rule: spacing is evaluated against the already
+                // resolved prefix before any terrain score can affect the next settlement.
                 if (!spacingLegal(settlement, candidate, all, resolved)) continue;
-                TerrainStats terrain = sampleTerrain(
-                        candidate, spec.sampleRadius(), level, generator, randomState,
-                        surfaceCache, floorCache);
 
-                double displacement = candidate.distanceTo(origin);
-                double parentPenalty = parentDistancePenalty(
-                        settlement, candidate, byId, resolved);
-                double excessWater = Math.max(
-                        0.0, terrain.waterFraction() - spec.maxWaterFraction());
-                double excessRelief = Math.max(
-                        0, terrain.relief() - spec.preferredRelief());
-                double altitudePenalty = Math.max(0.0, terrain.averageGround() - 170.0) * 1.5;
-
-                double score =
-                        terrain.waterFraction() * 3800.0
-                                + excessWater * 8000.0
-                                + terrain.relief() * 42.0
-                                + excessRelief * 80.0
-                                + altitudePenalty
-                                + displacement * 1.35
-                                + parentPenalty * 1.8;
-                if (score < bestScore) {
-                    bestScore = score;
-                    best = candidate;
+                if (executor == null) {
+                    candidates.add(new Candidate(
+                            candidate, null,
+                            sampleTerrain(candidate, spec.sampleRadius(), terrainCache)));
+                } else {
+                    Future<TerrainStats> future = executor.submit(
+                            () -> sampleTerrain(candidate, spec.sampleRadius(), terrainCache));
+                    candidates.add(new Candidate(candidate, future, null));
                 }
+            }
+        }
+
+        SimPosition best = origin;
+        double bestScore = Double.POSITIVE_INFINITY;
+        // Futures are deliberately consumed in the original candidate order. Parallel execution
+        // therefore cannot change equal-score tie-breaking or seed determinism.
+        for (Candidate candidate : candidates) {
+            TerrainStats terrain = candidate.terrain();
+            SimPosition position = candidate.position();
+
+            double displacement = position.distanceTo(origin);
+            double parentPenalty = parentDistancePenalty(
+                    settlement, position, byId, resolved);
+            double excessWater = Math.max(
+                    0.0, terrain.waterFraction() - spec.maxWaterFraction());
+            double excessRelief = Math.max(
+                    0, terrain.relief() - spec.preferredRelief());
+            double altitudePenalty =
+                    Math.max(0.0, terrain.averageGround() - 170.0) * 1.5;
+
+            double score =
+                    terrain.waterFraction() * 3800.0
+                            + excessWater * 8000.0
+                            + terrain.relief() * 42.0
+                            + excessRelief * 80.0
+                            + altitudePenalty
+                            + displacement * 1.35
+                            + parentPenalty * 1.8;
+            if (score < bestScore) {
+                bestScore = score;
+                best = position;
             }
         }
         return best;
@@ -199,11 +259,7 @@ public final class StarterSettlementTerrainResolver {
     private static TerrainStats sampleTerrain(
             SimPosition center,
             int radius,
-            ServerLevel level,
-            net.minecraft.world.level.chunk.ChunkGenerator generator,
-            net.minecraft.world.level.levelgen.RandomState randomState,
-            Map<Long, Integer> surfaceCache,
-            Map<Long, Integer> floorCache) {
+            StarterGeneratorTerrainCache terrainCache) {
         int cx = (int) Math.round(center.x());
         int cz = (int) Math.round(center.z());
         int half = Math.max(8, radius / 2);
@@ -218,13 +274,8 @@ public final class StarterSettlementTerrainResolver {
             for (int dz : offsets) {
                 int x = cx + dx;
                 int z = cz + dz;
-                long key = pack(x, z);
-                int surface = surfaceCache.computeIfAbsent(key, ignored ->
-                        generator.getBaseHeight(
-                                x, z, Heightmap.Types.WORLD_SURFACE_WG, level, randomState) - 1);
-                int floor = floorCache.computeIfAbsent(key, ignored ->
-                        generator.getBaseHeight(
-                                x, z, Heightmap.Types.OCEAN_FLOOR_WG, level, randomState) - 1);
+                int surface = terrainCache.surfaceY(x, z);
+                int floor = terrainCache.groundY(x, z);
                 if (surface > floor + 1) water++;
                 minGround = Math.min(minGround, floor);
                 maxGround = Math.max(maxGround, floor);
@@ -271,9 +322,5 @@ public final class StarterSettlementTerrainResolver {
         x ^= x >>> 33;
         x *= 0xc4ceb9fe1a85ec53l;
         return x ^ (x >>> 33);
-    }
-
-    private static long pack(int x, int z) {
-        return ((long) x << 32) ^ (z & 0xffffffffL);
     }
 }
