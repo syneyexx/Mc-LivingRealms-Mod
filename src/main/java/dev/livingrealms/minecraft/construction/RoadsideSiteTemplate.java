@@ -2,11 +2,26 @@ package dev.livingrealms.minecraft.construction;
 
 import dev.livingrealms.sim.world.RoadsideSite;
 import net.minecraft.world.level.block.Blocks;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.world.level.block.state.BlockState;
 
 /** Shared immutable roadside-site footprint/material template for worldgen and runtime projection. */
 public final class RoadsideSiteTemplate {
+    public record Placement(int materialIndex, int dx, int dz, BlockState state) {}
+
     private RoadsideSiteTemplate() {}
+
+    public static List<Placement> placements(RoadsideSite site) {
+        int[][] offsets = offsetsFor(site.type());
+        int target = Math.max(1, Math.min(offsets.length, footprintBudget(site)));
+        List<Placement> out = new ArrayList<>(target);
+        for (int i = 0; i < target; i++) {
+            int offsetIndex = Math.floorMod(i + Long.hashCode(site.id()), offsets.length);
+            out.add(new Placement(i, offsets[offsetIndex][0], offsets[offsetIndex][1], blockFor(site, i)));
+        }
+        return List.copyOf(out);
+    }
 
     public static int footprintBudget(RoadsideSite site) {
         return switch (site.lifecycle()) {
