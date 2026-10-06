@@ -189,8 +189,13 @@ final class SettlementHousingPlanner {
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
 
         int alreadyHouses = (int) out.stream().filter(i -> i.role() == StructureRole.HOUSE).count();
+        // Parcel planning is priority-ordered. Existing arterials and gate approaches can exhaust a
+        // demand-sized candidate cap before the intentionally lower-priority housing lanes are visited.
+        // Search deeper, but keep emission itself bounded by `deficit` below.
+        int parcelSearchBudget = Math.min(2048,
+                alreadyHouses + deficit + additions.size() * 16);
         List<SettlementParcelPlanner.ParcelPlan> extraParcels = new ArrayList<>(
-                SettlementParcelPlanner.plan(extended, faction, settlement, alreadyHouses + deficit));
+                SettlementParcelPlanner.plan(extended, faction, settlement, parcelSearchBudget));
         List<SimPosition> occupied = new ArrayList<>(out.stream()
                 .filter(i -> i.role() == StructureRole.HOUSE)
                 .map(ConstructionIntent::center)
