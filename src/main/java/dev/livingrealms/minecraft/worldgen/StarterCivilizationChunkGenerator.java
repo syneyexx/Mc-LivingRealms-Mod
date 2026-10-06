@@ -5,7 +5,6 @@ import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.construction.ConstructionIntent;
 import dev.livingrealms.sim.construction.PaletteSlot;
 import dev.livingrealms.sim.construction.StructureBlueprint;
-import dev.livingrealms.sim.construction.StructureBlueprintFactory;
 import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.transport.RouteProjectionPlanner;
 import dev.livingrealms.sim.world.SimPosition;
@@ -45,8 +44,7 @@ public final class StarterCivilizationChunkGenerator {
         for (StarterCivilizationFabricIndex.SettlementFabric fabric : slice.settlementFabric()) {
             ConstructionIntent intent = fabric.intent();
             if (intent.role() == StructureRole.ROAD && intent.hasPath()) continue;
-            StructureBlueprint blueprint =
-                    StructureBlueprintFactory.create(intent, fabric.settlement().architecture());
+            StructureBlueprint blueprint = fabric.blueprint();
             int turns = Math.floorMod(intent.rotationQuarterTurns(), 4);
             boolean terrainFollowing = terrainFollowing(intent.role());
             int cx = (int) Math.round(intent.center().x());
