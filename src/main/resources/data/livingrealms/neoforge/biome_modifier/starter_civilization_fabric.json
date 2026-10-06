@@ -1,0 +1,6 @@
+{
+  "type": "neoforge:add_features",
+  "biomes": "#c:is_overworld",
+  "features": "livingrealms:starter_civilization_fabric",
+  "step": "surface_structures"
+}
