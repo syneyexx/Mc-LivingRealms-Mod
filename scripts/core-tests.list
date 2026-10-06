@@ -8,6 +8,7 @@ dev.livingrealms.ProductionCompletionPassTest
 dev.livingrealms.SocietyDialogueTest
 dev.livingrealms.GoodsChainTest
 dev.livingrealms.UnderworldGameplayTest
+dev.livingrealms.SettlementAnchorInvariantTest
 dev.livingrealms.CoreSimulationTest
 dev.livingrealms.ConstructionIntegrityTest
 dev.livingrealms.ProvenanceSafetyTest
@@ -88,7 +89,6 @@ dev.livingrealms.DeterministicRefactorProofTest
 dev.livingrealms.ManualDayAdvanceSchedulerTest
 dev.livingrealms.Schema18FollowUpTest
 dev.livingrealms.SparseWorldPolicyTest
-dev.livingrealms.SettlementAnchorInvariantTest
 dev.livingrealms.ForeignSettlementSpacingTest
 dev.livingrealms.PlayerWarRoomTest
 dev.livingrealms.WarRoomOptionsBuilderTest
