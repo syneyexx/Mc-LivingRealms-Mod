@@ -8,6 +8,7 @@ import dev.livingrealms.sim.faction.SettlementOrigin;
 import dev.livingrealms.sim.faction.SettlementRole;
 import dev.livingrealms.sim.transport.RegionalSettlementGraph;
 import dev.livingrealms.sim.transport.TransportNetworkEngine;
+import dev.livingrealms.sim.world.RoadLifeEngine;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 import java.util.HashSet;
@@ -63,7 +64,43 @@ public final class RegionalSettlementGraphTest {
                 "route discovery should not add arbitrary intra-realm nearest-neighbour edges: routes="
                         + state.routes().size() + " graph=" + graph.size());
 
-        System.out.println("PASS regional settlement graph: hierarchy + connectivity + deterministic route discovery");
+        corridorSitesBoundMeaningfulFabricGaps(state);
+        System.out.println("PASS regional settlement graph: hierarchy + connectivity + deterministic route discovery"
+                + " + <=450-block corridor fabric gaps");
+    }
+
+    private static void corridorSitesBoundMeaningfulFabricGaps(SimulationState state) {
+        int first = RoadLifeEngine.ensureCorridorSites(state);
+        int second = RoadLifeEngine.ensureCorridorSites(state);
+        check(first > 0, "long inhabited routes should receive deterministic roadside anchors");
+        check(second == 0, "corridor gap filling must be idempotent");
+
+        for (var route : state.routes()) {
+            if (!route.operational()) continue;
+            if (route.mode() != dev.livingrealms.sim.transport.TransportMode.ROAD
+                    && route.mode() != dev.livingrealms.sim.transport.TransportMode.CARAVAN) continue;
+            Settlement from = state.findSettlement(route.fromSettlementId()).orElseThrow();
+            Settlement to = state.findSettlement(route.toSettlementId()).orElseThrow();
+            double distance = from.position().distanceTo(to.position());
+            if (distance <= 450.0) continue;
+
+            java.util.List<SimPosition> points = new java.util.ArrayList<>();
+            points.add(from.position());
+            state.roadsideSites().stream()
+                    .filter(site -> site.active() && site.relatedRouteId() == route.id())
+                    .map(dev.livingrealms.sim.world.RoadsideSite::position)
+                    .forEach(points::add);
+            points.add(to.position());
+            points.sort(java.util.Comparator.comparingDouble(p -> p.distanceTo(from.position())));
+
+            double maxGap = 0.0;
+            for (int i = 1; i < points.size(); i++) {
+                maxGap = Math.max(maxGap, points.get(i - 1).distanceTo(points.get(i)));
+            }
+            check(maxGap <= 450.0 + 1.0,
+                    "inhabited route has accidental fabric gap " + Math.round(maxGap)
+                            + " on route " + route.id());
+        }
     }
 
     private static Settlement add(SimulationState state, Faction faction, String name,
