@@ -1,6 +1,7 @@
 package dev.livingrealms.minecraft.worldgen;
 
 import dev.livingrealms.sim.construction.BlockPlacement;
+import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.construction.ConstructionIntent;
 import dev.livingrealms.sim.construction.PaletteSlot;
 import dev.livingrealms.sim.construction.StructureBlueprint;
@@ -63,6 +64,7 @@ public final class StarterCivilizationChunkGenerator {
             if (p.slot() == PaletteSlot.BED) beds.add(key(p.dx(), p.dy(), p.dz()));
         }
 
+        AuthoredOwnerType ownerType = AuthoredOwnerType.forStructureRole(intent.role());
         int writes = 0;
         for (BlockPlacement placement : blueprint.placements()) {
             int[] rotated = rotate(placement.dx(), placement.dz(), turns);
@@ -73,7 +75,7 @@ public final class StarterCivilizationChunkGenerator {
             int y = columnBase + placement.dy();
             if (!terrainFollowing && placement.slot() == PaletteSlot.FOUNDATION && placement.dy() == 0
                     && writer.terrainY(x, z) < baseY - 1) {
-                if (writer.fillFoundation(settlement.factionId(), x, baseY - 1, z)) writes++;
+                if (writer.fillFoundation(settlement.factionId(), x, baseY - 1, z, ownerType)) writes++;
             }
 
             boolean doorUpper = placement.slot() == PaletteSlot.DOOR
@@ -84,7 +86,7 @@ public final class StarterCivilizationChunkGenerator {
                         ? BedPart.HEAD : BedPart.FOOT;
             }
             if (writer.write(settlement.factionId(), placement.slot(), new BlockPos(x, y, z),
-                    turns, doorUpper, bedPart)) {
+                    turns, doorUpper, bedPart, ownerType)) {
                 writes++;
             }
         }
@@ -115,7 +117,8 @@ public final class StarterCivilizationChunkGenerator {
                     int z = (int) Math.round(centerZ + nz * side);
                     long packed = (((long) x) << 32) ^ (z & 0xffffffffL);
                     if (!visited.add(packed) || !writer.insideCurrentChunk(x, z)) continue;
-                    if (writeRoadDeck(writer, factionId, x, z, false, false)) writes++;
+                    if (writeRoadDeck(writer, factionId, x, z, false, false,
+                            AuthoredOwnerType.SETTLEMENT_ROAD)) writes++;
                 }
             }
         }
@@ -144,7 +147,8 @@ public final class StarterCivilizationChunkGenerator {
                 int x = px + nx * side, z = pz + nz * side;
                 long packed = (((long) x) << 32) ^ (z & 0xffffffffL);
                 if (!visited.add(packed) || !writer.insideCurrentChunk(x, z)) continue;
-                if (writeRoadDeck(writer, route.factionId(), x, z, route.rural(), true)) writes++;
+                if (writeRoadDeck(writer, route.factionId(), x, z, route.rural(), true,
+                        AuthoredOwnerType.INTERCITY_ROUTE)) writes++;
             }
         }
         return writes;
@@ -156,7 +160,8 @@ public final class StarterCivilizationChunkGenerator {
             int x,
             int z,
             boolean rural,
-            boolean regional) {
+            boolean regional,
+            AuthoredOwnerType ownerType) {
         int surface = writer.terrainY(x, z);
         int floor = writer.oceanFloorY(x, z);
         boolean water = surface - floor >= 2;
@@ -164,17 +169,18 @@ public final class StarterCivilizationChunkGenerator {
         BlockPos pos = new BlockPos(x, y, z);
         if (water) {
             var deck = rural ? Blocks.SPRUCE_PLANKS.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState();
-            boolean wrote = writer.writeState(pos, deck, false);
+            boolean wrote = writer.writeState(pos, deck, false, ownerType);
             if (regional && Math.floorMod(x * 31 + z * 17, 11) == 0) {
                 int bottom = Math.max(floor + 1, y - 12);
                 for (int py = bottom; py < y; py++) {
                     writer.writeState(new BlockPos(x, py, z),
-                            rural ? Blocks.OAK_LOG.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState(), false);
+                            rural ? Blocks.OAK_LOG.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState(),
+                            false, ownerType);
                 }
             }
             return wrote;
         }
-        return writer.write(factionId, PaletteSlot.PATH, pos, 0, false, null);
+        return writer.write(factionId, PaletteSlot.PATH, pos, 0, false, null, ownerType);
     }
 
     private static int[] rotate(int x, int z, int turns) {
