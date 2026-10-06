@@ -27,6 +27,7 @@ public record SettlementInitialWorldgenPlan(
         long settlementId,
         String settlementName,
         SettlementRole role,
+        Settlement.Tier tier,
         SimPosition center,
         CultureArchitecture architecture,
         List<ConstructionIntent> intents
@@ -37,6 +38,7 @@ public record SettlementInitialWorldgenPlan(
         if (factionId <= 0 || settlementId <= 0) throw new IllegalArgumentException("owner ids");
         if (settlementName == null || settlementName.isBlank()) throw new IllegalArgumentException("settlementName");
         role = Objects.requireNonNull(role, "role");
+        tier = Objects.requireNonNull(tier, "tier");
         center = Objects.requireNonNull(center, "center");
         architecture = Objects.requireNonNull(architecture, "architecture");
         intents = List.copyOf(Objects.requireNonNull(intents, "intents"));
@@ -70,7 +72,7 @@ public record SettlementInitialWorldgenPlan(
                 SettlementPlanner.WorldgenPlan physical = SettlementPlanner.planWorldgen(faction, settlement);
                 out.add(new SettlementInitialWorldgenPlan(
                         starter.stableKey(), realmPlan.definition().id(), faction.id(), settlement.id(),
-                        settlement.name(), settlement.role(), settlement.position(),
+                        settlement.name(), settlement.role(), settlement.tier(), settlement.position(),
                         physical.architecture(), physical.intents()));
             }
         }
