@@ -280,7 +280,7 @@ public final class StarterRegionalRouteGeometryIndex {
                 planned.route(), planned.points(), planned.engineeredFallback());
     }
 
-    private static List<PlannedPoint> gradeProfile(
+    static List<PlannedPoint> gradeProfile(
             List<RouteProjectionPlanner.RoutePoint> projected,
             TerrainCorridorPlanner.TerrainSample terrain) {
         int size = projected.size();
