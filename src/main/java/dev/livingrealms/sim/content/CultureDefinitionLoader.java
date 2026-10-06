@@ -2,7 +2,6 @@ package dev.livingrealms.sim.content;
 
 import dev.livingrealms.sim.construction.CultureArchitecture;
 import dev.livingrealms.sim.data.MiniJson;
-import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,11 +60,11 @@ public final class CultureDefinitionLoader {
     }
 
     private static Map<String, CultureDefinition> loadFromFilesystem() {
-        List<Path> files = ContentDataPaths.listJsonFiles(ContentDataPaths.CULTURES);
+        List<String> files = ContentDataPaths.listJsonFileNames(ContentDataPaths.CULTURES);
         if (files.isEmpty()) throw new IllegalStateException("No culture definitions under data/livingrealms/cultures");
         Map<String, CultureDefinition> byId = new LinkedHashMap<>();
-        for (Path path : files) {
-            CultureDefinition def = decode(ContentDataPaths.readUtf8(path));
+        for (String fileName : files) {
+            CultureDefinition def = decode(ContentDataPaths.readClasspathOrFs(ContentDataPaths.CULTURES, fileName));
             if (byId.put(def.id(), def) != null) {
                 throw new IllegalStateException("Duplicate culture id: " + def.id());
             }
