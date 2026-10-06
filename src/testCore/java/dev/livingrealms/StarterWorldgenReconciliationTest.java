@@ -4,6 +4,7 @@ import dev.livingrealms.sim.construction.SettlementCoreCompleteness;
 import dev.livingrealms.sim.construction.SettlementPlanner;
 import dev.livingrealms.sim.faction.ConstructionOrigin;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.transport.TransportNetworkEngine;
 import dev.livingrealms.sim.transport.TransportRoute;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SimulationState;
@@ -19,6 +20,7 @@ public final class StarterWorldgenReconciliationTest {
 
     public static void main(String[] args) {
         canonicalBootstrapUsesSharedStarterRouteIds();
+        dynamicTransportDoesNotDuplicateStarterEdges();
         worldgenReceiptsSuppressBaselineButNotFutureGrowth();
         starterSettlementsAreCoreComplete();
         constructionOriginOrdinalsRemainBackwardCompatible();
@@ -37,6 +39,28 @@ public final class StarterWorldgenReconciliationTest {
                     "canonical bootstrap missing shared starter route " + route.stableKey());
             check(StarterRegionalRoutePlanner.isStarterRouteId(route.stableRouteId()),
                     "starter route id classifier rejected " + route.stableRouteId());
+        }
+    }
+
+    private static void dynamicTransportDoesNotDuplicateStarterEdges() {
+        long seed = 0x771133L;
+        SimulationState state = new SimulationState(seed);
+        DemoSeeder.seed(state);
+        var planned = StarterRegionalRoutePlanner.plan(StarterCivilizationLayoutPlanner.plan(seed));
+        int starterCount = planned.size();
+        check(state.routes().stream().filter(r -> StarterRegionalRoutePlanner.isStarterRouteId(r.id())).count() == starterCount,
+                "starter route bootstrap count mismatch");
+
+        new TransportNetworkEngine().ensureRoutes(state);
+        for (var starter : planned) {
+            long sameEnds = state.routes().stream().filter(route ->
+                    route.ownerFactionId() == starter.factionId()
+                            && ((route.fromSettlementId() == starter.fromSettlementId()
+                            && route.toSettlementId() == starter.toSettlementId())
+                            || (route.fromSettlementId() == starter.toSettlementId()
+                            && route.toSettlementId() == starter.fromSettlementId()))).count();
+            check(sameEnds == 1,
+                    "dynamic transport duplicated starter edge " + starter.stableKey() + " count=" + sameEnds);
         }
     }
 
