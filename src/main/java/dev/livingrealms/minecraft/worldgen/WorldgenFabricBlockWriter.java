@@ -175,6 +175,13 @@ public final class WorldgenFabricBlockWriter {
         int floor = level.getMinBuildHeight() + 1;
         while (y > floor) {
             BlockPos pos = new BlockPos(x, y, z);
+            // A previously generated neighboring slice may already contain LR geometry at this
+            // sample coordinate. Ignore those authored blocks when recovering the original surface;
+            // otherwise fixed multi-chunk structures acquire different base Y by generation order.
+            if (ModWorldgenAttachments.ownerAt(level, pos) != null) {
+                y--;
+                continue;
+            }
             BlockState state = level.getBlockState(pos);
             if (state.is(BlockTags.LEAVES) || state.canBeReplaced()
                     || state.is(Blocks.SNOW) || state.is(Blocks.VINE)
