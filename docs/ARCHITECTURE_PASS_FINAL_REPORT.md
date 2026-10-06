@@ -3,7 +3,7 @@
 Historical baseline branch: `cursor/architecture-depth-pass-f4a7`  
 Status: **historical architecture-pass report**. Current production pins and world-fabric architecture are maintained on `codex/civilization-world-fabric`.
 
-CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 16 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 ---
 
