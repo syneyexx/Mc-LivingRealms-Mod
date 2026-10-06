@@ -22,11 +22,11 @@ public final class RoadLifeEngine {
     /** Soft cap of active journeys worldwide. */
     public static final int MAX_ACTIVE_JOURNEYS = 96;
     /** Minimum blocks between independent roadside sites; keeps the road layer sparse. */
-    public static final double MIN_SITE_SPACING = 280.0;
+    public static final double MIN_SITE_SPACING = 160.0;
     /** Desired maximum gap between meaningful civilization fabric along an inhabited road. */
     public static final double TARGET_CORRIDOR_SPACING = 380.0;
     /** Prevent one extreme route from consuming the global roadside-site budget. */
-    public static final int MAX_CORRIDOR_ANCHORS_PER_ROUTE = 10;
+    public static final int MAX_CORRIDOR_ANCHORS_PER_ROUTE = 16;
     private static final RoadsideSite.Type[] SITE_TYPES = RoadsideSite.Type.values();
     private static final RoadsideSite.Type[] CORRIDOR_TYPES = {
             RoadsideSite.Type.WAYSTATION,
