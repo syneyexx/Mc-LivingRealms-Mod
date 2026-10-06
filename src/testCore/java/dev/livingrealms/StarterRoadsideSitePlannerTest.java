@@ -1,6 +1,7 @@
 package dev.livingrealms;
 
 import dev.livingrealms.sim.world.DemoSeeder;
+import dev.livingrealms.sim.world.RoadLifeEngine;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
 import dev.livingrealms.sim.worldgen.StarterRoadsideSitePlanner;
@@ -52,6 +53,8 @@ public final class StarterRoadsideSitePlannerTest {
 
         check(state.roadsideSites().size() == expected.size(),
                 "bootstrap roadside count mismatch");
+        check(RoadLifeEngine.ensureCorridorSites(state) == 0,
+                "runtime corridor reconciliation must not add day-zero roadside anchors");
         check(state.peekNextId() >= StarterRoadsideSitePlanner.STARTER_ROADSIDE_SITE_ID_LIMIT,
                 "runtime id watermark must clear reserved starter roadside range");
         for (var plan : expected) {
