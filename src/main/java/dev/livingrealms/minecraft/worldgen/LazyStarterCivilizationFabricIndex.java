@@ -31,7 +31,7 @@ import java.util.concurrent.FutureTask;
  * world creation out of a global 267-settlement terrain/blueprint pass.</p>
  */
 public final class LazyStarterCivilizationFabricIndex {
-    private static final int RESOLUTION_HALO_BLOCKS = 768;
+    private static final int RESOLUTION_HALO_BLOCKS = 256;
 
     public record ResolvedSettlement(
             StarterCivilizationLayoutPlanner.RealmPlan realm,
