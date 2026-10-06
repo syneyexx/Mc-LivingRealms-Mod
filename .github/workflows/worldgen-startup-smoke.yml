@@ -26,7 +26,16 @@ jobs:
             echo "$EXPECTED_SHA256  $ZIP" | sha256sum -c -
             unzip -qo "$ZIP" -d "$CACHE"
           fi
-          "$HOME_DIR/bin/gradle" --no-daemon --no-build-cache classes
+          for attempt in 1 2 3; do
+            if "$HOME_DIR/bin/gradle" --no-daemon --no-build-cache classes; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "Gradle compile failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep 8
+          done
       - name: Start fresh NeoForge server and require completed spawn prep
         run: |
           set -euo pipefail
