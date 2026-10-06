@@ -136,7 +136,9 @@ public final class WorldgenFabricBlockWriter {
             AuthoredOwnerType ownerType) {
         if (!insideCurrentChunk(x, z) || ownerType == null) return false;
         int delta = deckY - groundY;
-        if (delta < -16 || delta > 24) return false;
+        // Engineered starter corridors may tunnel through a major ridge or bridge a deep ravine.
+        // Keep hard bounds to avoid absurd vertical shafts while preventing ordinary mountain gaps.
+        if (delta < -96 || delta > 64) return false;
 
         if (delta < 0) {
             int headTop = Math.min(groundY + 2, deckY + 3);
