@@ -5,6 +5,7 @@ import dev.livingrealms.sim.construction.PaletteSlot;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.tags.BlockTags;
@@ -29,14 +30,18 @@ public final class WorldgenFabricBlockWriter {
     private final WorldGenLevel level;
     private final int chunkX;
     private final int chunkZ;
+    private final StarterCivilizationWorldgenContext.Context worldgenContext;
     private final int[] terrainSnapshot = new int[16 * 16];
     private final int[] oceanFloorSnapshot = new int[16 * 16];
     private final List<StarterCivilizationWorldgenContext.AuthoredWrite> authoredWrites = new ArrayList<>();
 
-    public WorldgenFabricBlockWriter(WorldGenLevel level, int chunkX, int chunkZ) {
+    public WorldgenFabricBlockWriter(
+            WorldGenLevel level, int chunkX, int chunkZ,
+            StarterCivilizationWorldgenContext.Context worldgenContext) {
         this.level = level;
         this.chunkX = chunkX;
         this.chunkZ = chunkZ;
+        this.worldgenContext = Objects.requireNonNull(worldgenContext, "worldgenContext");
         // Snapshot the whole writable chunk before any Living Realms block is placed. Later roads,
         // walls and terrain-following structures must never treat earlier LR writes as terrain.
         int minX = chunkX << 4;
@@ -81,7 +86,8 @@ public final class WorldgenFabricBlockWriter {
     public boolean write(long factionId, PaletteSlot slot, BlockPos pos,
                          int rotationQuarterTurns, boolean doorUpper, BedPart bedPart,
                          AuthoredOwnerType ownerType) {
-        BlockState target = FactionBlockPalette.worldgenState(factionId, slot);
+        BlockState target = FactionBlockPalette.worldgenState(
+                factionId, slot, worldgenContext.paletteStyle(factionId));
         if (slot == PaletteSlot.DOOR && target.getBlock() instanceof DoorBlock) {
             target = target
                     .setValue(DoorBlock.FACING, facing(rotationQuarterTurns))
