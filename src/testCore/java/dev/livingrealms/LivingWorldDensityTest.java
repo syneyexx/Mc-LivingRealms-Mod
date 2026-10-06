@@ -30,6 +30,7 @@ public final class LivingWorldDensityTest {
 
     public static void main(String[] args) {
         denseStarterWorldIsHierarchicalAndIdempotent();
+        starterRealmsHaveNoAccidentalSettlementGaps();
         settlementsRespectAuthoredSpacing();
         settlementsUseDiverseOrganicBlueprints();
         populatedSettlementsProjectVisibleCrowdsWithinBudget();
@@ -81,6 +82,37 @@ public final class LivingWorldDensityTest {
         for (Faction faction : state.factions()) for (Settlement settlement : faction.settlements()) {
             check(ids.add(settlement.id()), "duplicate settlement id " + settlement.id());
             check(names.add(settlement.name()), "duplicate settlement name " + settlement.name());
+        }
+    }
+
+    private static void starterRealmsHaveNoAccidentalSettlementGaps() {
+        SimulationState state = new SimulationState(0x6A4F11L);
+        DemoSeeder.seed(state);
+        for (Faction faction : state.factions()) {
+            if (faction.name().equals("Wizard Trees")) continue;
+            List<Settlement> ordinary = faction.settlements().stream()
+                    .filter(s -> s.role().ordinarySurfaceSettlement())
+                    .toList();
+            Settlement capital = ordinary.stream()
+                    .filter(s -> s.role() == SettlementRole.CAPITAL)
+                    .findFirst().orElseThrow();
+            double nearestTown = ordinary.stream()
+                    .filter(s -> s.role() == SettlementRole.TOWN)
+                    .mapToDouble(s -> s.position().distanceTo(capital.position()))
+                    .min().orElseThrow();
+            check(nearestTown >= 650.0 - 1.0 && nearestTown <= 800.0 + 1.0,
+                    faction.name() + " must have an inner town gap-anchor within 650-800 blocks: "
+                            + Math.round(nearestTown));
+
+            for (Settlement settlement : ordinary) {
+                double nearest = ordinary.stream()
+                        .filter(other -> other.id() != settlement.id())
+                        .mapToDouble(other -> other.position().distanceTo(settlement.position()))
+                        .min().orElse(Double.POSITIVE_INFINITY);
+                check(nearest <= 800.0 + 1.0,
+                        "accidental inhabited-territory gap: " + faction.name() + " / "
+                                + settlement.name() + " nearest true settlement=" + Math.round(nearest));
+            }
         }
     }
 
