@@ -1,5 +1,7 @@
 package dev.livingrealms.minecraft.worldgen;
 
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
 import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
@@ -25,6 +27,21 @@ public final class StarterCivilizationFabricFeature extends Feature<NoneFeatureC
 
         WorldgenFabricBlockWriter writer =
                 new WorldgenFabricBlockWriter(context.level(), chunkX, chunkZ);
-        return StarterCivilizationChunkGenerator.generate(writer, slice, chunkX, chunkZ) > 0;
+        int writes = StarterCivilizationChunkGenerator.generate(writer, slice, chunkX, chunkZ);
+        List<StarterCivilizationWorldgenContext.AuthoredWrite> authored = writer.authoredWrites();
+        if (!authored.isEmpty()) {
+            List<Long> packed = new ArrayList<>(authored.size());
+            for (StarterCivilizationWorldgenContext.AuthoredWrite write : authored) {
+                packed.add(ModWorldgenAttachments.ChunkProvenance.pack(
+                        write.x(), write.y(), write.z(), write.ownerType()));
+            }
+            var chunk = context.level().getChunk(chunkX, chunkZ);
+            var type = ModWorldgenAttachments.STARTER_FABRIC_PROVENANCE.get();
+            var existing = chunk.hasData(type)
+                    ? chunk.getData(type)
+                    : ModWorldgenAttachments.ChunkProvenance.empty();
+            chunk.setData(type, existing.merge(published.get().worldgenVersion(), packed));
+        }
+        return writes > 0;
     }
 }
