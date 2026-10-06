@@ -13,7 +13,7 @@ Feature rows track depth with FOUNDATION → CANONICAL → PLAYABLE → PHYSICAL
 ## v3.0 — release-ready singleplayer
 - [x] Deterministic civilization/ecology core (**DEEP** / soak-proven).
 - [x] Versioned persistent world state through schema **21** (schemas 1–21 readable).
-- [x] Dashboard protocol **20**, network **16**, ContentRevision **15**.
+- [x] Dashboard protocol **20**, network **16**, ContentRevision **16**.
 - [x] Surface density: 12 kingdoms × **17–25** settlements = **204–300** starters (capital + 10 authored satellites + 6–14 rural hamlets), with role-aware spacing; Wizard Trees remain a separate SPECIAL layer.
 - [x] Goods chain GRAIN/FLOUR/BREAD/MEAT/ALE/WOOL; construction keys only via materializer / FOREIGN_ADOPTED.
 - [x] SettlementTransfer on capture/rebellion; capital war targets; named rosters; tokenized dialogue.
