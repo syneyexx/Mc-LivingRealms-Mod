@@ -32,9 +32,8 @@ import net.minecraft.server.level.ServerLevel;
 public final class LazyStarterRegionalRouteGeometryIndex {
     private static final int TILE_CHUNKS = 16;
     private static final int TILE_BLOCKS = TILE_CHUNKS * 16;
-    private static final int LOCAL_CELL_SIZE = 8;
-    private static final int LOCAL_MAX_NODES = 1_200;
-    private static final int CONNECTOR_MAX_NODES = 1_800;
+    private static final int LOCAL_CELL_SIZE = 16;
+    private static final int LOCAL_MAX_NODES = 384;
     private static final double ENDPOINT_TRIGGER_RADIUS = 512.0;
 
     private record TileKey(long routeId, int tileX, int tileZ) {}
@@ -228,19 +227,15 @@ public final class LazyStarterRegionalRouteGeometryIndex {
 
         Bounds bounds = boundsAround(resolvedGate, authoredGate, 40);
         TerrainCorridorPlanner.TerrainSample terrain = boundedTerrain(bounds);
-        List<TerrainCorridorPlanner.Cell> corridor = TerrainCorridorPlanner.planLocal(
-                (int) Math.round(resolvedGate.x()),
-                (int) Math.round(resolvedGate.z()),
-                (int) Math.round(authoredGate.x()),
-                (int) Math.round(authoredGate.z()),
-                LOCAL_CELL_SIZE,
-                CONNECTOR_MAX_NODES,
-                terrain);
 
-        boolean engineeredFallback = corridor.isEmpty();
-        if (engineeredFallback) {
-            corridor = straightCells(resolvedGate, authoredGate);
-        }
+        // Endpoint relocation is at most a few hundred blocks and exists only to reconnect a
+        // terrain-shifted gate to the authored regional corridor. Do not spend another A* budget
+        // for every outgoing capital route: use a deterministic engineered connector and let the
+        // grade profile/road writer turn elevation differences into bounded cuts, causeways,
+        // bridge supports or tunnel clearance.
+        List<TerrainCorridorPlanner.Cell> corridor =
+                straightCells(resolvedGate, authoredGate);
+        boolean engineeredFallback = true;
 
         List<RouteProjectionPlanner.RoutePoint> projected =
                 densify(route, corridor, bounds);
