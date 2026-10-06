@@ -59,14 +59,18 @@ public final class StarterRoadsideSitePlanner {
 
         List<SitePlan> out = new ArrayList<>();
         for (StarterRegionalRoutePlanner.RoutePlan route : routes) {
-            double distance = route.from().distanceTo(route.to());
+            // Preserve the original RoadLifeEngine day-zero semantics exactly: roadside anchors
+            // are spaced between settlement centers, while the physical road itself is gate-aligned.
+            SimPosition fromCenter = layout.settlement(route.fromSettlementId()).position();
+            SimPosition toCenter = layout.settlement(route.toSettlementId()).position();
+            double distance = fromCenter.distanceTo(toCenter);
             if (distance <= 450.0) continue;
 
             int segments = Math.max(2, (int) Math.ceil(distance / TARGET_CORRIDOR_SPACING));
             int anchors = Math.min(MAX_CORRIDOR_ANCHORS_PER_ROUTE, segments - 1);
             for (int slot = 1; slot <= anchors; slot++) {
                 double t = slot / (double) (anchors + 1);
-                SimPosition position = route.from().lerp(route.to(), t);
+                SimPosition position = fromCenter.lerp(toCenter, t);
                 if (tooClose(out, position)) continue;
 
                 RoadsideSite.Type type = corridorType(
