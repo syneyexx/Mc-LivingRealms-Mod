@@ -108,12 +108,21 @@ public final class WorldgenFabricBlockWriter {
         int w = (turns & 1) == 0 ? width : depth;
         int d = (turns & 1) == 0 ? depth : width;
         int hx = Math.max(1, w / 2), hz = Math.max(1, d / 2);
-        int y = buildSurfaceY(centerX, centerZ);
-        y = Math.max(y, buildSurfaceY(centerX - hx, centerZ - hz));
-        y = Math.max(y, buildSurfaceY(centerX + hx, centerZ - hz));
-        y = Math.max(y, buildSurfaceY(centerX - hx, centerZ + hz));
-        y = Math.max(y, buildSurfaceY(centerX + hx, centerZ + hz));
+        // Fixed multi-chunk structures must derive one base from the chunk generator itself.
+        // Reading WorldGenRegion columns here is unsafe: a corner can lie outside the active region,
+        // and an already-generated neighboring LR slice would also make generation order observable.
+        int y = generatorSurfaceY(centerX, centerZ);
+        y = Math.max(y, generatorSurfaceY(centerX - hx, centerZ - hz));
+        y = Math.max(y, generatorSurfaceY(centerX + hx, centerZ - hz));
+        y = Math.max(y, generatorSurfaceY(centerX - hx, centerZ + hz));
+        y = Math.max(y, generatorSurfaceY(centerX + hx, centerZ + hz));
         return y;
+    }
+
+    private int generatorSurfaceY(int x, int z) {
+        var chunkSource = level.getLevel().getChunkSource();
+        return chunkSource.getGenerator().getBaseHeight(
+                x, z, Heightmap.Types.WORLD_SURFACE_WG, level, chunkSource.randomState()) - 1;
     }
 
     public boolean write(long factionId, PaletteSlot slot, BlockPos pos,
