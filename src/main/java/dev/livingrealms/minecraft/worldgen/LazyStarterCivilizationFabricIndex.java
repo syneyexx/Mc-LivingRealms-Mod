@@ -56,7 +56,7 @@ public final class LazyStarterCivilizationFabricIndex {
     private final Map<Long, SettlementRef> settlementById;
     private final List<StarterRoadsideSitePlanner.SitePlan> roadsideSites;
     private final Map<Long, List<StarterRoadsideSitePlanner.SitePlan>> roadsideByRoute;
-    private final java.util.Set<Long> resolvedRoadsideRoutes = ConcurrentHashMap.newKeySet();
+    private final java.util.Set<Long> resolvedRoadsideSites = ConcurrentHashMap.newKeySet();
 
     private final ConcurrentHashMap<Long, FutureTask<ResolvedSettlement>> resolutionTasks =
             new ConcurrentHashMap<>();
@@ -223,16 +223,28 @@ public final class LazyStarterCivilizationFabricIndex {
         return new ResolvedSettlement(resolvedRealm, resolved, physical);
     }
 
-    void indexRoadsideForResolvedRoute(
-            StarterRegionalRouteGeometryIndex.RouteSlice routeSlice) {
-        long routeId = routeSlice.route().stableRouteId();
-        if (!resolvedRoadsideRoutes.add(routeId)) return;
+    void indexRoadsideForRouteWindow(
+            long routeId,
+            List<StarterRegionalRouteGeometryIndex.PlannedPoint> points,
+            int minX, int minZ, int maxX, int maxZ) {
+        if (points == null || points.isEmpty()) return;
 
         List<StarterRoadsideSitePlanner.SitePlan> sites =
                 roadsideByRoute.getOrDefault(routeId, List.of());
         for (StarterRoadsideSitePlanner.SitePlan site : sites) {
+            int sx = (int) Math.floor(site.position().x());
+            int sz = (int) Math.floor(site.position().z());
+            // A site is owned by the deterministic route window containing its strategic anchor.
+            // The margin allows the local terrain corridor to pull the road modestly sideways.
+            int margin = 48;
+            if (sx < minX - margin || sx > maxX + margin
+                    || sz < minZ - margin || sz > maxZ + margin) {
+                continue;
+            }
+            if (!resolvedRoadsideSites.add(site.stableSiteId())) continue;
+
             StarterRoadsideSitePlanner.SitePlan resolved =
-                    alignRoadsideSite(site, routeSlice.points());
+                    alignRoadsideSite(site, points);
             StarterCivilizationFabricIndex.RoadsideFabric fabric =
                     new StarterCivilizationFabricIndex.RoadsideFabric(resolved);
             int x = (int) Math.floor(resolved.position().x());
