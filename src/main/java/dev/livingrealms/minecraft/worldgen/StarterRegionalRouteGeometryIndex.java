@@ -20,9 +20,12 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * query the precomputed current-chunk slice, so route geometry cannot depend on chunk order.</p>
  */
 public final class StarterRegionalRouteGeometryIndex {
+    public record PlannedPoint(int x, int z, int dx, int dz, int deckY, boolean water) {}
+
     public record RouteSlice(
             StarterRegionalRoutePlanner.RoutePlan route,
-            List<RouteProjectionPlanner.RoutePoint> points
+            List<PlannedPoint> points,
+            boolean engineeredFallback
     ) {
         public RouteSlice {
             route = Objects.requireNonNull(route, "route");
@@ -42,19 +45,21 @@ public final class StarterRegionalRouteGeometryIndex {
 
     private static final class MutableRouteSlice {
         final StarterRegionalRoutePlanner.RoutePlan route;
-        final LinkedHashMap<Long, RouteProjectionPlanner.RoutePoint> points = new LinkedHashMap<>();
+        final boolean engineeredFallback;
+        final LinkedHashMap<Long, PlannedPoint> points = new LinkedHashMap<>();
 
-        MutableRouteSlice(StarterRegionalRoutePlanner.RoutePlan route) {
+        MutableRouteSlice(StarterRegionalRoutePlanner.RoutePlan route, boolean engineeredFallback) {
             this.route = route;
+            this.engineeredFallback = engineeredFallback;
         }
 
-        void add(RouteProjectionPlanner.RoutePoint point) {
+        void add(PlannedPoint point) {
             long key = ((long) point.x() << 32) ^ (point.z() & 0xffffffffL);
             points.putIfAbsent(key, point);
         }
 
         RouteSlice freeze() {
-            return new RouteSlice(route, List.copyOf(points.values()));
+            return new RouteSlice(route, List.copyOf(points.values()), engineeredFallback);
         }
     }
 
@@ -117,7 +122,7 @@ public final class StarterRegionalRouteGeometryIndex {
             if (distance < 1.0) continue;
             SimPosition observer = route.from().lerp(route.to(), 0.5);
             int maxPoints = Math.min(16_384, Math.max(512, (int) Math.ceil(distance * 2.0) + 512));
-            List<RouteProjectionPlanner.RoutePoint> points = RouteProjectionPlanner.plan(
+            List<RouteProjectionPlanner.RoutePoint> projected = RouteProjectionPlanner.plan(
                     route.asTransportRoute(),
                     route.from(),
                     route.to(),
@@ -125,13 +130,26 @@ public final class StarterRegionalRouteGeometryIndex {
                     distance + 1024.0,
                     maxPoints,
                     terrain);
-            if (points.isEmpty()) {
+            boolean engineeredFallback = false;
+            if (projected.isEmpty()) {
+                // Terrain search exhausted its bounded pass/waypoint hierarchy. Fall back to a
+                // deterministic engineered alignment, not a raw surface road: the grade profile
+                // below turns peaks into cuts/tunnels and valleys/water into supported deck.
+                engineeredFallback = true;
                 unresolved++;
-                continue;
+                projected = RouteProjectionPlanner.plan(
+                        route.asTransportRoute(),
+                        route.from(),
+                        route.to(),
+                        List.of(observer),
+                        distance + 1024.0,
+                        maxPoints);
             }
+            if (projected.isEmpty()) continue;
 
+            List<PlannedPoint> points = gradeProfile(projected, terrain);
             int halfWidth = route.rural() ? 0 : 2;
-            for (RouteProjectionPlanner.RoutePoint point : points) {
+            for (PlannedPoint point : points) {
                 int minChunkX = Math.floorDiv(point.x() - halfWidth, 16);
                 int maxChunkX = Math.floorDiv(point.x() + halfWidth, 16);
                 int minChunkZ = Math.floorDiv(point.z() - halfWidth, 16);
@@ -140,8 +158,10 @@ public final class StarterRegionalRouteGeometryIndex {
                     for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
                         long chunkKey = pack(cx, cz);
                         var byRoute = mutable.computeIfAbsent(chunkKey, ignored -> new LinkedHashMap<>());
+                        boolean fallback = engineeredFallback;
                         byRoute.computeIfAbsent(
-                                route.stableRouteId(), ignored -> new MutableRouteSlice(route)).add(point);
+                                route.stableRouteId(),
+                                ignored -> new MutableRouteSlice(route, fallback)).add(point);
                     }
                 }
             }
@@ -154,6 +174,47 @@ public final class StarterRegionalRouteGeometryIndex {
             frozen.put(entry.getKey(), new ChunkSlice(slices));
         }
         return new StarterRegionalRouteGeometryIndex(frozen, routes.size(), unresolved);
+    }
+
+
+    private static List<PlannedPoint> gradeProfile(
+            List<RouteProjectionPlanner.RoutePoint> projected,
+            TerrainCorridorPlanner.TerrainSample terrain) {
+        int size = projected.size();
+        int[] raw = new int[size];
+        int[] deck = new int[size];
+        boolean[] water = new boolean[size];
+        for (int i = 0; i < size; i++) {
+            var point = projected.get(i);
+            raw[i] = terrain.height(point.x(), point.z());
+            deck[i] = raw[i];
+            water[i] = terrain.water(point.x(), point.z());
+        }
+
+        // Preserve endpoints at their gate terrain. Repeated forward/backward relaxation keeps
+        // every interior step within one block while remaining as close as practical to terrain.
+        for (int pass = 0; pass < 6; pass++) {
+            for (int i = 1; i < size - 1; i++) {
+                deck[i] = clamp(deck[i], deck[i - 1] - 1, deck[i - 1] + 1);
+                if (water[i]) deck[i] = Math.max(deck[i], raw[i]);
+            }
+            for (int i = size - 2; i > 0; i--) {
+                deck[i] = clamp(deck[i], deck[i + 1] - 1, deck[i + 1] + 1);
+                if (water[i]) deck[i] = Math.max(deck[i], raw[i]);
+            }
+        }
+
+        List<PlannedPoint> out = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            var point = projected.get(i);
+            out.add(new PlannedPoint(
+                    point.x(), point.z(), point.dx(), point.dz(), deck[i], water[i]));
+        }
+        return List.copyOf(out);
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     public ChunkSlice query(int chunkX, int chunkZ) {
