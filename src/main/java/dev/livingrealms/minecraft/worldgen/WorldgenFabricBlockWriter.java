@@ -11,6 +11,7 @@ import java.util.Objects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.StructureManager;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Block;
@@ -20,6 +21,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.server.level.WorldGenRegion;
 
 /**
  * Worldgen-only block writer. It never accesses SavedData, never force-loads chunks and writes only
@@ -33,6 +35,7 @@ public final class WorldgenFabricBlockWriter {
     private final int chunkX;
     private final int chunkZ;
     private final StarterCivilizationWorldgenContext.Context worldgenContext;
+    private final StructureManager structureManager;
     private final int[] terrainSnapshot = new int[16 * 16];
     private final int[] worldSurfaceSnapshot = new int[16 * 16];
     private final int[] oceanFloorSnapshot = new int[16 * 16];
@@ -47,6 +50,9 @@ public final class WorldgenFabricBlockWriter {
         this.chunkX = chunkX;
         this.chunkZ = chunkZ;
         this.worldgenContext = Objects.requireNonNull(worldgenContext, "worldgenContext");
+        this.structureManager = level instanceof WorldGenRegion region
+                ? level.getLevel().structureManager().forWorldGenRegion(region)
+                : level.getLevel().structureManager();
         // Snapshot the whole writable chunk before any Living Realms block is placed. Later roads,
         // walls and terrain-following structures must never treat earlier LR writes as terrain.
         int minX = chunkX << 4;
@@ -151,6 +157,7 @@ public final class WorldgenFabricBlockWriter {
         if (!level.ensureCanWrite(pos)) return false;
 
         BlockState current = level.getBlockState(pos);
+        if (isForeignStructurePiece(pos)) return false;
         if (current.equals(target)) return true;
         if (current.hasBlockEntity()) return false;
         if (!mayReplace(pos, current, clearing)) return false;
@@ -185,6 +192,7 @@ public final class WorldgenFabricBlockWriter {
         if (!insideCurrentChunk(x, z) || height <= 0) return false;
         for (int dy = 1; dy <= height; dy++) {
             BlockPos pos = new BlockPos(x, groundY + dy, z);
+            if (isForeignStructurePiece(pos)) return false;
             BlockState state = level.getBlockState(pos);
             if (state.isAir()) continue;
             boolean clearable = state.canBeReplaced()
@@ -210,7 +218,7 @@ public final class WorldgenFabricBlockWriter {
     public boolean canSupportRoadside(BlockPos support, boolean waterColumn) {
         if (support == null || !insideCurrentChunk(support.getX(), support.getZ())) return false;
         BlockState state = level.getBlockState(support);
-        if (state.hasBlockEntity()) return false;
+        if (isForeignStructurePiece(support) || state.hasBlockEntity()) return false;
         AuthoredOwnerType owner = authoredOwnerByPos.get(support.asLong());
         if (owner == null) owner = ModWorldgenAttachments.ownerAt(level, support);
         if (owner == AuthoredOwnerType.SETTLEMENT_ROAD
@@ -220,6 +228,12 @@ public final class WorldgenFabricBlockWriter {
         }
         if (waterColumn) return false;
         return naturalTerrain(state) || state.is(Blocks.DIRT_PATH);
+    }
+
+    public boolean isForeignStructurePiece(BlockPos pos) {
+        if (pos == null || !insideCurrentChunk(pos.getX(), pos.getZ())) return false;
+        var start = structureManager.getStructureWithPieceAt(pos, holder -> true);
+        return start != null && start.isValid();
     }
 
     public boolean insideCurrentChunk(int x, int z) {
