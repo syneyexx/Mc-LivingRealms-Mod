@@ -25,6 +25,15 @@ public final class ContentMigrationPolicy {
         return contentRevision < currentRevision;
     }
 
+    /**
+     * Revision 16 changes settlement street topology from legacy ROAD-intent-first geometry to
+     * graph-first polylines. Saves that already materialized legacy road receipts must keep that
+     * physical fabric authoritative instead of reconciling a second incompatible street layout.
+     */
+    public static boolean shouldFreezeLegacyStreetFabric(int contentRevision) {
+        return contentRevision < 16;
+    }
+
     /** Legacy pre-checksum payload path when integrity token is absent. */
     public static boolean isLegacyIntegrityPath(long expectedIntegrity) {
         return expectedIntegrity == 0L;
