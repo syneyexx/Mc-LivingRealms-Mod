@@ -29,38 +29,40 @@ public final class WorldgenFabricBlockWriter {
     private final WorldGenLevel level;
     private final int chunkX;
     private final int chunkZ;
+    private final int[] terrainSnapshot = new int[16 * 16];
+    private final int[] oceanFloorSnapshot = new int[16 * 16];
     private final List<StarterCivilizationWorldgenContext.AuthoredWrite> authoredWrites = new ArrayList<>();
 
     public WorldgenFabricBlockWriter(WorldGenLevel level, int chunkX, int chunkZ) {
         this.level = level;
         this.chunkX = chunkX;
         this.chunkZ = chunkZ;
+        // Snapshot the whole writable chunk before any Living Realms block is placed. Later roads,
+        // walls and terrain-following structures must never treat earlier LR writes as terrain.
+        int minX = chunkX << 4;
+        int minZ = chunkZ << 4;
+        for (int lx = 0; lx < 16; lx++) {
+            for (int lz = 0; lz < 16; lz++) {
+                int index = (lx << 4) | lz;
+                int x = minX + lx, z = minZ + lz;
+                terrainSnapshot[index] = sampleTerrainY(x, z);
+                oceanFloorSnapshot[index] =
+                        level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z) - 1;
+            }
+        }
     }
 
     /**
-     * Natural terrain surface for starter fabric. Decoration runs after vegetation, so tree
-     * leaves/logs are skipped while unknown structure solids remain authoritative obstacles.
+     * Natural terrain surface for starter fabric. Current-chunk columns always use the immutable
+     * pre-write snapshot; outside columns are used only by the structure-base prepass.
      */
     public int terrainY(int x, int z) {
-        int y = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
-        int floor = level.getMinBuildHeight() + 1;
-        while (y > floor) {
-            BlockPos pos = new BlockPos(x, y, z);
-            BlockState state = level.getBlockState(pos);
-            if (state.is(BlockTags.LEAVES) || state.canBeReplaced()
-                    || state.is(Blocks.SNOW) || state.is(Blocks.VINE)
-                    || state.is(Blocks.CACTUS) || state.is(Blocks.BAMBOO)
-                    || state.is(Blocks.BAMBOO_SAPLING)
-                    || (state.is(BlockTags.LOGS) && isNaturalTreeLog(pos))) {
-                y--;
-                continue;
-            }
-            break;
-        }
-        return y;
+        if (insideCurrentChunk(x, z)) return terrainSnapshot[columnIndex(x, z)];
+        return sampleTerrainY(x, z);
     }
 
     public int oceanFloorY(int x, int z) {
+        if (insideCurrentChunk(x, z)) return oceanFloorSnapshot[columnIndex(x, z)];
         return level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z) - 1;
     }
 
@@ -160,6 +162,29 @@ public final class WorldgenFabricBlockWriter {
 
     public List<StarterCivilizationWorldgenContext.AuthoredWrite> authoredWrites() {
         return List.copyOf(authoredWrites);
+    }
+
+    private int sampleTerrainY(int x, int z) {
+        int y = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
+        int floor = level.getMinBuildHeight() + 1;
+        while (y > floor) {
+            BlockPos pos = new BlockPos(x, y, z);
+            BlockState state = level.getBlockState(pos);
+            if (state.is(BlockTags.LEAVES) || state.canBeReplaced()
+                    || state.is(Blocks.SNOW) || state.is(Blocks.VINE)
+                    || state.is(Blocks.CACTUS) || state.is(Blocks.BAMBOO)
+                    || state.is(Blocks.BAMBOO_SAPLING)
+                    || (state.is(BlockTags.LOGS) && isNaturalTreeLog(pos))) {
+                y--;
+                continue;
+            }
+            break;
+        }
+        return y;
+    }
+
+    private static int columnIndex(int x, int z) {
+        return ((x & 15) << 4) | (z & 15);
     }
 
     private boolean mayReplace(BlockPos pos, BlockState current, boolean clearing) {
