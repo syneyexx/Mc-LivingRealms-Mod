@@ -363,7 +363,7 @@ public final class StarterCivilizationChunkGenerator {
             var deck = rural ? Blocks.SPRUCE_PLANKS.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState();
             boolean wrote = writer.writeState(pos, deck, false, ownerType);
             if (regional && Math.floorMod(x * 31 + z * 17, 11) == 0) {
-                int bottom = Math.max(floor + 1, y - 12);
+                int bottom = Math.max(floor + 1, y - 48);
                 for (int py = bottom; py < y; py++) {
                     writer.writeState(new BlockPos(x, py, z),
                             rural ? Blocks.OAK_LOG.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState(),
