@@ -1,8 +1,10 @@
 package dev.livingrealms;
 
+import dev.livingrealms.sim.faction.DevelopmentMode;
+import dev.livingrealms.sim.faction.Faction;
+import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
 import dev.livingrealms.sim.faction.SettlementRole;
-import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.ForeignAdoptionClassifier;
 import dev.livingrealms.sim.world.OutlyingSite;
 import dev.livingrealms.sim.world.SettlementSpacingPolicy;
@@ -15,10 +17,14 @@ public final class ForeignSettlementSpacingTest {
 
     public static void main(String[] args) {
         SimulationState state = new SimulationState(0xF0CE1L);
-        DemoSeeder.seed(state);
-        var host = state.factions().getFirst().settlements().getFirst();
+        Faction owner = new Faction(state.nextId(), "Spacing Realm", "Queen");
+        Settlement host = new Settlement(state.nextId(), "Spacing Capital", new SimPosition(0, 0),
+                5_000, 5_500, SettlementOrigin.AUTHORED_SEED, false,
+                DevelopmentMode.AUTO, SettlementRole.CAPITAL);
+        owner.addSettlement(host);
+        state.addFaction(owner);
         check(host.role() == SettlementRole.CAPITAL, "starter host role");
-        int before = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
+        int before = 1;
 
         var far = ForeignAdoptionClassifier.classifyAndAdopt(state,
                 new SimPosition(host.position().x() + 60_000, host.position().z() - 40_000),
