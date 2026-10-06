@@ -4,6 +4,7 @@ import dev.livingrealms.sim.faction.DevelopmentMode;
 import dev.livingrealms.sim.faction.DevelopmentModeGuard;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.faction.SettlementOrigin;
 import dev.livingrealms.sim.world.SimPosition;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -81,6 +82,29 @@ final class SettlementHousingPlanner {
             addAtParcel(out, faction, settlement, StructureRole.HOUSE, i, parcel, w, d, face, 88);
             emitted++;
         }
+        // Fresh authored settlements must satisfy their tier's recognizable core without inventing
+        // a countryside grid. Building-template footprints can be larger than the frontage parcels
+        // that a sparse HAMLET graph provides; in that case reserve compact culture-minimum homes
+        // on the already-valid remaining parcels. These use an isolated high key range so existing
+        // demand-slot house identities never move or renumber.
+        if (settlement.origin() == SettlementOrigin.AUTHORED_SEED) {
+            int coreMinimum = SettlementCoreCompleteness.contract(settlement.tier()).minHouses();
+            int compactW = Math.max(9, culture.minHouseWidth());
+            int compactD = Math.max(9, culture.minHouseDepth());
+            for (int pi = 0; pi < remaining.size() && emitted < coreMinimum; ) {
+                SettlementParcelPlanner.ParcelPlan parcel = remaining.get(pi);
+                if (parcel.width() < compactW || parcel.depth() < compactD) {
+                    pi++;
+                    continue;
+                }
+                remaining.remove(pi);
+                int stableHouseIndex = 10_000 + parcelOrdinal(parcel.id());
+                addAtParcel(out, faction, settlement, StructureRole.HOUSE, stableHouseIndex, parcel,
+                        compactW, compactD, parcel.orientationQuarterTurns(), 87);
+                emitted++;
+            }
+        }
+
         // Road-first invariant: never spiral-place houses off the street graph.
         // Remaining demand extends side streets / lanes, then fills new frontage parcels.
         // CAMP/HAMLET keep a sparse countryside path — do not grid-extend them.
