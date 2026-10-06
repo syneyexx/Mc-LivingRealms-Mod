@@ -22,28 +22,13 @@ public final class StarterWorldgenCompletion {
         Objects.requireNonNull(state, "state");
         var layout = StarterCivilizationLayoutPlanner.plan(state.seed());
         int changes = adoptPlannedBaseline(state, SettlementInitialWorldgenPlan.buildAll(layout));
-        changes += adoptWizardTreesBaseline(state, WizardTreesInitialWorldgenPlan.build(state));
+        changes += adoptWizardTreesBaseline(state);
         return changes;
     }
 
     public static int adoptWizardTreesBaseline(SimulationState state) {
         Objects.requireNonNull(state, "state");
-        Map<Long, Settlement> canonical = new HashMap<>();
-        for (var faction : state.factions()) for (var settlement : faction.settlements()) {
-            canonical.put(settlement.id(), settlement);
-        }
-
-        int changes = 0;
-        for (WizardTreesInitialWorldgenPlan.SettlementPlan plan
-                : WizardTreesInitialWorldgenPlan.build(state)) {
-            Settlement settlement = canonical.get(plan.settlementId());
-            if (settlement == null) continue;
-            for (var intent : plan.intents()) {
-                if (settlement.markConstruction(intent.key(), ConstructionOrigin.WORLDGEN)) changes++;
-            }
-            settlement.markPhysicallyAnchored();
-        }
-        return changes;
+        return adoptWizardTreesBaseline(state, WizardTreesInitialWorldgenPlan.build(state));
     }
 
 
