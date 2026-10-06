@@ -156,10 +156,13 @@ public final class SettlementDensitySeeder {
         List<Settlement> villages = new ArrayList<>();
 
         // Towns first so villages can be parented spatially around them.
+        int townOrdinal = 0;
         for (int i = 0; i < specs.size(); i++) {
             RealmDefinition.SatelliteDefinition authored = specs.get(i);
             if (!townNames.contains(authored.name())) continue;
-            Settlement created = addAuthoredChild(state, faction, capital, authored, SettlementRole.TOWN, i);
+            Settlement created = addAuthoredChild(state, faction, capital, authored, SettlementRole.TOWN, i,
+                    townOrdinal == 0);
+            townOrdinal++;
             if (created != null) {
                 towns.add(created);
                 added++;
@@ -167,10 +170,14 @@ public final class SettlementDensitySeeder {
         }
         if (towns.isEmpty()) throw new IllegalStateException("starter realm has no towns: " + realm.id());
 
+        int villageOrdinal = 0;
         for (int i = 0; i < specs.size(); i++) {
             RealmDefinition.SatelliteDefinition authored = specs.get(i);
             if (townNames.contains(authored.name())) continue;
-            Settlement parent = towns.get(Math.floorMod(authored.name().hashCode(), towns.size()));
+            // Round-robin is deliberate gap filling: 6–8 villages across 2–4 towns guarantees
+            // every starter town a nearby true-settlement branch instead of an accidental empty spoke.
+            Settlement parent = towns.get(villageOrdinal % towns.size());
+            villageOrdinal++;
             Settlement created = addAuthoredChild(state, faction, parent, authored, SettlementRole.VILLAGE, 100 + i);
             if (created != null) {
                 villages.add(created);
@@ -188,9 +195,17 @@ public final class SettlementDensitySeeder {
     private static Settlement addAuthoredChild(SimulationState state, Faction faction, Settlement parent,
                                                 RealmDefinition.SatelliteDefinition authored,
                                                 SettlementRole role, int salt) {
+        return addAuthoredChild(state, faction, parent, authored, role, salt, false);
+    }
+
+    private static Settlement addAuthoredChild(SimulationState state, Faction faction, Settlement parent,
+                                                RealmDefinition.SatelliteDefinition authored,
+                                                SettlementRole role, int salt, boolean innerGapAnchor) {
         if (settlement(faction, authored.name()) != null) return null;
-        SimPosition position = placeChild(state, parent.position(), parent.role(),
-                authored.dx(), authored.dz(), faction.id(), salt, role);
+        SimPosition position = innerGapAnchor && role == SettlementRole.TOWN
+                ? placeInnerTownAnchor(state, parent.position(), authored.dx(), authored.dz(), faction.id(), salt)
+                : placeChild(state, parent.position(), parent.role(),
+                        authored.dx(), authored.dz(), faction.id(), salt, role);
         if (position == null) return null;
 
         int population = role == SettlementRole.TOWN
@@ -237,6 +252,35 @@ public final class SettlementDensitySeeder {
             added++;
         }
         return added;
+    }
+
+    /**
+     * Ensures every fresh realm has at least one inner town within the inhabited ~800-block
+     * encounter envelope. This is fresh-world placement only; anchored settlements are never moved.
+     */
+    private static SimPosition placeInnerTownAnchor(SimulationState state, SimPosition parent,
+                                                    double dx, double dz, long factionId, int salt) {
+        double len = Math.hypot(dx, dz);
+        if (len < 1e-6) {
+            long mixed = mix(state.seed() ^ factionId ^ salt);
+            double angle = ((mixed >>> 11) & 0xFFFFL) / 65535.0 * Math.PI * 2.0;
+            dx = Math.cos(angle);
+            dz = Math.sin(angle);
+            len = 1.0;
+        }
+        double nx = dx / len, nz = dz / len;
+        long mixed = mix(state.seed() ^ factionId ^ (salt * 0xD1B54A32D192ED03L));
+        double radius = 700.0 + (((mixed >>> 21) & 0x3FFL) / 1023.0) * 100.0;
+        for (int attempt = 0; attempt < 16; attempt++) {
+            double jitter = (attempt - 7.5) * (Math.PI / 72.0);
+            double cos = Math.cos(jitter), sin = Math.sin(jitter);
+            double bx = nx * cos - nz * sin;
+            double bz = nx * sin + nz * cos;
+            SimPosition candidate = new SimPosition(parent.x() + bx * radius, parent.z() + bz * radius);
+            if (!tooCloseAny(state, candidate, SettlementRole.TOWN)) return candidate;
+        }
+        // Collision escape remains deterministic and uses the normal preferred 650–1200 policy.
+        return placeChild(state, parent, SettlementRole.CAPITAL, dx, dz, factionId, salt, SettlementRole.TOWN);
     }
 
     /** Place a deterministic child in its parent/child preferred band, widening only when collisions require it. */
