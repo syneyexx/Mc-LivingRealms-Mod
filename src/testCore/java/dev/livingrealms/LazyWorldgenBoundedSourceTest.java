@@ -14,6 +14,8 @@ public final class LazyWorldgenBoundedSourceTest {
                 "src/main/java/dev/livingrealms/minecraft/worldgen/LazyStarterCivilizationFabricIndex.java"));
         String savedData = Files.readString(Path.of(
                 "src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java"));
+        String writer = Files.readString(Path.of(
+                "src/main/java/dev/livingrealms/minecraft/worldgen/WorldgenFabricBlockWriter.java"));
 
         check(routes.contains("TerrainCorridorPlanner.planLocal"),
                 "lazy regional worldgen must use the bounded local corridor planner");
@@ -34,6 +36,11 @@ public final class LazyWorldgenBoundedSourceTest {
                 "fresh-save startup must not derive every surface physical plan for receipts");
         check(create.contains("StarterWorldgenCompletion.adoptWizardTreesBaseline(state)"),
                 "small Wizard Trees starter layer should retain eager receipt adoption");
+
+        check(!writer.contains("structureManager.startsForStructure("),
+                "worldgen writer must not follow structure references outside WorldGenRegion");
+        check(writer.contains("currentChunk.getAllStarts().values()"),
+                "worldgen writer must inspect only directly available structure starts");
 
         System.out.println("PASS lazy worldgen bound: no global surface planning on startup/chunk route path");
     }
