@@ -3,6 +3,7 @@ package dev.livingrealms;
 import dev.livingrealms.sim.construction.SettlementCoreCompleteness;
 import dev.livingrealms.sim.construction.SettlementPlanner;
 import dev.livingrealms.sim.construction.StructureRole;
+import dev.livingrealms.sim.construction.WizardTreesPlanner;
 import dev.livingrealms.sim.faction.ConstructionOrigin;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.transport.TransportNetworkEngine;
@@ -13,6 +14,7 @@ import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
 import dev.livingrealms.sim.worldgen.SettlementInitialWorldgenPlan;
 import dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner;
 import dev.livingrealms.sim.worldgen.StarterWorldgenCompletion;
+import dev.livingrealms.sim.worldgen.WizardTreesInitialWorldgenPlan;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -24,6 +26,7 @@ public final class StarterWorldgenReconciliationTest {
         canonicalBootstrapUsesSharedStarterRouteIds();
         dynamicTransportDoesNotDuplicateStarterEdges();
         worldgenReceiptsSuppressBaselineButNotFutureGrowth();
+        wizardWorldgenReceiptsSuppressBaselineButNotFutureGrowth();
         fallbackPrimaryEconomyBelongsToWorldgen();
         starterSettlementsAreCoreComplete();
         constructionOriginOrdinalsRemainBackwardCompatible();
@@ -102,6 +105,34 @@ public final class StarterWorldgenReconciliationTest {
                 "future growth must remain available to runtime construction");
     }
 
+
+
+    private static void wizardWorldgenReceiptsSuppressBaselineButNotFutureGrowth() {
+        long seed = 0x7711AA55L;
+        SimulationState state = new SimulationState(seed);
+        DemoSeeder.seed(state);
+        int marked = StarterWorldgenCompletion.adoptWizardTreesBaseline(state);
+        check(marked > 0, "Wizard Trees baseline should receive WORLDGEN receipts");
+
+        var plans = WizardTreesInitialWorldgenPlan.build(state);
+        check(!plans.isEmpty(), "Wizard Trees starter plan must exist");
+        for (var plan : plans) {
+            Settlement settlement = state.findSettlement(plan.settlementId()).orElseThrow();
+            for (var intent : plan.intents()) {
+                check(settlement.constructionOrigin(intent.key()) == ConstructionOrigin.WORLDGEN,
+                        "Wizard day-zero completion origin is not WORLDGEN: " + intent.key());
+            }
+        }
+
+        var first = plans.getFirst();
+        Settlement growing = state.findSettlement(first.settlementId()).orElseThrow();
+        var faction = state.findFaction(first.factionId()).orElseThrow();
+        check(WizardTreesPlanner.pending(faction, growing).isEmpty(),
+                "Wizard Trees runtime still sees day-zero backlog");
+        growing.addPopulation(2_000);
+        check(!WizardTreesPlanner.pending(faction, growing).isEmpty(),
+                "later Wizard Trees population growth must remain runtime construction");
+    }
 
     private static void fallbackPrimaryEconomyBelongsToWorldgen() {
         long seed = 0x4455AA11L;
