@@ -22,10 +22,15 @@ import java.util.Set;
  * single packed-chunk map lookup and never scan all starter settlements or routes.</p>
  */
 public final class StarterCivilizationFabricIndex {
-    public record SettlementFabric(SettlementInitialWorldgenPlan settlement, ConstructionIntent intent) {
+    public record SettlementFabric(
+            SettlementInitialWorldgenPlan settlement,
+            ConstructionIntent intent,
+            StructureBlueprint blueprint
+    ) {
         public SettlementFabric {
             settlement = Objects.requireNonNull(settlement, "settlement");
             intent = Objects.requireNonNull(intent, "intent");
+            blueprint = Objects.requireNonNull(blueprint, "blueprint");
         }
     }
 
@@ -79,8 +84,10 @@ public final class StarterCivilizationFabricIndex {
 
         for (SettlementInitialWorldgenPlan settlement : settlements) {
             for (ConstructionIntent intent : settlement.intents()) {
-                SettlementFabric fabric = new SettlementFabric(settlement, intent);
-                Bounds bounds = horizontalBounds(intent, settlement);
+                StructureBlueprint blueprint =
+                        StructureBlueprintFactory.create(intent, settlement.architecture());
+                SettlementFabric fabric = new SettlementFabric(settlement, intent, blueprint);
+                Bounds bounds = horizontalBounds(intent, blueprint);
                 int minChunkX = Math.floorDiv(bounds.minX(), 16);
                 int maxChunkX = Math.floorDiv(bounds.maxX(), 16);
                 int minChunkZ = Math.floorDiv(bounds.minZ(), 16);
@@ -136,7 +143,7 @@ public final class StarterCivilizationFabricIndex {
 
     private static Bounds horizontalBounds(
             ConstructionIntent intent,
-            SettlementInitialWorldgenPlan settlement) {
+            StructureBlueprint blueprint) {
         if (intent.role() == StructureRole.ROAD && intent.hasPath()) {
             double minX = intent.path().stream().mapToDouble(p -> p.x()).min().orElse(intent.center().x());
             double maxX = intent.path().stream().mapToDouble(p -> p.x()).max().orElse(intent.center().x());
@@ -147,7 +154,6 @@ public final class StarterCivilizationFabricIndex {
                     (int) Math.ceil(maxX) + margin, (int) Math.ceil(maxZ) + margin);
         }
 
-        StructureBlueprint blueprint = StructureBlueprintFactory.create(intent, settlement.architecture());
         int minX = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
         int maxX = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
         int turns = Math.floorMod(intent.rotationQuarterTurns(), 4);
