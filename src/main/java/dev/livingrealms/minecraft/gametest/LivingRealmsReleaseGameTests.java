@@ -88,7 +88,7 @@ public final class LivingRealmsReleaseGameTests {
         helper.succeed();
     }
 
-    /** Q4: encode/decode + densifier stay idempotent; SavedData content revision pin stays 14. */
+    /** Q4: encode/decode + densifier stay idempotent; SavedData content revision pin stays 17. */
     @GameTest(template = "gametests/empty", timeoutTicks = 40)
     public static void savedDataReloadKeepsRevisionAndDensity(GameTestHelper helper) {
         SimulationState state = new SimulationState(0x5AFE_0014L, SpeciesCatalog.starter());
@@ -105,7 +105,7 @@ public final class LivingRealmsReleaseGameTests {
 
         LivingRealmsSavedData data = LivingRealmsSavedData.create(0x5AFE_0015L, SpeciesCatalog.starter());
         CompoundTag tag = data.save(new CompoundTag(), helper.getLevel().registryAccess());
-        helper.assertTrue(tag.getInt("ContentRevision") == 15, "CONTENT_REVISION must serialize as 15");
+        helper.assertTrue(tag.getInt("ContentRevision") == 17, "CONTENT_REVISION must serialize as 17");
         helper.succeed();
     }
 
