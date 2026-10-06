@@ -9,6 +9,7 @@ import dev.livingrealms.sim.construction.BuildApplyResult;
 import dev.livingrealms.sim.construction.BuildOperation;
 import dev.livingrealms.sim.construction.BlockPlacement;
 import dev.livingrealms.sim.construction.ConstructionIntent;
+import dev.livingrealms.sim.construction.ConstructionIntentChunkSelector;
 import dev.livingrealms.sim.construction.ConstructionJob;
 import dev.livingrealms.sim.construction.ConstructionQueue;
 import dev.livingrealms.sim.construction.ConstructionRetryKey;
@@ -18,6 +19,8 @@ import dev.livingrealms.sim.construction.PaletteSlot;
 import dev.livingrealms.sim.construction.PhysicalDevelopmentReconciler;
 import dev.livingrealms.sim.construction.ResolvedBuildSite;
 import dev.livingrealms.sim.construction.SettlementParcelPlanner;
+import dev.livingrealms.sim.construction.SettlementCoreCompleteness;
+import dev.livingrealms.sim.construction.SettlementConstructionPolicy;
 import dev.livingrealms.sim.construction.SettlementPlanCache;
 import dev.livingrealms.sim.construction.StructureAccessValidator;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
@@ -53,8 +56,9 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * operation budget. Canonical completion remains in the simulation save; the queue is disposable.
  */
 public final class SettlementConstructionMaterializer {
-    private static final double ACTIVATION_RADIUS=640.0D;
-    private static final double ACTIVATION_RADIUS_SQR=ACTIVATION_RADIUS*ACTIVATION_RADIUS;
+    /** Entity/presentation LOD only. This radius does not gate settlement block existence. */
+    private static final double PRESENTATION_RADIUS=640.0D;
+    private static final double PRESENTATION_RADIUS_SQR=PRESENTATION_RADIUS*PRESENTATION_RADIUS;
     private static final int MAX_QUEUED_JOBS=48;
     private static final int MAX_SETTLEMENTS_PER_DISCOVERY=12;
     private static final ConstructionQueue QUEUE=new ConstructionQueue();
@@ -159,27 +163,44 @@ public final class SettlementConstructionMaterializer {
     public static Object boundLevelIdentity(){return boundLevelIdentity;}
 
     private static void discoverLoadedWork(ServerLevel level, LivingRealmsSavedData data) {
-        if(QUEUE.size()>=MAX_QUEUED_JOBS || level.players().isEmpty()) return;
+        if(QUEUE.size()>=MAX_QUEUED_JOBS) return;
         boolean catchingUp=catchupTicks>0;
         long day=data.state().clock().day();
+
+        java.util.List<CivilizationFabricChunkQueue.ChunkRef> chunkHints =
+                CivilizationFabricChunkQueue.pollSettlement(level,16);
+        java.util.List<ConstructionIntentChunkSelector.ChunkWindow> windows=chunkHints.stream()
+                .map(c->new ConstructionIntentChunkSelector.ChunkWindow(c.x(),c.z())).toList();
+
         java.util.List<Faction> factions=new java.util.ArrayList<>(data.state().factions());
-        java.util.List<Settlement> near=new java.util.ArrayList<>();
+        java.util.List<Settlement> candidates=new java.util.ArrayList<>();
         java.util.Map<Long,Faction> owners=new HashMap<>();
         for(Faction faction:factions) for(Settlement settlement:faction.settlements()) {
-            if(!nearPlayer(level,settlement)) continue;
-            near.add(settlement);
+            if(!SettlementConstructionPolicy.allowsAutomaticCoreFabric(settlement)) continue;
+            candidates.add(settlement);
             owners.put(settlement.id(),faction);
         }
-        if(near.isEmpty()) return;
-        // Fair rotation: do not let one early settlement monopolize discovery forever.
-        settlementScanCursor=Math.floorMod(settlementScanCursor,near.size());
+        if(candidates.isEmpty()) return;
+
+        // Newly available chunks get priority so skyline/core fabric is queued as the chunk becomes
+        // usable. With no fresh hint, a fair global rotation reconciles any already-loaded chunk
+        // (important for player-founded settlements and routes created after a chunk was loaded).
+        if(!windows.isEmpty()){
+            candidates.sort(java.util.Comparator
+                    .comparingDouble((Settlement s)->hintDistanceSq(s,windows))
+                    .thenComparingLong(Settlement::id));
+        }else{
+            settlementScanCursor=Math.floorMod(settlementScanCursor,candidates.size());
+        }
+
         Set<Long> queuedSettlements=new HashSet<>();
         for(ConstructionJob job:QUEUE.jobs()) queuedSettlements.add(job.intent().settlementId());
         int scanned=0;
-        for(int n=0;n<near.size()&&scanned<MAX_SETTLEMENTS_PER_DISCOVERY&&QUEUE.size()<MAX_QUEUED_JOBS;n++){
-            Settlement settlement=near.get(Math.floorMod(settlementScanCursor+n,near.size()));
+        for(int n=0;n<candidates.size()&&scanned<MAX_SETTLEMENTS_PER_DISCOVERY&&QUEUE.size()<MAX_QUEUED_JOBS;n++){
+            Settlement settlement=windows.isEmpty()
+                    ?candidates.get(Math.floorMod(settlementScanCursor+n,candidates.size()))
+                    :candidates.get(n);
             scanned++;
-            // One active job per settlement keeps budgets fair across the realm.
             if(queuedSettlements.contains(settlement.id()) && !catchingUp) continue;
             Faction faction=owners.get(settlement.id());
             if(faction==null) continue;
@@ -195,15 +216,23 @@ public final class SettlementConstructionMaterializer {
                 pending.addAll(PrimaryEconomyPlanner.pending(data.state(),faction,settlement));
                 allow=catchingUp?PhysicalDevelopmentReconciler.catchupIntentsPerSettlement(catchupSimulatedDays,deficit):1;
             }
-            pending.sort(java.util.Comparator.comparingInt(ConstructionIntent::priority).reversed().thenComparing(ConstructionIntent::key));
+            SettlementCoreCompleteness.Status coreStatus=wizardTrees?null
+                    :SettlementCoreCompleteness.analyze(faction,settlement);
+            pending.sort(java.util.Comparator
+                    .comparingInt((ConstructionIntent i)->coreStatus!=null&&coreStatus.prioritizes(i)?0:1)
+                    .thenComparing(java.util.Comparator.comparingInt(ConstructionIntent::priority).reversed())
+                    .thenComparing(ConstructionIntent::key));
             int enqueued=0;
             for(ConstructionIntent intent:pending) {
                 if(QUEUE.size()>=MAX_QUEUED_JOBS) break;
+                if(!windows.isEmpty() && !ConstructionIntentChunkSelector.intersectsAny(intent,windows)) continue;
                 String retryWire=ConstructionRetryKey.of(intent).wire();
                 Long retryAfter=RETRY_AFTER_DAY.get(retryWire);
                 if(retryAfter!=null && day<retryAfter) continue;
-                BlockPos center=new BlockPos((int)Math.round(intent.center().x()),level.getSeaLevel(),(int)Math.round(intent.center().z()));
-                // Unloaded high-priority intents must not starve later loaded work.
+                BlockPos center=new BlockPos((int)Math.round(intent.center().x()),level.getSeaLevel(),
+                        (int)Math.round(intent.center().z()));
+                // World fabric is load-driven: no player-distance check. We only mutate a chunk
+                // that the server already has available, and never force-load it.
                 if(!level.hasChunkAt(center)) continue;
                 ConstructionJob job=createTerrainAwareJob(level,intent);
                 if(job==null) {
@@ -219,13 +248,26 @@ public final class SettlementConstructionMaterializer {
                 if(enqueued>=allow) break;
             }
         }
-        settlementScanCursor=Math.floorMod(settlementScanCursor+Math.max(1,scanned),Math.max(1,near.size()));
+        if(windows.isEmpty()){
+            settlementScanCursor=Math.floorMod(settlementScanCursor+Math.max(1,scanned),candidates.size());
+        }
+    }
+
+    private static double hintDistanceSq(Settlement settlement,
+                                         java.util.List<ConstructionIntentChunkSelector.ChunkWindow> windows){
+        double best=Double.POSITIVE_INFINITY;
+        for(var window:windows){
+            double cx=(window.minX()+window.maxX())*.5,cz=(window.minZ()+window.maxZ())*.5;
+            double dx=settlement.position().x()-cx,dz=settlement.position().z()-cz;
+            best=Math.min(best,dx*dx+dz*dz);
+        }
+        return best;
     }
 
     private static void refreshPresentationScope(ServerLevel level,LivingRealmsSavedData data){
         java.util.Set<Long> activated=new HashSet<>();
         for(Faction faction:data.state().factions())for(Settlement settlement:faction.settlements()){
-            if(nearPlayer(level,settlement))activated.add(settlement.id());
+            if(nearPlayerForPresentation(level,settlement))activated.add(settlement.id());
         }
         data.state().presentationScope().setActivated(activated);
     }
@@ -428,6 +470,7 @@ public final class SettlementConstructionMaterializer {
      * Omitted centerline cells (unloaded/steep/unusable) are counted so receipts cannot treat them as irrelevant.
      */
     private static RoadPlan roadOperations(ServerLevel level,ConstructionIntent intent){
+        if(intent.hasPath())return polylineRoadOperations(level,intent);
         int cx=(int)Math.round(intent.center().x()),cz=(int)Math.round(intent.center().z()),turns=Math.floorMod(intent.rotationQuarterTurns(),4);
         int hx=intent.width()/2,hz=intent.depth()/2;
         boolean rural=intent.width()<=3; // countryside dirt paths: floor only, no curb/fence
@@ -495,6 +538,81 @@ public final class SettlementConstructionMaterializer {
         return new RoadPlan(out,omittedRequired);
     }
 
+    /** Materialize a true curved/diagonal street centerline emitted by SettlementStreetGraph. */
+    private static RoadPlan polylineRoadOperations(ServerLevel level,ConstructionIntent intent){
+        boolean rural=intent.width()<=3;
+        int half=Math.max(0,intent.width()/2);
+        java.util.List<BuildOperation> out=new java.util.ArrayList<>();
+        java.util.Set<Long> visitedRows=new java.util.HashSet<>();
+        int omittedRequired=0;
+        Integer previousTarget=null;
+
+        for(int segment=1;segment<intent.path().size();segment++){
+            var a=intent.path().get(segment-1);
+            var b=intent.path().get(segment);
+            double vx=b.x()-a.x(),vz=b.z()-a.z(),length=Math.hypot(vx,vz);
+            if(length<1e-6)continue;
+            double nx=-vz/length,nz=vx/length;
+            int steps=Math.max(1,(int)Math.ceil(length));
+            for(int step=0;step<=steps;step++){
+                double t=step/(double)steps;
+                int centerX=(int)Math.round(a.x()+vx*t),centerZ=(int)Math.round(a.z()+vz*t);
+                long rowKey=((long)centerX<<32)^(centerZ&0xffffffffL);
+                if(!visitedRows.add(rowKey))continue;
+                BlockPos centerProbe=new BlockPos(centerX,level.getSeaLevel(),centerZ);
+                if(!level.hasChunkAt(centerProbe)){
+                    omittedRequired+=Math.max(1,intent.width());
+                    continue;
+                }
+                int raw=naturalSurfaceY(level,centerX,centerZ);
+                if(raw<=level.getMinBuildHeight()+1){
+                    omittedRequired+=Math.max(1,intent.width());
+                    continue;
+                }
+                BlockState centerGround=level.getBlockState(new BlockPos(centerX,raw,centerZ));
+                boolean flooded=!centerGround.getFluidState().isEmpty()
+                        ||!level.getFluidState(new BlockPos(centerX,raw+1,centerZ)).isEmpty();
+                int target;
+                if(flooded){
+                    target=Math.max(level.getSeaLevel(),previousTarget==null?raw:previousTarget);
+                }else{
+                    target=previousTarget==null?raw:Math.max(previousTarget-1,Math.min(previousTarget+1,raw));
+                    if(previousTarget!=null&&Math.abs(raw-target)>4)target=Math.max(raw,previousTarget);
+                }
+                previousTarget=target;
+
+                for(int side=-half;side<=half;side++){
+                    int wx=(int)Math.round(centerX+nx*side),wz=(int)Math.round(centerZ+nz*side);
+                    BlockPos probe=new BlockPos(wx,level.getSeaLevel(),wz);
+                    if(!level.hasChunkAt(probe)){omittedRequired++;continue;}
+                    int surface=naturalSurfaceY(level,wx,wz);
+                    if(surface<=level.getMinBuildHeight()+1){omittedRequired++;continue;}
+                    for(int y=target+1;y<=Math.min(surface+8,target+10);y++){
+                        BlockPos clearPos=new BlockPos(wx,y,wz);
+                        BlockState st=level.getBlockState(clearPos);
+                        if(st.isAir())continue;
+                        if(st.canBeReplaced()||st.is(BlockTags.LEAVES)||st.is(Blocks.SNOW)||st.is(Blocks.MOSS_CARPET)
+                                ||WorldMutationGuard.isNaturalTreeLog(level,clearPos)){
+                            out.add(new BuildOperation(wx,y,wz,PaletteSlot.AIR,
+                                    dev.livingrealms.sim.construction.ConstructionPhase.CLEAR));
+                        }else break;
+                    }
+                    out.add(new BuildOperation(wx,target+1,wz,PaletteSlot.AIR,
+                            dev.livingrealms.sim.construction.ConstructionPhase.CLEAR));
+                    PaletteSlot slot=(!rural&&Math.abs(side)==half)?PaletteSlot.FOUNDATION:PaletteSlot.PATH;
+                    out.add(new BuildOperation(wx,target,wz,slot,
+                            dev.livingrealms.sim.construction.ConstructionPhase.FOUNDATION));
+                    if(surface<target){
+                        for(int y=Math.max(surface+1,target-16);y<target;y++)
+                            out.add(new BuildOperation(wx,y,wz,PaletteSlot.FOUNDATION,
+                                    dev.livingrealms.sim.construction.ConstructionPhase.FOUNDATION));
+                    }
+                }
+            }
+        }
+        return new RoadPlan(out,omittedRequired);
+    }
+
     private record RoadPlan(java.util.List<BuildOperation> operations,int omittedRequired){}
 
     /** Top natural terrain, explicitly ignoring trees/leaves/replaceable vegetation. */
@@ -507,9 +625,12 @@ public final class SettlementConstructionMaterializer {
 
     private record TerrainStats(int min,int max){}
 
-    private static boolean nearPlayer(ServerLevel level,Settlement settlement) {
+    private static boolean nearPlayerForPresentation(ServerLevel level,Settlement settlement) {
         double x=settlement.position().x(),z=settlement.position().z();
-        return level.players().stream().anyMatch(player->{double dx=player.getX()-x,dz=player.getZ()-z;return dx*dx+dz*dz<=ACTIVATION_RADIUS_SQR;});
+        return level.players().stream().anyMatch(player->{
+            double dx=player.getX()-x,dz=player.getZ()-z;
+            return dx*dx+dz*dz<=PRESENTATION_RADIUS_SQR;
+        });
     }
 
 

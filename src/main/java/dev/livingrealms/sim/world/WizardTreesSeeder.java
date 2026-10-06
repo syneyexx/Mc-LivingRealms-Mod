@@ -15,13 +15,14 @@ public final class WizardTreesSeeder {
         faction.government().setTaxRate(.07);faction.government().setLawEnforcement(.52);
         faction.advanceTechnology(.62);faction.addTreasury(6_800);
         faction.stockpile().add(ResourceType.FOOD,2_400);faction.stockpile().add(ResourceType.WOOD,1_100);faction.stockpile().add(ResourceType.STONE,2_800);faction.stockpile().add(ResourceType.IRON,420);faction.stockpile().add(ResourceType.TOOLS,180);
-        // Hidden deep-mountain belt — must clear the 2000m surface spacing floor.
+        // Separate underground civilization layer: compact 600–1500 block colony spacing.
+        // SPECIAL role keeps these colonies out of the ordinary surface settlement/road matrix.
         faction.addSettlement(new Settlement(state.nextId(),"Rootvault",new SimPosition(-12_400,-14_200),760,860,
-                SettlementOrigin.WIZARD_TREES,true,DevelopmentMode.AUTO));
-        faction.addSettlement(new Settlement(state.nextId(),"Emberroot Hollow",new SimPosition(-9_600,-16_500),340,390,
-                SettlementOrigin.WIZARD_TREES,true,DevelopmentMode.AUTO));
-        faction.addSettlement(new Settlement(state.nextId(),"The Mycelium Deep",new SimPosition(-15_200,-15_800),210,250,
-                SettlementOrigin.WIZARD_TREES,true,DevelopmentMode.AUTO));
+                SettlementOrigin.WIZARD_TREES,true,DevelopmentMode.AUTO,SettlementRole.SPECIAL));
+        faction.addSettlement(new Settlement(state.nextId(),"Emberroot Hollow",new SimPosition(-11_500,-14_650),340,390,
+                SettlementOrigin.WIZARD_TREES,true,DevelopmentMode.AUTO,SettlementRole.SPECIAL));
+        faction.addSettlement(new Settlement(state.nextId(),"The Mycelium Deep",new SimPosition(-12_900,-14_900),210,250,
+                SettlementOrigin.WIZARD_TREES,true,DevelopmentMode.AUTO,SettlementRole.SPECIAL));
         Army wardens=new Army(state.nextId(),faction.id(),faction.settlements().getFirst().position(),74);faction.addArmy(wardens);
         for(Faction other:state.factions()){
             faction.relationWith(other.id()).adjust(-4);other.relationWith(faction.id()).adjust(-4);

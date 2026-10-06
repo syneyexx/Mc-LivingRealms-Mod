@@ -12,6 +12,8 @@ import dev.livingrealms.sim.util.DeterministicRng;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Objects;
 
 /**
@@ -21,18 +23,127 @@ import java.util.Objects;
 public final class RoadLifeEngine {
     /** Soft cap of active journeys worldwide. */
     public static final int MAX_ACTIVE_JOURNEYS = 96;
-    /** Minimum blocks between roadside sites. */
-    public static final double MIN_SITE_SPACING = 420.0;
+    /** Minimum blocks between independent roadside sites; keeps the road layer sparse. */
+    public static final double MIN_SITE_SPACING = 160.0;
+    /** Desired maximum gap between meaningful civilization fabric along an inhabited road. */
+    public static final double TARGET_CORRIDOR_SPACING = 380.0;
+    /** Prevent one extreme route from consuming the global roadside-site budget. */
+    public static final int MAX_CORRIDOR_ANCHORS_PER_ROUTE = 16;
     private static final RoadsideSite.Type[] SITE_TYPES = RoadsideSite.Type.values();
+    private static final RoadsideSite.Type[] CORRIDOR_TYPES = {
+            RoadsideSite.Type.WAYSTATION,
+            RoadsideSite.Type.MILESTONE,
+            RoadsideSite.Type.SHRINE,
+            RoadsideSite.Type.TRAVELER_CAMP,
+            RoadsideSite.Type.TOLL_POST
+    };
 
     private RoadLifeEngine() {}
 
     public static void simulateDay(SimulationState state, DeterministicRng rng) {
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(rng, "rng");
+        ensureCorridorSites(state);
         advanceJourneys(state);
         spawnCausalJourneys(state, rng);
         maybeSpawnRoadsideSite(state, rng);
+    }
+
+    /**
+     * Deterministically fills long inhabited transport corridors with sparse physical/canonical
+     * roadside anchors. End-point settlements count as civilization fabric; intermediate anchors
+     * keep the remaining gaps near 300–450 blocks without creating extra settlements.
+     *
+     * <p>This is idempotent, bounded by the global site cap and per-route anchor cap, and does not
+     * depend on players or loaded chunks. Block materialization remains chunk-driven.</p>
+     */
+    public static int ensureCorridorSites(SimulationState state) {
+        Objects.requireNonNull(state, "state");
+        if (state.roadsideSites().size() >= SimulationState.MAX_ROADSIDE_SITES) return 0;
+
+        // One linear index pass avoids routes × all-sites work on every simulated day. Once a route
+        // already has <=450-block fabric gaps it is skipped before any global proximity checks.
+        List<RoadsideSite> activeSites = new ArrayList<>();
+        Map<Long, List<RoadsideSite>> byRoute = new HashMap<>();
+        for (RoadsideSite site : state.roadsideSites()) {
+            if (!site.active()) continue;
+            activeSites.add(site);
+            if (site.relatedRouteId() > 0) {
+                byRoute.computeIfAbsent(site.relatedRouteId(), ignored -> new ArrayList<>()).add(site);
+            }
+        }
+
+        int added = 0;
+        List<TransportRoute> routes = state.routes().stream()
+                .filter(TransportRoute::operational)
+                .filter(r -> r.mode() == dev.livingrealms.sim.transport.TransportMode.ROAD
+                        || r.mode() == dev.livingrealms.sim.transport.TransportMode.CARAVAN)
+                .sorted(Comparator.comparingLong(TransportRoute::id))
+                .toList();
+
+        for (TransportRoute route : routes) {
+            if (state.roadsideSites().size() >= SimulationState.MAX_ROADSIDE_SITES) break;
+            Settlement from = state.findSettlement(route.fromSettlementId()).orElse(null);
+            Settlement to = state.findSettlement(route.toSettlementId()).orElse(null);
+            if (from == null || to == null) continue;
+            double distance = from.position().distanceTo(to.position());
+            if (distance <= 450.0) continue;
+
+            List<RoadsideSite> routeSites = byRoute.computeIfAbsent(route.id(), ignored -> new ArrayList<>());
+            if (maxCorridorGap(from.position(), to.position(), routeSites) <= 450.0) continue;
+
+            int segments = Math.max(2, (int) Math.ceil(distance / TARGET_CORRIDOR_SPACING));
+            int anchors = Math.min(MAX_CORRIDOR_ANCHORS_PER_ROUTE, segments - 1);
+            for (int slot = 1; slot <= anchors; slot++) {
+                if (state.roadsideSites().size() >= SimulationState.MAX_ROADSIDE_SITES) break;
+                double t = slot / (double) (anchors + 1);
+                SimPosition pos = from.position().lerp(to.position(), t);
+
+                boolean alreadyRepresented = routeSites.stream().anyMatch(site ->
+                        site.position().distanceTo(pos) < 120.0);
+                if (alreadyRepresented || tooCloseSite(activeSites, pos)) continue;
+
+                int typeIndex = Math.floorMod(Long.hashCode(
+                        state.seed() ^ route.id() * 0x9E3779B97F4A7C15L ^ slot * 0xD1B54A32D192ED03L),
+                        CORRIDOR_TYPES.length);
+                RoadsideSite.Type type = CORRIDOR_TYPES[typeIndex];
+                long relatedSettlementId = t <= .5 ? from.id() : to.id();
+                RoadsideSite site = new RoadsideSite(state.nextId(), type, pos,
+                        RoadsideSite.defaultName(type, pos), relatedSettlementId, route.id(), state.clock().day());
+                state.addRoadsideSite(site);
+                activeSites.add(site);
+                routeSites.add(site);
+                added++;
+            }
+        }
+        return added;
+    }
+
+    private static double maxCorridorGap(SimPosition from, SimPosition to, List<RoadsideSite> sites) {
+        double dx = to.x() - from.x(), dz = to.z() - from.z();
+        double length2 = dx * dx + dz * dz;
+        if (length2 <= 1.0e-9) return 0.0;
+        List<Double> positions = new ArrayList<>();
+        positions.add(0.0);
+        for (RoadsideSite site : sites) {
+            double t = ((site.position().x() - from.x()) * dx + (site.position().z() - from.z()) * dz) / length2;
+            if (t > 0.0 && t < 1.0) positions.add(t);
+        }
+        positions.add(1.0);
+        positions.sort(Double::compare);
+        double length = Math.sqrt(length2);
+        double max = 0.0;
+        for (int i = 1; i < positions.size(); i++) {
+            max = Math.max(max, (positions.get(i) - positions.get(i - 1)) * length);
+        }
+        return max;
+    }
+
+    private static boolean tooCloseSite(List<RoadsideSite> activeSites, SimPosition pos) {
+        for (RoadsideSite site : activeSites) {
+            if (site.position().distanceTo(pos) < MIN_SITE_SPACING) return true;
+        }
+        return false;
     }
 
     private static void advanceJourneys(SimulationState state) {

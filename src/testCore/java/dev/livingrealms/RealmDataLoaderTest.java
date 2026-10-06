@@ -2,15 +2,17 @@ package dev.livingrealms;
 
 import dev.livingrealms.sim.content.RealmDefinition;
 import dev.livingrealms.sim.content.RealmDefinitionLoader;
-import dev.livingrealms.sim.player.PlayerSettlementFounder;
+import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.faction.SettlementRole;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SettlementDensitySeeder;
+import dev.livingrealms.sim.world.SettlementSpacingPolicy;
 import dev.livingrealms.sim.world.SimulationState;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Wave 8: realm JSON loads 12 kingdoms; densifier still seeds 36 surface at 2000 spacing. */
+/** Realm JSON loading plus role-aware starter placement regression. */
 public final class RealmDataLoaderTest {
     private RealmDataLoaderTest() {}
 
@@ -25,14 +27,11 @@ public final class RealmDataLoaderTest {
             check(ids.add(r.id()), "duplicate realm id " + r.id());
             check(names.add(r.displayName()), "duplicate realm name " + r.displayName());
             check(r.capitalName() != null && !r.capitalName().isBlank(), "capital required");
-            check(r.satellites().size() == 10, r.id() + " must have 10 Spec satellites");
+            check(r.satellites().size() == 10, r.id() + " must retain 10 authored satellite specs");
             check(r.cultureId() != null && !r.cultureId().isBlank(), r.id() + " cultureId");
             satellites += r.satellites().size();
         }
-        check(satellites == 120, "120 expansion Specs");
-        check(SettlementDensitySeeder.TARGET_SETTLEMENTS_PER_REALM == 3, "TARGET=3");
-        check(SettlementDensitySeeder.MIN_SETTLEMENT_SPACING == 2000.0, "spacing 2000");
-        check(SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS == 36, "36 surface");
+        check(satellites == 120, "120 authored satellite specs");
 
         SimulationState state = new SimulationState(0x8EA17EL);
         DemoSeeder.seed(state);
@@ -40,20 +39,35 @@ public final class RealmDataLoaderTest {
                 .filter(f -> !f.name().equals("Wizard Trees"))
                 .mapToInt(f -> f.settlements().size())
                 .sum();
-        check(surface == 36, "densifier seeds 36 surface, got " + surface);
+        check(surface >= SettlementDensitySeeder.MIN_SURFACE_STARTER_SETTLEMENTS
+                        && surface <= SettlementDensitySeeder.MAX_SURFACE_STARTER_SETTLEMENTS,
+                "starter surface outside hierarchical range: " + surface);
+        long capitals = state.factions().stream()
+                .filter(f -> !f.name().equals("Wizard Trees"))
+                .flatMap(f -> f.settlements().stream())
+                .filter(s -> s.role() == SettlementRole.CAPITAL)
+                .count();
+        check(capitals == 12, "twelve explicit capital roles");
         check(SettlementDensitySeeder.ensureStarterDensity(state) == 0, "idempotent densifier");
 
-        var all = state.factions().stream().flatMap(f -> f.settlements().stream()).toList();
+        List<Settlement> all = state.factions().stream()
+                .filter(f -> !f.name().equals("Wizard Trees"))
+                .flatMap(f -> f.settlements().stream()).toList();
+        boolean belowLegacyFloor = false;
         for (int i = 0; i < all.size(); i++) for (int j = i + 1; j < all.size(); j++) {
-            double dist = all.get(i).position().distanceTo(all.get(j).position());
-            check(dist >= SettlementDensitySeeder.MIN_SETTLEMENT_SPACING - 1.0,
-                    "spacing violated: " + all.get(i).name() + " ↔ " + all.get(j).name() + " = " + dist);
+            Settlement a = all.get(i), b = all.get(j);
+            double dist = a.position().distanceTo(b.position());
+            double floor = SettlementSpacingPolicy.minimumDistance(a, b);
+            check(dist >= floor - 1.0,
+                    "role-aware spacing violated: " + a.name() + " ↔ " + b.name()
+                            + " = " + Math.round(dist) + " < " + Math.round(floor));
+            if (dist < 1_999.0) belowLegacyFloor = true;
         }
-        check(PlayerSettlementFounder.MIN_SETTLEMENT_SPACING == 2000.0, "founder spacing pin");
+        check(belowLegacyFloor, "starter data still behaves like universal 2000-block spacing");
         check(RealmDefinitionLoader.byId("aster") != null, "aster realm present");
         check(RealmDefinitionLoader.byDisplayName("Kingdom of Aster") != null, "aster by display name");
 
-        System.out.println("PASS realm data loader: 12 realms JSON + densifier 36 surface @ 2000 spacing");
+        System.out.println("PASS realm data loader: 12 realm JSON definitions + role-aware starter placement");
     }
 
     private static void check(boolean ok, String message) {

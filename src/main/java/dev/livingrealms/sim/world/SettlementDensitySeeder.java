@@ -10,40 +10,43 @@ import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
+import dev.livingrealms.sim.faction.SettlementRole;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
- * Idempotent starter-world/kingdom migration.
+ * Deterministic fresh-world civilization seeder.
  *
- * <p>Twelve persistent kingdoms each seed a capital, one distant authored satellite, and one rural
- * hamlet ({@value #TARGET_SETTLEMENTS_PER_REALM} per realm → {@value #SURFACE_STARTER_SETTLEMENTS}
- * surface starters). Realm content is data-driven via {@link RealmDefinitionLoader}; spacing and
- * density targets remain Java policy invariants. Remaining authored Specs are retained as an
- * expansion catalog for later causal founding. Wizard Trees remain separate. Physical construction
- * stays chunk-local.</p>
+ * <p>New surface realms receive one capital, all ten authored satellite definitions, and a
+ * deterministic rural hamlet belt. The highest-population authored satellites become 2–4 towns;
+ * the remaining authored satellites become 6–8 villages. Another 6–14 small hamlets are placed
+ * around those villages. Existing realms are never relocated or silently backfilled by this
+ * starter-layout policy: old/anchored worlds keep their canonical settlement positions and grow
+ * only through normal causal expansion.</p>
  */
 public final class SettlementDensitySeeder {
     private SettlementDensitySeeder() {}
 
-    /** Capital + 1 authored satellite + 1 rural hamlet. Wizard Trees excluded from surface counts. */
-    public static final int TARGET_SETTLEMENTS_PER_REALM = 3;
-    /** Fresh worlds seed only one authored Spec satellite; remaining Specs stay in the expansion catalog. */
-    public static final int MAX_AUTHORED_SATELLITES = 1;
-    public static final int RURAL_HAMLETS_PER_REALM = 1;
-    /**
-     * Authoritative product floor for settlement-to-settlement spacing. Shared by seeding, founding,
-     * causal expansion, foreign adoption, migration founding, tests, and dashboard guidance.
-     * Never encoded in datapack JSON.
-     */
-    public static final double MIN_SETTLEMENT_SPACING = 2000.0;
-    /** Preferred legal satellite radius band for fresh sparse placement. */
-    public static final double SPARSE_SATELLITE_RADIUS_MIN = 2200.0;
-    public static final double SPARSE_SATELLITE_RADIUS_MAX = 3000.0;
-    /** Surface starter total excluding Wizard Trees: 12 × TARGET. */
-    public static final int SURFACE_STARTER_SETTLEMENTS = 36;
-    private static final String[] RURAL_SUFFIXES = {"Croft","End","Green","Thorp","Wick","Fold","Ley","Combe"};
+    public static final int AUTHORED_SATELLITES_PER_REALM = 10;
+    public static final int MIN_TOWNS_PER_REALM = 2;
+    public static final int MAX_TOWNS_PER_REALM = 4;
+    public static final int MIN_VILLAGES_PER_REALM = 6;
+    public static final int MAX_VILLAGES_PER_REALM = 8;
+    public static final int MIN_RURAL_HAMLETS_PER_REALM = 6;
+    public static final int MAX_RURAL_HAMLETS_PER_REALM = 14;
+    public static final int MIN_SURFACE_STARTER_SETTLEMENTS = 12 * (1 + AUTHORED_SATELLITES_PER_REALM + MIN_RURAL_HAMLETS_PER_REALM);
+    public static final int MAX_SURFACE_STARTER_SETTLEMENTS = 12 * (1 + AUTHORED_SATELLITES_PER_REALM + MAX_RURAL_HAMLETS_PER_REALM);
+
+    private static final double CAPITAL_LATTICE_SPACING = 3_800.0;
+    private static final double HEX_Z = 0.8660254037844386;
+    private static final String[] RURAL_SUFFIXES = {
+            "Croft","End","Green","Thorp","Wick","Fold","Ley","Combe",
+            "Heath","Dene","Brook","Garth","Moor","Field","Rest","Hollow"
+    };
 
     private static List<RealmDefinition> realms() {
         return RealmDefinitionLoader.loadAll();
@@ -57,7 +60,7 @@ public final class SettlementDensitySeeder {
         changes += initializeRelations(state);
         if (changes > 0) {
             state.history().add(new WorldEvent(state.clock().day(), "living_world_network_expanded",
-                    "Twelve-realm sparse network ensured (capital+1 Spec+rural); realms=" + state.factions().size()
+                    "Twelve-realm hierarchical starter network ensured; realms=" + state.factions().size()
                             + ", settlements=" + state.factions().stream().mapToInt(f -> f.settlements().size()).sum()));
         }
         return changes;
@@ -75,36 +78,50 @@ public final class SettlementDensitySeeder {
 
     private static int ensureRealm(SimulationState state, RealmDefinition spec) {
         Faction faction = faction(state, spec.displayName());
+        boolean freshRealm = faction == null;
         int changes = 0;
-        if (faction == null) {
+
+        if (freshRealm) {
             faction = new Faction(state.nextId(), spec.displayName(), spec.rulerSeedName());
             faction.restoreTechnology(spec.technology());
             faction.restoreTreasury(spec.treasury());
-            Settlement capital = new Settlement(state.nextId(), spec.capitalName(),
-                    new SimPosition(spec.x(), spec.z()), spec.capitalPopulation(), spec.capitalHousing(),
-                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO);
+            SimPosition capitalPos = starterCapitalPosition(state.seed(), spec);
+            Settlement capital = new Settlement(state.nextId(), spec.capitalName(), capitalPos,
+                    spec.capitalPopulation(), spec.capitalHousing(),
+                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO, SettlementRole.CAPITAL);
             faction.addSettlement(capital);
-            faction.addArmy(new Army(state.nextId(), faction.id(), new SimPosition(spec.x() + 55, spec.z() + 35), spec.armyInfantry()));
+            faction.addArmy(new Army(state.nextId(), faction.id(),
+                    new SimPosition(capitalPos.x() + 55, capitalPos.z() + 35), spec.armyInfantry()));
             state.addFaction(faction);
             provision(faction, 4);
             applyCulturePackTraits(state, faction, spec);
             changes++;
         }
+
         Settlement capital = settlement(faction, spec.capitalName());
         if (capital == null) {
-            capital = new Settlement(state.nextId(), spec.capitalName(),
-                    new SimPosition(spec.x(), spec.z()), spec.capitalPopulation(), spec.capitalHousing(),
-                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO);
+            SimPosition capitalPos = starterCapitalPosition(state.seed(), spec);
+            capital = new Settlement(state.nextId(), spec.capitalName(), capitalPos,
+                    spec.capitalPopulation(), spec.capitalHousing(),
+                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO, SettlementRole.CAPITAL);
             faction.addSettlement(capital);
             changes++;
+            // Missing capital in an existing world is repaired, but the world is not wholesale reseeded.
+            freshRealm = false;
         } else {
+            capital.restoreRole(SettlementRole.CAPITAL);
             changes += ensureCapital(capital, spec.capitalPopulation(), spec.capitalHousing());
         }
-        // Existing dense/migrated realms at or above target must not quietly grow.
-        if (faction.settlements().size() >= TARGET_SETTLEMENTS_PER_REALM) return changes;
-        int added = addStarterSatellite(state, faction, capital.position(), spec.satellites());
-        added += addRuralHamlets(state, faction, capital.position(), spec.capitalName());
-        if (added > 0) { provision(faction, added); changes += added; }
+
+        // New density policy is intentionally fresh-world only. Never teleport or mass-backfill an old realm.
+        if (!freshRealm) return changes;
+
+        int added = addAuthoredHierarchy(state, faction, capital, spec);
+        added += addRuralHamlets(state, faction, capital, spec);
+        if (added > 0) {
+            provision(faction, Math.max(1, added / 4));
+            changes += added;
+        }
         return changes;
     }
 
@@ -115,49 +132,122 @@ public final class SettlementDensitySeeder {
         return beforePopulation == settlement.population() && beforeHousing == settlement.housing() ? 0 : 1;
     }
 
-    /** Seeds exactly one authored satellite at a legal sparse radius using Spec directional bias. */
-    private static int addStarterSatellite(SimulationState state, Faction faction, SimPosition origin,
-                                           List<RealmDefinition.SatelliteDefinition> specs) {
-        if (specs.isEmpty()) return 0;
-        if (faction.settlements().size() >= TARGET_SETTLEMENTS_PER_REALM) return 0;
-        // Already has a non-capital, non-rural settlement — treat as satellite present.
-        long nonRuralExtras = faction.settlements().stream()
-                .filter(s -> !s.name().equals(faction.settlements().getFirst().name()))
-                .filter(s -> !isRuralHamletName(s.name()))
-                .count();
-        if (nonRuralExtras > 0) return 0;
+    private static int addAuthoredHierarchy(SimulationState state, Faction faction, Settlement capital,
+                                            RealmDefinition realm) {
+        List<RealmDefinition.SatelliteDefinition> specs = realm.satellites();
+        if (specs.size() < AUTHORED_SATELLITES_PER_REALM) {
+            throw new IllegalStateException(realm.id() + " requires " + AUTHORED_SATELLITES_PER_REALM
+                    + " authored satellites, got " + specs.size());
+        }
 
-        int pick = Math.floorMod((int) mix(state.seed() ^ faction.id()), specs.size());
-        RealmDefinition.SatelliteDefinition spec = specs.get(pick);
-        if (settlement(faction, spec.name()) != null) return 0;
+        long realmMix = mix(state.seed() ^ ((long) realm.id().hashCode() * 0x9E3779B97F4A7C15L));
+        int townTarget = MIN_TOWNS_PER_REALM
+                + Math.floorMod((int) realmMix, MAX_TOWNS_PER_REALM - MIN_TOWNS_PER_REALM + 1);
 
-        SimPosition position = placeSparseSatellite(state, origin, faction.id(), spec.dx(), spec.dz(), 0);
-        if (position == null || tooCloseAny(state, position, MIN_SETTLEMENT_SPACING)) return 0;
-        faction.addSettlement(new Settlement(state.nextId(), spec.name(), position, spec.population(), spec.housing(),
-                SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO));
-        return 1;
+        Set<String> townNames = new HashSet<>();
+        specs.stream()
+                .sorted(Comparator.comparingInt(RealmDefinition.SatelliteDefinition::population).reversed()
+                        .thenComparing(RealmDefinition.SatelliteDefinition::name))
+                .limit(townTarget)
+                .forEach(s -> townNames.add(s.name()));
+
+        int added = 0;
+        List<Settlement> towns = new ArrayList<>();
+        List<Settlement> villages = new ArrayList<>();
+
+        // Towns first so villages can be parented spatially around them.
+        int townOrdinal = 0;
+        for (int i = 0; i < specs.size(); i++) {
+            RealmDefinition.SatelliteDefinition authored = specs.get(i);
+            if (!townNames.contains(authored.name())) continue;
+            Settlement created = addAuthoredChild(state, faction, capital, authored, SettlementRole.TOWN, i,
+                    townOrdinal == 0);
+            townOrdinal++;
+            if (created != null) {
+                towns.add(created);
+                added++;
+            }
+        }
+        if (towns.isEmpty()) throw new IllegalStateException("starter realm has no towns: " + realm.id());
+
+        int villageOrdinal = 0;
+        for (int i = 0; i < specs.size(); i++) {
+            RealmDefinition.SatelliteDefinition authored = specs.get(i);
+            if (townNames.contains(authored.name())) continue;
+            // Round-robin is deliberate gap filling: 6–8 villages across 2–4 towns guarantees
+            // every starter town a nearby true-settlement branch instead of an accidental empty spoke.
+            Settlement parent = towns.get(villageOrdinal % towns.size());
+            villageOrdinal++;
+            Settlement created = addAuthoredChild(state, faction, parent, authored, SettlementRole.VILLAGE, 100 + i);
+            if (created != null) {
+                villages.add(created);
+                added++;
+            }
+        }
+        int villageCount = villages.size();
+        if (villageCount < MIN_VILLAGES_PER_REALM || villageCount > MAX_VILLAGES_PER_REALM) {
+            throw new IllegalStateException("starter village count out of target range for " + realm.id()
+                    + ": " + villageCount);
+        }
+        return added;
     }
 
-    private static int addRuralHamlets(SimulationState state, Faction faction, SimPosition origin, String capitalName) {
-        if (faction.settlements().size() >= TARGET_SETTLEMENTS_PER_REALM) return 0;
-        int existingRural = (int) faction.settlements().stream().filter(s -> isRuralHamletName(s.name())).count();
-        int needed = Math.max(0, RURAL_HAMLETS_PER_REALM - existingRural);
-        needed = Math.min(needed, Math.max(0, TARGET_SETTLEMENTS_PER_REALM - faction.settlements().size()));
-        if (needed <= 0) return 0;
+    private static Settlement addAuthoredChild(SimulationState state, Faction faction, Settlement parent,
+                                                RealmDefinition.SatelliteDefinition authored,
+                                                SettlementRole role, int salt) {
+        return addAuthoredChild(state, faction, parent, authored, role, salt, false);
+    }
+
+    private static Settlement addAuthoredChild(SimulationState state, Faction faction, Settlement parent,
+                                                RealmDefinition.SatelliteDefinition authored,
+                                                SettlementRole role, int salt, boolean innerGapAnchor) {
+        if (settlement(faction, authored.name()) != null) return null;
+        SimPosition position = innerGapAnchor && role == SettlementRole.TOWN
+                ? placeInnerTownAnchor(state, parent.position(), authored.dx(), authored.dz(), faction.id(), salt)
+                : placeChild(state, parent.position(), parent.role(),
+                        authored.dx(), authored.dz(), faction.id(), salt, role);
+        if (position == null) return null;
+
+        int population = role == SettlementRole.TOWN
+                ? Math.max(550, authored.population())
+                : Math.max(120, Math.min(480, authored.population()));
+        int housing = Math.max(population + 20, authored.housing());
+        Settlement child = new Settlement(state.nextId(), authored.name(), position, population, housing,
+                SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO, role);
+        faction.addSettlement(child);
+        return child;
+    }
+
+    private static int addRuralHamlets(SimulationState state, Faction faction, Settlement capital,
+                                       RealmDefinition realm) {
+        List<Settlement> villages = faction.settlements().stream()
+                .filter(s -> s.role() == SettlementRole.VILLAGE)
+                .sorted(Comparator.comparingLong(Settlement::id))
+                .toList();
+        if (villages.isEmpty()) return 0;
+
+        long m = mix(state.seed() ^ ((long) realm.id().hashCode() * 0xD1B54A32D192ED03L));
+        int target = MIN_RURAL_HAMLETS_PER_REALM
+                + Math.floorMod((int) (m >>> 19), MAX_RURAL_HAMLETS_PER_REALM - MIN_RURAL_HAMLETS_PER_REALM + 1);
+        String prefix = compactPrefix(capital.name());
         int added = 0;
-        String prefix = capitalName.replace(" Keep", "").replace("keep", "").replace(" Citadel", "").replace("haven", "").trim();
-        for (int attempt = 0; added < needed && attempt < needed * 8; attempt++) {
-            int suffixIndex = existingRural + attempt;
-            String name = (prefix + " " + RURAL_SUFFIXES[Math.floorMod(suffixIndex, RURAL_SUFFIXES.length)]).trim();
-            if (suffixIndex >= RURAL_SUFFIXES.length) name = name + " " + (suffixIndex / RURAL_SUFFIXES.length + 1);
-            if (settlement(faction, name) != null) continue;
-            // Different sector from satellite: offset angle by ~2.0 rad from satellite bias.
-            SimPosition position = placeSparseSatellite(state, origin, faction.id(),
-                    Math.cos(2.0 + attempt), Math.sin(2.0 + attempt), 50 + attempt);
-            if (position == null || tooCloseAny(state, position, MIN_SETTLEMENT_SPACING)) continue;
-            int pop = 48 + Math.floorMod((int) mix(state.seed() ^ faction.id() ^ (attempt * 17L)), 40);
-            Settlement hamlet = new Settlement(state.nextId(), name, position, pop, (int) Math.ceil(pop * 1.2),
-                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO);
+
+        for (int i = 0; i < target; i++) {
+            Settlement parent = villages.get(i % villages.size());
+            int suffixIndex = Math.floorMod((int) (m + i * 17L), RURAL_SUFFIXES.length);
+            String name = prefix + " " + RURAL_SUFFIXES[suffixIndex];
+            if (settlement(faction, name) != null) name += " " + (i + 1);
+
+            long angleBits = mix(state.seed() ^ parent.id() ^ (i * 0x9E3779B97F4A7C15L));
+            double angle = ((angleBits >>> 11) & 0xFFFFL) / 65535.0 * Math.PI * 2.0;
+            SimPosition position = placeChild(state, parent.position(), SettlementRole.VILLAGE,
+                    Math.cos(angle), Math.sin(angle), faction.id(), 400 + i, SettlementRole.HAMLET);
+            if (position == null) continue;
+
+            int pop = 36 + Math.floorMod((int) (angleBits >>> 33), 54);
+            Settlement hamlet = new Settlement(state.nextId(), name, position, pop,
+                    Math.max(pop + 8, (int) Math.ceil(pop * 1.25)),
+                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO, SettlementRole.HAMLET);
             faction.addSettlement(hamlet);
             added++;
         }
@@ -165,11 +255,38 @@ public final class SettlementDensitySeeder {
     }
 
     /**
-     * Place using authored directional bias normalized to a legal sparse radius (2200–3000).
-     * Verifies against every already-planned settlement before returning.
+     * Ensures every fresh realm has at least one inner town within the inhabited ~800-block
+     * encounter envelope. This is fresh-world placement only; anchored settlements are never moved.
      */
-    private static SimPosition placeSparseSatellite(SimulationState state, SimPosition origin, long factionId,
-                                                    double dx, double dz, int salt) {
+    private static SimPosition placeInnerTownAnchor(SimulationState state, SimPosition parent,
+                                                    double dx, double dz, long factionId, int salt) {
+        double len = Math.hypot(dx, dz);
+        if (len < 1e-6) {
+            long mixed = mix(state.seed() ^ factionId ^ salt);
+            double angle = ((mixed >>> 11) & 0xFFFFL) / 65535.0 * Math.PI * 2.0;
+            dx = Math.cos(angle);
+            dz = Math.sin(angle);
+            len = 1.0;
+        }
+        double nx = dx / len, nz = dz / len;
+        long mixed = mix(state.seed() ^ factionId ^ (salt * 0xD1B54A32D192ED03L));
+        double radius = 700.0 + (((mixed >>> 21) & 0x3FFL) / 1023.0) * 100.0;
+        for (int attempt = 0; attempt < 16; attempt++) {
+            double jitter = (attempt - 7.5) * (Math.PI / 72.0);
+            double cos = Math.cos(jitter), sin = Math.sin(jitter);
+            double bx = nx * cos - nz * sin;
+            double bz = nx * sin + nz * cos;
+            SimPosition candidate = new SimPosition(parent.x() + bx * radius, parent.z() + bz * radius);
+            if (!tooCloseAny(state, candidate, SettlementRole.TOWN)) return candidate;
+        }
+        // Collision escape remains deterministic and uses the normal preferred 650–1200 policy.
+        return placeChild(state, parent, SettlementRole.CAPITAL, dx, dz, factionId, salt, SettlementRole.TOWN);
+    }
+
+    /** Place a deterministic child in its parent/child preferred band, widening only when collisions require it. */
+    private static SimPosition placeChild(SimulationState state, SimPosition parent,
+                                          SettlementRole parentRole, double dx, double dz,
+                                          long factionId, int salt, SettlementRole childRole) {
         double len = Math.hypot(dx, dz);
         if (len < 1e-6) {
             long m = mix(state.seed() ^ factionId ^ salt);
@@ -180,39 +297,61 @@ public final class SettlementDensitySeeder {
         }
         double nx = dx / len, nz = dz / len;
         long m = mix(state.seed() ^ factionId ^ (salt * 0x9E3779B97F4A7C15L));
-        double radius = SPARSE_SATELLITE_RADIUS_MIN
-                + (((m >>> 21) & 0x3FFL) / 1023.0) * (SPARSE_SATELLITE_RADIUS_MAX - SPARSE_SATELLITE_RADIUS_MIN);
-        for (int ring = 0; ring < 16; ring++) {
-            double r = radius + ring * 140.0;
-            for (int attempt = 0; attempt < 12; attempt++) {
-                double angJitter = attempt * (Math.PI * 2.0 / 12.0) * 0.08;
-                double cos = Math.cos(angJitter), sin = Math.sin(angJitter);
+        SettlementSpacingPolicy.Range preferred = SettlementSpacingPolicy.preferredRange(parentRole, childRole);
+        double radius = preferred.at(((m >>> 21) & 0x3FFL) / 1023.0);
+        double ringStep = childRole == SettlementRole.HAMLET ? 24.0 : 36.0;
+
+        for (int ring = 0; ring < 18; ring++) {
+            double r = radius + ring * ringStep;
+            for (int attempt = 0; attempt < 16; attempt++) {
+                double jitter = (attempt - 7.5) * (Math.PI / 56.0);
+                double cos = Math.cos(jitter), sin = Math.sin(jitter);
                 double bx = nx * cos - nz * sin;
                 double bz = nx * sin + nz * cos;
-                SimPosition candidate = new SimPosition(origin.x() + bx * r, origin.z() + bz * r);
-                if (!tooCloseAny(state, candidate, MIN_SETTLEMENT_SPACING)) return candidate;
+                SimPosition candidate = new SimPosition(parent.x() + bx * r, parent.z() + bz * r);
+                if (!tooCloseAny(state, candidate, childRole)) return candidate;
             }
         }
         return null;
     }
 
-    private static boolean isRuralHamletName(String name) {
-        for (String suffix : RURAL_SUFFIXES) {
-            if (name.endsWith(" " + suffix)) return true;
-            String marker = " " + suffix + " ";
-            int idx = name.lastIndexOf(marker);
-            if (idx >= 0) {
-                String rest = name.substring(idx + marker.length());
-                if (!rest.isEmpty() && rest.chars().allMatch(Character::isDigit)) return true;
-            }
-        }
-        return false;
+    private static SimPosition starterCapitalPosition(long seed, RealmDefinition realm) {
+        int[] axial = switch (realm.id()) {
+            case "aster" -> new int[]{0, 0};
+            case "veyran" -> new int[]{1, 0};
+            case "sablemere" -> new int[]{2, 0};
+            case "stormcoast" -> new int[]{2, 1};
+            case "aurenthal" -> new int[]{1, 1};
+            case "glassmere" -> new int[]{0, 1};
+            case "eldermere" -> new int[]{-1, 0};
+            case "verdance" -> new int[]{-2, 0};
+            case "redmarch" -> new int[]{-3, 0};
+            case "norwyn" -> new int[]{-1, -1};
+            case "solenne" -> new int[]{0, -1};
+            case "dravik" -> new int[]{1, -1};
+            default -> throw new IllegalArgumentException("unmapped starter realm " + realm.id());
+        };
+        double x = CAPITAL_LATTICE_SPACING * (axial[0] + axial[1] * 0.5);
+        double z = CAPITAL_LATTICE_SPACING * HEX_Z * axial[1];
+        if ("aster".equals(realm.id())) return new SimPosition(0, 0);
+
+        long m = mix(seed ^ ((long) realm.id().hashCode() * 0x94D049BB133111EBL));
+        double jx = ((((m >>> 12) & 0x3FFL) / 1023.0) * 2.0 - 1.0) * 140.0;
+        double jz = ((((m >>> 32) & 0x3FFL) / 1023.0) * 2.0 - 1.0) * 140.0;
+        return new SimPosition(x + jx, z + jz);
     }
 
-    private static boolean tooCloseAny(SimulationState state, SimPosition p, double spacing) {
-        for (Faction f : state.factions()) {
-            for (Settlement s : f.settlements()) {
-                if (p.distanceTo(s.position()) < spacing) return true;
+    private static String compactPrefix(String capitalName) {
+        String prefix = capitalName.replace(" Keep", "").replace("keep", "")
+                .replace(" Citadel", "").replace("haven", "").trim();
+        return prefix.isBlank() ? "Rural" : prefix;
+    }
+
+    private static boolean tooCloseAny(SimulationState state, SimPosition p, SettlementRole role) {
+        for (Faction faction : state.factions()) {
+            for (Settlement settlement : faction.settlements()) {
+                double floor = SettlementSpacingPolicy.minimumDistance(role, settlement.role());
+                if (p.distanceTo(settlement.position()) < floor) return true;
             }
         }
         return false;
@@ -265,32 +404,38 @@ public final class SettlementDensitySeeder {
         for (Faction faction : state.factions()) if (faction.name().equals(name)) return faction;
         return null;
     }
+
     private static Settlement settlement(Faction faction, String name) {
         for (Settlement settlement : faction.settlements()) if (settlement.name().equals(name)) return settlement;
         return null;
     }
-    private static long mix(long z) { z=(z^(z>>>30))*0xBF58476D1CE4E5B9L;z=(z^(z>>>27))*0x94D049BB133111EBL;return z^(z>>>31); }
 
-    /** Capitals plus every authored Spec name (including expansion-catalog Specs not yet seeded). */
-    public static List<String> authoredSettlementNames(){
-        List<String> names=new ArrayList<>();
-        for(RealmDefinition realm:realms()){
+    private static long mix(long z) {
+        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+        return z ^ (z >>> 31);
+    }
+
+    /** Capitals plus every authored satellite name. */
+    public static List<String> authoredSettlementNames() {
+        List<String> names = new ArrayList<>();
+        for (RealmDefinition realm : realms()) {
             names.add(realm.capitalName());
-            for(RealmDefinition.SatelliteDefinition spec:realm.satellites())names.add(spec.name());
+            for (RealmDefinition.SatelliteDefinition spec : realm.satellites()) names.add(spec.name());
         }
         return List.copyOf(names);
     }
 
-    /** Expansion catalog Specs available for later causal founding (not all seeded at start). */
-    public static List<String> authoredExpansionCatalogNames(){
-        List<String> names=new ArrayList<>();
-        for(RealmDefinition realm:realms()){
-            for(RealmDefinition.SatelliteDefinition spec:realm.satellites())names.add(spec.name());
+    /** Compatibility view: fresh worlds now seed these authored satellites; old worlds may still use them causally. */
+    public static List<String> authoredExpansionCatalogNames() {
+        List<String> names = new ArrayList<>();
+        for (RealmDefinition realm : realms()) {
+            for (RealmDefinition.SatelliteDefinition spec : realm.satellites()) names.add(spec.name());
         }
         return List.copyOf(names);
     }
 
-    /** Authored Specs for a realm that are not yet present as settlements. */
+    /** Authored specs absent from an existing realm; retained for safe causal expansion of legacy worlds. */
     public static List<Spec> unusedExpansionSpecs(Faction faction, String realmName) {
         RealmDefinition realm = RealmDefinitionLoader.byDisplayName(realmName);
         if (realm == null) return List.of();
@@ -303,6 +448,6 @@ public final class SettlementDensitySeeder {
         return List.copyOf(unused);
     }
 
-    /** Compatibility view of an authored satellite Spec for expansion engines. */
-    public record Spec(String name,double dx,double dz,int population,int housing) {}
+    /** Compatibility view of an authored satellite spec for legacy-world expansion engines. */
+    public record Spec(String name, double dx, double dz, int population, int housing) {}
 }

@@ -5,12 +5,16 @@ import dev.livingrealms.minecraft.compat.CompatibleContentRuntime;
 import dev.livingrealms.sim.construction.AuthoredBlockLedger;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.construction.PaletteSlot;
+import dev.livingrealms.sim.construction.SettlementPlanner;
 import dev.livingrealms.sim.transport.*;
 import dev.livingrealms.sim.world.SimPosition;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.state.BlockState;
@@ -18,28 +22,112 @@ import net.minecraft.world.level.block.state.properties.RailShape;
 
 /** Opportunistically projects canonical road/rail corridors into already-loaded chunks. */
 public final class TransportNetworkMaterializer {
-    private static final double ACTIVATION_RADIUS=192.0D;
+    private static final int CHUNK_HINTS_PER_TICK=8;
+    private static final int FALLBACK_ROUTES_PER_TICK=6;
+    private static int routeCursor;
     /** Drop of this many blocks (or more) triggers a bridge deck instead of staircasing into a pit. */
     private static final int BRIDGE_GAP_THRESHOLD=3;
     private TransportNetworkMaterializer(){}
 
     public static void tick(ServerLevel level,LivingRealmsSavedData data){
-        if(level.players().isEmpty())return;int remaining=Math.max(16,data.state().config().constructionBlockOpsPerTick()/2);
-        List<SimPosition> observers=level.players().stream().map(p->new SimPosition(p.getX(),p.getZ())).toList();
-        TerrainCorridorPlanner.TerrainSample terrain=sampler(level,data.authoredBlocks());
+        int remaining=Math.max(16,data.state().config().constructionBlockOpsPerTick()/2);
         AuthoredBlockLedger ledger=data.authoredBlocks();
-        for(TransportRoute route:data.state().routes()){
-            if(remaining<=0)break;
-            // ROAD/RAIL keep full carriageways; CARAVAN becomes a narrow countryside dirt path.
-            if(!route.operational()||(route.mode()!=TransportMode.ROAD&&route.mode()!=TransportMode.RAIL&&route.mode()!=TransportMode.CARAVAN))continue;
-            var from=data.state().findSettlement(route.fromSettlementId()).orElse(null);
-            var to=data.state().findSettlement(route.toSettlementId()).orElse(null);if(from==null||to==null)continue;
-            var points=RouteProjectionPlanner.plan(route,from.position(),to.position(),observers,ACTIVATION_RADIUS,remaining,terrain);
-            boolean rural=route.mode()==TransportMode.CARAVAN
-                    || from.tier().ordinal()<=dev.livingrealms.sim.faction.Settlement.Tier.VILLAGE.ordinal()
-                    || to.tier().ordinal()<=dev.livingrealms.sim.faction.Settlement.Tier.VILLAGE.ordinal();
-            for(var point:points){if(remaining<=0)break;remaining-=applyPoint(level,ledger,point,remaining,rural);}
+        List<CivilizationFabricChunkQueue.ChunkRef> hints=
+                CivilizationFabricChunkQueue.pollTransport(level,CHUNK_HINTS_PER_TICK);
+
+        if(!hints.isEmpty()){
+            for(TransportRoute route:data.state().routes()){
+                if(remaining<=0)break;
+                if(!physicalLandRoute(route))continue;
+                var from=data.state().findSettlement(route.fromSettlementId()).orElse(null);
+                var to=data.state().findSettlement(route.toSettlementId()).orElse(null);
+                if(from==null||to==null)continue;
+                boolean rural=isRural(route,from,to);
+                SimPosition fromEndpoint=routeEndpoint(data.state(),from,to.position());
+                SimPosition toEndpoint=routeEndpoint(data.state(),to,from.position());
+                for(var chunk:hints){
+                    if(remaining<=0)break;
+                    var points=RouteProjectionPlanner.planInBounds(route,fromEndpoint,toEndpoint,
+                            chunk.minX(),chunk.minZ(),chunk.maxX(),chunk.maxZ(),remaining);
+                    for(var point:points){
+                        if(remaining<=0)break;
+                        remaining-=applyPoint(level,ledger,point,remaining,rural);
+                    }
+                }
+            }
+        }else{
+            // Repair path for routes created after their chunks were already loaded. This bounded
+            // round-robin probes loaded chunks directly; it never force-loads or depends on players.
+            List<TransportRoute> routes=data.state().routes();
+            if(routes.isEmpty())return;
+            routeCursor=Math.floorMod(routeCursor,routes.size());
+            int scanned=0;
+            for(int n=0;n<routes.size()&&scanned<FALLBACK_ROUTES_PER_TICK&&remaining>0;n++){
+                TransportRoute route=routes.get(Math.floorMod(routeCursor+n,routes.size()));
+                scanned++;
+                if(!physicalLandRoute(route))continue;
+                var from=data.state().findSettlement(route.fromSettlementId()).orElse(null);
+                var to=data.state().findSettlement(route.toSettlementId()).orElse(null);
+                if(from==null||to==null)continue;
+                SimPosition fromEndpoint=routeEndpoint(data.state(),from,to.position());
+                SimPosition toEndpoint=routeEndpoint(data.state(),to,from.position());
+                remaining-=materializeLoadedRouteChunks(level,ledger,route,fromEndpoint,toEndpoint,
+                        remaining,isRural(route,from,to));
+            }
+            routeCursor=Math.floorMod(routeCursor+Math.max(1,scanned),routes.size());
         }
+    }
+
+    private static SimPosition routeEndpoint(dev.livingrealms.sim.world.SimulationState state,
+                                             dev.livingrealms.sim.faction.Settlement settlement,
+                                             SimPosition target) {
+        var owner=state.findSettlementOwner(settlement.id()).orElse(null);
+        if(owner==null)return settlement.position();
+        return SettlementPlanner.boundary(owner,settlement)
+                .map(boundary->boundary.gateToward(settlement.position(),target).position())
+                .orElse(settlement.position());
+    }
+
+    private static boolean physicalLandRoute(TransportRoute route){
+        return route.operational()&&(route.mode()==TransportMode.ROAD
+                ||route.mode()==TransportMode.RAIL||route.mode()==TransportMode.CARAVAN);
+    }
+
+    private static boolean isRural(TransportRoute route,
+                                   dev.livingrealms.sim.faction.Settlement from,
+                                   dev.livingrealms.sim.faction.Settlement to){
+        return route.mode()==TransportMode.CARAVAN
+                ||from.role()==dev.livingrealms.sim.faction.SettlementRole.VILLAGE
+                ||from.role()==dev.livingrealms.sim.faction.SettlementRole.HAMLET
+                ||to.role()==dev.livingrealms.sim.faction.SettlementRole.VILLAGE
+                ||to.role()==dev.livingrealms.sim.faction.SettlementRole.HAMLET;
+    }
+
+    private static int materializeLoadedRouteChunks(ServerLevel level,AuthoredBlockLedger ledger,
+                                                    TransportRoute route,SimPosition from,SimPosition to,
+                                                    int budget,boolean rural){
+        if(budget<=0)return 0;
+        double distance=from.distanceTo(to);
+        int probes=Math.max(1,(int)Math.ceil(distance/8.0));
+        Set<Long> seenChunks=new HashSet<>();
+        int used=0;
+        for(int i=0;i<=probes&&used<budget;i++){
+            double t=i/(double)probes;
+            int x=(int)Math.round(from.x()+(to.x()-from.x())*t);
+            int z=(int)Math.round(from.z()+(to.z()-from.z())*t);
+            BlockPos probe=new BlockPos(x,level.getSeaLevel(),z);
+            if(!level.hasChunkAt(probe))continue;
+            int chunkX=Math.floorDiv(x,16),chunkZ=Math.floorDiv(z,16);
+            long key=((long)chunkX<<32)^(chunkZ&0xffffffffL);
+            if(!seenChunks.add(key))continue;
+            int minX=chunkX<<4,minZ=chunkZ<<4;
+            var points=RouteProjectionPlanner.planInBounds(route,from,to,minX,minZ,minX+15,minZ+15,budget-used);
+            for(var point:points){
+                if(used>=budget)break;
+                used+=applyPoint(level,ledger,point,budget-used,rural);
+            }
+        }
+        return used;
     }
 
     private static TerrainCorridorPlanner.TerrainSample sampler(ServerLevel level,AuthoredBlockLedger ledger){
@@ -256,6 +344,8 @@ public final class TransportNetworkMaterializer {
     }
 
     private static int naturalGroundY(ServerLevel level,int x,int z){
+        BlockPos probe=new BlockPos(x,level.getSeaLevel(),z);
+        if(!level.hasChunkAt(probe))return level.getMinBuildHeight();
         int y=level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,x,z)-1;int floor=level.getMinBuildHeight()+1;
         while(y>floor){
             BlockState st=level.getBlockState(new BlockPos(x,y,z));

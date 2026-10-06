@@ -1,11 +1,11 @@
 # Living Realms project state
 
-CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 16 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 ## Current production state
-- Twelve surface kingdoms each seed capital + 1 authored satellite + 1 rural hamlet (`TARGET_SETTLEMENTS_PER_REALM=3` → `SURFACE_STARTER_SETTLEMENTS=36`), plus Wizard Trees (3 colonies, excluded from surface density).
-- Minimum settlement clearance is **2000** blocks (shared by densifier, causal expansion, foreign adoption, and player founding).
-- Save schema **20** adds underworld contracts + stolen-goods ledger (schemas 1–19 remain readable; schema 19 provenance/sites retained). Dashboard protocol **20**. Network registration **16**. Outer `ContentRevision=15` (sparse 2000 policy for new worlds; legacy dense saves preserved in place).
+- Twelve surface kingdoms each seed 1 capital + 10 authored satellites + 6–14 rural hamlets: **17–25 settlements per realm**, **204–300 surface starter settlements** total. Wizard Trees remain a separate SPECIAL underground layer.
+- Settlement placement uses `SettlementSpacingPolicy`: capital↔capital preferred **3000–4500**, capital↔city **1600–2600**, capital↔town **650–1200**, town↔village **350–650**, village↔hamlet **180–350**, hamlet↔hamlet **150–300**; SPECIAL sites use their own local bands.
+- Save schema **21** adds underworld contracts + stolen-goods ledger (schemas 1–21 remain readable; schema 19 provenance/sites retained). Dashboard protocol **20**. Network registration **16**. Outer `ContentRevision=16`; revision 16 freezes already-materialized legacy `road:*` street fabric while schema 21 preserves settlement roles and anchored positions.
 - Named citizen rosters seed per settlement (hamlet 6 … capital 64) independently of chunk projection; aggregate population remains the demographic scale.
 - Construction completion keys are written only by the materializer or explicit `FOREIGN_ADOPTED` adoption; economy production counts only materialized (or receipt-backed) keys.
 - Capture and rebellion use `SettlementTransfer` so citizens, claims, industry, ports and related ownership follow the new faction.

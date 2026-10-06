@@ -5,6 +5,7 @@ import dev.livingrealms.sim.civilization.JusticeCase;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.law.CrimeType;
 import dev.livingrealms.sim.social.CitizenMemory;
+import dev.livingrealms.sim.social.FamilyBond;
 import dev.livingrealms.sim.social.MemoryType;
 import dev.livingrealms.sim.social.SocialCitizen;
 import dev.livingrealms.sim.world.DemoSeeder;
@@ -22,7 +23,8 @@ public final class StateRetentionCompactorTest {
         historySummarizesSnapshots();
         constructionKeysRetained();
         memorySoftCapSummarizes();
-        System.out.println("PASS StateRetentionCompactor: monthly/quarterly retention + history summarize + construction retained");
+        deceasedCitizenMemoriesCompactButIdentitySurvives();
+        System.out.println("PASS StateRetentionCompactor: monthly/quarterly retention + history summarize + deceased memory archive + construction retained");
     }
 
     private static void monthlyPrunesInactiveRows() {
@@ -96,6 +98,49 @@ public final class StateRetentionCompactorTest {
                 "memories under soft max after quarterly: " + citizen.memories().size());
         check(citizen.memories().stream().anyMatch(m -> m.subjectKey().startsWith("memory-")),
                 "summary memory retained");
+    }
+
+    private static void deceasedCitizenMemoriesCompactButIdentitySurvives() {
+        SimulationState state = new SimulationState(0x8E705L);
+        DemoSeeder.seed(state);
+        var settlement = state.factions().getFirst().settlements().getFirst();
+        var citizen = state.ensureSocialCitizen(state.factions().getFirst().id(), settlement.id(), 7,
+                dev.livingrealms.sim.civilian.CitizenRole.ARTISAN);
+        long id = citizen.id();
+        for (int i = 0; i < 24; i++) {
+            citizen.remember(new CitizenMemory(
+                    i,
+                    i % 3 == 0 ? MemoryType.LOCAL_EVENT : MemoryType.CONVERSATION,
+                    "dead-topic:" + i,
+                    "self",
+                    "Remembered detail " + i,
+                    settlement.position(),
+                    Math.min(.95, .2 + i * .02),
+                    .8));
+        }
+        var partner = citizen.relationship("citizen:999001");
+        partner.setFamilyBond(FamilyBond.PARTNER);
+        for (int i = 0; i < 10; i++) {
+            citizen.relationship("citizen:" + (999100 + i)).adjust(.01 * i, .005 * i, 0, 0, .002 * i);
+        }
+        citizen.markDead();
+        int before = citizen.memories().size();
+        int relationshipsBefore = citizen.relationships().size();
+        var report = StateRetentionCompactor.compactQuarterly(state);
+        check(report.memoriesFolded() > 0, "deceased memories folded");
+        check(state.findSocialCitizen(id).isPresent(), "dead named identity retained");
+        check(!citizen.alive(), "dead status retained");
+        check(citizen.memories().size() <= 5, "deceased memory archive bounded: " + citizen.memories().size());
+        check(citizen.memories().size() < before, "deceased memory payload shrank");
+        check(citizen.memories().stream().anyMatch(m -> m.subjectKey().startsWith("memory-legacy:")),
+                "deceased legacy summary retained");
+        check(citizen.relationships().size() < relationshipsBefore, "deceased relationship payload shrank");
+        check(citizen.relationships().values().stream()
+                        .anyMatch(r -> r.familyBond() == FamilyBond.PARTNER),
+                "deceased family bond retained");
+        check(citizen.relationships().values().stream()
+                        .filter(r -> r.familyBond() == FamilyBond.NONE).count() <= 2,
+                "deceased non-family relationship archive bounded");
     }
 
     private static void constructionKeysRetained() {

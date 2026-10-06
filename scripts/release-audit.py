@@ -23,8 +23,8 @@ world_contract=root/'docs/WORLD_INTEGRATION_EXPANSION.md'
 require(world_contract.exists(),'buildfix10 world-integration acceptance contract must exist')
 if readiness.exists():
     readiness_text=readiness.read_text()
-    require('CURRENT PINS:' in readiness_text and 'schema 20' in readiness_text,'production readiness must carry CURRENT PINS with schema 20')
-    require('contentRevision 15' in readiness_text,'production readiness must pin contentRevision 15')
+    require('CURRENT PINS:' in readiness_text and 'schema 21' in readiness_text,'production readiness must carry CURRENT PINS with schema 21')
+    require('contentRevision 16' in readiness_text,'production readiness must pin contentRevision 16')
     require('runtimeSmoke' in readiness_text and 'pass' in readiness_text.lower(),'readiness must document that runtimeSmoke pass requires a real client run')
     require('EXTERNAL GATE' not in readiness_text.split('## Geschiedenis')[0],'readiness current status must not claim EXTERNAL GATE')
 
@@ -108,11 +108,11 @@ min_schema=int_const(codec,'MIN_SUPPORTED_SCHEMA')
 dashboard_protocol=int_const(snap,'PROTOCOL_VERSION')
 network_version=str_const(net,'NETWORK_VERSION')
 content_revision=int_const(saved_data_for_rev,'CONTENT_REVISION')
-require(schema_version==20,f'save schema must be 20 (source currently {schema_version})')
+require(schema_version==21,f'save schema must be 21 (source currently {schema_version})')
 require(min_schema==1,f'min supported schema must remain 1 (source {min_schema})')
 require(dashboard_protocol==20,f'dashboard protocol must be 20 (source {dashboard_protocol})')
 require(network_version=='16',f'network registration version must be 16 (source {network_version!r})')
-require(content_revision==15,f'content revision must be 15 (source {content_revision})')
+require(content_revision==16,f'content revision must be 16 (source {content_revision})')
 
 
 
@@ -222,12 +222,18 @@ require(integrity_test.exists(),'SaveIntegrityTest.java must exist')
 require(fuzz_test.exists(),'SaveMutationFuzzTest.java must exist')
 require(hardening_test.exists(),'ProductionHardeningTest.java must exist')
 require(density_test.exists(),'LivingWorldDensityTest.java must exist')
-require('12 kingdoms + Wizard Trees' in density_test.read_text() and 'SURFACE_STARTER_SETTLEMENTS' in density_test.read_text(),'living-world gate must retain twelve kingdoms plus Wizard Trees with the sparse surface target')
+require('denseStarterWorldIsHierarchicalAndIdempotent' in density_test.read_text() and 'MIN_SURFACE_STARTER_SETTLEMENTS' in density_test.read_text() and 'MAX_SURFACE_STARTER_SETTLEMENTS' in density_test.read_text() and 'SettlementSpacingPolicy' in density_test.read_text(),'living-world gate must retain twelve hierarchical realms plus Wizard Trees with bounded role-aware density')
 founder=(root/'src/main/java/dev/livingrealms/sim/player/PlayerSettlementFounder.java').read_text()
 require('Realm of ' in founder and 'assumeRule' in founder and 'relationWith' in founder,'player-founded settlements must enter canonical government/membership/diplomacy as the actual ruler')
 saved_data=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java').read_text()
 require('ContentRevision' in saved_data and 'ContentMigrationPolicy.shouldEnsureDensity' in saved_data,'density content migration must remain one-shot and persisted')
-require('resetConstructionCompletion' in saved_data and 'ContentMigrationPolicy.shouldResetMorphology' in saved_data and 'CONTENT_REVISION = 15' in saved_data,'content revision 15 keeps morphology rebuild gate via ContentMigrationPolicy and Spec densifier')
+require('resetConstructionCompletion' in saved_data
+        and 'ContentMigrationPolicy.shouldResetMorphology' in saved_data
+        and 'ContentMigrationPolicy.shouldFreezeLegacyStreetFabric' in saved_data
+        and 'SettlementConstructionPolicy.hasLegacyRoadReceipt' in saved_data
+        and 'SettlementConstructionPolicy.markLegacyStreetFabric' in saved_data
+        and 'CONTENT_REVISION = 16' in saved_data,
+        'content revision 16 must preserve old morphology migration and freeze materialized legacy road fabric')
 require((root/'LICENSE').exists() and 'MIT License' in (root/'LICENSE').read_text(),'MIT LICENSE file must exist at repo root (matches mod_license)')
 require((root/'scripts/runtime-smoke.sh').exists(),'runtime smoke script must exist')
 require('dev.livingrealms.RuntimeSmokeTest' in canonical_tests,'core suite must include headless runtime smoke gate')

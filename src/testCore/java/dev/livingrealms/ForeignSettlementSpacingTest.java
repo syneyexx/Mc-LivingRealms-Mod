@@ -1,49 +1,65 @@
 package dev.livingrealms;
 
+import dev.livingrealms.sim.faction.DevelopmentMode;
+import dev.livingrealms.sim.faction.Faction;
+import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
-import dev.livingrealms.sim.world.DemoSeeder;
+import dev.livingrealms.sim.faction.SettlementRole;
 import dev.livingrealms.sim.world.ForeignAdoptionClassifier;
 import dev.livingrealms.sim.world.OutlyingSite;
-import dev.livingrealms.sim.world.SettlementDensitySeeder;
+import dev.livingrealms.sim.world.SettlementSpacingPolicy;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 
-/** Focused foreign village spacing classification gate. */
+/** Focused foreign village classification gate for role-aware settlement spacing. */
 public final class ForeignSettlementSpacingTest {
     private ForeignSettlementSpacingTest() {}
 
     public static void main(String[] args) {
         SimulationState state = new SimulationState(0xF0CE1L);
-        DemoSeeder.seed(state);
-        var host = state.factions().getFirst().settlements().getFirst();
-        int before = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
+        Faction owner = new Faction(state.nextId(), "Spacing Realm", "Queen");
+        Settlement host = new Settlement(state.nextId(), "Spacing Capital", new SimPosition(0, 0),
+                5_000, 5_500, SettlementOrigin.AUTHORED_SEED, false,
+                DevelopmentMode.AUTO, SettlementRole.CAPITAL);
+        owner.addSettlement(host);
+        state.addFaction(owner);
+        check(host.role() == SettlementRole.CAPITAL, "starter host role");
+        int before = 1;
 
         var far = ForeignAdoptionClassifier.classifyAndAdopt(state,
                 new SimPosition(host.position().x() + 60_000, host.position().z() - 40_000),
                 "DistantForeign", 180, 200, OutlyingSite.Type.FOREIGN_HAMLET);
-        check(far.outcome() == ForeignAdoptionClassifier.Outcome.NEW_SETTLEMENT, "far >2000 → settlement");
+        check(far.outcome() == ForeignAdoptionClassifier.Outcome.NEW_SETTLEMENT, "distant foreign village should be adopted");
         check(far.settlement().origin() == SettlementOrigin.FOREIGN_ADOPTED, "FOREIGN_ADOPTED");
-        check(far.settlement().physicallyAnchored(), "anchored");
+        check(far.settlement().role() == SettlementRole.VILLAGE, "population 180 should bootstrap village role");
+        check(far.settlement().physicallyAnchored(), "foreign geometry must remain anchored");
 
-        var near = ForeignAdoptionClassifier.classifyAndAdopt(state,
+        // 900 blocks from a capital is legal for a village: no obsolete 2000-block exclusion belt.
+        var corridorVillage = ForeignAdoptionClassifier.classifyAndAdopt(state,
                 new SimPosition(host.position().x() + 900, host.position().z() + 100),
-                "CloseForeign", 90, 100, OutlyingSite.Type.FOREIGN_HAMLET);
-        check(near.outcome() == ForeignAdoptionClassifier.Outcome.OUTLYING_SITE, "near <2000 → site");
-        check(near.site() != null && near.site().foreign(), "foreign site");
-        check(state.factions().stream().mapToInt(f -> f.settlements().size()).sum() == before + 1,
-                "only one new settlement (the far one)");
+                "CorridorForeign", 180, 200, OutlyingSite.Type.FOREIGN_HAMLET);
+        check(corridorVillage.outcome() == ForeignAdoptionClassifier.Outcome.NEW_SETTLEMENT,
+                "capital↔village at ~900 must not be rejected by a global floor");
+
+        // Outside duplicate-footprint radius but inside capital↔village collision floor => attach as a site.
+        var blocked = ForeignAdoptionClassifier.classifyAndAdopt(state,
+                new SimPosition(host.position().x() + 240, host.position().z()),
+                "CloseForeign", 180, 200, OutlyingSite.Type.FOREIGN_HAMLET);
+        check(blocked.outcome() == ForeignAdoptionClassifier.Outcome.OUTLYING_SITE,
+                "village inside capital collision floor should become outlying site");
+        check(blocked.site() != null && blocked.site().foreign(), "foreign outlying site");
 
         var dup = ForeignAdoptionClassifier.classifyAndAdopt(state,
-                new SimPosition(host.position().x() + 905, host.position().z() + 100),
-                "CloseForeignDup", 90, 100, OutlyingSite.Type.FOREIGN_HAMLET);
+                new SimPosition(host.position().x() + 245, host.position().z()),
+                "CloseForeignDup", 180, 200, OutlyingSite.Type.FOREIGN_HAMLET);
         check(dup.outcome() == ForeignAdoptionClassifier.Outcome.IDEMPOTENT_SITE
-                        || dup.outcome() == ForeignAdoptionClassifier.Outcome.OUTLYING_SITE,
-                "duplicate site handled without new settlement: " + dup.outcome());
-        check(dup.outcome() != ForeignAdoptionClassifier.Outcome.NEW_SETTLEMENT, "no illegal dense settlement");
-        check(SettlementDensitySeeder.MIN_SETTLEMENT_SPACING
-                        == ForeignAdoptionClassifier.CANONICAL_SETTLEMENT_SPACING,
-                "spacing constants must share authority");
-        System.out.println("PASS ForeignSettlementSpacingTest");
+                        || dup.outcome() == ForeignAdoptionClassifier.Outcome.BOUND_EXISTING,
+                "duplicate physical site must not create another settlement: " + dup.outcome());
+        check(state.factions().stream().mapToInt(f -> f.settlements().size()).sum() == before + 2,
+                "only the distant and legal corridor villages should become settlements");
+        check(SettlementSpacingPolicy.minimumDistance(SettlementRole.CAPITAL, SettlementRole.VILLAGE) == 300.0,
+                "capital-village floor pin");
+        System.out.println("PASS ForeignSettlementSpacingTest: role-aware adoption without global 2000-block exclusion");
     }
 
     private static void check(boolean ok, String msg) {

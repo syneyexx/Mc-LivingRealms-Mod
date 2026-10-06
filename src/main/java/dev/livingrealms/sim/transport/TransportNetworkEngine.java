@@ -8,8 +8,17 @@ import java.util.*;
 public final class TransportNetworkEngine {
     public void simulateDay(SimulationState state){
         // Route discovery is O(settlements × neighbours); run weekly so soak stays bounded as camps grow.
-        if(state.clock().day()%7==0)discoverRoutes(state);
+        if(state.clock().day()%7==0)ensureRoutes(state);
         maintainRoutes(state);
+    }
+
+    /**
+     * Ensures canonical regional edges exist without advancing time.
+     * Used during fresh-world bootstrap so chunk fabric never races ahead of its road graph.
+     */
+    public void ensureRoutes(SimulationState state){
+        Objects.requireNonNull(state,"state");
+        discoverRoutes(state);
     }
 
     /** Wear, washouts and bridge failure without treasury/stone upkeep; repair when the realm can pay. */
@@ -47,32 +56,33 @@ public final class TransportNetworkEngine {
     }
 
     private static void discoverRoutes(SimulationState state){
-        // Sparse regional graph: each settlement seeks its two nearest same-realm neighbours.
-        // That leaves wild countryside between trunks instead of paving every valley.
+        // The regional settlement graph is the topology authority. Physical road geometry is a
+        // projection of these hierarchy edges; player position never decides whether an edge exists.
         for(Faction faction:state.factions()){
-            List<Settlement> settlements=faction.settlements();
             Set<RouteKey> existing=new HashSet<>();
-            for(TransportRoute route:state.routes())if(route.ownerFactionId()==faction.id())existing.add(RouteKey.of(route.fromSettlementId(),route.toSettlementId(),route.mode()));
-            for(Settlement a:settlements){
-                List<Settlement> nearest=settlements.stream().filter(b->b.id()!=a.id())
-                        .sorted(Comparator.comparingDouble(b->a.position().distanceTo(b.position())))
-                        .limit(2).toList();
-                for(Settlement b:nearest){
-                    // Settlements sit at least MIN_SETTLEMENT_SPACING apart; allow long countryside trunks so realms still connect.
-                    double d=a.position().distanceTo(b.position());if(!(d>1)||d>4_800)continue;
-                    TransportMode mode=chooseMode(faction,a,b);
-                    RouteKey key=RouteKey.of(a.id(),b.id(),mode);
-                    if(existing.contains(key))continue;
-                    double cost=d*(mode==TransportMode.RAIL?.08:mode==TransportMode.SHIP?.04:mode==TransportMode.RIVER?.022:.018);
-                    ResourceType material=mode==TransportMode.RAIL?ResourceType.IRON:ResourceType.STONE;
-                    if(faction.stockpile().get(material)<cost)continue;
-                    faction.stockpile().take(material,cost);
-                    double capacity=switch(mode){case RAIL->900;case SHIP->700;case RIVER->480;case CARAVAN->280;default->320;};
-                    state.addRoute(new TransportRoute(state.nextId(),faction.id(),a.id(),b.id(),mode,d,.38,.48,capacity));
-                    existing.add(key);
-                    state.liveness().onRouteBuilt();
-                    state.history().add(new WorldEvent(state.clock().day(),"route_built",faction.name()+" "+mode+" "+a.name()+"-"+b.name()));
-                }
+            for(TransportRoute route:state.routes())if(route.ownerFactionId()==faction.id())
+                existing.add(RouteKey.of(route.fromSettlementId(),route.toSettlementId(),route.mode()));
+
+            for(RegionalSettlementGraph.Edge edge:RegionalSettlementGraph.plan(faction)){
+                Settlement a=state.findSettlement(edge.fromSettlementId()).orElse(null);
+                Settlement b=state.findSettlement(edge.toSettlementId()).orElse(null);
+                if(a==null||b==null)continue;
+                double d=a.position().distanceTo(b.position());
+                if(!(d>1)||d>5_200)continue;
+
+                TransportMode mode=chooseMode(faction,a,b);
+                RouteKey key=RouteKey.of(a.id(),b.id(),mode);
+                if(existing.contains(key))continue;
+                double cost=d*(mode==TransportMode.RAIL?.08:mode==TransportMode.SHIP?.04:mode==TransportMode.RIVER?.022:.018);
+                ResourceType material=mode==TransportMode.RAIL?ResourceType.IRON:ResourceType.STONE;
+                if(faction.stockpile().get(material)<cost)continue;
+                faction.stockpile().take(material,cost);
+                double capacity=switch(mode){case RAIL->900;case SHIP->700;case RIVER->480;case CARAVAN->280;default->320;};
+                state.addRoute(new TransportRoute(state.nextId(),faction.id(),a.id(),b.id(),mode,d,.38,.48,capacity));
+                existing.add(key);
+                state.liveness().onRouteBuilt();
+                state.history().add(new WorldEvent(state.clock().day(),"route_built",
+                        faction.name()+" "+mode+" "+a.name()+"-"+b.name()+" ["+edge.relation()+"]"));
             }
         }
         discoverCrossFactionCorridors(state);
@@ -139,11 +149,16 @@ public final class TransportNetworkEngine {
         if(ga.shipSuitable()&&gb.shipSuitable())return TransportMode.SHIP;
         if(ga.riverSuitable()&&gb.riverSuitable())return TransportMode.RIVER;
         if(ga.watery()&&gb.watery()&&(ga.navigableWater()||gb.navigableWater()))return TransportMode.RIVER;
-        if(faction.technology()>=1.2&&a.tier().ordinal()>=Settlement.Tier.TOWN.ordinal()&&b.tier().ordinal()>=Settlement.Tier.TOWN.ordinal())
+        if(faction.technology()>=1.2&&isMajor(a)&&isMajor(b))
             return TransportMode.RAIL;
-        if(a.tier().ordinal()<=Settlement.Tier.HAMLET.ordinal()||b.tier().ordinal()<=Settlement.Tier.HAMLET.ordinal())
+        if(a.role()==SettlementRole.HAMLET||b.role()==SettlementRole.HAMLET)
             return TransportMode.CARAVAN; // rural lanes / pack routes
         return TransportMode.ROAD;
+    }
+    private static boolean isMajor(Settlement settlement){
+        return settlement.role()==SettlementRole.CAPITAL
+                ||settlement.role()==SettlementRole.CITY
+                ||settlement.role()==SettlementRole.TOWN;
     }
     private record RouteKey(long low,long high,TransportMode mode){
         static RouteKey of(long a,long b,TransportMode mode){return a<b?new RouteKey(a,b,mode):new RouteKey(b,a,mode);}

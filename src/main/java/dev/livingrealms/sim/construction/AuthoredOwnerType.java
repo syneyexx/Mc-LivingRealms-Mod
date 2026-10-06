@@ -20,7 +20,9 @@ public enum AuthoredOwnerType {
     /** Temporary festival banners/stalls/torches; must clean up when the civic event ends. */
     CIVIC_FESTIVAL(10),
     /** Sparse roadside features (waystations, shrines, milestones). Never settlement structures. */
-    ROADSIDE_SITE(11);
+    ROADSIDE_SITE(11),
+    /** Non-settlement host-attached sites such as foreign hamlets, refugee/mining camps and posts. */
+    OUTLYING_SITE(12);
 
     private final int id;
 

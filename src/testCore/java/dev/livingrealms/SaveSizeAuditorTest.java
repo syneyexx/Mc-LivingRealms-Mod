@@ -8,9 +8,9 @@ import dev.livingrealms.sim.world.SimulationState;
 import java.util.Locale;
 
 /**
- * Wave 29 — day 0 / 365 / 3650 representative save sizes are bounded and documented.
- * Day 3650 uses a densified long-run sample with retention compaction rather than a full
- * soak duplicate of {@link LongRunSoakTest}.
+ * Day 0 / 365 save-size regression on a second deterministic seed.
+ * The canonical 3650-day hard/soft size gate lives in {@link LongRunSoakTest} so core CI
+ * does not simulate an extra redundant decade.
  */
 public final class SaveSizeAuditorTest {
     private SaveSizeAuditorTest() {}
@@ -33,22 +33,9 @@ public final class SaveSizeAuditorTest {
         check(day365.totalBytes() < SaveSizeAuditor.ADVISORY_SOFT_BYTES, "day 365 under soft advisory");
         System.out.println("SAVE_SIZE " + day365.documentLine());
 
-        // Representative day-3650: full advance, then quarterly compaction before measure.
-        state.advanceDays(3650 - 365);
-        StateRetentionCompactor.compactQuarterly(state);
-        StateRetentionCompactor.compactQuarterly(state);
-        SaveSizeAuditor.Report day3650 = SaveSizeAuditor.measure(state);
-        check(day3650.day() == 3650, "day 3650 clock");
-        check(day3650.totalBytes() < SimulationStateCodec.MAX_STATE_BYTES, "day 3650 under hard cap");
-        check(day3650.totalBytes() < SaveSizeAuditor.ADVISORY_SOFT_BYTES,
-                "day 3650 under soft advisory (" + day3650.totalBytes() + ")");
-        // Growth should be bounded — not orders of magnitude past day 365.
-        check(day3650.totalBytes() < day365.totalBytes() * 4L + 4_000_000L,
-                "day 3650 growth bounded vs day 365: " + day3650.totalBytes() + " vs " + day365.totalBytes());
-        System.out.println("SAVE_SIZE " + day3650.documentLine());
         System.out.println(String.format(Locale.ROOT,
-                "PASS SaveSizeAuditor: day0=%d day365=%d day3650=%d dominant3650=%s",
-                day0.totalBytes(), day365.totalBytes(), day3650.totalBytes(), day3650.dominantContributor()));
+                "PASS SaveSizeAuditor: day0=%d day365=%d dominant365=%s",
+                day0.totalBytes(), day365.totalBytes(), day365.dominantContributor()));
     }
 
     private static void check(boolean ok, String msg) {

@@ -6,7 +6,8 @@ import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
-import dev.livingrealms.sim.world.SettlementDensitySeeder;
+import dev.livingrealms.sim.faction.SettlementRole;
+import dev.livingrealms.sim.world.SettlementSpacingPolicy;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.WorldEvent;
@@ -15,8 +16,8 @@ import java.util.Objects;
 /**
  * Creates a player-led realm that participates in the normal Living Realms simulation.
  *
- * <p>Settlements must sit at least {@link #MIN_SETTLEMENT_SPACING} blocks apart so realms have
- * real wilderness between them and inter-city travel/diplomacy is inevitable.</p>
+ * <p>Founding clearance is type-aware: a new realm capital needs substantially more separation
+ * from another capital/city than from a village or hamlet.</p>
  *
  * <p>Founding begins as a small camp (not an instant town). First civic anchor is a town hall;
  * castles come later through normal development.</p>
@@ -24,8 +25,6 @@ import java.util.Objects;
 public final class PlayerSettlementFounder {
     public record Result(boolean success,String reason,long factionId,long settlementId,String realmName,String settlementName) {}
 
-    /** Hard product floor shared with {@link SettlementDensitySeeder}. */
-    public static final double MIN_SETTLEMENT_SPACING = SettlementDensitySeeder.MIN_SETTLEMENT_SPACING;
     /** Founding-camp population — small camp, not an instant city. */
     public static final int FOUNDING_POPULATION = 6;
     public static final int FOUNDING_HOUSING = 8;
@@ -61,7 +60,7 @@ public final class PlayerSettlementFounder {
         faction.restoreTreasury(420);
         faction.restoreTechnology(.18);
         Settlement capital=new Settlement(settlementId,settlement,position,FOUNDING_POPULATION,FOUNDING_HOUSING,
-                SettlementOrigin.PLAYER_FOUNDED,true,DevelopmentMode.HYBRID);
+                SettlementOrigin.PLAYER_FOUNDED,true,DevelopmentMode.HYBRID,SettlementRole.CAPITAL);
         faction.addSettlement(capital);
         faction.addArmy(new Army(state.nextId(),factionId,new SimPosition(position.x()+12,position.z()+10),FOUNDING_ARMY));
         stock(faction,ResourceType.GRAIN,420);stock(faction,ResourceType.BREAD,280);
@@ -102,10 +101,10 @@ public final class PlayerSettlementFounder {
         return best;
     }
 
-    /** Uniform clearance — larger cities do not get softer founding rules. */
+    /** Clearance between the candidate realm capital and an existing settlement. */
     public static double requiredSpacing(Settlement settlement){
         Objects.requireNonNull(settlement,"settlement");
-        return MIN_SETTLEMENT_SPACING;
+        return SettlementSpacingPolicy.minimumDistance(SettlementRole.CAPITAL,settlement.role());
     }
 
     /** Suggest a cardinal direction away from the blocking settlement. */

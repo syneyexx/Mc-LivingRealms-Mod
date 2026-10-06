@@ -101,6 +101,9 @@ public final class ProductionCompletionPassTest {
         Settlement capital = faction.settlements().stream()
                 .max(Comparator.comparingInt(Settlement::population).thenComparingLong(Settlement::id))
                 .orElseThrow();
+        // Entity/detail LOD may only reveal life after physical settlement identity exists.
+        // This test targets dynasty-slot binding, so satisfy that independent precondition explicitly.
+        capital.markConstructionCompleted("keep:0");
         List<CitizenProjection> projections = CitizenMaterializationPlanner.plan(
                 state, List.of(faction), List.of(capital.position()), 800, 64);
         check(projections.stream().anyMatch(p -> p.settlementId() == capital.id() && p.slot() == ruler.projectionSlot()),

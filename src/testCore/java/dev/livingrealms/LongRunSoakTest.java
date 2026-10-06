@@ -1,5 +1,6 @@
 package dev.livingrealms;
 
+import dev.livingrealms.sim.persistence.SaveSizeAuditor;
 import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.validation.SimulationValidator;
 import dev.livingrealms.sim.world.*;
@@ -20,6 +21,8 @@ public final class LongRunSoakTest {
         boolean day30 = false;
         boolean day365 = false;
         boolean day3650 = false;
+        SaveSizeAuditor.Report size365 = null;
+        SaveSizeAuditor.Report size3650 = null;
         for (int day = 1; day <= FINAL_DAY; day++) {
             a.advanceDays(1);
             b.advanceDays(1);
@@ -31,7 +34,18 @@ public final class LongRunSoakTest {
                 }
             }
 
-            if (day == 30 || day == 365 || day == FINAL_DAY || day % 365 == 0) {
+            // Size audit first so a hard-cap failure reports structural contributors before
+            // the persistence round-trip attempts the same encode.
+            if (day == 365) {
+                size365 = SaveSizeAuditor.measure(a);
+                assertSaveSize(size365, "day365");
+                System.out.println("SAVE_SIZE " + size365.documentLine());
+            } else if (day == FINAL_DAY) {
+                size3650 = SaveSizeAuditor.measure(a);
+                assertSaveSize(size3650, "day3650");
+                System.out.println("SAVE_SIZE " + size3650.documentLine());
+            }
+            if (day == 30 || day == 365 || day == FINAL_DAY) {
                 assertRoundTrip(a, day);
             }
 
@@ -41,6 +55,11 @@ public final class LongRunSoakTest {
         }
 
         if (!day30 || !day365 || !day3650) throw new AssertionError("required soak checkpoints were not executed");
+        if (size365 == null || size3650 == null) throw new AssertionError("required save-size checkpoints were not executed");
+        if (size3650.totalBytes() >= size365.totalBytes() * 4L + 4_000_000L) {
+            throw new AssertionError("day 3650 save growth unbounded: " + size3650.totalBytes()
+                    + " vs day365 " + size365.totalBytes());
+        }
         if (a.clock().day() != FINAL_DAY) throw new AssertionError("unexpected soak length " + a.clock().day());
 
         long groups = a.regions().stream().mapToLong(r -> r.populations().size()).sum();
@@ -52,7 +71,16 @@ public final class LongRunSoakTest {
         if (groups < 8 || predatorGroups < 2) {
             throw new AssertionError("long-run biodiversity collapse: groups=" + groups + ", predators=" + predatorGroups);
         }
-        System.out.println("PASS 3650-day deterministic soak + 30/365/3650 persistence gates + invariant validation + biodiversity floor: " + a.summary());
+        System.out.println("PASS 3650-day deterministic soak + persistence/save-size gates + invariant validation + biodiversity floor: " + a.summary());
+    }
+
+    private static void assertSaveSize(SaveSizeAuditor.Report report, String label) {
+        if (report.totalBytes() >= SimulationStateCodec.MAX_STATE_BYTES) {
+            throw new AssertionError(label + " over hard save cap: " + report.totalBytes());
+        }
+        if (report.totalBytes() >= SaveSizeAuditor.ADVISORY_SOFT_BYTES) {
+            throw new AssertionError(label + " over soft save advisory: " + report.totalBytes());
+        }
     }
 
     private static void assertRoundTrip(SimulationState state, int day) {

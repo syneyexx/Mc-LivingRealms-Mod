@@ -24,12 +24,19 @@ public final class RegionalImpostorMaterializer {
             return;
         }
         var config = data.state().config();
-        List<RegionalImpostorPlanner.Token> desired = RegionalImpostorPlanner.plan(
-                data.state(),
-                players,
-                RuntimeProjectionPolicy.regionalImpostorInnerRadius(config),
+        var wildlife = RuntimeProjectionPolicy.wildlife(config);
+        var caravans = RuntimeProjectionPolicy.caravans(config);
+        var bands = new RegionalImpostorPlanner.LodBands(
+                RuntimeProjectionPolicy.citizenRadiusBlocks(config),
+                RuntimeProjectionPolicy.militaryRadiusBlocks(config),
+                wildlife.physicalRadiusBlocks(),
+                caravans.physicalRadiusBlocks(),
+                RuntimeProjectionPolicy.navalRadiusBlocks(config),
+                RuntimeProjectionPolicy.migrationRadiusBlocks(config),
                 RuntimeProjectionPolicy.regionalImpostorOuterRadius(config),
                 RuntimeProjectionPolicy.regionalImpostorBudget(config));
+        List<RegionalImpostorPlanner.Token> desired = RegionalImpostorPlanner.plan(
+                data.state(), players, bands);
         Set<String> wanted = new HashSet<>();
         for (RegionalImpostorPlanner.Token t : desired) wanted.add(t.key());
         for (RegionalImpostorEntity e : RegionalImpostorIndex.loaded()) {

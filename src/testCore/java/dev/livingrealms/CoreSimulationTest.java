@@ -197,7 +197,8 @@ public final class CoreSimulationTest {
         buildSettlement.addHousing(500);
         var grownBlueprint=SettlementPlanner.plan(buildFaction,buildSettlement);
         for(var old:blueprint1){
-            var same=grownBlueprint.stream().filter(x->x.key().equals(old.key())).findFirst().orElseThrow();
+            var same=grownBlueprint.stream().filter(x->x.key().equals(old.key())).findFirst()
+                    .orElseThrow(() -> new AssertionError("existing structure disappeared during growth: "+old.key()));
             if(!same.center().equals(old.center())) throw new AssertionError("existing structure moved during growth: "+old.key());
         }
         if(grownBlueprint.size()<=blueprint1.size()) throw new AssertionError("growth should append structures");

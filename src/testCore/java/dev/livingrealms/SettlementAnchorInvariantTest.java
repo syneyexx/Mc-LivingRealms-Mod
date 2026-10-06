@@ -4,6 +4,7 @@ import dev.livingrealms.sim.faction.DevelopmentMode;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
+import dev.livingrealms.sim.faction.SettlementRole;
 import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.ForeignAdoptionClassifier;
@@ -46,7 +47,7 @@ public final class SettlementAnchorInvariantTest {
             catch (IllegalStateException expected) { refused = true; }
             check(refused, "LEGACY must refuse relocate: " + s.name());
         }
-        check(SimulationStateCodec.SCHEMA_VERSION == 20, "schema 20");
+        check(SimulationStateCodec.SCHEMA_VERSION == 21, "schema 21");
     }
 
     private static void anchoredRefuseRelocate() {
@@ -88,21 +89,28 @@ public final class SettlementAnchorInvariantTest {
     }
 
     private static void foreignSpacingCases() {
+        // Isolate the role-pair spacing contract from the dense fresh-world network. Using
+        // DemoSeeder here can put another starter village/hamlet inside the 190-block duplicate
+        // footprint and turn this into a BOUND_EXISTING test by accident.
         SimulationState state = new SimulationState(33L);
-        DemoSeeder.seed(state);
-        Settlement host = state.factions().getFirst().settlements().getFirst();
-        int settlementsBefore = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
-        int sitesBefore = state.outlyingSites().size();
+        Faction owner = new Faction(state.nextId(), "Anchor Realm", "Queen");
+        Settlement host = new Settlement(state.nextId(), "Anchor Capital", new SimPosition(0, 0),
+                5_000, 5_500, SettlementOrigin.AUTHORED_SEED, false,
+                DevelopmentMode.AUTO, SettlementRole.CAPITAL);
+        owner.addSettlement(host);
+        state.addFaction(owner);
+        int settlementsBefore = 1;
+        int sitesBefore = 0;
 
-        // Case C: inside 2000 → outlying site
+        // Outside duplicate-footprint radius but inside CAPITAL↔VILLAGE floor → outlying site
         var near = ForeignAdoptionClassifier.classifyAndAdopt(state,
-                new SimPosition(host.position().x() + 800, host.position().z()),
+                new SimPosition(host.position().x() + 240, host.position().z()),
                 "NearHamlet", 120, 140, OutlyingSite.Type.FOREIGN_HAMLET);
         check(near.outcome() == ForeignAdoptionClassifier.Outcome.OUTLYING_SITE, "near must be site");
         check(state.factions().stream().mapToInt(f -> f.settlements().size()).sum() == settlementsBefore, "no new settlement near");
         check(state.outlyingSites().size() == sitesBefore + 1, "site created");
 
-        // Case B: >2000 → new FOREIGN_ADOPTED
+        // Far outside all role-pair floors → new FOREIGN_ADOPTED
         var far = ForeignAdoptionClassifier.classifyAndAdopt(state,
                 new SimPosition(host.position().x() + 50_000, host.position().z() + 50_000),
                 "FarVillage", 200, 240, OutlyingSite.Type.FOREIGN_HAMLET);
@@ -112,7 +120,7 @@ public final class SettlementAnchorInvariantTest {
 
         // Idempotent duplicate near same site
         var dup = ForeignAdoptionClassifier.classifyAndAdopt(state,
-                new SimPosition(host.position().x() + 805, host.position().z()),
+                new SimPosition(host.position().x() + 245, host.position().z()),
                 "NearHamlet2", 120, 140, OutlyingSite.Type.FOREIGN_HAMLET);
         check(dup.outcome() == ForeignAdoptionClassifier.Outcome.IDEMPOTENT_SITE
                         || dup.outcome() == ForeignAdoptionClassifier.Outcome.BOUND_EXISTING

@@ -40,16 +40,25 @@ public final class SaveSizeAuditor {
 
     public static Report measure(SimulationState state) {
         Objects.requireNonNull(state, "state");
-        byte[] encoded = SimulationStateCodec.encode(state);
         Map<String, Contributor> raw = new LinkedHashMap<>();
 
         int history = state.history().size();
         add(raw, "history_events", history, 48 + 64); // day+type+message estimate
 
         int citizens = state.socialCitizens().size();
-        int memories = state.socialCitizens().stream().mapToInt(c -> c.memories().size()).sum();
+        int aliveCitizens = (int) state.socialCitizens().stream().filter(c -> c.alive()).count();
+        int deadCitizens = citizens - aliveCitizens;
+        int aliveMemories = state.socialCitizens().stream().filter(c -> c.alive())
+                .mapToInt(c -> c.memories().size()).sum();
+        int deadMemories = state.socialCitizens().stream().filter(c -> !c.alive())
+                .mapToInt(c -> c.memories().size()).sum();
+        int relationships = state.socialCitizens().stream().mapToInt(c -> c.relationships().size()).sum();
         add(raw, "social_citizens", citizens, 220);
-        add(raw, "citizen_memories", memories, 96);
+        add(raw, "alive_citizens", aliveCitizens, 32);
+        add(raw, "dead_citizens", deadCitizens, 32);
+        add(raw, "alive_citizen_memories", aliveMemories, 96);
+        add(raw, "dead_citizen_memories", deadMemories, 96);
+        add(raw, "citizen_relationships", relationships, 64);
 
         int shipments = state.shipments().size();
         add(raw, "shipments", shipments, 96);
@@ -89,6 +98,16 @@ public final class SaveSizeAuditor {
         ranked.sort(Comparator.comparingLong(Contributor::estimateBytes).reversed()
                 .thenComparing(Contributor::name));
         String dominant = ranked.isEmpty() ? "none" : ranked.getFirst().name();
+        final byte[] encoded;
+        try {
+            encoded = SimulationStateCodec.encode(state);
+        } catch (IllegalStateException hardLimit) {
+            String top = ranked.stream().limit(8)
+                    .map(c -> c.name() + "≈" + c.estimateBytes() + "B×" + c.count())
+                    .reduce((a, b) -> a + "; " + b).orElse("none");
+            throw new IllegalStateException(hardLimit.getMessage()
+                    + "; structuralTop=[" + top + "]", hardLimit);
+        }
         return new Report(state.clock().day(), encoded.length, List.copyOf(ranked), dominant);
     }
 

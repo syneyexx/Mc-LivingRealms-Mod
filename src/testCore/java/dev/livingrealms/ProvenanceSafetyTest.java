@@ -13,8 +13,11 @@ import dev.livingrealms.sim.construction.PaletteSlot;
 import dev.livingrealms.sim.construction.StructureIntegrityRules;
 import dev.livingrealms.sim.construction.StructureMaterializationReceipt;
 import dev.livingrealms.sim.construction.StructureRole;
+import dev.livingrealms.sim.construction.SettlementConstructionPolicy;
 import dev.livingrealms.sim.economy.primary.PrimaryEconomyPlanner;
 import dev.livingrealms.sim.faction.Faction;
+import dev.livingrealms.sim.faction.DevelopmentMode;
+import dev.livingrealms.sim.faction.SettlementOrigin;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementGeographyProfile;
 import dev.livingrealms.sim.faction.Stockpile;
@@ -37,6 +40,7 @@ public final class ProvenanceSafetyTest {
         omittedRoadCellsPreventFalseCompletion();
         roadContinuityValidation();
         foreignAdoptionDoesNotCreatePhantomMine();
+        anchoredForeignAndLegacyCoresAreNotRebuilt();
         geographyOverridesNamingAfterDiscovery();
         physicalProjectionCannotChangeEconomicOutput();
         System.out.println("PASS provenance safety: retry isolation + typed ownership + omitted geometry + foreign adoption + economy authority");
@@ -144,6 +148,21 @@ public final class ProvenanceSafetyTest {
         check(!settlement.isConstructionCompleted("mine:0"), "no phantom mine");
         check(!settlement.isConstructionCompleted("fishery:0"), "no phantom fishery");
         check(!settlement.isConstructionCompleted("lumber_camp:0"), "no phantom lumber camp");
+    }
+
+    private static void anchoredForeignAndLegacyCoresAreNotRebuilt() {
+        Settlement foreign = new Settlement(901, "Foreign Village", new SimPosition(0, 0), 180, 220,
+                SettlementOrigin.FOREIGN_ADOPTED, true, DevelopmentMode.AUTO);
+        Settlement legacy = new Settlement(902, "Legacy Town", new SimPosition(500, 0), 700, 820,
+                SettlementOrigin.LEGACY, true, DevelopmentMode.AUTO);
+        Settlement player = new Settlement(903, "Player Capital", new SimPosition(1000, 0), 12, 16,
+                SettlementOrigin.PLAYER_FOUNDED, true, DevelopmentMode.HYBRID);
+        check(!SettlementConstructionPolicy.allowsAutomaticCoreFabric(foreign),
+                "foreign adopted footprint must remain authoritative");
+        check(!SettlementConstructionPolicy.allowsAutomaticCoreFabric(legacy),
+                "legacy anchored footprint must not be regenerated");
+        check(SettlementConstructionPolicy.allowsAutomaticCoreFabric(player),
+                "player-founded anchored settlements still need normal construction");
     }
 
     private static void geographyOverridesNamingAfterDiscovery() {

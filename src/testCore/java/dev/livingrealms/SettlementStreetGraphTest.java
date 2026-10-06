@@ -2,6 +2,7 @@ package dev.livingrealms;
 
 import dev.livingrealms.sim.construction.ConstructionIntent;
 import dev.livingrealms.sim.construction.SettlementParcelPlanner;
+import dev.livingrealms.sim.construction.SettlementMorphology;
 import dev.livingrealms.sim.construction.SettlementPlanner;
 import dev.livingrealms.sim.construction.SettlementStreetGraph;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
@@ -12,15 +13,42 @@ import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.world.SimPosition;
 import java.util.List;
 
-/** Road-first urbanism: street graph, parcels, frontage-facing houses. */
+/** Graph-first urbanism: morphology topology, polyline roads, parcels, frontage-facing houses. */
 public final class SettlementStreetGraphTest {
     private SettlementStreetGraphTest() {}
 
     public static void main(String[] args) {
+        morphologyOwnsTopology();
         connectedCoreAndParcels();
         housesFaceFrontage();
         housesCarryParcelBindings();
-        System.out.println("PASS settlement street graph: connected roads, parcels, frontage-facing houses");
+        System.out.println("PASS settlement street graph: morphology-owned connected polylines + parcels + frontage-facing houses");
+    }
+
+    private static void morphologyOwnsTopology() {
+        Faction faction = new Faction(6, "Morph Realm", "Planner");
+        Settlement city = new Settlement(60, "Morph City", new SimPosition(0, 0), 4200, 5000);
+        faction.addSettlement(city);
+        java.util.Set<String> signatures = new java.util.HashSet<>();
+        for (SettlementMorphology morphology : List.of(
+                SettlementMorphology.ORGANIC_MEDIEVAL,
+                SettlementMorphology.MARKET_CROSS,
+                SettlementMorphology.RADIAL_CAPITAL,
+                SettlementMorphology.HILL_TOWN,
+                SettlementMorphology.RIVER_TOWN,
+                SettlementMorphology.COASTAL_PORT,
+                SettlementMorphology.PLANNED_BOULEVARD)) {
+            SettlementStreetGraph graph = SettlementStreetGraph.plan(faction, city, morphology, 0);
+            check(graph.hasConnectedCore(), morphology + " graph must be fully connected");
+            check(graph.segments().stream().anyMatch(SettlementStreetGraph.RoadSegment::hasNonAxisGeometry),
+                    morphology + " must contain true diagonal/curved geometry");
+            String signature = graph.segments().stream()
+                    .map(s -> s.centerline().stream()
+                            .map(p -> Math.round(p.x()) + "," + Math.round(p.z()))
+                            .reduce((a,b) -> a + ">" + b).orElse(""))
+                    .reduce((a,b) -> a + "|" + b).orElse("");
+            check(signatures.add(signature), morphology + " duplicated another topology");
+        }
     }
 
     private static void connectedCoreAndParcels() {
@@ -30,6 +58,7 @@ public final class SettlementStreetGraphTest {
         List<ConstructionIntent> plan = SettlementPlanner.plan(faction, town);
         List<ConstructionIntent> roads = plan.stream().filter(i -> i.role() == StructureRole.ROAD).toList();
         check(!roads.isEmpty(), "town must plan roads");
+        check(roads.stream().allMatch(ConstructionIntent::hasPath), "production ROAD intents must carry graph polylines");
         SettlementStreetGraph graph = SettlementStreetGraph.fromRoadIntents(town.id(), roads);
         check(!graph.isEmpty(), "street graph must contain segments");
         check(graph.hasConnectedCore(), "roads must form a connected usable core");

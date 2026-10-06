@@ -19,24 +19,35 @@ import net.minecraft.world.level.block.state.BlockState;
  * Create access is isolated behind {@link CreateIndustryAdapter}.
  */
 public final class IndustrialSiteMaterializer {
+    private static final int MAX_SCANNED_PER_TICK=32;
+    private static int cursor;
     private IndustrialSiteMaterializer(){}
 
     public static void tick(ServerLevel level,LivingRealmsSavedData data){
-        if(level.players().isEmpty())return;
         int remaining=Math.max(8,data.state().config().constructionBlockOpsPerTick()/4);
+        double presentationRadius=Math.max(96.0D,Math.min(512.0D,data.state().config().physicalRadiusBlocks()));
         Map<String,IndustrialSite> canonical=new HashMap<>();
         for(IndustrialSite site:data.state().industrialSites())canonical.put(key(site.factionId(),site.settlementId(),site.kind()),site);
+        java.util.List<IndustrySitePlanner.Site> plannedSites=new java.util.ArrayList<>();
+        for(var faction:data.state().factions())plannedSites.addAll(IndustrySitePlanner.plan(faction));
+        if(plannedSites.isEmpty())return;
+        cursor=Math.floorMod(cursor,plannedSites.size());
         AuthoredBlockLedger ledger=data.authoredBlocks();
-        for(var faction:data.state().factions()){
-            if(remaining<=0)break;
-            for(IndustrySitePlanner.Site planned:IndustrySitePlanner.plan(faction)){
-                if(remaining<=0)break;IndustrialSite site=canonical.get(key(planned.factionId(),planned.settlementId(),planned.kind()));if(site==null||!nearPlayer(level,planned.center(),Math.max(96.0D,Math.min(512.0D,data.state().config().physicalRadiusBlocks()))))continue;
-                remaining-=materialize(level,ledger,site,planned,remaining);
-            }
+        int scanned=0;
+        for(int n=0;n<plannedSites.size()&&scanned<MAX_SCANNED_PER_TICK&&remaining>0;n++){
+            IndustrySitePlanner.Site planned=plannedSites.get(Math.floorMod(cursor+n,plannedSites.size()));
+            scanned++;
+            IndustrialSite site=canonical.get(key(planned.factionId(),planned.settlementId(),planned.kind()));
+            if(site==null)continue;
+            // materialize() refuses unloaded chunks. Player proximity is presentation-only.
+            remaining-=materialize(level,ledger,site,planned,remaining,presentationRadius);
         }
+        cursor=Math.floorMod(cursor+Math.max(1,scanned),plannedSites.size());
     }
 
-    private static int materialize(ServerLevel level,AuthoredBlockLedger ledger,IndustrialSite site,IndustrySitePlanner.Site planned,int budget){
+    public static void clear(){cursor=0;}
+
+    private static int materialize(ServerLevel level,AuthoredBlockLedger ledger,IndustrialSite site,IndustrySitePlanner.Site planned,int budget,double presentationRadius){
         BlockPos center=new BlockPos((int)Math.round(planned.center().x()),level.getSeaLevel(),(int)Math.round(planned.center().z()));if(!level.hasChunkAt(center))return 0;
         int y=level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,center.getX(),center.getZ())-1;if(y<=level.getMinBuildHeight()+1||y>=level.getMaxBuildHeight()-5)return 0;
         int used=0;BlockPos base=new BlockPos(center.getX(),y,center.getZ());
@@ -56,10 +67,11 @@ public final class IndustrialSiteMaterializer {
         // Status beacon: active=lit lamp, idle=unlit lamp, starved=red wool, damaged=orange wool, offline/broken=black wool.
         BlockState marker=statusMarker(site);
         used+=place(level,ledger,base.offset(0,1,2),marker);
-        if(site.status()==IndustrialSiteStatus.ACTIVE&&site.operational()&&used<budget){
-            // Active chimney plume cue (bounded particle, not a second authority).
+        boolean presentationNear=nearPlayer(level,planned.center(),presentationRadius);
+        if(presentationNear&&site.status()==IndustrialSiteStatus.ACTIVE&&site.operational()&&used<budget){
+            // Particle cue is presentation LOD only; block existence is chunk-driven above.
             level.sendParticles(net.minecraft.core.particles.ParticleTypes.CAMPFIRE_COSY_SMOKE,base.getX()+.5,base.getY()+3.2,base.getZ()+.5,1,0.15,0.2,0.15,0.01);
-        }else if((site.status()==IndustrialSiteStatus.STARVED||site.status()==IndustrialSiteStatus.DAMAGED)&&used<budget){
+        }else if(presentationNear&&(site.status()==IndustrialSiteStatus.STARVED||site.status()==IndustrialSiteStatus.DAMAGED)&&used<budget){
             level.sendParticles(net.minecraft.core.particles.ParticleTypes.SMOKE,base.getX()+.5,base.getY()+2.4,base.getZ()+.5,2,0.2,0.15,0.2,0.0);
         }
         if(site.level()>=2&&used<budget&&needsBasin(site.kind()))used+=place(level,ledger,base.offset(1,1,1),CreateIndustryAdapter.INSTANCE.resolveBlock("basin",Blocks.CAULDRON).defaultBlockState());

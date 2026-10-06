@@ -12,10 +12,12 @@ import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
+import dev.livingrealms.sim.faction.SettlementRole;
 import dev.livingrealms.sim.util.DeterministicRng;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SettlementDensitySeeder;
 import dev.livingrealms.sim.world.SettlementExpansionEngine;
+import dev.livingrealms.sim.world.SettlementSpacingPolicy;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 import java.util.HashSet;
@@ -28,6 +30,7 @@ public final class LivingWorldDensityTest {
 
     public static void main(String[] args) {
         denseStarterWorldIsHierarchicalAndIdempotent();
+        starterRealmsHaveNoAccidentalSettlementGaps();
         settlementsRespectAuthoredSpacing();
         settlementsUseDiverseOrganicBlueprints();
         populatedSettlementsProjectVisibleCrowdsWithinBudget();
@@ -35,31 +38,37 @@ public final class LivingWorldDensityTest {
         playerCanFoundARealGrowingRealm();
         citizenIdentityIsStableAndVaried();
         frontierExplorationDoesNotSeedSettlements();
-        System.out.println("PASS living-world density: 12 kingdoms + Wizard Trees / "
-                + SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS
-                + " surface settlements (capital+1 Spec+rural) + "
-                + (int) SettlementDensitySeeder.MIN_SETTLEMENT_SPACING
-                + "-block spacing + causal expansion (no exploration spawn) + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
+        System.out.println("PASS living-world density: hierarchical starter realms + role-aware spacing"
+                + " + causal expansion (no exploration spawn) + organic streets + bounded crowds + player realms + stable NPC identities + absolute setday progression");
     }
 
     private static void denseStarterWorldIsHierarchicalAndIdempotent() {
         SimulationState state = new SimulationState(0x51A7E5L);
         DemoSeeder.seed(state);
         check(state.factions().size() == 13, "starter world must contain twelve kingdoms plus Wizard Trees: " + state.factions().size());
-        int settlements = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
-        int expected = SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS + 3; // Wizard Trees
-        check(settlements == expected, "starter settlements must equal surface target + Wizard Trees: expected "
-                + expected + " got " + settlements);
-        long cities = state.factions().stream().flatMap(f -> f.settlements().stream())
-                .filter(s -> s.tier().ordinal() >= Settlement.Tier.CITY.ordinal()).count();
-        long towns = state.factions().stream().flatMap(f -> f.settlements().stream())
-                .filter(s -> s.tier() == Settlement.Tier.TOWN).count();
-        long villages = state.factions().stream().flatMap(f -> f.settlements().stream())
-                .filter(s -> s.tier() == Settlement.Tier.VILLAGE).count();
-        long hamlets = state.factions().stream().flatMap(f -> f.settlements().stream())
-                .filter(s -> s.tier() == Settlement.Tier.HAMLET || s.tier() == Settlement.Tier.CAMP).count();
-        check(cities >= 12 && (towns + villages + hamlets) >= 12,
-                "starter hierarchy lacks cities plus supporting towns/villages/hamlets: cities="+cities+" towns="+towns+"/villages="+villages+" hamlets="+hamlets);
+        int surface = state.factions().stream()
+                .filter(f -> !f.name().equals("Wizard Trees"))
+                .mapToInt(f -> f.settlements().size()).sum();
+        check(surface >= SettlementDensitySeeder.MIN_SURFACE_STARTER_SETTLEMENTS
+                        && surface <= SettlementDensitySeeder.MAX_SURFACE_STARTER_SETTLEMENTS,
+                "surface starter count outside bounded hierarchy range: " + surface);
+        for (Faction faction : state.factions()) {
+            if (faction.name().equals("Wizard Trees")) continue;
+            long capitals = faction.settlements().stream().filter(s -> s.role() == SettlementRole.CAPITAL).count();
+            long towns = faction.settlements().stream().filter(s -> s.role() == SettlementRole.TOWN).count();
+            long villages = faction.settlements().stream().filter(s -> s.role() == SettlementRole.VILLAGE).count();
+            long hamlets = faction.settlements().stream().filter(s -> s.role() == SettlementRole.HAMLET).count();
+            check(capitals == 1, faction.name() + " capital count " + capitals);
+            check(towns >= SettlementDensitySeeder.MIN_TOWNS_PER_REALM
+                            && towns <= SettlementDensitySeeder.MAX_TOWNS_PER_REALM,
+                    faction.name() + " town count " + towns);
+            check(villages >= SettlementDensitySeeder.MIN_VILLAGES_PER_REALM
+                            && villages <= SettlementDensitySeeder.MAX_VILLAGES_PER_REALM,
+                    faction.name() + " village count " + villages);
+            check(hamlets >= SettlementDensitySeeder.MIN_RURAL_HAMLETS_PER_REALM
+                            && hamlets <= SettlementDensitySeeder.MAX_RURAL_HAMLETS_PER_REALM,
+                    faction.name() + " hamlet count " + hamlets);
+        }
         long monarchies=state.factions().stream().filter(f->f.government().type()==GovernmentType.FEUDAL_MONARCHY).count();
         check(monarchies==12,"starter world must retain twelve ordinary kingdoms: "+monarchies);
         Faction wizard=state.factions().stream().filter(f->f.name().equals("Wizard Trees")).findFirst().orElseThrow();
@@ -76,23 +85,56 @@ public final class LivingWorldDensityTest {
         }
     }
 
+    private static void starterRealmsHaveNoAccidentalSettlementGaps() {
+        SimulationState state = new SimulationState(0x6A4F11L);
+        DemoSeeder.seed(state);
+        for (Faction faction : state.factions()) {
+            if (faction.name().equals("Wizard Trees")) continue;
+            List<Settlement> ordinary = faction.settlements().stream()
+                    .filter(s -> s.role().ordinarySurfaceSettlement())
+                    .toList();
+            Settlement capital = ordinary.stream()
+                    .filter(s -> s.role() == SettlementRole.CAPITAL)
+                    .findFirst().orElseThrow();
+            double nearestTown = ordinary.stream()
+                    .filter(s -> s.role() == SettlementRole.TOWN)
+                    .mapToDouble(s -> s.position().distanceTo(capital.position()))
+                    .min().orElseThrow();
+            check(nearestTown >= 650.0 - 1.0 && nearestTown <= 800.0 + 1.0,
+                    faction.name() + " must have an inner town gap-anchor within 650-800 blocks: "
+                            + Math.round(nearestTown));
+
+            for (Settlement settlement : ordinary) {
+                double nearest = ordinary.stream()
+                        .filter(other -> other.id() != settlement.id())
+                        .mapToDouble(other -> other.position().distanceTo(settlement.position()))
+                        .min().orElse(Double.POSITIVE_INFINITY);
+                check(nearest <= 800.0 + 1.0,
+                        "accidental inhabited-territory gap: " + faction.name() + " / "
+                                + settlement.name() + " nearest true settlement=" + Math.round(nearest));
+            }
+        }
+    }
+
     private static void settlementsRespectAuthoredSpacing() {
         SimulationState state = new SimulationState(0x2000L);
         DemoSeeder.seed(state);
-        double clearance = PlayerSettlementFounder.MIN_SETTLEMENT_SPACING;
         List<Settlement> all = state.factions().stream().flatMap(f -> f.settlements().stream()).toList();
         for (int i = 0; i < all.size(); i++) for (int j = i + 1; j < all.size(); j++) {
-            double dist = all.get(i).position().distanceTo(all.get(j).position());
-            check(dist >= clearance - 1.0,
-                    "settlements closer than " + (int) clearance + "m: "
-                            + all.get(i).name() + " ↔ " + all.get(j).name() + " = " + Math.round(dist));
+            Settlement a = all.get(i), b = all.get(j);
+            double dist = a.position().distanceTo(b.position());
+            double floor = SettlementSpacingPolicy.minimumDistance(a, b);
+            check(dist >= floor - 1.0,
+                    "settlement role floor violated: " + a.name() + "(" + a.role() + ") ↔ "
+                            + b.name() + "(" + b.role() + ") = " + Math.round(dist)
+                            + " < " + Math.round(floor));
         }
-        var blocked = PlayerSettlementFounder.found(state, "player:near", "Near", "Tooclose",
-                state.factions().getFirst().settlements().getFirst().position());
+        Settlement capital = state.factions().getFirst().settlements().stream()
+                .filter(s -> s.role() == SettlementRole.CAPITAL).findFirst().orElseThrow();
+        var blocked = PlayerSettlementFounder.found(state, "player:near", "Near", "Tooclose", capital.position());
         check(!blocked.success(), "founding on top of a capital must fail");
-        String expected = String.valueOf((int) Math.round(clearance));
-        check(blocked.reason().contains(expected) || blocked.reason().contains("too close"),
-                "founding error should mention clearance: " + blocked.reason());
+        check(blocked.reason().contains("2500") || blocked.reason().contains("blocks"),
+                "founding error should mention role-aware clearance: " + blocked.reason());
     }
 
     private static void frontierExplorationDoesNotSeedSettlements() {
@@ -124,9 +166,10 @@ public final class LivingWorldDensityTest {
         List<Settlement> all = state.factions().stream().flatMap(f -> f.settlements().stream()).toList();
         for (int i = 0; i < all.size(); i++) {
             for (int j = i + 1; j < all.size(); j++) {
-                check(all.get(i).position().distanceTo(all.get(j).position())
-                                >= SettlementExpansionEngine.MIN_SETTLEMENT_SPACING - 1.0,
-                        "causal colony violated 2000m spacing");
+                Settlement a = all.get(i), b = all.get(j);
+                check(a.position().distanceTo(b.position())
+                                >= SettlementSpacingPolicy.minimumDistance(a, b) - 1.0,
+                        "causal colony violated role-aware spacing: " + a.name() + " ↔ " + b.name());
             }
         }
         check(host.settlements().stream().anyMatch(s -> s.origin() == SettlementOrigin.CAUSAL_EXPANSION

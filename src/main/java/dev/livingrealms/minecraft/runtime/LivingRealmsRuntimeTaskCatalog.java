@@ -11,12 +11,12 @@ import dev.livingrealms.minecraft.ambience.SettlementAmbienceRuntime;
 import dev.livingrealms.minecraft.compat.waystones.WaystoneSettlementAdapter;
 import dev.livingrealms.minecraft.construction.CivicFestivalMaterializer;
 import dev.livingrealms.minecraft.construction.IndustrialSiteMaterializer;
+import dev.livingrealms.minecraft.construction.OutlyingSiteMaterializer;
 import dev.livingrealms.minecraft.construction.PlayerStructureRevalidationRuntime;
 import dev.livingrealms.minecraft.construction.RoadsideSiteMaterializer;
 import dev.livingrealms.minecraft.construction.SettlementConstructionMaterializer;
 import dev.livingrealms.minecraft.construction.SettlementGeographyDiscoveryRuntime;
 import dev.livingrealms.minecraft.construction.TransportNetworkMaterializer;
-import dev.livingrealms.minecraft.construction.UrbanCoreMaterializer;
 import dev.livingrealms.minecraft.construction.HistoricalSiteMaterializer;
 import dev.livingrealms.minecraft.entity.AircraftMaterializer;
 import dev.livingrealms.minecraft.entity.BountyHunterMaterializer;
@@ -122,6 +122,9 @@ final class LivingRealmsRuntimeTaskCatalog {
         tasks.add(task("construction.roadside_site", RuntimeDomain.CONSTRUCTION, RuntimePriority.NORMAL, 20, 10,
                 phase(20, 15),
                 ctx -> RoadsideSiteMaterializer.tick(ctx.overworld(), ctx.data())));
+        tasks.add(task("construction.outlying_site", RuntimeDomain.CONSTRUCTION, RuntimePriority.NORMAL, 20, 10,
+                phase(20, 15),
+                ctx -> OutlyingSiteMaterializer.tick(ctx.overworld(), ctx.data())));
         tasks.add(task("construction.civic_festival", RuntimeDomain.CONSTRUCTION, RuntimePriority.LOW, 20, 6,
                 phase(20, 15),
                 ctx -> CivicFestivalMaterializer.tick(ctx.overworld(), ctx.data())));
@@ -163,9 +166,6 @@ final class LivingRealmsRuntimeTaskCatalog {
         tasks.add(task("construction.transport", RuntimeDomain.CONSTRUCTION, RuntimePriority.HIGH, 4, 8,
                 tick -> (tick & 3L) == 1L,
                 ctx -> TransportNetworkMaterializer.tick(ctx.overworld(), ctx.data())));
-        tasks.add(task("construction.urban_core", RuntimeDomain.CONSTRUCTION, RuntimePriority.HIGH, 4, 8,
-                tick -> (tick & 3L) == 2L,
-                ctx -> UrbanCoreMaterializer.tick(ctx.overworld(), ctx.data())));
         tasks.add(task("construction.industrial", RuntimeDomain.CONSTRUCTION, RuntimePriority.HIGH, 4, 8,
                 tick -> (tick & 3L) == 3L,
                 ctx -> IndustrialSiteMaterializer.tick(ctx.overworld(), ctx.data())));

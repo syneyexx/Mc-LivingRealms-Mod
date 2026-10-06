@@ -1,13 +1,9 @@
 package dev.livingrealms.minecraft.construction;
 
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
-import dev.livingrealms.sim.config.RuntimeProjectionPolicy;
 import dev.livingrealms.sim.construction.AuthoredBlockLedger;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.world.RoadsideSite;
-import dev.livingrealms.sim.world.SimPosition;
-import dev.livingrealms.sim.world.projection.RoadsideSiteMaterializationPlanner;
-import dev.livingrealms.sim.world.projection.RoadsideSiteProjection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,32 +20,37 @@ import net.minecraft.world.level.levelgen.Heightmap;
  */
 public final class RoadsideSiteMaterializer {
     private static final int MAX_OPS_PER_TICK = 24;
+    private static final int MAX_SCANNED_PER_TICK = 64;
     /** packed block pos -> site id for authored roadside cells this session. */
     private static final Map<Long, Long> PLACED = new HashMap<>();
+    private static int cursor;
 
     private RoadsideSiteMaterializer() {}
 
     public static void tick(ServerLevel level, LivingRealmsSavedData data) {
-        if (level.players().isEmpty()) return;
         AuthoredBlockLedger ledger = data.authoredBlocks();
-        var state = data.state();
-        List<SimPosition> players = level.players().stream()
-                .map(p -> new SimPosition(p.getX(), p.getZ()))
-                .toList();
-        RoadsideSiteMaterializationPlanner planner = new RoadsideSiteMaterializationPlanner(
-                RuntimeProjectionPolicy.roadsideSiteRadiusBlocks(state.config()),
-                RuntimeProjectionPolicy.roadsideSiteBudget(state.config()));
-        List<RoadsideSiteProjection> desired = planner.plan(state, players);
+        List<RoadsideSite> sites = data.state().roadsideSites();
+        if (sites.isEmpty()) return;
+        cursor = Math.floorMod(cursor, sites.size());
         int budget = MAX_OPS_PER_TICK;
-        for (RoadsideSiteProjection projection : desired) {
-            if (budget <= 0) break;
-            RoadsideSite site = state.findRoadsideSite(projection.siteId()).orElse(null);
-            if (site == null) continue;
+        int scanned = 0;
+        for (int n = 0; n < sites.size() && scanned < MAX_SCANNED_PER_TICK && budget > 0; n++) {
+            RoadsideSite site = sites.get(Math.floorMod(cursor + n, sites.size()));
+            scanned++;
+            if (!physicallyPresent(site)) continue;
+            // materializeSite() refuses unloaded columns, so this loop never force-loads terrain.
             if (materializeSite(level, ledger, site)) budget--;
         }
+        cursor = Math.floorMod(cursor + Math.max(1, scanned), sites.size());
     }
 
-    public static void clear() { PLACED.clear(); }
+    public static void clear() { PLACED.clear(); cursor = 0; }
+
+    private static boolean physicallyPresent(RoadsideSite site) {
+        if (site.active()) return true;
+        return site.lifecycle() == RoadsideSite.Lifecycle.RUINED
+                || site.lifecycle() == RoadsideSite.Lifecycle.ABANDONED;
+    }
 
     private static boolean materializeSite(ServerLevel level, AuthoredBlockLedger ledger, RoadsideSite site) {
         int cx = (int) Math.floor(site.position().x());

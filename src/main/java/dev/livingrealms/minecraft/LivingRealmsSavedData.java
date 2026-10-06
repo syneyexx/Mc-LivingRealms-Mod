@@ -4,6 +4,7 @@ import dev.livingrealms.minecraft.compat.WaystoneSettlementRuntime;
 import dev.livingrealms.minecraft.construction.AuthoredBlockLedgerNbt;
 import dev.livingrealms.minecraft.construction.SettlementGeographyNbt;
 import dev.livingrealms.sim.construction.AuthoredBlockLedger;
+import dev.livingrealms.sim.construction.SettlementConstructionPolicy;
 import dev.livingrealms.sim.persistence.ContentMigrationPolicy;
 import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.world.DemoSeeder;
@@ -36,10 +37,10 @@ public final class LivingRealmsSavedData extends SavedData {
     private static final String KEY_CONTENT_REVISION = "ContentRevision";
     private static final String KEY_ONBOARDED_PLAYERS = "OnboardedPlayers";
     /**
-     * Revision 14: migration order fix (morphology reset before densifier), no seeder completion
-     * keys, all 10 Specs per realm, goods-chain ContentRevision alignment with schema 18.
+     * Revision 16: graph-first street topology. Existing settlements with materialized legacy
+     * road:* receipts are marked as legacy physical fabric and are never auto-rebuilt in place.
      */
-    private static final int CONTENT_REVISION = 15;
+    private static final int CONTENT_REVISION = 16;
 
     private final SimulationState state;
     /** settlementId -> packed BlockPos of Living Realms-authored Waystone only. */
@@ -96,12 +97,29 @@ public final class LivingRealmsSavedData extends SavedData {
         AuthoredBlockLedgerNbt.read(tag, loaded.authoredBlocks);
         SettlementGeographyNbt.read(tag, loaded.state());
         readOnboardedPlayers(tag, loaded.onboardedPlayers);
+        Set<Long> legacyStreetFabricSettlementIds = new HashSet<>();
+        if (ContentMigrationPolicy.shouldFreezeLegacyStreetFabric(contentRevision)) {
+            for (var faction : loaded.state().factions()) for (var settlement : faction.settlements()) {
+                if (SettlementConstructionPolicy.hasLegacyRoadReceipt(settlement)) {
+                    legacyStreetFabricSettlementIds.add(settlement.id());
+                }
+            }
+        }
         // Morphology reset MUST run before densifier so new hamlets keep empty completion, while
         // already-present settlements lose obsolete geometry keys exactly once (revision < 10).
         int constructionResets = 0;
         if (ContentMigrationPolicy.shouldResetMorphology(contentRevision)) {
             for (var faction : loaded.state().factions()) for (var settlement : faction.settlements()) {
                 constructionResets += settlement.resetConstructionCompletion();
+            }
+        }
+        int legacyFabricFreezes = 0;
+        if (!legacyStreetFabricSettlementIds.isEmpty()) {
+            for (var faction : loaded.state().factions()) for (var settlement : faction.settlements()) {
+                if (legacyStreetFabricSettlementIds.contains(settlement.id())
+                        && SettlementConstructionPolicy.markLegacyStreetFabric(settlement)) {
+                    legacyFabricFreezes++;
+                }
             }
         }
         int densityChanges = ContentMigrationPolicy.shouldEnsureDensity(contentRevision, CONTENT_REVISION)
@@ -112,10 +130,12 @@ public final class LivingRealmsSavedData extends SavedData {
         // Revision 8 introduced authored-block provenance. Revision 9 adds typed ownership.
         // Revision 10 morphology rebuild is gated above. Revision 11–13 are presentation/spacing.
         // Revision 14 is densifier Spec completeness + seeder completion-key ban.
+        // Revision 16 freezes already-materialized legacy road layouts instead of rebuilding them.
         if (outerSchema != SimulationStateCodec.SCHEMA_VERSION
                 || ContentMigrationPolicy.isLegacyIntegrityPath(expectedIntegrity)
                 || contentRevision < CONTENT_REVISION
-                || densityChanges > 0 || wizardChanges > 0 || constructionResets > 0) {
+                || densityChanges > 0 || wizardChanges > 0 || constructionResets > 0
+                || legacyFabricFreezes > 0) {
             loaded.setDirty();
         }
         return loaded;

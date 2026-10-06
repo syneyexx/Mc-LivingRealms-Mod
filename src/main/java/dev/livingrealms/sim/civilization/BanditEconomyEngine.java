@@ -2,6 +2,7 @@ package dev.livingrealms.sim.civilization;
 
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.transport.TransportMode;
 import dev.livingrealms.sim.transport.TransportRoute;
 import dev.livingrealms.sim.util.DeterministicRng;
 import dev.livingrealms.sim.util.Mathx;
@@ -38,11 +39,9 @@ public final class BanditEconomyEngine {
 
                 BanditArchetype kind = BanditArchetype.choose(settlement, faction, civ, day);
                 int men = Math.min(36, Math.max(4, (int) Math.round(settlement.population() / 140.0 * kind.manpowerMul())));
-                double ang = Math.toRadians(Math.floorMod(Long.hashCode(settlement.id() ^ day), 360));
-                SimPosition camp = new SimPosition(
-                        settlement.position().x() + Math.cos(ang) * (120 + men * 2),
-                        settlement.position().z() + Math.sin(ang) * (120 + men * 2));
-                PirateBand band = new PirateBand(state.nextId(), settlement.id(), day, camp, men);
+                long bandId = state.nextId();
+                SimPosition camp = landHideoutPosition(state, settlement, bandId);
+                PirateBand band = new PirateBand(bandId, settlement.id(), day, camp, men);
                 band.adjustMorale(kind.morale() - .62);
                 state.addPirateBand(band);
                 PirateHideout hideout = new PirateHideout(state.nextId(), band.id(), settlement.id(), day, camp);
@@ -55,6 +54,62 @@ public final class BanditEconomyEngine {
                 activeBands++;
             }
         }
+    }
+
+    /**
+     * Strategic land-hideout placement: 250–650 blocks from the pressured settlement, biased toward
+     * a nearby insecure/high-capacity land route. The PirateHideout record is intentionally reused
+     * for save compatibility; only placement semantics distinguish this land-bandit use.
+     */
+    public static SimPosition landHideoutPosition(SimulationState state, Settlement origin, long bandId) {
+        TransportRoute corridor = state.routes().stream()
+                .filter(TransportRoute::operational)
+                .filter(r -> r.mode() == TransportMode.ROAD || r.mode() == TransportMode.CARAVAN || r.mode() == TransportMode.RAIL)
+                .filter(r -> routeDistance(state, r, origin.position()) <= 1_200)
+                .min(Comparator
+                        .comparingDouble((TransportRoute r) -> r.security() * 260.0
+                                + routeDistance(state, r, origin.position())
+                                - Math.min(180.0, r.capacityPerDay() * .08))
+                        .thenComparingLong(TransportRoute::id))
+                .orElse(null);
+
+        long mixed = mix(state.seed() ^ bandId ^ (origin.id() * 0x9E3779B97F4A7C15L));
+        double radius = 250.0 + (((mixed >>> 17) & 0xFFFFL) / 65535.0) * 400.0;
+        double dx, dz;
+        SimPosition midpoint = corridor == null ? null : routeMidpoint(state, corridor);
+        if (midpoint != null && midpoint.distanceTo(origin.position()) > 1.0) {
+            dx = midpoint.x() - origin.position().x();
+            dz = midpoint.z() - origin.position().z();
+        } else {
+            double angle = ((mixed >>> 33) & 0xFFFFL) / 65535.0 * Math.PI * 2.0;
+            dx = Math.cos(angle);
+            dz = Math.sin(angle);
+        }
+        double len = Math.max(1.0e-9, Math.hypot(dx, dz));
+        double ux = dx / len, uz = dz / len;
+        double side = ((((mixed >>> 7) & 0x3FFL) / 1023.0) * 2.0 - 1.0) * 70.0;
+        SimPosition preferred = new SimPosition(
+                origin.position().x() + ux * radius - uz * side,
+                origin.position().z() + uz * radius + ux * side);
+
+        if (clearsSettlementFootprints(state, preferred, origin.id())) return preferred;
+        // Deterministic small angular search; never fall back inside a settlement footprint.
+        for (int i = 1; i <= 8; i++) {
+            double angle = i * Math.PI / 8.0;
+            double cos = Math.cos(angle), sin = Math.sin(angle);
+            double rx = ux * cos - uz * sin, rz = ux * sin + uz * cos;
+            SimPosition candidate = new SimPosition(
+                    origin.position().x() + rx * radius,
+                    origin.position().z() + rz * radius);
+            if (clearsSettlementFootprints(state, candidate, origin.id())) return candidate;
+        }
+        return preferred;
+    }
+
+    private static boolean clearsSettlementFootprints(SimulationState state, SimPosition candidate, long originId) {
+        return state.factions().stream().flatMap(f -> f.settlements().stream())
+                .filter(s -> s.id() != originId)
+                .noneMatch(s -> s.position().distanceTo(candidate) < 180.0);
     }
 
     /** Daily: land bands shake down insecure roads (toll/extortion) and ambush caravan routes. */
@@ -132,6 +187,12 @@ public final class BanditEconomyEngine {
                             + ", kind=" + kind));
             if (state.legends().size() >= SimulationState.MAX_LEGENDS) break;
         }
+    }
+
+    private static long mix(long z) {
+        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+        return z ^ (z >>> 31);
     }
 
     private static String extractKind(String message) {

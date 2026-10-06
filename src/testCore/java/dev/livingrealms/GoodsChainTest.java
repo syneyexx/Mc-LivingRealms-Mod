@@ -11,7 +11,7 @@ public final class GoodsChainTest {
     private GoodsChainTest() {}
 
     public static void main(String[] args) {
-        check(SimulationStateCodec.SCHEMA_VERSION==20, "schema 20 goods");
+        check(SimulationStateCodec.SCHEMA_VERSION==21, "schema 21 goods");
         subsistenceCannotFillStores();
         millBakeryConserveFoodValue();
         noWorkshopNoFlour();

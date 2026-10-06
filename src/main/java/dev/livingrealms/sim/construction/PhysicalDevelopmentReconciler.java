@@ -43,16 +43,22 @@ public final class PhysicalDevelopmentReconciler {
         List<ConstructionIntent> pending = new ArrayList<>(SettlementPlanner.pending(faction, settlement));
         pending.sort(Comparator.comparingInt(ConstructionIntent::priority).reversed().thenComparing(ConstructionIntent::key));
 
-        int housesDone = (int) settlement.completedConstruction().stream().filter(k -> k.startsWith("house:")).count();
-        int roadsDone = (int) settlement.completedConstruction().stream().filter(k -> k.startsWith("road:")).count();
-        int civicDone = (int) settlement.completedConstruction().stream()
-                .filter(k -> !(k.startsWith("house:") || k.startsWith("road:") || k.startsWith("farm:") || k.startsWith("foreign:")))
-                .count();
+        List<ConstructionIntent> currentPlan = SettlementPlanCache.plan(faction, settlement);
+        int housesDone = 0, roadsDone = 0, civicDone = 0;
+        for (ConstructionIntent intent : currentPlan) {
+            if (!settlement.isConstructionCompleted(intent.key())) continue;
+            switch (intent.role()) {
+                case HOUSE -> housesDone++;
+                case ROAD -> roadsDone++;
+                case FARM, PASTURE -> { }
+                default -> civicDone++;
+            }
+        }
 
         // Population-facing housing gap uses density compression (cottage/townhouse/apartment).
         // Canonical housing stock remains Settlement#housing; this estimates visible capacity.
         int physicalHousingEstimate = 0;
-        for (ConstructionIntent intent : SettlementPlanCache.plan(faction, settlement)) {
+        for (ConstructionIntent intent : currentPlan) {
             if (intent.role() != StructureRole.HOUSE) continue;
             if (!settlement.isConstructionCompleted(intent.key())) continue;
             physicalHousingEstimate += HousingCapacity.representedResidents(intent);
@@ -68,9 +74,11 @@ public final class PhysicalDevelopmentReconciler {
         // give market/harbor/government a bounded priority nudge without relocating geometry.
         // Founder / grand-project / hero landmarks float to the front of the growth ring.
         boolean denseHousingPreferred = housingCapacityGap > 80 || settlement.tier().ordinal() >= Settlement.Tier.CITY.ordinal();
+        SettlementCoreCompleteness.Status core = SettlementCoreCompleteness.analyze(faction, settlement);
         List<ConstructionIntent> backlog = new ArrayList<>(pending);
         backlog.sort(Comparator
                 .comparingInt((ConstructionIntent i) -> settlement.priorityLandmarks().contains(i.key()) ? 0 : 1)
+                .thenComparingInt((ConstructionIntent i) -> core.prioritizes(i) ? 0 : 1)
                 .thenComparingInt((ConstructionIntent i) -> roleCatchupWeight(i.role()))
                 .thenComparingInt((ConstructionIntent i) -> denseHousingPreferred && i.role() == StructureRole.HOUSE
                         ? -HousingCapacity.representedResidents(i) : 0)

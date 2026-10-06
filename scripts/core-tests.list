@@ -1,6 +1,18 @@
 # Canonical ordered core-suite mains. Both Linux (test-core.sh) and Windows
 # (build-production.ps1) must execute exactly this list. Lines starting with #
 # and blank lines are ignored.
+# Keep the worldgen architecture gate first so physical-layout regressions fail fast before
+# expensive long-running simulation/fuzz suites; a green run still executes every test below.
+dev.livingrealms.WorldgenQualityTest
+dev.livingrealms.ProductionCompletionPassTest
+dev.livingrealms.SocietyDialogueTest
+dev.livingrealms.GoodsChainTest
+dev.livingrealms.UnderworldGameplayTest
+dev.livingrealms.StateRetentionCompactorTest
+dev.livingrealms.SaveSizeAuditorTest
+dev.livingrealms.SettlementAnchorInvariantTest
+dev.livingrealms.LegacyStreetFabricMigrationTest
+dev.livingrealms.ForeignSettlementSpacingTest
 dev.livingrealms.CoreSimulationTest
 dev.livingrealms.ConstructionIntegrityTest
 dev.livingrealms.ProvenanceSafetyTest
@@ -20,14 +32,15 @@ dev.livingrealms.ProductionHardeningTest
 dev.livingrealms.LivingWorldDensityTest
 dev.livingrealms.OrganicMorphologyAndCauseTest
 dev.livingrealms.SettlementStreetGraphTest
+dev.livingrealms.SettlementBoundaryTest
+dev.livingrealms.SettlementCoreCompletenessTest
 dev.livingrealms.StructureAccessValidatorTest
 dev.livingrealms.ResolvedBuildSiteTest
 dev.livingrealms.CultureArchitectureDerivationTest
 dev.livingrealms.HonestCartographyTest
-dev.livingrealms.WorldgenQualityTest
+dev.livingrealms.WorldFabricChunkPolicyTest
+dev.livingrealms.SpecialSiteWorldFabricTest
 dev.livingrealms.ProductionQualityTest
-dev.livingrealms.ProductionCompletionPassTest
-dev.livingrealms.SocietyDialogueTest
 dev.livingrealms.DialogueTokenTest
 dev.livingrealms.DialoguePlannerTest
 dev.livingrealms.RosterWithoutProjectionTest
@@ -40,9 +53,12 @@ dev.livingrealms.FaithAndInfrastructureTest
 dev.livingrealms.CivicHolyDayFestivalTest
 dev.livingrealms.AssistanceContributionTest
 dev.livingrealms.RefugeeCampConstructionTest
+dev.livingrealms.SpecialSiteSpacingTest
 dev.livingrealms.BanditAndPriceRumorTest
 dev.livingrealms.TradeHouseholdEcologyTest
 dev.livingrealms.TradeLivenessTest
+dev.livingrealms.RegionalSettlementGraphTest
+dev.livingrealms.WorldFabricActivationPolicyTest
 dev.livingrealms.HumanityLifecycleTest
 dev.livingrealms.CitizenConversationTest
 dev.livingrealms.ResourceDominanceTest
@@ -54,6 +70,7 @@ dev.livingrealms.RuntimeSmokeTest
 dev.livingrealms.RuntimeSchedulerTest
 dev.livingrealms.ApiLifecycleSmokeTest
 dev.livingrealms.ProjectionBudgetTest
+dev.livingrealms.EntityLodCorePresenceTest
 dev.livingrealms.ConstructionBudgetAdaptationTest
 dev.livingrealms.HousingAndProductionTruthTest
 dev.livingrealms.RegionalImpostorPlannerTest
@@ -66,7 +83,6 @@ dev.livingrealms.BuildingTemplateRegistryTest
 dev.livingrealms.MigrationEngineTest
 dev.livingrealms.EpidemicEngineTest
 dev.livingrealms.SettlementIdentityProfileTest
-dev.livingrealms.GoodsChainTest
 dev.livingrealms.NoPhantomConstructionTest
 dev.livingrealms.SettlementTransferTest
 dev.livingrealms.WarGoalAndCapitalTargetTest
@@ -77,11 +93,8 @@ dev.livingrealms.DeterministicRefactorProofTest
 dev.livingrealms.ManualDayAdvanceSchedulerTest
 dev.livingrealms.Schema18FollowUpTest
 dev.livingrealms.SparseWorldPolicyTest
-dev.livingrealms.SettlementAnchorInvariantTest
-dev.livingrealms.ForeignSettlementSpacingTest
 dev.livingrealms.PlayerWarRoomTest
 dev.livingrealms.WarRoomOptionsBuilderTest
-dev.livingrealms.UnderworldGameplayTest
 dev.livingrealms.PlayerExperienceSurfaceTest
 dev.livingrealms.RoadLifeLayerTest
 dev.livingrealms.RoadLifeMaterializationTest
@@ -93,8 +106,6 @@ dev.livingrealms.CivicChoreographyTest
 dev.livingrealms.PlayerActorIdentityTest
 dev.livingrealms.HousingDemolitionRegressionTest
 dev.livingrealms.PlayerFoundedTownHallTest
-dev.livingrealms.StateRetentionCompactorTest
-dev.livingrealms.SaveSizeAuditorTest
 dev.livingrealms.CulturalIdentityWiringTest
 dev.livingrealms.HistoricCityEvolutionTest
 dev.livingrealms.DevelopmentModeGuardTest

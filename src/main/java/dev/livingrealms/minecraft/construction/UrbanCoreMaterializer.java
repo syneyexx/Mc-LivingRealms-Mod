@@ -18,20 +18,20 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * Paves only the two cardinal arterials through the keep — never a countryside-scale lattice grid.
  */
 public final class UrbanCoreMaterializer {
-    private static final double ACTIVATION = 220.0;
     private static int cursor;
 
     private UrbanCoreMaterializer() {}
 
     public static void tick(ServerLevel level, LivingRealmsSavedData data) {
-        if (level.players().isEmpty()) return;
         int budget = 36;
         AuthoredBlockLedger ledger = data.authoredBlocks();
         java.util.List<Settlement> cities = new java.util.ArrayList<>();
         for (Faction faction : data.state().factions()) {
             for (Settlement settlement : faction.settlements()) {
                 if (settlement.tier().ordinal() < Settlement.Tier.CITY.ordinal()) continue;
-                if (!nearPlayer(level, settlement)) continue;
+                BlockPos core = new BlockPos((int)Math.round(settlement.position().x()), level.getSeaLevel(),
+                        (int)Math.round(settlement.position().z()));
+                if (!level.hasChunkAt(core)) continue;
                 cities.add(settlement);
             }
         }
@@ -52,6 +52,8 @@ public final class UrbanCoreMaterializer {
     }
 
     private static int clearAndPave(ServerLevel level, AuthoredBlockLedger ledger, int x, int z, boolean arterial) {
+        BlockPos probe = new BlockPos(x, level.getSeaLevel(), z);
+        if (!level.hasChunkAt(probe)) return 0;
         int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
         int floor = level.getMinBuildHeight() + 1;
         while (y > floor) {
@@ -91,11 +93,4 @@ public final class UrbanCoreMaterializer {
         return used;
     }
 
-    private static boolean nearPlayer(ServerLevel level, Settlement settlement) {
-        double x = settlement.position().x(), z = settlement.position().z();
-        return level.players().stream().anyMatch(p -> {
-            double dx = p.getX() - x, dz = p.getZ() - z;
-            return dx * dx + dz * dz <= ACTIVATION * ACTIVATION;
-        });
-    }
 }

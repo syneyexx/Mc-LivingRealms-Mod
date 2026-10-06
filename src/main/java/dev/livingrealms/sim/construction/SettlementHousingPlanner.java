@@ -10,7 +10,6 @@ import java.util.Comparator;
 import java.util.List;
 
 import static dev.livingrealms.sim.construction.SettlementPlanner.addAtParcel;
-import static dev.livingrealms.sim.construction.SettlementPlanner.addRoad;
 import static dev.livingrealms.sim.construction.SettlementPlanner.houseFootprintFromTemplate;
 import static dev.livingrealms.sim.construction.SettlementPlanner.mix;
 
@@ -76,93 +75,170 @@ final class SettlementHousingPlanner {
             }
             remaining.remove(parcelIndex);
             int face = parcel.orientationQuarterTurns();
-            addAtParcel(out, faction, settlement, StructureRole.HOUSE, emitted, parcel, w, d, face, 88);
+            // Key by stable demand slot, not by count of successful reservations. If a parcel
+            // becomes available later, it fills a previously absent key instead of renumbering/moving
+            // already-materialized houses.
+            addAtParcel(out, faction, settlement, StructureRole.HOUSE, i, parcel, w, d, face, 88);
             emitted++;
         }
         // Road-first invariant: never spiral-place houses off the street graph.
         // Remaining demand extends side streets / lanes, then fills new frontage parcels.
         // CAMP/HAMLET keep a sparse countryside path — do not grid-extend them.
         if (emitted < houses && settlement.tier().ordinal() >= Settlement.Tier.VILLAGE.ordinal()) {
-            extendSideStreetsForHousing(out, faction, settlement, streetGraph, baseRotation,
+            extendSideStreetsForHousing(out, faction, settlement, morph, streetGraph, baseRotation,
                     houses - emitted, culture);
         }
     }
 
     /**
-     * When parcels are insufficient, extend short side lanes from existing streets, rebuild the
-     * street graph, and reserve additional frontage parcels. Never places free-floating houses.
+     * When parcels are insufficient, extend short graph-authored residential lanes from existing
+     * centerline vertices. ROAD intents are downstream projections of these new graph segments.
      */
+    private static int parcelOrdinal(String parcelId) {
+        int split = parcelId == null ? -1 : parcelId.lastIndexOf(':');
+        if (split >= 0 && split + 1 < parcelId.length()) {
+            try { return Math.max(0, Integer.parseInt(parcelId.substring(split + 1))); }
+            catch (NumberFormatException ignored) { /* deterministic hash fallback below */ }
+        }
+        return Math.floorMod(parcelId == null ? 0 : parcelId.hashCode(), 100_000);
+    }
+
     private static void extendSideStreetsForHousing(List<ConstructionIntent> out, Faction faction, Settlement settlement,
-                                                   SettlementStreetGraph streetGraph, int baseRotation, int deficit,
-                                                   CultureArchitecture culture) {
+                                                   SettlementMorphology morph, SettlementStreetGraph streetGraph,
+                                                   int baseRotation, int deficit, CultureArchitecture culture) {
         if (deficit <= 0 || streetGraph == null || streetGraph.segmentByKey().isEmpty()) return;
-        int startIndex = (int) out.stream().filter(i -> i.role() == StructureRole.ROAD).count();
-        int lanesNeeded = Math.min(24, Math.max(2, (int) Math.ceil(deficit / 3.0)));
+        int laneCap = switch (settlement.tier()) {
+            case CAMP, HAMLET -> 24;
+            case VILLAGE -> 24;
+            case TOWN -> 32;
+            case CITY -> 48;
+            case METROPOLIS -> 64;
+        };
+        int maxRings = switch (settlement.tier()) {
+            case CAMP, HAMLET, VILLAGE -> 4;
+            case TOWN -> 6;
+            case CITY -> 8;
+            case METROPOLIS -> 10;
+        };
+        // Preserve the historical first 24 lane keys/geometry exactly; denser tiers may append
+        // additional rings when the street-frontage parcel supply cannot satisfy real housing demand.
+        int lanesNeeded = Math.min(laneCap, Math.max(2, (int) Math.ceil(deficit / 3.0)));
         int lane = 0;
         List<SettlementStreetGraph.RoadSegment> spines = new ArrayList<>(streetGraph.segmentByKey().values());
         spines.sort(Comparator.comparingInt(SettlementStreetGraph.RoadSegment::priority).reversed()
                 .thenComparing(SettlementStreetGraph.RoadSegment::key));
-        for (int ring = 1; ring <= 4 && lane < lanesNeeded; ring++) {
-            for (SettlementStreetGraph.RoadSegment segment : spines) {
+        List<SettlementStreetGraph.RoadSegment> additions = new ArrayList<>();
+
+        for (int ring = 1; ring <= maxRings && lane < lanesNeeded; ring++) {
+            for (SettlementStreetGraph.RoadSegment spine : spines) {
                 if (lane >= lanesNeeded) break;
-                if (segment.length() < 12) continue;
-                double midX = (segment.start().x() + segment.end().x()) * 0.5;
-                double midZ = (segment.start().z() + segment.end().z()) * 0.5;
-                double dx = segment.end().x() - segment.start().x();
-                double dz = segment.end().z() - segment.start().z();
-                double len = Math.hypot(dx, dz);
-                if (len < 1) continue;
-                double ux = dx / len;
-                double uz = dz / len;
-                double nx = -uz;
-                double nz = ux;
-                int side = (lane & 1) == 0 ? 1 : -1;
-                double offset = 14.0 * ring;
-                // Shift along the spine so successive rings do not stack on the same mid-point.
-                double alongShift = ((lane / 2) % 3 - 1) * 11.0;
-                SimPosition center = new SimPosition(
-                        midX + ux * alongShift + nx * offset * side,
-                        midZ + uz * alongShift + nz * offset * side);
-                int roadRot = Math.abs(dx) >= Math.abs(dz)
-                        ? baseRotation + ((lane & 1) == 0 ? 0 : 1)
-                        : baseRotation + ((lane & 1) == 0 ? 1 : 0);
-                int roadLen = Math.max(17, Math.min(41, (int) Math.round(segment.length() * 0.45)));
-                addRoad(out, faction, settlement, startIndex + lane, center, 5, roadLen, roadRot, 90, ring);
+                List<SimPosition> path = spine.centerline();
+                if (spine.length() < 12 || path.size() < 2) continue;
+
+                SimPosition attach;
+                double tx, tz;
+                if (lane < 24) {
+                    // Save/receipt stability: the historical first 24 lane keys keep their exact
+                    // attachment vertices and therefore their exact physical geometry.
+                    int attachIndex = path.size() >= 3
+                            ? 1 + Math.floorMod(lane + ring, path.size() - 2)
+                            : 0;
+                    attach = path.get(attachIndex);
+                    SimPosition neighbor = path.get(Math.min(path.size() - 1, attachIndex + 1));
+                    if (neighbor.distanceTo(attach) < 1.0e-6 && attachIndex > 0) neighbor = path.get(attachIndex - 1);
+                    double dx = neighbor.x() - attach.x(), dz = neighbor.z() - attach.z();
+                    double len = Math.hypot(dx, dz);
+                    if (len < 1.0e-6) continue;
+                    tx = dx / len;
+                    tz = dz / len;
+                } else {
+                    // Extra CITY/METROPOLIS lanes must not all leave the same centerline vertex.
+                    // Spread them over stable fractions of the existing spine so each appended lane
+                    // creates genuinely new street frontage instead of geometrically stacking.
+                    double fraction = 0.16 + 0.17 * Math.floorMod(lane + ring * 2, 5);
+                    attach = spine.pointAt(fraction);
+                    SettlementStreetGraph.Tangent tangent = spine.tangentAt(fraction);
+                    tx = tangent.dx();
+                    tz = tangent.dz();
+                }
+                double nx = -tz, nz = tx;
+                double sign = (lane & 1) == 0 ? 1.0 : -1.0;
+                double laneLength = 24.0 + ring * 8.0;
+                double bend = ((Math.floorMod((int) (settlement.id() + lane * 17L), 7) - 3) * 1.5);
+                SimPosition mid = new SimPosition(
+                        attach.x() + nx * sign * laneLength * .52 + tx * bend,
+                        attach.z() + nz * sign * laneLength * .52 + tz * bend);
+                SimPosition endPoint = new SimPosition(
+                        attach.x() + nx * sign * laneLength,
+                        attach.z() + nz * sign * laneLength);
+                SettlementGrowthLayer layer = SettlementGrowthLayer.forRing(
+                        ring, morph, settlement.tier().ordinal());
+                String key = "roadgraph:housing:" + settlement.id() + ":" + lane;
+                additions.add(new SettlementStreetGraph.RoadSegment(
+                        key, StreetType.RESIDENTIAL_STREET, StreetType.RESIDENTIAL_STREET.width(),
+                        attach, endPoint, List.of(attach, mid, endPoint), 90, layer));
                 lane++;
             }
         }
-        if (lane == 0) return;
-        // Rebuild graph including the new lanes, then place houses on the fresh parcels only.
-        SettlementStreetGraph extended = SettlementStreetGraph.fromRoadIntents(settlement.id(),
-                out.stream().filter(i -> i.role() == StructureRole.ROAD).toList());
+        if (additions.isEmpty()) return;
+
+        SettlementStreetGraph extended = streetGraph.withAdditionalSegments(additions);
+        SettlementRoadPlanner.addRoadSegments(out, faction, settlement, additions);
+        java.util.Set<String> extensionRoadKeys = additions.stream()
+                .map(SettlementStreetGraph.RoadSegment::key)
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+
         int alreadyHouses = (int) out.stream().filter(i -> i.role() == StructureRole.HOUSE).count();
+        // Parcel planning is priority-ordered. Existing arterials and gate approaches can exhaust a
+        // demand-sized candidate cap before the intentionally lower-priority housing lanes are visited.
+        // Search deeper, but keep emission itself bounded by `deficit` below.
+        int parcelSearchBudget = Math.min(2048,
+                alreadyHouses + deficit + additions.size() * 16);
         List<SettlementParcelPlanner.ParcelPlan> extraParcels = new ArrayList<>(
-                SettlementParcelPlanner.plan(extended, faction, settlement, alreadyHouses + deficit));
-        // Skip parcels that collide with already-emitted houses.
-        List<SimPosition> occupied = out.stream()
+                SettlementParcelPlanner.plan(extended, faction, settlement, parcelSearchBudget));
+        List<SimPosition> occupied = new ArrayList<>(out.stream()
                 .filter(i -> i.role() == StructureRole.HOUSE)
                 .map(ConstructionIntent::center)
-                .toList();
-        int houseIndex = 900;
+                .toList());
         int placed = 0;
         int w = Math.max(9, culture.minHouseWidth());
         int d = Math.max(9, culture.minHouseDepth());
         for (SettlementParcelPlanner.ParcelPlan parcel : extraParcels) {
             if (placed >= deficit) break;
+            // Fallback houses belong only to the graph lanes created for the shortage. Reusing
+            // base-street parcels would let later ordinary demand steal them and move house keys.
+            if (!extensionRoadKeys.contains(parcel.frontageSegmentKey())) continue;
             if (parcel.width() < w || parcel.depth() < d) continue;
             boolean clash = false;
-            for (SimPosition pos : occupied) {
-                if (Math.abs(pos.x() - parcel.center().x()) < (w + parcel.width()) / 2.0 + 2
-                        && Math.abs(pos.z() - parcel.center().z()) < (d + parcel.depth()) / 2.0 + 2) {
+            double parcelWorldW = worldWidth(parcel.width(), parcel.depth(), parcel.orientationQuarterTurns());
+            double parcelWorldD = worldDepth(parcel.width(), parcel.depth(), parcel.orientationQuarterTurns());
+            double houseWorldW = worldWidth(w, d, parcel.orientationQuarterTurns());
+            double houseWorldD = worldDepth(w, d, parcel.orientationQuarterTurns());
+            for (ConstructionIntent existing : out) {
+                if (existing.role() != StructureRole.HOUSE) continue;
+                double existingWorldW = worldWidth(existing.width(), existing.depth(), existing.rotationQuarterTurns());
+                double existingWorldD = worldDepth(existing.width(), existing.depth(), existing.rotationQuarterTurns());
+                if (Math.abs(existing.center().x() - parcel.center().x()) < (existingWorldW + Math.max(parcelWorldW, houseWorldW)) / 2.0 + 2
+                        && Math.abs(existing.center().z() - parcel.center().z()) < (existingWorldD + Math.max(parcelWorldD, houseWorldD)) / 2.0 + 2) {
                     clash = true;
                     break;
                 }
             }
             if (clash) continue;
-            addAtParcel(out, faction, settlement, StructureRole.HOUSE, houseIndex + placed, parcel,
+            int stableHouseIndex = 900 + parcelOrdinal(parcel.id());
+            addAtParcel(out, faction, settlement, StructureRole.HOUSE, stableHouseIndex, parcel,
                     Math.min(parcel.width(), w + 2), Math.min(parcel.depth(), d + 2),
                     parcel.orientationQuarterTurns(), 86);
+            occupied.add(parcel.center());
             placed++;
         }
     }
+    private static double worldWidth(int width, int depth, int quarterTurns) {
+        return (Math.floorMod(quarterTurns, 4) & 1) == 0 ? width : depth;
+    }
+
+    private static double worldDepth(int width, int depth, int quarterTurns) {
+        return (Math.floorMod(quarterTurns, 4) & 1) == 0 ? depth : width;
+    }
+
 }

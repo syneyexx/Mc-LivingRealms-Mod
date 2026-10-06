@@ -2,10 +2,13 @@ package dev.livingrealms;
 
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.faction.SettlementRole;
+import dev.livingrealms.sim.transport.TransportMode;
+import dev.livingrealms.sim.transport.TransportRoute;
 import dev.livingrealms.sim.world.CitizenJourney;
 import dev.livingrealms.sim.world.RoadLifeEngine;
 import dev.livingrealms.sim.world.RoadsideSite;
-import dev.livingrealms.sim.world.SettlementDensitySeeder;
+import dev.livingrealms.sim.world.SettlementSpacingPolicy;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.projection.CitizenJourneyMaterializationPlanner;
@@ -17,7 +20,7 @@ import java.util.Set;
 
 /**
  * Wave 8 physicalization gates: LOD despawn ≠ journey death; roadside sites are not settlements;
- * site spacing is independent of the 2000-block settlement clearance.
+ * site spacing is independent of settlement role-pair clearance.
  */
 public final class RoadLifeMaterializationTest {
     private RoadLifeMaterializationTest() {}
@@ -26,7 +29,8 @@ public final class RoadLifeMaterializationTest {
         despawnDoesNotKillJourney();
         physicalDeathAbortsOnce();
         sitesAreNotSettlementsAndUseOwnSpacing();
-        System.out.println("PASS road life materialization: despawn≠death + sites≠settlements + spacing");
+        corridorGapFillingIsBounded();
+        System.out.println("PASS road life materialization: despawn≠death + sites≠settlements + spacing + <=450 corridor gaps");
     }
 
     private static void despawnDoesNotKillJourney() {
@@ -82,10 +86,9 @@ public final class RoadLifeMaterializationTest {
     }
 
     private static void sitesAreNotSettlementsAndUseOwnSpacing() {
-        check(RoadLifeEngine.MIN_SITE_SPACING == 420.0, "roadside site spacing pin");
-        check(SettlementDensitySeeder.MIN_SETTLEMENT_SPACING == 2000.0, "settlement spacing unchanged at 2000");
-        check(RoadLifeEngine.MIN_SITE_SPACING < SettlementDensitySeeder.MIN_SETTLEMENT_SPACING,
-                "sites denser than settlements");
+        check(RoadLifeEngine.MIN_SITE_SPACING == 160.0, "roadside site spacing pin");
+        check(SettlementSpacingPolicy.minimumDistance(SettlementRole.TOWN, SettlementRole.HAMLET) == 180.0,
+                "town-hamlet floor pin remains independent from roadside sites");
 
         SimulationState state = seeded();
         Settlement a = state.factions().getFirst().settlements().get(0);
@@ -107,15 +110,14 @@ public final class RoadLifeMaterializationTest {
         check(!RoadsideSiteMaterializationPlanner.violatesSiteSpacing(state, farSite),
                 "sites beyond MIN_SITE_SPACING are allowed");
 
-        // A settlement candidate next to a roadside site (but far from towns) is NOT blocked by the site.
-        // SettlementDuration uses only settlement positions — prove roadside list is orthogonal.
-        boolean anySettlementNearSite = state.factions().stream()
+        // A hypothetical hamlet at the midpoint clears the actual town↔hamlet exclusion floor.
+        // The roadside site itself is deliberately irrelevant to this calculation.
+        boolean settlementBlocked = state.factions().stream()
                 .flatMap(f -> f.settlements().stream())
-                .anyMatch(s -> s.position().distanceTo(mid) < SettlementDensitySeeder.MIN_SETTLEMENT_SPACING);
-        // Midpoint between settlements 2000 apart is ~1000 from each — under 2000, so expected.
-        check(anySettlementNearSite, "fixture: midpoint is inside settlement clearance of endpoints");
-        // Critical: roadsideSites() are never consulted by SettlementDensitySeeder.tooCloseAny —
-        // adding many sites does not change settlement count / clearance constant.
+                .anyMatch(s -> s.position().distanceTo(mid)
+                        < SettlementSpacingPolicy.minimumDistance(SettlementRole.HAMLET, s.role()));
+        check(!settlementBlocked, "fixture midpoint should clear role-aware settlement floors");
+        // Adding roadside sites does not change canonical settlement count or role spacing.
         int settlementCount = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
         for (int i = 0; i < 5; i++) {
             SimPosition p = new SimPosition(mid.x() + (i + 2) * (RoadLifeEngine.MIN_SITE_SPACING + 10), mid.z() + 20);
@@ -125,12 +127,43 @@ public final class RoadLifeMaterializationTest {
         }
         check(state.factions().stream().mapToInt(f -> f.settlements().size()).sum() == settlementCount,
                 "adding roadside sites must not create settlements");
-        check(SettlementDensitySeeder.MIN_SETTLEMENT_SPACING == 2000.0,
-                "settlement spacing pin still 2000 after site spawn");
-
         RoadsideSiteMaterializationPlanner planner = new RoadsideSiteMaterializationPlanner(600, 6);
         List<?> near = planner.plan(state, List.of(mid));
         check(!near.isEmpty(), "active roadside site near player is planned for physicalization");
+    }
+
+    private static void corridorGapFillingIsBounded() {
+        SimulationState state = seeded();
+        Faction faction = state.factions().getFirst();
+        Settlement from = faction.settlements().get(0);
+        Settlement to = faction.settlements().get(1);
+        TransportRoute route = new TransportRoute(state.nextId(), faction.id(), from.id(), to.id(),
+                TransportMode.ROAD, 140, .7, .8, 500);
+        state.addRoute(route);
+
+        int added = RoadLifeEngine.ensureCorridorSites(state);
+        check(added > 0, "long inhabited corridor must receive deterministic roadside anchors");
+        List<RoadsideSite> anchors = state.roadsideSites().stream()
+                .filter(s -> s.active() && s.relatedRouteId() == route.id())
+                .sorted(java.util.Comparator.comparingDouble(s -> s.position().x()))
+                .toList();
+        check(!anchors.isEmpty(), "corridor anchors missing");
+        check(anchors.size() <= RoadLifeEngine.MAX_CORRIDOR_ANCHORS_PER_ROUTE,
+                "per-route anchor cap exceeded");
+
+        double previous = from.position().x();
+        double maxGap = 0.0;
+        for (RoadsideSite site : anchors) {
+            maxGap = Math.max(maxGap, site.position().x() - previous);
+            previous = site.position().x();
+        }
+        maxGap = Math.max(maxGap, to.position().x() - previous);
+        check(maxGap <= 450.0 + 1.0,
+                "inhabited route fabric gap exceeds 450 blocks: " + Math.round(maxGap));
+
+        int count = state.roadsideSites().size();
+        check(RoadLifeEngine.ensureCorridorSites(state) == 0, "corridor filler must be idempotent");
+        check(state.roadsideSites().size() == count, "idempotent corridor fill changed site count");
     }
 
     private static SimulationState seeded() {

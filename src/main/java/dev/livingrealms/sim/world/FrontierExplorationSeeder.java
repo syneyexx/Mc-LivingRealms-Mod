@@ -6,7 +6,6 @@ package dev.livingrealms.sim.world;
  */
 public final class FrontierExplorationSeeder {
     public static final double GAP_BEFORE_SEED = 3_400.0;
-    public static final double FRONTIER_SPACING = SettlementDensitySeeder.MIN_SETTLEMENT_SPACING;
     public static final int MAX_FRONTIER_PER_REALM = 12;
 
     private FrontierExplorationSeeder() {}
