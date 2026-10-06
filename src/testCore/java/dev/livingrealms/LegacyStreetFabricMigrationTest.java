@@ -18,6 +18,7 @@ public final class LegacyStreetFabricMigrationTest {
     public static void main(String[] args) {
         revisionGate();
         materializedLegacyRoadsFreezeWithoutMutation();
+        oldMorphologyResetCannotLoseLegacyEvidence();
         graphEraAndUnmaterializedSettlementsRemainEligible();
         System.out.println("PASS legacy street-fabric migration: preserve anchored v15 roads, no duplicate graph rebuild");
     }
@@ -49,6 +50,21 @@ public final class LegacyStreetFabricMigrationTest {
         check(SettlementPlanner.boundary(faction, city).isEmpty(),
                 "transport must not invent graph-era gates on frozen legacy city");
         check(!SettlementConstructionPolicy.migrateLegacyStreetFabric(city), "migration idempotent");
+    }
+
+    private static void oldMorphologyResetCannotLoseLegacyEvidence() {
+        Settlement old = new Settlement(8151, "Very Old City", new SimPosition(2400, -300), 3500, 3900,
+                SettlementOrigin.AUTHORED_SEED, true, DevelopmentMode.AUTO, SettlementRole.CITY);
+        old.restoreConstructionCompleted("road:arterial:historic_core:0");
+        old.restoreConstructionCompleted("market:0");
+        boolean hadLegacyRoad = SettlementConstructionPolicy.hasLegacyRoadReceipt(old);
+        check(hadLegacyRoad, "pre-reset legacy road evidence detected");
+        old.resetConstructionCompletion(); // revision <10 morphology migration
+        check(!SettlementConstructionPolicy.hasLegacyRoadReceipt(old), "old receipts cleared by historic migration");
+        check(SettlementConstructionPolicy.markLegacyStreetFabric(old), "captured evidence restores v16 freeze marker");
+        check(SettlementConstructionPolicy.hasLegacyStreetFabric(old), "v16 marker survives after old reset");
+        check(!SettlementConstructionPolicy.allowsAutomaticCoreFabric(old),
+                "very old materialized city must not receive incompatible graph rebuild");
     }
 
     private static void graphEraAndUnmaterializedSettlementsRemainEligible() {
