@@ -44,6 +44,23 @@ public final class ModWorldgenAttachments {
         return chunk.getData(type).ownerAt(pos.getX(), pos.getY(), pos.getZ());
     }
 
+    /**
+     * Player agency invalidation. Removes only starter-worldgen ownership at this coordinate and
+     * never force-loads a chunk. Runtime/legacy SavedData ownership is intentionally separate.
+     */
+    public static boolean forgetAt(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) return false;
+        var chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+        if (chunk == null) return false;
+        var type = STARTER_FABRIC_PROVENANCE.get();
+        if (!chunk.hasData(type)) return false;
+        ChunkProvenance existing = chunk.getData(type);
+        ChunkProvenance updated = existing.without(pos.getX(), pos.getY(), pos.getZ());
+        if (updated == existing) return false;
+        chunk.setData(type, updated);
+        return true;
+    }
+
     public static final class ChunkProvenance {
         private static final int OWNER_SHIFT = 20;
         private static final long OWNER_MASK = 0xFL << OWNER_SHIFT;
@@ -89,6 +106,20 @@ public final class ModWorldgenAttachments {
             for (long packed : entries) merged.put(packed & COORD_MASK, packed);
             for (long packed : additional) merged.put(packed & COORD_MASK, packed);
             return new ChunkProvenance(generationVersion, new ArrayList<>(merged.values()));
+        }
+
+        public ChunkProvenance without(int x, int y, int z) {
+            long coord = coordKey(x, y, z);
+            boolean present = false;
+            List<Long> kept = new ArrayList<>(entries.size());
+            for (long packed : entries) {
+                if ((packed & COORD_MASK) == coord) {
+                    present = true;
+                    continue;
+                }
+                kept.add(packed);
+            }
+            return present ? new ChunkProvenance(version, kept) : this;
         }
 
         public static long pack(int x, int y, int z, AuthoredOwnerType owner) {
