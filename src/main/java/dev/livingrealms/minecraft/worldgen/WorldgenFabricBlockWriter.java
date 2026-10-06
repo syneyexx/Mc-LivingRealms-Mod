@@ -125,6 +125,33 @@ public final class WorldgenFabricBlockWriter {
         return changed;
     }
 
+    /**
+     * Clears only natural/replaceable vegetation above a road column. The scan is two-pass so an
+     * unknown solid aborts before any partial clearing occurs.
+     */
+    public boolean clearNaturalVegetationAbove(
+            int x, int groundY, int z, int height, AuthoredOwnerType ownerType) {
+        if (!insideCurrentChunk(x, z) || height <= 0) return false;
+        for (int dy = 1; dy <= height; dy++) {
+            BlockPos pos = new BlockPos(x, groundY + dy, z);
+            BlockState state = level.getBlockState(pos);
+            if (state.isAir()) continue;
+            boolean clearable = state.canBeReplaced()
+                    || state.is(BlockTags.LEAVES) || state.is(BlockTags.REPLACEABLE)
+                    || state.is(Blocks.SNOW) || state.is(Blocks.MOSS_CARPET)
+                    || state.is(Blocks.VINE) || state.is(Blocks.CACTUS)
+                    || state.is(Blocks.BAMBOO) || state.is(Blocks.BAMBOO_SAPLING)
+                    || (state.is(BlockTags.LOGS) && isNaturalTreeLog(pos));
+            if (!clearable) return false;
+        }
+        for (int dy = 1; dy <= height; dy++) {
+            BlockPos pos = new BlockPos(x, groundY + dy, z);
+            if (level.getBlockState(pos).isAir()) continue;
+            if (!writeState(pos, Blocks.AIR.defaultBlockState(), true, ownerType)) return false;
+        }
+        return true;
+    }
+
     public boolean insideCurrentChunk(int x, int z) {
         return Math.floorDiv(x, 16) == chunkX && Math.floorDiv(z, 16) == chunkZ;
     }
