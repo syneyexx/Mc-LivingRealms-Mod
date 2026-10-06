@@ -17,6 +17,8 @@ import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.FenceBlock;
+import net.minecraft.world.level.block.WallBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
@@ -187,14 +189,22 @@ public final class WorldgenFabricBlockWriter {
         } else if (!mayReplaceForOwner(pos, current, clearing, ownerType)) {
             return false;
         }
-        boolean changed = level.setBlock(pos, target, WORLDGEN_FLAGS);
+        BlockState placed = needsConnectionPostprocessing(target)
+                ? Block.updateFromNeighbourShapes(target, level, pos)
+                : target;
+        boolean changed = level.setBlock(pos, placed, WORLDGEN_FLAGS);
+        if (changed && needsConnectionPostprocessing(placed)) {
+            // Structure/worldgen placement normally defers final neighbour-shape resolution.
+            // Mark only connectable LR blocks; full-volume postprocessing would be unnecessary.
+            level.getChunk(pos.getX() >> 4, pos.getZ() >> 4).markPosForPostprocessing(pos);
+        }
         if (changed && ownerType != null) {
             // Keep transient ownership even for cleared air so later operations in this same
             // feature invocation see the correct LR author. Persistent provenance, however, only
             // describes physical blocks; recording every excavated interior/vegetation AIR cell
             // would bloat chunk NBT without protecting any material.
             authoredOwnerByPos.put(pos.asLong(), ownerType);
-            if (!target.isAir()) {
+            if (!placed.isAir()) {
                 authoredWrites.add(new StarterCivilizationWorldgenContext.AuthoredWrite(
                         pos.getX(), pos.getY(), pos.getZ(), ownerType));
             }
@@ -404,6 +414,10 @@ public final class WorldgenFabricBlockWriter {
                 || state.is(Blocks.CLAY) || state.is(Blocks.MUD)
                 || isFrozenWater(state)
                 || !state.getFluidState().isEmpty();
+    }
+
+    private static boolean needsConnectionPostprocessing(BlockState state) {
+        return state.getBlock() instanceof FenceBlock || state.getBlock() instanceof WallBlock;
     }
 
     private static Direction facing(int quarterTurns) {
