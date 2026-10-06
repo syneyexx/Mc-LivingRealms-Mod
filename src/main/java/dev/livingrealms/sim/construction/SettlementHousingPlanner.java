@@ -174,9 +174,16 @@ final class SettlementHousingPlanner {
             if (!extensionRoadKeys.contains(parcel.frontageSegmentKey())) continue;
             if (parcel.width() < w || parcel.depth() < d) continue;
             boolean clash = false;
-            for (SimPosition pos : occupied) {
-                if (Math.abs(pos.x() - parcel.center().x()) < (w + parcel.width()) / 2.0 + 2
-                        && Math.abs(pos.z() - parcel.center().z()) < (d + parcel.depth()) / 2.0 + 2) {
+            double parcelWorldW = worldWidth(parcel.width(), parcel.depth(), parcel.orientationQuarterTurns());
+            double parcelWorldD = worldDepth(parcel.width(), parcel.depth(), parcel.orientationQuarterTurns());
+            double houseWorldW = worldWidth(w, d, parcel.orientationQuarterTurns());
+            double houseWorldD = worldDepth(w, d, parcel.orientationQuarterTurns());
+            for (ConstructionIntent existing : out) {
+                if (existing.role() != StructureRole.HOUSE) continue;
+                double existingWorldW = worldWidth(existing.width(), existing.depth(), existing.rotationQuarterTurns());
+                double existingWorldD = worldDepth(existing.width(), existing.depth(), existing.rotationQuarterTurns());
+                if (Math.abs(existing.center().x() - parcel.center().x()) < (existingWorldW + Math.max(parcelWorldW, houseWorldW)) / 2.0 + 2
+                        && Math.abs(existing.center().z() - parcel.center().z()) < (existingWorldD + Math.max(parcelWorldD, houseWorldD)) / 2.0 + 2) {
                     clash = true;
                     break;
                 }
@@ -190,4 +197,12 @@ final class SettlementHousingPlanner {
             placed++;
         }
     }
+    private static double worldWidth(int width, int depth, int quarterTurns) {
+        return (Math.floorMod(quarterTurns, 4) & 1) == 0 ? width : depth;
+    }
+
+    private static double worldDepth(int width, int depth, int quarterTurns) {
+        return (Math.floorMod(quarterTurns, 4) & 1) == 0 ? depth : width;
+    }
+
 }
