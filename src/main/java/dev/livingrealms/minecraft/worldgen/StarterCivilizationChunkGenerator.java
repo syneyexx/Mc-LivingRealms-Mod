@@ -213,7 +213,7 @@ public final class StarterCivilizationChunkGenerator {
                     int z = (int) Math.round(centerZ + nz * side);
                     long packed = (((long) x) << 32) ^ (z & 0xffffffffL);
                     if (!visited.add(packed) || !writer.insideCurrentChunk(x, z)) continue;
-                    if (writeRoadDeck(writer, factionId, x, z, false, false, 0L,
+                    if (writeRoadDeck(writer, factionId, x, z, false, false, Integer.MIN_VALUE,
                             AuthoredOwnerType.SETTLEMENT_ROAD)) writes++;
                 }
             }
@@ -297,7 +297,7 @@ public final class StarterCivilizationChunkGenerator {
         StarterRegionalRoutePlanner.RoutePlan route = routeSlice.route();
         int writes = 0;
         Set<Long> visited = new HashSet<>();
-        for (RouteProjectionPlanner.RoutePoint point : routeSlice.points()) {
+        for (StarterRegionalRouteGeometryIndex.PlannedPoint point : routeSlice.points()) {
             int px = point.x(), pz = point.z();
             int nx = point.dz() == 0 ? 0 : Integer.signum(point.dz());
             int nz = point.dx() == 0 ? 0 : -Integer.signum(point.dx());
@@ -308,7 +308,7 @@ public final class StarterCivilizationChunkGenerator {
                 long packed = (((long) x) << 32) ^ (z & 0xffffffffL);
                 if (!visited.add(packed) || !writer.insideCurrentChunk(x, z)) continue;
                 if (writeRoadDeck(writer, route.factionId(), x, z, route.rural(), true,
-                        route.stableRouteId(), AuthoredOwnerType.INTERCITY_ROUTE)) writes++;
+                        point.deckY(), AuthoredOwnerType.INTERCITY_ROUTE)) writes++;
             }
         }
         return writes;
@@ -321,21 +321,15 @@ public final class StarterCivilizationChunkGenerator {
             int z,
             boolean rural,
             boolean regional,
-            long routeId,
+            int plannedDeckY,
             AuthoredOwnerType ownerType) {
         int ground = writer.terrainY(x, z);
         int floor = writer.oceanFloorY(x, z);
         int waterSurface = writer.waterSurfaceY(x, z);
         boolean water = waterSurface > ground;
         int naturalSurface = water ? waterSurface : ground;
-        int profiled = regional
-                ? writer.regionalRouteDeckY(routeId, x, z, naturalSurface)
-                : naturalSurface;
-
-        // Keep the immutable smoothed regional profile, but never perform destructive earthworks.
-        int y = water
-                ? Math.max(waterSurface, Math.min(waterSurface + 2, profiled))
-                : Math.max(ground - 2, Math.min(ground + 3, profiled));
+        int y = regional ? plannedDeckY : naturalSurface;
+        if (water) y = Math.max(waterSurface, y);
         BlockPos pos = new BlockPos(x, y, z);
 
         if (water) {
@@ -357,6 +351,12 @@ public final class StarterCivilizationChunkGenerator {
         if (!writer.prepareDryRoadColumn(
                 factionId, x, z, ground, y, ownerType)) return false;
         if (!writer.canReplaceForWorldgen(pos, false, ownerType)) return false;
+        if (y > ground + 3) {
+            BlockState deck = rural
+                    ? Blocks.SPRUCE_PLANKS.defaultBlockState()
+                    : Blocks.STONE_BRICKS.defaultBlockState();
+            return writer.writeState(pos, deck, false, ownerType);
+        }
         return writer.write(factionId, PaletteSlot.PATH, pos, 0, false, null, ownerType);
     }
 
