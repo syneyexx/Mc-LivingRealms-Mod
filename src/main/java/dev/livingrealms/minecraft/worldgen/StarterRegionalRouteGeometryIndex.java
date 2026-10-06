@@ -64,14 +64,17 @@ public final class StarterRegionalRouteGeometryIndex {
     }
 
     private final Map<Long, ChunkSlice> byChunk;
+    private final Map<Long, List<PlannedPoint>> pointsByRoute;
     private final int plannedRouteCount;
     private final int unresolvedRouteCount;
 
     private StarterRegionalRouteGeometryIndex(
             Map<Long, ChunkSlice> byChunk,
+            Map<Long, List<PlannedPoint>> pointsByRoute,
             int plannedRouteCount,
             int unresolvedRouteCount) {
         this.byChunk = Map.copyOf(byChunk);
+        this.pointsByRoute = Map.copyOf(pointsByRoute);
         this.plannedRouteCount = plannedRouteCount;
         this.unresolvedRouteCount = unresolvedRouteCount;
     }
@@ -116,6 +119,7 @@ public final class StarterRegionalRouteGeometryIndex {
         };
 
         Map<Long, LinkedHashMap<Long, MutableRouteSlice>> mutable = new HashMap<>();
+        Map<Long, List<PlannedPoint>> fullRoutes = new HashMap<>();
         int unresolved = 0;
         for (StarterRegionalRoutePlanner.RoutePlan route : routes) {
             double distance = route.from().distanceTo(route.to());
@@ -148,6 +152,7 @@ public final class StarterRegionalRouteGeometryIndex {
             if (projected.isEmpty()) continue;
 
             List<PlannedPoint> points = gradeProfile(projected, terrain);
+            fullRoutes.put(route.stableRouteId(), points);
             int halfWidth = route.rural() ? 0 : 2;
             for (PlannedPoint point : points) {
                 int minChunkX = Math.floorDiv(point.x() - halfWidth, 16);
@@ -173,7 +178,8 @@ public final class StarterRegionalRouteGeometryIndex {
             for (MutableRouteSlice route : entry.getValue().values()) slices.add(route.freeze());
             frozen.put(entry.getKey(), new ChunkSlice(slices));
         }
-        return new StarterRegionalRouteGeometryIndex(frozen, routes.size(), unresolved);
+        return new StarterRegionalRouteGeometryIndex(
+                frozen, fullRoutes, routes.size(), unresolved);
     }
 
 
@@ -219,6 +225,10 @@ public final class StarterRegionalRouteGeometryIndex {
 
     public ChunkSlice query(int chunkX, int chunkZ) {
         return byChunk.getOrDefault(pack(chunkX, chunkZ), ChunkSlice.EMPTY);
+    }
+
+    public List<PlannedPoint> pointsForRoute(long routeId) {
+        return pointsByRoute.getOrDefault(routeId, List.of());
     }
 
     public int indexedChunkCount() { return byChunk.size(); }
