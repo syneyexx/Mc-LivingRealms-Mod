@@ -1,8 +1,11 @@
 package dev.livingrealms;
 
 import dev.livingrealms.sim.construction.*;
+import dev.livingrealms.sim.faction.ConstructionOrigin;
 import dev.livingrealms.sim.government.GovernmentType;
 import dev.livingrealms.sim.world.*;
+import dev.livingrealms.sim.worldgen.StarterWorldgenCompletion;
+import dev.livingrealms.sim.worldgen.WizardTreesInitialWorldgenPlan;
 
 /** Product gate for the hidden Wizard Trees faction and its redstone-lit underground plan. */
 public final class WizardTreesTest {
@@ -19,7 +22,19 @@ public final class WizardTreesTest {
         long redstone=plan.stream().map(StructureBlueprintFactory::create).flatMap(b->b.placements().stream()).filter(p->p.slot()==PaletteSlot.REDSTONE_LIGHT).count();
         check(redstone>=4,"grow complex must contain redstone-light semantics");
         check(WizardTreesSeeder.ensure(state)==0,"Wizard Trees seeding must be idempotent");
-        System.out.println("PASS Wizard Trees: hidden theocracy + three colonies + underground halls/homes/tunnels + redstone-lit grow chamber");
+
+        StarterWorldgenCompletion.adoptPlannedBaseline(state);
+        for (var starter : WizardTreesInitialWorldgenPlan.build(state)) {
+            var canonical = state.findSettlement(starter.settlementId()).orElseThrow();
+            for (var intent : starter.intents()) {
+                check(canonical.constructionOrigin(intent.key()) == ConstructionOrigin.WORLDGEN,
+                        "Wizard Trees day-zero intent not WORLDGEN: " + starter.stableKey() + "/" + intent.key());
+            }
+            check(WizardTreesPlanner.pending(faction, canonical).isEmpty(),
+                    "Wizard Trees runtime still sees day-zero backlog: " + starter.stableKey());
+        }
+
+        System.out.println("PASS Wizard Trees: hidden theocracy + worldgen-owned colonies + underground halls/homes/tunnels + redstone-lit grow chamber");
     }
     private static void check(boolean v,String m){if(!v)throw new AssertionError(m);}
 }
