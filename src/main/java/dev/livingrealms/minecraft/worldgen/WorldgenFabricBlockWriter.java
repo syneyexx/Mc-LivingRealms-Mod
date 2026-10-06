@@ -13,7 +13,6 @@ import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
-import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
@@ -25,25 +24,40 @@ public final class WorldgenFabricBlockWriter {
             Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS;
 
     private final WorldGenLevel level;
-    private final ChunkGenerator generator;
     private final int chunkX;
     private final int chunkZ;
 
-    public WorldgenFabricBlockWriter(WorldGenLevel level, ChunkGenerator generator, int chunkX, int chunkZ) {
+    public WorldgenFabricBlockWriter(WorldGenLevel level, int chunkX, int chunkZ) {
         this.level = level;
-        this.generator = generator;
         this.chunkX = chunkX;
         this.chunkZ = chunkZ;
     }
 
+    /**
+     * Natural terrain surface for starter fabric. Decoration runs after vegetation, so tree
+     * leaves/logs are skipped while unknown structure solids remain authoritative obstacles.
+     */
     public int terrainY(int x, int z) {
-        return generator.getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, level,
-                level.getLevel().getChunkSource().randomState()) - 1;
+        int y = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
+        int floor = level.getMinBuildHeight() + 1;
+        while (y > floor) {
+            BlockPos pos = new BlockPos(x, y, z);
+            BlockState state = level.getBlockState(pos);
+            if (state.is(BlockTags.LEAVES) || state.canBeReplaced()
+                    || state.is(Blocks.SNOW) || state.is(Blocks.VINE)
+                    || state.is(Blocks.CACTUS) || state.is(Blocks.BAMBOO)
+                    || state.is(Blocks.BAMBOO_SAPLING)
+                    || (state.is(BlockTags.LOGS) && isNaturalTreeLog(pos))) {
+                y--;
+                continue;
+            }
+            break;
+        }
+        return y;
     }
 
     public int oceanFloorY(int x, int z) {
-        return generator.getBaseHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, level,
-                level.getLevel().getChunkSource().randomState()) - 1;
+        return level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z) - 1;
     }
 
     public int siteBaseY(int centerX, int centerZ, int width, int depth, int turns) {
@@ -83,7 +97,7 @@ public final class WorldgenFabricBlockWriter {
         BlockState current = level.getBlockState(pos);
         if (current.equals(target)) return true;
         if (current.hasBlockEntity()) return false;
-        if (!mayReplace(current, clearing)) return false;
+        if (!mayReplace(pos, current, clearing)) return false;
         return level.setBlock(pos, target, WORLDGEN_FLAGS);
     }
 
@@ -104,12 +118,37 @@ public final class WorldgenFabricBlockWriter {
 
     public WorldGenLevel level() { return level; }
 
-    private static boolean mayReplace(BlockState current, boolean clearing) {
+    private boolean mayReplace(BlockPos pos, BlockState current, boolean clearing) {
         if (current.isAir()) return true;
         if (current.canBeReplaced() || current.is(BlockTags.LEAVES) || current.is(BlockTags.REPLACEABLE)) return true;
+        if (clearing && current.is(BlockTags.LOGS) && isNaturalTreeLog(pos)) return true;
         if (naturalTerrain(current)) return true;
         // Never bulldoze foreign structure solids or existing block entities during generation.
         return false;
+    }
+
+    /**
+     * Tagged logs are treated as natural only when nearby leaves exist and their trunk resolves
+     * downward into natural terrain. This keeps player/foreign log construction fail-closed.
+     */
+    private boolean isNaturalTreeLog(BlockPos log) {
+        BlockState state = level.getBlockState(log);
+        if (!state.is(BlockTags.LOGS)) return false;
+        boolean leaves = false;
+        for (BlockPos p : BlockPos.betweenClosed(log.offset(-3, -1, -3), log.offset(3, 6, 3))) {
+            if (level.getBlockState(p).is(BlockTags.LEAVES)) {
+                leaves = true;
+                break;
+            }
+        }
+        if (!leaves) return false;
+        for (int dy = 1; dy <= 3; dy++) {
+            BlockState below = level.getBlockState(log.below(dy));
+            if (below.isAir() || below.canBeReplaced()
+                    || below.is(BlockTags.LOGS) || below.is(BlockTags.LEAVES)) continue;
+            return naturalTerrain(below);
+        }
+        return true;
     }
 
     private static boolean naturalTerrain(BlockState state) {
