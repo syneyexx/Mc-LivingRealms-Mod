@@ -342,6 +342,8 @@ public final class TransportNetworkMaterializer {
                 ||st.is(Blocks.STONE_BRICKS)||st.is(Blocks.SMOOTH_STONE)||st.is(Blocks.ANDESITE);
     }
 
+    public static void clear(){routeCursor=0;}
+
     private static BlockState bridgeDeckState(){
         return CompatibleContentRuntime.decorativeBlock(7L,PaletteSlot.FOUNDATION).orElse(Blocks.STONE_BRICKS.defaultBlockState());
     }
