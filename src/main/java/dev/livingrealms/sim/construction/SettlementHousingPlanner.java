@@ -135,16 +135,32 @@ final class SettlementHousingPlanner {
                 List<SimPosition> path = spine.centerline();
                 if (spine.length() < 12 || path.size() < 2) continue;
 
-                int attachIndex = path.size() >= 3
-                        ? 1 + Math.floorMod(lane + ring, path.size() - 2)
-                        : 0;
-                SimPosition attach = path.get(attachIndex);
-                SimPosition neighbor = path.get(Math.min(path.size() - 1, attachIndex + 1));
-                if (neighbor.distanceTo(attach) < 1.0e-6 && attachIndex > 0) neighbor = path.get(attachIndex - 1);
-                double dx = neighbor.x() - attach.x(), dz = neighbor.z() - attach.z();
-                double len = Math.hypot(dx, dz);
-                if (len < 1.0e-6) continue;
-                double tx = dx / len, tz = dz / len;
+                SimPosition attach;
+                double tx, tz;
+                if (lane < 24) {
+                    // Save/receipt stability: the historical first 24 lane keys keep their exact
+                    // attachment vertices and therefore their exact physical geometry.
+                    int attachIndex = path.size() >= 3
+                            ? 1 + Math.floorMod(lane + ring, path.size() - 2)
+                            : 0;
+                    attach = path.get(attachIndex);
+                    SimPosition neighbor = path.get(Math.min(path.size() - 1, attachIndex + 1));
+                    if (neighbor.distanceTo(attach) < 1.0e-6 && attachIndex > 0) neighbor = path.get(attachIndex - 1);
+                    double dx = neighbor.x() - attach.x(), dz = neighbor.z() - attach.z();
+                    double len = Math.hypot(dx, dz);
+                    if (len < 1.0e-6) continue;
+                    tx = dx / len;
+                    tz = dz / len;
+                } else {
+                    // Extra CITY/METROPOLIS lanes must not all leave the same centerline vertex.
+                    // Spread them over stable fractions of the existing spine so each appended lane
+                    // creates genuinely new street frontage instead of geometrically stacking.
+                    double fraction = 0.16 + 0.17 * Math.floorMod(lane + ring * 2, 5);
+                    attach = spine.pointAt(fraction);
+                    SettlementStreetGraph.Tangent tangent = spine.tangentAt(fraction);
+                    tx = tangent.dx();
+                    tz = tangent.dz();
+                }
                 double nx = -tz, nz = tx;
                 double sign = (lane & 1) == 0 ? 1.0 : -1.0;
                 double laneLength = 24.0 + ring * 8.0;
