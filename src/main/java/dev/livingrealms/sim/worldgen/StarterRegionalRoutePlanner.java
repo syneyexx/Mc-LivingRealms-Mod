@@ -31,7 +31,8 @@ public final class StarterRegionalRoutePlanner {
             RegionalSettlementGraph.Relation relation,
             SimPosition from,
             SimPosition to,
-            boolean rural
+            boolean rural,
+            TransportMode mode
     ) {
         public RoutePlan {
             if (stableRouteId <= 0 || factionId <= 0 || fromSettlementId <= 0 || toSettlementId <= 0) {
@@ -39,6 +40,7 @@ public final class StarterRegionalRoutePlanner {
             }
             if (stableKey == null || stableKey.isBlank()) throw new IllegalArgumentException("stableKey");
             relation = Objects.requireNonNull(relation, "relation");
+            mode = Objects.requireNonNull(mode, "mode");
             from = Objects.requireNonNull(from, "from");
             to = Objects.requireNonNull(to, "to");
         }
@@ -46,7 +48,7 @@ public final class StarterRegionalRoutePlanner {
         public TransportRoute asTransportRoute() {
             double distance = Math.max(1.0, from.distanceTo(to));
             return new TransportRoute(stableRouteId, factionId, fromSettlementId, toSettlementId,
-                    TransportMode.ROAD, distance, 0.65, 0.72, rural ? 220.0 : 420.0);
+                    mode, distance, 0.65, 0.72, rural ? 220.0 : 420.0);
         }
     }
 
@@ -74,11 +76,17 @@ public final class StarterRegionalRoutePlanner {
                 long id = STARTER_ROUTE_ID_BASE + (long) realmOrdinal * ROUTE_IDS_PER_REALM + edgeOrdinal;
                 String key = "realm:" + realmPlan.definition().id() + "/route:"
                         + edge.lowId() + "-" + edge.highId() + ":" + edge.relation().name().toLowerCase(java.util.Locale.ROOT);
+                TransportMode mode = rural ? TransportMode.CARAVAN : TransportMode.ROAD;
                 out.add(new RoutePlan(id, key, faction.id(), edge.fromSettlementId(), edge.toSettlementId(),
-                        edge.relation(), from, to, rural));
+                        edge.relation(), from, to, rural, mode));
             }
         }
         return List.copyOf(out);
+    }
+
+    public static boolean isStarterRouteId(long routeId) {
+        return routeId >= STARTER_ROUTE_ID_BASE
+                && routeId < STARTER_ROUTE_ID_BASE + 12L * ROUTE_IDS_PER_REALM;
     }
 
     private static SimPosition endpoint(Faction faction, Settlement settlement, SimPosition target) {
