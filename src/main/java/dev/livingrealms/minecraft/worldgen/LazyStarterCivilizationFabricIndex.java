@@ -12,6 +12,7 @@ import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
 import dev.livingrealms.sim.worldgen.SettlementInitialWorldgenPlan;
 import dev.livingrealms.sim.worldgen.StarterCivilizationFabricIndex;
 import dev.livingrealms.sim.worldgen.StarterRoadsideSitePlanner;
+import dev.livingrealms.sim.worldgen.StarterWorldgenCompletion;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -178,18 +179,24 @@ public final class LazyStarterCivilizationFabricIndex {
         StarterCivilizationLayoutPlanner.RealmPlan resolvedRealm =
                 withResolvedSettlement(ref.realm(), resolved);
 
-        if (!resolved.position().equals(ref.settlement().position())) {
-            level.getServer().execute(() -> {
-                var canonical = data.state().findSettlement(resolved.id()).orElse(null);
-                if (canonical != null && !canonical.position().equals(resolved.position())) {
-                    canonical.alignStarterWorldgenPosition(resolved.position());
-                    data.setDirty();
-                }
-            });
-        }
-
         SettlementInitialWorldgenPlan physical =
                 SettlementInitialWorldgenPlan.buildOne(resolvedRealm, resolved);
+
+        // Canonical mutation remains on the server thread. Relocation and exact day-zero WORLDGEN
+        // receipts are adopted together only when this settlement actually enters chunk worldgen.
+        level.getServer().execute(() -> {
+            boolean dirty = false;
+            var canonical = data.state().findSettlement(resolved.id()).orElse(null);
+            if (canonical != null && !canonical.position().equals(resolved.position())) {
+                canonical.alignStarterWorldgenPosition(resolved.position());
+                dirty = true;
+            }
+            if (StarterWorldgenCompletion.adoptPlannedBaseline(
+                    data.state(), List.of(physical)) > 0) {
+                dirty = true;
+            }
+            if (dirty) data.setDirty();
+        });
 
         for (ConstructionIntent intent : physical.intents()) {
             StructureBlueprint blueprint =
