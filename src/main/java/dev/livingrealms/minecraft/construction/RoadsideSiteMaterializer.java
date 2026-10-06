@@ -39,7 +39,10 @@ public final class RoadsideSiteMaterializer {
             RoadsideSite site = sites.get(Math.floorMod(cursor + n, sites.size()));
             scanned++;
             if (data.starterWorldgenEnabled()
-                    && StarterRoadsideSitePlanner.isStarterRoadsideSiteId(site.id())) {
+                    && StarterRoadsideSitePlanner.isStarterRoadsideSiteId(site.id())
+                    && site.lifecycle() == RoadsideSite.Lifecycle.ACTIVE) {
+                // Initial deterministic state belongs to worldgen. Any later lifecycle transition
+                // (abandoned/ruined/repaired) returns authorship to the runtime evolution path.
                 continue;
             }
             if (!physicallyPresent(site)) continue;
