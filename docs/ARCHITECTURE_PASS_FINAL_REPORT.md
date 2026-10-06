@@ -1,9 +1,9 @@
 # Architecture depth pass — final report
 
-Branch: `cursor/architecture-depth-pass-f4a7`  
-Status: **finalized** after modular-monolith extractions, release-audit retarget, and local core green.
+Historical baseline branch: `cursor/architecture-depth-pass-f4a7`  
+Status: **historical architecture-pass report**. Current production pins and world-fabric architecture are maintained on `codex/civilization-world-fabric`.
 
-CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 ---
 
@@ -11,11 +11,11 @@ CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 
 | Item | Value |
 |------|--------|
-| Branch | `cursor/architecture-depth-pass-f4a7` |
+| Current branch | `codex/civilization-world-fabric` |
 | Baseline HEAD (inventory start) | `2180af61be07146ba2fca1894d8489eaabe03e92` |
 | Report HEAD | post-finalize commit on this branch (release-audit retarget + docs) |
 | Working tree at evidence capture | clean after that commit |
-| Dirty policy | pins and schema 20 semantics unchanged; no test disables |
+| Dirty policy | schema 21/current world-fabric pins; no test disables |
 
 ---
 
@@ -29,7 +29,7 @@ CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 | Runtime scheduler | `LivingRealmsRuntimeScheduler`, `LivingRealmsRuntimeTaskCatalog`, `RuntimeTask`, `RuntimeDomain` / `RuntimePriority` / `RuntimeTaskClass` | Server tick catalog; `LivingRealmsEvents` only drives `runtimeScheduler.tick` |
 | Budgets / pressure | `RuntimeBudgetController`, `ProjectionBudget`, `RuntimePressureBridge` | Lane caps + HEALTHY/SOFT/HARD degradation for physical projection |
 | Failure isolation | `RuntimeFailureIsolator`, `StructuredErrorReporter` (waves 34/35) | Recoverable tasks disable; critical tasks do not swallow |
-| Persistence | `SimulationStateCodec` envelope + `sim/persistence/codec/*` (Ecology, Faction, Society, …, `CodecIO`) | Schema 20 section delegates; strict UTF-8 in `CodecIO` |
+| Persistence | `SimulationStateCodec` envelope + `sim/persistence/codec/*` (Ecology, Faction, Society, …, `CodecIO`) | Schema 21 section delegates; strict UTF-8 in `CodecIO` |
 | Dialogue | interpreter / knowledge / planner / style / realizer + `DialogueAnswerCatalog` | No-LLM grounded answers; engine façade ~121 LOC |
 | Content | realm / culture / building / architecture loaders + registries | Data under `data/livingrealms/{realms,cultures,buildings,architecture}` |
 | Public API | `dev.livingrealms.api` providers + lifecycle events (wave 21) | Immutable events from clean mutation sites |
@@ -50,7 +50,7 @@ Pipeline: `DialogueInterpreter` → knowledge/planner/style/realizer; answer bod
 
 ### Content
 
-12 realm JSON + densifier → 36 surface @ 2000 spacing / 3 per realm; culture packs; 8+ building archetypes; 134 species pack.
+12 realm JSON + hierarchical starter seeder → 204–300 surface starters / 17–25 per realm with role-aware spacing; culture packs; 8+ building archetypes; 134 species pack.
 
 ---
 
@@ -86,7 +86,7 @@ Net: god-tick and god-codec split; Final+ also splits planner roads/housing, phy
 
 ## E Data-driven content
 
-- Realms: `RealmDefinitionLoader` + densifier pins (36 / 3 / 2000)
+- Realms: `RealmDefinitionLoader` + hierarchical seeder pins (204–300 / 17–25 / role-aware spacing)
 - Cultures: `CultureDefinitionLoader` / registry → naming, architecture family, dialogue dialect
 - Buildings: `BuildingDefinitionLoader` + `BuildingTemplateRegistry` (culture → family → generic)
 - Architecture palettes: JSON-backed
@@ -119,7 +119,7 @@ Honest matrix for this finalize pass:
 | New arch tests | `RuntimeSchedulerTest`, `ApiLifecycleSmokeTest`, `ProjectionBudgetTest`, domain codec/integrity, dialogue planner/token, loaders — PASS in core list |
 | Linked NeoForge/Create build | **Not run** in this finalize environment (CI `linked-build` depends on core; re-run after push) |
 | GameTest (`runGameTestServer`) | **Not run** here |
-| Save migration matrix (schemas 1–20) | PASS inside core |
+| Save migration matrix (schemas 1–21) | PASS inside core |
 | Long-run soak (3650 days) | **PASS** inside core (`LongRunSoakTest`, day=3650 persistence gates) |
 | Runtime smoke (client) | Headless `RuntimeSmokeTest` PASS in core; **full client runtimeSmoke not claimed** |
 
@@ -142,11 +142,11 @@ Honest matrix for this finalize pass:
 | **Architect** | Scheduler + domain codecs remove the worst god-class edges; `SimulationState` remains the blast-radius core. Public API (wave 21) is thin but correctly event-shaped. |
 | **Perf** | Budget/pressure path is real (materializers use `ProjectionBudget.forPlayers`). Soft/hard degradation exists; no claim of multiplayer stress beyond core projection tests. |
 | **Designer** | Content packs make realms/cultures/buildings editable without Java; PLAYER_LED guard prevents silent auto-housing. Historical traces improve legibility of war aftermath. |
-| **World** | Pins hold: 36 surface / 3 per realm / 2000 spacing. Foreign adoption + geography discovery still scheduled. Impostors/far presence remain on the server loop via catalog. |
+| **World** | Pins hold: 204–300 surface starters / 17–25 per realm / role-aware spacing. Persistent settlement/road/special-site blocks are chunk-driven; entity impostors remain bounded by per-kind LOD cutoffs. |
 | **Maintainer** | Release-audit previously asserted strings only in `LivingRealmsEvents` / monolithic codec / dashboard screen — that bitrotted after extractions. Audit now follows scheduler/adapters/`CodecIO`/`EconomyPanel` so CI matches architecture without weakening gates. |
 
 ---
 
 ## Verdict
 
-Architecture depth pass delivered a **modular monolith** with preserved schema-20 semantics and CURRENT PINS. The explicit demography extraction is complete; residual hotspots are documented follow-up work rather than hidden blockers. Core + release-audit are the hard gates for this finalize; linked/GameTest remain CI follow-through.
+Architecture depth pass delivered a **modular monolith** with the earlier modular-monolith guarantees preserved under current schema-21/world-fabric pins. The explicit demography extraction is complete; residual hotspots are documented follow-up work rather than hidden blockers. Core + release-audit are the hard gates for this finalize; linked/GameTest remain CI follow-through.
