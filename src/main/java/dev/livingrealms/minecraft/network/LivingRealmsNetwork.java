@@ -151,6 +151,9 @@ public final class LivingRealmsNetwork {
             case PAY_FINE -> "Fine paid toward your bounty.";
             case SET_DEVELOPMENT_MODE -> "Settlement development mode updated.";
             case REGISTER_BUILDING -> "Building registered.";
+            case UNDERWORLD_ACCEPT -> "Underworld contract accepted.";
+            case UNDERWORLD_BRIBE -> "Officials bribed.";
+            case BLACK_MARKET_SELL -> "Black-market sale completed.";
         };
     }
 
