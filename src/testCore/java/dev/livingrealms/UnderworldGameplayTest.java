@@ -12,7 +12,7 @@ import dev.livingrealms.sim.underworld.UnderworldProfile;
 import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.SimulationState;
 
-/** Wave 7: accept → real crime → match completes; wrong target / no crime do not; black market ledger; schema 20. */
+/** Wave 7: accept → real crime → match completes; wrong target / no crime do not; black market ledger; schema 21. */
 public final class UnderworldGameplayTest {
     private UnderworldGameplayTest() {}
 
@@ -99,7 +99,7 @@ public final class UnderworldGameplayTest {
         check(realm.treasury() >= treasuryBefore, "bribe money enters treasury or fine path");
 
         byte[] bytes = SimulationStateCodec.encode(state);
-        check(SimulationStateCodec.inspectSchema(bytes) == 20, "schema 20 encode");
+        check(SimulationStateCodec.inspectSchema(bytes) == 21, "schema 21 encode");
         SimulationState round = SimulationStateCodec.decode(bytes);
         UnderworldProfile restored = round.findUnderworldProfile(actor).orElseThrow();
         check(restored.contractsCompleted() == 2, "contracts survive codec");
@@ -110,7 +110,7 @@ public final class UnderworldGameplayTest {
                 "completed contracts survive codec");
         check(round.stolenGoodsLedger().entries().stream().anyMatch(e -> e.sold()), "sold lot survives codec");
 
-        System.out.println("PASS underworld gameplay: accept→crime→match + black market ledger + bribery + schema 20");
+        System.out.println("PASS underworld gameplay: accept→crime→match + black market ledger + bribery + schema 21");
     }
 
     private static void check(boolean v, String m) {
