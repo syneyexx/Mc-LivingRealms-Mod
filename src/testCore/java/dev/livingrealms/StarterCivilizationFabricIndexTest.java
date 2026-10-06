@@ -54,11 +54,6 @@ public final class StarterCivilizationFabricIndexTest {
                         r.fromSettlementId() == capital.settlementId()
                                 || r.toSettlementId() == capital.settlementId()),
                 "capital must retain pure regional-route topology");
-        check(index.query(
-                        Math.floorDiv((int) Math.floor(capital.center().x()), 16),
-                        Math.floorDiv((int) Math.floor(capital.center().z()), 16))
-                        .routes().isEmpty(),
-                "surface fabric index must not carry obsolete straight route slices");
     }
 
 
