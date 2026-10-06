@@ -3,6 +3,7 @@ package dev.livingrealms.minecraft.worldgen;
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
 import dev.livingrealms.sim.construction.BlockPlacement;
 import dev.livingrealms.sim.construction.ConstructionIntent;
+import dev.livingrealms.sim.construction.ConstructionIntentChunkSelector;
 import dev.livingrealms.sim.construction.StructureBlueprint;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
 import dev.livingrealms.sim.construction.StructureRole;
@@ -12,6 +13,7 @@ import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
 import dev.livingrealms.sim.worldgen.SettlementInitialWorldgenPlan;
 import dev.livingrealms.sim.worldgen.StarterCivilizationFabricIndex;
 import dev.livingrealms.sim.worldgen.StarterRoadsideSitePlanner;
+import dev.livingrealms.sim.worldgen.StarterWorldgenCompletion;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -45,7 +47,7 @@ public final class LazyStarterCivilizationFabricIndex {
             StarterCivilizationLayoutPlanner.SettlementPlan settlement
     ) {}
 
-    private record Bounds(int minX, int minZ, int maxX, int maxZ) {}
+    private record BlueprintKey(long settlementId, String intentKey) {}
 
     private final net.minecraft.server.level.ServerLevel level;
     private final LivingRealmsSavedData data;
@@ -55,12 +57,12 @@ public final class LazyStarterCivilizationFabricIndex {
     private final Map<Long, SettlementRef> settlementById;
     private final List<StarterRoadsideSitePlanner.SitePlan> roadsideSites;
     private final Map<Long, List<StarterRoadsideSitePlanner.SitePlan>> roadsideByRoute;
-    private final java.util.Set<Long> resolvedRoadsideRoutes = ConcurrentHashMap.newKeySet();
+    private final java.util.Set<Long> resolvedRoadsideSites = ConcurrentHashMap.newKeySet();
 
     private final ConcurrentHashMap<Long, FutureTask<ResolvedSettlement>> resolutionTasks =
             new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Long, CopyOnWriteArrayList<StarterCivilizationFabricIndex.SettlementFabric>>
-            settlementByChunk = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<BlueprintKey, StructureBlueprint> blueprintCache =
+            new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, CopyOnWriteArrayList<StarterCivilizationFabricIndex.UrbanCoreFabric>>
             urbanByChunk = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, CopyOnWriteArrayList<StarterCivilizationFabricIndex.RoadsideFabric>>
@@ -105,9 +107,44 @@ public final class LazyStarterCivilizationFabricIndex {
         resolveNearby(chunkX, chunkZ);
         long key = pack(chunkX, chunkZ);
         return new StarterCivilizationFabricIndex.ChunkSlice(
-                snapshot(settlementByChunk.get(key)),
+                settlementFabricForChunk(chunkX, chunkZ),
                 snapshot(urbanByChunk.get(key)),
                 snapshot(roadsideByChunk.get(key)));
+    }
+
+    private List<StarterCivilizationFabricIndex.SettlementFabric> settlementFabricForChunk(
+            int chunkX,
+            int chunkZ) {
+        List<StarterCivilizationFabricIndex.SettlementFabric> out = new ArrayList<>();
+        for (FutureTask<ResolvedSettlement> task : resolutionTasks.values()) {
+            if (!task.isDone()) continue;
+            ResolvedSettlement resolved;
+            try {
+                resolved = task.get();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(
+                        "Interrupted while reading resolved starter settlement", interrupted);
+            } catch (ExecutionException failed) {
+                Throwable cause = failed.getCause() == null ? failed : failed.getCause();
+                throw new IllegalStateException(
+                        "Failed to read resolved starter settlement", cause);
+            }
+
+            SettlementInitialWorldgenPlan physical = resolved.physical();
+            for (ConstructionIntent intent : physical.intents()) {
+                if (!ConstructionIntentChunkSelector.intersects(intent, chunkX, chunkZ)) continue;
+                BlueprintKey blueprintKey =
+                        new BlueprintKey(physical.settlementId(), intent.key());
+                StructureBlueprint blueprint = blueprintCache.computeIfAbsent(
+                        blueprintKey,
+                        ignored -> StructureBlueprintFactory.create(
+                                intent, physical.architecture()));
+                out.add(new StarterCivilizationFabricIndex.SettlementFabric(
+                        physical, intent, blueprint));
+            }
+        }
+        return List.copyOf(out);
     }
 
     public ResolvedSettlement resolveSettlement(long settlementId) {
@@ -178,30 +215,28 @@ public final class LazyStarterCivilizationFabricIndex {
         StarterCivilizationLayoutPlanner.RealmPlan resolvedRealm =
                 withResolvedSettlement(ref.realm(), resolved);
 
-        if (!resolved.position().equals(ref.settlement().position())) {
-            level.getServer().execute(() -> {
-                var canonical = data.state().findSettlement(resolved.id()).orElse(null);
-                if (canonical != null && !canonical.position().equals(resolved.position())) {
-                    canonical.alignStarterWorldgenPosition(resolved.position());
-                    data.setDirty();
-                }
-            });
-        }
-
         SettlementInitialWorldgenPlan physical =
                 SettlementInitialWorldgenPlan.buildOne(resolvedRealm, resolved);
 
-        for (ConstructionIntent intent : physical.intents()) {
-            StructureBlueprint blueprint =
-                    StructureBlueprintFactory.create(intent, physical.architecture());
-            StarterCivilizationFabricIndex.SettlementFabric fabric =
-                    new StarterCivilizationFabricIndex.SettlementFabric(
-                            physical, intent, blueprint);
-            Bounds bounds = horizontalBounds(intent, blueprint);
-            forEachChunk(bounds, key -> settlementByChunk
-                    .computeIfAbsent(key, ignored -> new CopyOnWriteArrayList<>())
-                    .addIfAbsent(fabric));
-        }
+        // Canonical mutation remains on the server thread. Relocation and exact day-zero WORLDGEN
+        // receipts are adopted together only when this settlement actually enters chunk worldgen.
+        level.getServer().execute(() -> {
+            boolean dirty = false;
+            var canonical = data.state().findSettlement(resolved.id()).orElse(null);
+            if (canonical != null && !canonical.position().equals(resolved.position())) {
+                canonical.alignStarterWorldgenPosition(resolved.position());
+                dirty = true;
+            }
+            if (StarterWorldgenCompletion.adoptPlannedBaseline(
+                    data.state(), List.of(physical)) > 0) {
+                dirty = true;
+            }
+            if (dirty) data.setDirty();
+        });
+
+        // Do not create every blueprint for the whole settlement here. Chunk queries use
+        // ConstructionIntentChunkSelector first and instantiate/cache only intents that intersect
+        // the currently generating chunk.
 
         if (physical.tier().ordinal() >= Settlement.Tier.CITY.ordinal()) {
             int radius = physical.tier() == Settlement.Tier.METROPOLIS ? 96 : 72;
@@ -216,16 +251,28 @@ public final class LazyStarterCivilizationFabricIndex {
         return new ResolvedSettlement(resolvedRealm, resolved, physical);
     }
 
-    void indexRoadsideForResolvedRoute(
-            StarterRegionalRouteGeometryIndex.RouteSlice routeSlice) {
-        long routeId = routeSlice.route().stableRouteId();
-        if (!resolvedRoadsideRoutes.add(routeId)) return;
+    void indexRoadsideForRouteWindow(
+            long routeId,
+            List<StarterRegionalRouteGeometryIndex.PlannedPoint> points,
+            int minX, int minZ, int maxX, int maxZ) {
+        if (points == null || points.isEmpty()) return;
 
         List<StarterRoadsideSitePlanner.SitePlan> sites =
                 roadsideByRoute.getOrDefault(routeId, List.of());
         for (StarterRoadsideSitePlanner.SitePlan site : sites) {
+            int sx = (int) Math.floor(site.position().x());
+            int sz = (int) Math.floor(site.position().z());
+            // A site is owned by the deterministic route window containing its strategic anchor.
+            // The margin allows the local terrain corridor to pull the road modestly sideways.
+            int margin = 48;
+            if (sx < minX - margin || sx > maxX + margin
+                    || sz < minZ - margin || sz > maxZ + margin) {
+                continue;
+            }
+            if (!resolvedRoadsideSites.add(site.stableSiteId())) continue;
+
             StarterRoadsideSitePlanner.SitePlan resolved =
-                    alignRoadsideSite(site, routeSlice.points());
+                    alignRoadsideSite(site, points);
             StarterCivilizationFabricIndex.RoadsideFabric fabric =
                     new StarterCivilizationFabricIndex.RoadsideFabric(resolved);
             int x = (int) Math.floor(resolved.position().x());
@@ -293,72 +340,6 @@ public final class LazyStarterCivilizationFabricIndex {
         }
         return new StarterCivilizationLayoutPlanner.RealmPlan(
                 realm.definition(), realm.factionId(), realm.armyId(), updated);
-    }
-
-    private static Bounds horizontalBounds(
-            ConstructionIntent intent,
-            StructureBlueprint blueprint) {
-        if (intent.role() == StructureRole.ROAD && intent.hasPath()) {
-            double minX = intent.path().stream().mapToDouble(p -> p.x())
-                    .min().orElse(intent.center().x());
-            double maxX = intent.path().stream().mapToDouble(p -> p.x())
-                    .max().orElse(intent.center().x());
-            double minZ = intent.path().stream().mapToDouble(p -> p.z())
-                    .min().orElse(intent.center().z());
-            double maxZ = intent.path().stream().mapToDouble(p -> p.z())
-                    .max().orElse(intent.center().z());
-            int margin = intent.width() / 2 + 2;
-            return new Bounds(
-                    (int) Math.floor(minX) - margin,
-                    (int) Math.floor(minZ) - margin,
-                    (int) Math.ceil(maxX) + margin,
-                    (int) Math.ceil(maxZ) + margin);
-        }
-
-        int minX = Integer.MAX_VALUE;
-        int minZ = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-        int maxZ = Integer.MIN_VALUE;
-        int turns = Math.floorMod(intent.rotationQuarterTurns(), 4);
-        for (BlockPlacement placement : blueprint.placements()) {
-            int[] rotated = rotate(placement.dx(), placement.dz(), turns);
-            minX = Math.min(minX, rotated[0]);
-            maxX = Math.max(maxX, rotated[0]);
-            minZ = Math.min(minZ, rotated[1]);
-            maxZ = Math.max(maxZ, rotated[1]);
-        }
-        if (minX == Integer.MAX_VALUE) {
-            minX = -intent.width() / 2;
-            maxX = intent.width() / 2;
-            minZ = -intent.depth() / 2;
-            maxZ = intent.depth() / 2;
-        }
-        int cx = (int) Math.round(intent.center().x());
-        int cz = (int) Math.round(intent.center().z());
-        return new Bounds(
-                cx + minX - 2, cz + minZ - 2,
-                cx + maxX + 2, cz + maxZ + 2);
-    }
-
-    private static int[] rotate(int x, int z, int turns) {
-        return switch (turns) {
-            case 0 -> new int[]{x, z};
-            case 1 -> new int[]{-z, x};
-            case 2 -> new int[]{-x, -z};
-            default -> new int[]{z, -x};
-        };
-    }
-
-    private static void forEachChunk(Bounds bounds, java.util.function.LongConsumer consumer) {
-        int minChunkX = Math.floorDiv(bounds.minX(), 16);
-        int maxChunkX = Math.floorDiv(bounds.maxX(), 16);
-        int minChunkZ = Math.floorDiv(bounds.minZ(), 16);
-        int maxChunkZ = Math.floorDiv(bounds.maxZ(), 16);
-        for (int cx = minChunkX; cx <= maxChunkX; cx++) {
-            for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
-                consumer.accept(pack(cx, cz));
-            }
-        }
     }
 
     private static <T> void addChunkRectangle(

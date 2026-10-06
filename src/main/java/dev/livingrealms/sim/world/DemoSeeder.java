@@ -23,16 +23,21 @@ public final class DemoSeeder {
         s.addRegion(savanna);
         HabitatPopulationSeeder.seedMissingSpecies(s,savanna,64);
 
+        // Compute the deterministic surface layout once. Fresh-save bootstrap used to rebuild
+        // the same 12-realm/267-settlement layout separately for density, routes and roadside
+        // anchors before Minecraft could advance world-creation progress.
+        var starterLayout = StarterCivilizationLayoutPlanner.plan(s.seed());
+
         // Seed deterministic capital→town→village→hamlet civilization fabric for a fresh world.
-        SettlementDensitySeeder.ensureStarterDensity(s);
+        SettlementDensitySeeder.ensureStarterDensity(s, starterLayout);
         // Canonical starter road graph must exist before generated chunks begin projecting road fabric.
-        StarterRegionalRouteBootstrap.ensure(s);
+        StarterRegionalRouteBootstrap.ensure(s, starterLayout);
         WizardTreesSeeder.ensure(s);
         s.history().add(new WorldEvent(0,"world_created","Living Realms simulation initialized."));
         s.ensureNamedRosters();
         // Day-zero corridor anchors use stable route-derived IDs shared with true worldgen.
         // Later emergent roadside sites remain owned by RoadLifeEngine.
-        StarterRoadsideSiteBootstrap.ensure(s);
+        StarterRoadsideSiteBootstrap.ensure(s, starterLayout);
     }
 
     private static void addIfPresent(SimulationState state,EcosystemRegion region,String speciesId,SimPosition position,double population){

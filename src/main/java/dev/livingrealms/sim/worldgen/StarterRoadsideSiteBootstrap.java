@@ -12,8 +12,15 @@ public final class StarterRoadsideSiteBootstrap {
 
     public static int ensure(SimulationState state) {
         Objects.requireNonNull(state, "state");
-        var plans = StarterRoadsideSitePlanner.plan(
-                StarterCivilizationLayoutPlanner.plan(state.seed()));
+        return ensure(state, StarterCivilizationLayoutPlanner.plan(state.seed()));
+    }
+
+    public static int ensure(
+            SimulationState state,
+            StarterCivilizationLayoutPlanner.Layout layout) {
+        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(layout, "layout");
+        var plans = StarterRoadsideSitePlanner.plan(layout);
         Set<Long> existingIds = new HashSet<>();
         for (var site : state.roadsideSites()) existingIds.add(site.id());
 

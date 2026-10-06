@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.Objects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.BedBlock;
@@ -25,7 +24,6 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.neoforged.neoforge.common.Tags;
-import net.minecraft.server.level.WorldGenRegion;
 
 /**
  * Worldgen-only block writer. It never accesses SavedData, never force-loads chunks and writes only
@@ -55,20 +53,26 @@ public final class WorldgenFabricBlockWriter {
         this.chunkX = chunkX;
         this.chunkZ = chunkZ;
         this.worldgenContext = Objects.requireNonNull(worldgenContext, "worldgenContext");
-        var structureManager = level instanceof WorldGenRegion region
-                ? level.getLevel().structureManager().forWorldGenRegion(region)
-                : level.getLevel().structureManager();
         List<BoundingBox> foreignPieces = new ArrayList<>();
-        // Cache only chunks already present in the active generation region. This broadens
-        // cross-chunk structure protection without requesting/generating any neighbor.
-        for (int cx = chunkX - 3; cx <= chunkX + 3; cx++) {
-            for (int cz = chunkZ - 3; cz <= chunkZ + 3; cz++) {
-                if (!level.hasChunk(cx, cz)) continue;
-                for (var start : structureManager.startsForStructure(
-                        new ChunkPos(cx, cz), structure -> true)) {
-                    if (start == null || !start.isValid()) continue;
-                    for (var piece : start.getPieces()) foreignPieces.add(piece.getBoundingBox());
-                }
+        /*
+         * NEVER call StructureManager.startsForStructure(...) from a placed feature.
+         *
+         * That method follows the current chunk's structure-reference longs back to each
+         * structure's start chunk. A referenced start may legitimately live outside the active
+         * WorldGenRegion during FEATURES, in which case WorldGenRegion.getChunk throws
+         * "Requested chunk unavailable during world generation" and fresh-world creation dies
+         * before spawn preparation can advance.
+         *
+         * Read only starts stored directly on the chunk currently being decorated. This is
+         * generation-region safe and still protects structures whose start is local. Structures
+         * crossing in from a remote start remain protected fail-closed by canReplaceForWorldgen:
+         * their already-placed non-natural solids/block entities are never bulldozed.
+         */
+        var currentChunk = level.getChunk(chunkX, chunkZ);
+        for (var start : currentChunk.getAllStarts().values()) {
+            if (start == null || !start.isValid()) continue;
+            for (var piece : start.getPieces()) {
+                foreignPieces.add(piece.getBoundingBox());
             }
         }
         this.foreignStructurePieces = List.copyOf(foreignPieces);

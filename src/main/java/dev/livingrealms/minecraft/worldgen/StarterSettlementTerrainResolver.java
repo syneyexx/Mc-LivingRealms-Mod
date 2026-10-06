@@ -168,15 +168,13 @@ public final class StarterSettlementTerrainResolver {
         Map<Long, StarterCivilizationLayoutPlanner.SettlementPlan> byId = new HashMap<>();
         for (var other : all) byId.put(other.id(), other);
 
-        // Lazy settlement refinement must be chunk-order independent. Spacing and parent
-        // penalties therefore compare against the immutable authored starter positions rather
-        // than whatever neighboring settlement happened to be resolved first. All lazy
-        // settlements share one bounded pool so concurrent chunk generation cannot multiply
-        // private worker pools.
-        SimPosition chosen = choose(
-                source.worldSeed(), settlement, all, byId, Map.of(),
-                searchSpec(settlement.role()), terrainCache,
-                LAZY_WORKERS <= 1 ? null : LAZY_EXECUTOR);
+        // Chunk-worldgen must never wait on the original exhaustive 60–100 candidate search.
+        // The lazy path samples a deterministic coarse candidate fan with a 3x3 terrain stencil.
+        // It preserves role-specific relocation radii, spacing law and the same score components,
+        // while bounding one settlement to a few hundred generator-height samples.
+        SearchSpec spec = searchSpec(settlement.role());
+        SimPosition chosen = chooseLazy(
+                source.worldSeed(), settlement, all, byId, spec, terrainCache);
         if (chosen.equals(settlement.position())) return settlement;
         return new StarterCivilizationLayoutPlanner.SettlementPlan(
                 settlement.id(),
@@ -188,6 +186,99 @@ public final class StarterSettlementTerrainResolver {
                 settlement.housing(),
                 settlement.role(),
                 settlement.parentSettlementId());
+    }
+
+    private static SimPosition chooseLazy(
+            long seed,
+            StarterCivilizationLayoutPlanner.SettlementPlan settlement,
+            List<StarterCivilizationLayoutPlanner.SettlementPlan> all,
+            Map<Long, StarterCivilizationLayoutPlanner.SettlementPlan> byId,
+            SearchSpec spec,
+            StarterGeneratorTerrainCache terrainCache) {
+        SimPosition origin = settlement.position();
+        List<SimPosition> candidates = new ArrayList<>();
+        candidates.add(origin);
+
+        double phase = unitAngle(mix(seed ^ settlement.id()));
+        int[] radii = {
+                Math.max(spec.ringStep(), spec.maxRadius() / 2),
+                spec.maxRadius()
+        };
+        for (int radius : radii) {
+            if (radius <= 0) continue;
+            for (int attempt = 0; attempt < 8; attempt++) {
+                double angle = phase + (Math.PI * 2.0 * attempt / 8.0);
+                SimPosition candidate = new SimPosition(
+                        Math.rint(origin.x() + Math.cos(angle) * radius),
+                        Math.rint(origin.z() + Math.sin(angle) * radius));
+                if (spacingLegal(settlement, candidate, all, Map.of())) {
+                    candidates.add(candidate);
+                }
+            }
+        }
+
+        SimPosition best = origin;
+        double bestScore = Double.POSITIVE_INFINITY;
+        for (SimPosition position : candidates) {
+            TerrainStats terrain = sampleTerrainLazy(
+                    position, spec.sampleRadius(), terrainCache);
+            double displacement = position.distanceTo(origin);
+            double parentPenalty = parentDistancePenalty(
+                    settlement, position, byId, Map.of());
+            double excessWater = Math.max(
+                    0.0, terrain.waterFraction() - spec.maxWaterFraction());
+            double excessRelief = Math.max(
+                    0, terrain.relief() - spec.preferredRelief());
+            double altitudePenalty =
+                    Math.max(0.0, terrain.averageGround() - 170.0) * 1.5;
+
+            double score =
+                    terrain.waterFraction() * 3800.0
+                            + excessWater * 8000.0
+                            + terrain.relief() * 42.0
+                            + excessRelief * 80.0
+                            + altitudePenalty
+                            + displacement * 1.35
+                            + parentPenalty * 1.8;
+            if (score < bestScore) {
+                bestScore = score;
+                best = position;
+            }
+        }
+        return best;
+    }
+
+    private static TerrainStats sampleTerrainLazy(
+            SimPosition center,
+            int radius,
+            StarterGeneratorTerrainCache terrainCache) {
+        int cx = (int) Math.round(center.x());
+        int cz = (int) Math.round(center.z());
+        int r = Math.max(8, radius);
+        int[] offsets = {-r, 0, r};
+
+        int water = 0;
+        int count = 0;
+        int minGround = Integer.MAX_VALUE;
+        int maxGround = Integer.MIN_VALUE;
+        long totalGround = 0L;
+        for (int dx : offsets) {
+            for (int dz : offsets) {
+                int x = cx + dx;
+                int z = cz + dz;
+                int surface = terrainCache.surfaceY(x, z);
+                int floor = terrainCache.groundY(x, z);
+                if (surface > floor + 1) water++;
+                minGround = Math.min(minGround, floor);
+                maxGround = Math.max(maxGround, floor);
+                totalGround += floor;
+                count++;
+            }
+        }
+        return new TerrainStats(
+                water / (double) Math.max(1, count),
+                Math.max(0, maxGround - minGround),
+                totalGround / (double) Math.max(1, count));
     }
 
     static int maxSearchRadius(SettlementRole role) {

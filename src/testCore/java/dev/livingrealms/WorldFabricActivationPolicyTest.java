@@ -51,8 +51,9 @@ public final class WorldFabricActivationPolicyTest {
         check(events.contains("onChunkLoad(ChunkEvent.Load event)")
                         && events.contains("CivilizationFabricChunkQueue.onChunkAvailable"),
                 "NeoForge chunk-load handoff to shared civilization fabric queue is missing");
-        check(demo.contains("new TransportNetworkEngine().ensureRoutes(s)"),
-                "fresh-world road topology must exist before chunk fabric projection");
+        check(demo.contains("StarterRegionalRouteBootstrap.ensure(s, starterLayout)")
+                        || demo.contains("StarterRegionalRouteBootstrap.ensure(s)"),
+                "fresh-world starter road topology must exist before chunk fabric projection");
 
         System.out.println("PASS world fabric activation: chunks create persistent fabric; players only activate detail LOD");
     }

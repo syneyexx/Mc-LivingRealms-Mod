@@ -13,8 +13,15 @@ public final class StarterRegionalRouteBootstrap {
 
     public static int ensure(SimulationState state) {
         Objects.requireNonNull(state, "state");
-        var plans = StarterRegionalRoutePlanner.plan(
-                StarterCivilizationLayoutPlanner.plan(state.seed()));
+        return ensure(state, StarterCivilizationLayoutPlanner.plan(state.seed()));
+    }
+
+    public static int ensure(
+            SimulationState state,
+            StarterCivilizationLayoutPlanner.Layout layout) {
+        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(layout, "layout");
+        var plans = StarterRegionalRoutePlanner.plan(layout);
         Set<Long> existingIds = new HashSet<>();
         for (TransportRoute route : state.routes()) existingIds.add(route.id());
 
