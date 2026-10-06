@@ -92,6 +92,8 @@ public final class StarterCivilizationChunkGenerator {
         boolean terrainFollowing = fixed.terrainFollowing();
         int baseY = fixed.baseY();
 
+        if (conflictsWithForeignStructure(writer, intent, fixed, cx, cz)) return 0;
+
         Set<String> doors = new HashSet<>();
         Set<String> beds = new HashSet<>();
         for (BlockPlacement p : blueprint.placements()) {
@@ -126,6 +128,38 @@ public final class StarterCivilizationChunkGenerator {
             }
         }
         return writes;
+    }
+
+
+    /**
+     * Fail the whole current-chunk slice before the first write when a known vanilla/modded
+     * structure piece occupies any required cell. This avoids partial LR buildings around a
+     * protected structure while keeping the decision local, deterministic and force-load free.
+     */
+    private static boolean conflictsWithForeignStructure(
+            WorldgenFabricBlockWriter writer,
+            ConstructionIntent intent,
+            PreparedIntent prepared,
+            int cx,
+            int cz) {
+        for (BlockPlacement placement : prepared.blueprint().placements()) {
+            int[] rotated = rotate(placement.dx(), placement.dz(), prepared.turns());
+            int x = cx + rotated[0], z = cz + rotated[1];
+            if (!writer.insideCurrentChunk(x, z)) continue;
+            int columnBase = prepared.terrainFollowing() ? writer.terrainY(x, z) : prepared.baseY();
+            int y = columnBase + placement.dy();
+            if (writer.isForeignStructurePiece(new BlockPos(x, y, z))) return true;
+
+            if (!prepared.terrainFollowing()
+                    && placement.slot() == PaletteSlot.FOUNDATION
+                    && placement.dy() == 0) {
+                int ground = writer.terrainY(x, z);
+                for (int fy = ground; fy < prepared.baseY(); fy++) {
+                    if (writer.isForeignStructurePiece(new BlockPos(x, fy, z))) return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static int generatePath(
