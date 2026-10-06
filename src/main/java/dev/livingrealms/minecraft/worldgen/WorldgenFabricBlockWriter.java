@@ -32,6 +32,7 @@ public final class WorldgenFabricBlockWriter {
     private final int chunkZ;
     private final StarterCivilizationWorldgenContext.Context worldgenContext;
     private final int[] terrainSnapshot = new int[16 * 16];
+    private final int[] worldSurfaceSnapshot = new int[16 * 16];
     private final int[] oceanFloorSnapshot = new int[16 * 16];
     private final List<StarterCivilizationWorldgenContext.AuthoredWrite> authoredWrites = new ArrayList<>();
 
@@ -50,6 +51,8 @@ public final class WorldgenFabricBlockWriter {
             for (int lz = 0; lz < 16; lz++) {
                 int index = (lx << 4) | lz;
                 int x = minX + lx, z = minZ + lz;
+                worldSurfaceSnapshot[index] =
+                        level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
                 terrainSnapshot[index] = sampleTerrainY(x, z);
                 oceanFloorSnapshot[index] =
                         level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z) - 1;
@@ -69,6 +72,21 @@ public final class WorldgenFabricBlockWriter {
     public int oceanFloorY(int x, int z) {
         if (insideCurrentChunk(x, z)) return oceanFloorSnapshot[columnIndex(x, z)];
         return level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z) - 1;
+    }
+
+    /**
+     * Highest fluid surface captured before LR writes. Returns terrainY when the column is dry.
+     * Scanning down from WORLD_SURFACE_WG also handles vegetation/lily pads and frozen surfaces.
+     */
+    public int waterSurfaceY(int x, int z) {
+        int ground = terrainY(x, z);
+        int top = insideCurrentChunk(x, z)
+                ? worldSurfaceSnapshot[columnIndex(x, z)]
+                : level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
+        for (int y = top; y > ground; y--) {
+            if (!level.getFluidState(new BlockPos(x, y, z)).isEmpty()) return y;
+        }
+        return ground;
     }
 
     public int siteBaseY(int centerX, int centerZ, int width, int depth, int turns) {
