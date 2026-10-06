@@ -79,7 +79,7 @@ public final class WorldgenFabricBlockWriter {
     public boolean write(long factionId, PaletteSlot slot, BlockPos pos,
                          int rotationQuarterTurns, boolean doorUpper, BedPart bedPart,
                          AuthoredOwnerType ownerType) {
-        BlockState target = FactionBlockPalette.state(factionId, slot);
+        BlockState target = FactionBlockPalette.worldgenState(factionId, slot);
         if (slot == PaletteSlot.DOOR && target.getBlock() instanceof DoorBlock) {
             target = target
                     .setValue(DoorBlock.FACING, facing(rotationQuarterTurns))
