@@ -221,13 +221,25 @@ public final class SettlementParcelPlanner {
 
     private static boolean overlapsExisting(List<ParcelPlan> existing, ParcelPlan candidate) {
         double pad = 2;
+        double candidateWorldW = worldWidth(candidate);
+        double candidateWorldD = worldDepth(candidate);
         for (ParcelPlan other : existing) {
             double dx = Math.abs(other.center().x() - candidate.center().x());
             double dz = Math.abs(other.center().z() - candidate.center().z());
-            double needX = (other.width() + candidate.width()) / 2.0 + pad;
-            double needZ = (other.depth() + candidate.depth()) / 2.0 + pad;
+            double needX = (worldWidth(other) + candidateWorldW) / 2.0 + pad;
+            double needZ = (worldDepth(other) + candidateWorldD) / 2.0 + pad;
             if (dx < needX && dz < needZ) return true;
         }
         return false;
+    }
+
+    private static double worldWidth(ParcelPlan parcel) {
+        return (Math.floorMod(parcel.orientationQuarterTurns(), 4) & 1) == 0
+                ? parcel.width() : parcel.depth();
+    }
+
+    private static double worldDepth(ParcelPlan parcel) {
+        return (Math.floorMod(parcel.orientationQuarterTurns(), 4) & 1) == 0
+                ? parcel.depth() : parcel.width();
     }
 }
