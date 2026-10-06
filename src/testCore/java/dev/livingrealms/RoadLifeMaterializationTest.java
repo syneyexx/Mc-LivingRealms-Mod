@@ -3,6 +3,8 @@ package dev.livingrealms;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementRole;
+import dev.livingrealms.sim.transport.TransportMode;
+import dev.livingrealms.sim.transport.TransportRoute;
 import dev.livingrealms.sim.world.CitizenJourney;
 import dev.livingrealms.sim.world.RoadLifeEngine;
 import dev.livingrealms.sim.world.RoadsideSite;
@@ -27,7 +29,8 @@ public final class RoadLifeMaterializationTest {
         despawnDoesNotKillJourney();
         physicalDeathAbortsOnce();
         sitesAreNotSettlementsAndUseOwnSpacing();
-        System.out.println("PASS road life materialization: despawn≠death + sites≠settlements + spacing");
+        corridorGapFillingIsBounded();
+        System.out.println("PASS road life materialization: despawn≠death + sites≠settlements + spacing + <=450 corridor gaps");
     }
 
     private static void despawnDoesNotKillJourney() {
@@ -127,6 +130,40 @@ public final class RoadLifeMaterializationTest {
         RoadsideSiteMaterializationPlanner planner = new RoadsideSiteMaterializationPlanner(600, 6);
         List<?> near = planner.plan(state, List.of(mid));
         check(!near.isEmpty(), "active roadside site near player is planned for physicalization");
+    }
+
+    private static void corridorGapFillingIsBounded() {
+        SimulationState state = seeded();
+        Faction faction = state.factions().getFirst();
+        Settlement from = faction.settlements().get(0);
+        Settlement to = faction.settlements().get(1);
+        TransportRoute route = new TransportRoute(state.nextId(), faction.id(), from.id(), to.id(),
+                TransportMode.ROAD, 140, .7, .8, 500);
+        state.addRoute(route);
+
+        int added = RoadLifeEngine.ensureCorridorSites(state);
+        check(added > 0, "long inhabited corridor must receive deterministic roadside anchors");
+        List<RoadsideSite> anchors = state.roadsideSites().stream()
+                .filter(s -> s.active() && s.relatedRouteId() == route.id())
+                .sorted(java.util.Comparator.comparingDouble(s -> s.position().x()))
+                .toList();
+        check(!anchors.isEmpty(), "corridor anchors missing");
+        check(anchors.size() <= RoadLifeEngine.MAX_CORRIDOR_ANCHORS_PER_ROUTE,
+                "per-route anchor cap exceeded");
+
+        double previous = from.position().x();
+        double maxGap = 0.0;
+        for (RoadsideSite site : anchors) {
+            maxGap = Math.max(maxGap, site.position().x() - previous);
+            previous = site.position().x();
+        }
+        maxGap = Math.max(maxGap, to.position().x() - previous);
+        check(maxGap <= 450.0 + 1.0,
+                "inhabited route fabric gap exceeds 450 blocks: " + Math.round(maxGap));
+
+        int count = state.roadsideSites().size();
+        check(RoadLifeEngine.ensureCorridorSites(state) == 0, "corridor filler must be idempotent");
+        check(state.roadsideSites().size() == count, "idempotent corridor fill changed site count");
     }
 
     private static SimulationState seeded() {
