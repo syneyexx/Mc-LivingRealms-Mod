@@ -66,6 +66,14 @@ public final class StarterSettlementTerrainResolver {
     }
 
     private static final int ANGLES_PER_RING = 12;
+    private static final int LAZY_WORKERS = Math.max(
+            1, Math.min(8, Runtime.getRuntime().availableProcessors() - 1));
+    private static final ExecutorService LAZY_EXECUTOR =
+            Executors.newFixedThreadPool(LAZY_WORKERS, runnable -> {
+                Thread thread = new Thread(runnable, "LivingRealms-Lazy-Terrain");
+                thread.setDaemon(true);
+                return thread;
+            });
 
     private StarterSettlementTerrainResolver() {}
 
@@ -160,35 +168,26 @@ public final class StarterSettlementTerrainResolver {
         Map<Long, StarterCivilizationLayoutPlanner.SettlementPlan> byId = new HashMap<>();
         for (var other : all) byId.put(other.id(), other);
 
-        int workers = Math.max(1, Math.min(8,
-                Runtime.getRuntime().availableProcessors() - 1));
-        ExecutorService executor = workers <= 1 ? null : Executors.newFixedThreadPool(
-                workers, runnable -> {
-                    Thread thread = new Thread(runnable, "LivingRealms-Settlement-Lazy");
-                    thread.setDaemon(true);
-                    return thread;
-                });
-        try {
-            // Lazy settlement refinement must be chunk-order independent. Spacing and parent
-            // penalties therefore compare against the immutable authored starter positions rather
-            // than whatever neighboring settlement happened to be resolved first.
-            SimPosition chosen = choose(
-                    source.worldSeed(), settlement, all, byId, Map.of(),
-                    searchSpec(settlement.role()), terrainCache, executor);
-            if (chosen.equals(settlement.position())) return settlement;
-            return new StarterCivilizationLayoutPlanner.SettlementPlan(
-                    settlement.id(),
-                    settlement.stableKey(),
-                    settlement.realmId(),
-                    settlement.name(),
-                    chosen,
-                    settlement.population(),
-                    settlement.housing(),
-                    settlement.role(),
-                    settlement.parentSettlementId());
-        } finally {
-            if (executor != null) executor.shutdownNow();
-        }
+        // Lazy settlement refinement must be chunk-order independent. Spacing and parent
+        // penalties therefore compare against the immutable authored starter positions rather
+        // than whatever neighboring settlement happened to be resolved first. All lazy
+        // settlements share one bounded pool so concurrent chunk generation cannot multiply
+        // private worker pools.
+        SimPosition chosen = choose(
+                source.worldSeed(), settlement, all, byId, Map.of(),
+                searchSpec(settlement.role()), terrainCache,
+                LAZY_WORKERS <= 1 ? null : LAZY_EXECUTOR);
+        if (chosen.equals(settlement.position())) return settlement;
+        return new StarterCivilizationLayoutPlanner.SettlementPlan(
+                settlement.id(),
+                settlement.stableKey(),
+                settlement.realmId(),
+                settlement.name(),
+                chosen,
+                settlement.population(),
+                settlement.housing(),
+                settlement.role(),
+                settlement.parentSettlementId());
     }
 
     static int maxSearchRadius(SettlementRole role) {
