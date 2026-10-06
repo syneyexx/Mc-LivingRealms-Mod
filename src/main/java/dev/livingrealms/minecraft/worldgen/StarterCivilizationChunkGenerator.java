@@ -39,15 +39,6 @@ public final class StarterCivilizationChunkGenerator {
             StarterCivilizationFabricIndex.ChunkSlice slice,
             int chunkX,
             int chunkZ) {
-        return generate(writer, slice, WizardTreesWorldgenIndex.ChunkSlice.EMPTY, chunkX, chunkZ);
-    }
-
-    public static int generate(
-            WorldgenFabricBlockWriter writer,
-            StarterCivilizationFabricIndex.ChunkSlice slice,
-            WizardTreesWorldgenIndex.ChunkSlice wizardSlice,
-            int chunkX,
-            int chunkZ) {
         // Compute every fixed structure base before the first LR write. This keeps cross-chunk
         // pieces and neighboring intents anchored to the same pre-existing terrain rather than to
         // geometry emitted earlier in this feature invocation.
@@ -69,15 +60,6 @@ public final class StarterCivilizationChunkGenerator {
         for (StarterCivilizationFabricIndex.SettlementFabric fabric : slice.settlementFabric()) {
             writes += generateSettlementIntent(
                     writer, fabric.settlement().factionId(), fabric.intent(), prepared.get(fabric));
-        }
-        for (WizardTreesWorldgenIndex.WizardFabric fabric : wizardSlice.fabric()) {
-            PreparedIntent wizardPrepared = new PreparedIntent(
-                    fabric.blueprint(),
-                    Math.floorMod(fabric.intent().rotationQuarterTurns(), 4),
-                    false,
-                    fabric.baseY());
-            writes += generateSettlementIntent(
-                    writer, fabric.factionId(), fabric.intent(), wizardPrepared);
         }
         for (StarterCivilizationFabricIndex.UrbanCoreFabric urbanCore : slice.urbanCores()) {
             writes += generateUrbanCore(writer, urbanCore, chunkX, chunkZ);
