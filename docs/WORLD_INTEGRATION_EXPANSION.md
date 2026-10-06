@@ -1,18 +1,18 @@
 # Living Realms — World Integration Expansion contract
 
-CURRENT PINS: schema 20 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / surfaceSettlements 36 / perRealm 3 / spacing 2000
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 This document is the acceptance contract for the fixed singleplayer target modpack. Existing canonical systems remain authoritative. Integration adds visible-world depth without replacing the save model or allowing loaded chunks to become simulation authority.
 
 ## Product settlement policy (authoritative)
 
-- **12 normal surface realms** × **3 starter settlements** = **36 surface starters**
-- Composition per realm: 1 capital + 1 distant authored satellite + 1 rural hamlet
-- **MIN_SETTLEMENT_SPACING = 2000** blocks (shared by seeding, founding, causal expansion, foreign adoption)
-- Remaining authored Specs are an **expansion catalog** for later causal founding — not immediate seeds
+- **12 normal surface realms**, each with **1 capital + 10 authored satellites + 6–14 rural hamlets**
+- Starter range: **17–25 per realm**, **204–300 surface starters** total
+- `SettlementSpacingPolicy` is role-aware: capital↔capital preferred **3000–4500**, capital↔town **650–1200**, town↔village **350–650**, village↔hamlet **180–350**, hamlet↔hamlet **150–300**
+- Collision floors are type-pair-specific; there is no universal settlement exclusion constant
 - Wizard Trees remains separate (3 colonies) and excluded from surface counts
 - Additional settlements arise **causally** (overpopulation, surplus, strategy) — never because the player explored far enough
-- Foreign villages inside the 2000-block belt become **outlying sites**, not extra canonical settlements
+- Foreign sites that violate the relevant role-pair floor become **outlying sites**, not duplicate canonical settlements
 
 ## 1. M world map
 
@@ -34,8 +34,8 @@ This document is the acceptance contract for the fixed singleplayer target modpa
 ## 3. Existing vanilla/modded settlements join the world
 
 - Duplicate physical footprint near an existing settlement → bind into that settlement.
-- Foreign village **≥2000** from every canonical settlement → new `FOREIGN_ADOPTED` anchored settlement at real coordinates.
-- Foreign village **&lt;2000** from an existing settlement → **outlying site** / annex (not a settlement); physical village stays where generated.
+- Foreign site outside every applicable role-pair exclusion floor → new `FOREIGN_ADOPTED` anchored settlement at real coordinates.
+- Foreign site inside an applicable role-pair exclusion floor → **outlying site** / annex (not a settlement); physical infrastructure stays where generated.
 - Adoption preserves existing physical infrastructure; Living Realms expands around it.
 - Villagers at sites still participate in households, trade, tax, law, rumors and travel.
 
@@ -46,12 +46,13 @@ This document is the acceptance contract for the fixed singleplayer target modpa
 - Visual families improve silhouettes without requiring 134 unique Java model classes.
 - `FLYING_SPEED` remains mandatory for flying projections.
 
-## 5. Sparse living civilization
+## 5. Hierarchical living civilization
 
-- Fresh worlds: **36 surface starters** at **2000**-block spacing (not the historical dense 156/800 regression).
-- Legacy dense saves (schema ≤18) preserve settlement IDs, names, ownership, population, construction and positions; marked `LEGACY` + physically anchored.
-- Cities grow into streets, parcels, sidewalks, houses, apartments and districts via street-graph / parcel planning.
-- Projection budgets remain bounded.
+- Fresh worlds: **204–300 surface starters**, organized as 17–25 settlements per realm with role-aware spacing.
+- Legacy/anchored saves preserve settlement IDs, names, ownership, population, construction and physical positions.
+- Cities grow from graph-first street topology into parcels, frontage-facing buildings and coherent CITY+ wall/gate boundaries.
+- Persistent settlement/road/special-site block fabric is chunk-driven without player-distance authority or permanent force-loading.
+- Projection budgets remain bounded; full entities and regional impostors use separate per-kind LOD cutoffs.
 
 ## 6. Spawn kingdom
 
@@ -80,7 +81,7 @@ This document is the acceptance contract for the fixed singleplayer target modpa
 ## 10. Road Life layer
 
 - Sparse journeys (courier, pilgrim, patrol, tax collector, …) and roadside sites (waystation, shrine, camp, …).
-- Sites are **not** settlements and do not affect 2000-block spacing.
+- Sites are **not** ordinary settlements and use context-specific placement rules instead of the living-settlement spacing matrix.
 - Wilderness between cities must remain wilderness — not continuous suburbs.
 
 ## 11. Waystones / creative catalog
@@ -90,7 +91,7 @@ This document is the acceptance contract for the fixed singleplayer target modpa
 
 ## Preservation rules
 
-1. Save schema remains versioned and migration-safe (schema 1→19 readable).
+1. Save schema remains versioned and migration-safe (schemas 1→21 supported by the current migration matrix).
 2. Existing foreign block entities are never blindly overwritten.
 3. Loaded Minecraft entities/blocks do not replace canonical simulation authority.
 4. Player-authored / registered structures are protected by WorldMutationGuard.
@@ -99,4 +100,4 @@ This document is the acceptance contract for the fixed singleplayer target modpa
 
 ## Historical note
 
-Earlier dense policies (216 / 156 surface settlements, 800-block spacing, worker-direct production wording) are obsolete product regressions and must not appear in current-status documentation.
+Earlier policies using a universal 2000-block settlement floor, only three settlements per realm, the older 156/800 density, or worker-direct production wording are obsolete and belong only in clearly marked history.
