@@ -25,7 +25,7 @@ public final class DemoSeeder {
         // Seed deterministic capital→town→village→hamlet civilization fabric for a fresh world.
         SettlementDensitySeeder.ensureStarterDensity(s);
         // Canonical starter road graph must exist before generated chunks begin projecting road fabric.
-        new TransportNetworkEngine().ensureRoutes(s);
+        StarterRegionalRouteBootstrap.ensure(s);
         WizardTreesSeeder.ensure(s);
         s.history().add(new WorldEvent(0,"world_created","Living Realms simulation initialized."));
         s.ensureNamedRosters();
