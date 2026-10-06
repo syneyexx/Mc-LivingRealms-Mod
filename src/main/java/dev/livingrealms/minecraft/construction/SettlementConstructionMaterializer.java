@@ -30,7 +30,6 @@ import dev.livingrealms.sim.construction.WizardTreesPlanner;
 import dev.livingrealms.sim.compat.ModCompatibilityPolicy;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
-import dev.livingrealms.sim.faction.SettlementOrigin;
 import dev.livingrealms.sim.economy.primary.PrimaryEconomyPlanner;
 import dev.livingrealms.sim.runtime.ProjectionBudget;
 import dev.livingrealms.sim.world.WizardTreesSeeder;
@@ -177,13 +176,8 @@ public final class SettlementConstructionMaterializer {
         java.util.List<Settlement> candidates=new java.util.ArrayList<>();
         java.util.Map<Long,Faction> owners=new HashMap<>();
         for(Faction faction:factions) for(Settlement settlement:faction.settlements()) {
-            if(!SettlementConstructionPolicy.allowsAutomaticCoreFabric(settlement)) continue;
-            // Fresh authored starter fabric is entirely worldgen-owned on bootstrap day. Geography
-            // discovery may reveal future docks/fisheries, but those must not appear while the
-            // player is first approaching a city that was supposed to be complete at generation.
-            if(data.starterWorldgenEnabled()
-                    && day==0
-                    && settlement.origin()==SettlementOrigin.AUTHORED_SEED) continue;
+            if(!SettlementConstructionPolicy.allowsRuntimeConstruction(
+                    settlement,data.starterWorldgenEnabled(),day)) continue;
             candidates.add(settlement);
             owners.put(settlement.id(),faction);
         }
