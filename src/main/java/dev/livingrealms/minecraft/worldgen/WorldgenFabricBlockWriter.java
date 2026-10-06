@@ -194,6 +194,13 @@ public final class WorldgenFabricBlockWriter {
                 x, z, Heightmap.Types.WORLD_SURFACE_WG, level, chunkSource.randomState()) - 1;
     }
 
+    /** Natural generator ground, below fluids when applicable, without requesting a chunk. */
+    public int generatorGroundY(int x, int z) {
+        var chunkSource = level.getLevel().getChunkSource();
+        return chunkSource.getGenerator().getBaseHeight(
+                x, z, Heightmap.Types.OCEAN_FLOOR_WG, level, chunkSource.randomState()) - 1;
+    }
+
     public boolean write(long factionId, PaletteSlot slot, BlockPos pos,
                          int rotationQuarterTurns, boolean doorUpper, BedPart bedPart,
                          AuthoredOwnerType ownerType) {
@@ -263,9 +270,9 @@ public final class WorldgenFabricBlockWriter {
                                   AuthoredOwnerType ownerType) {
         if (!insideCurrentChunk(x, z)) return false;
         int ground = terrainY(x, z);
+        if (topY - ground > 32) return false;
         boolean changed = false;
-        int bottom = Math.max(ground, topY - 12);
-        for (int y = bottom; y <= topY; y++) {
+        for (int y = ground; y <= topY; y++) {
             changed |= write(factionId, PaletteSlot.FOUNDATION, new BlockPos(x, y, z),
                     0, false, null, ownerType);
         }
