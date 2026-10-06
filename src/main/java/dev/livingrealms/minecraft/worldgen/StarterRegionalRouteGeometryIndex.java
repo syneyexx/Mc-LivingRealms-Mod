@@ -15,7 +15,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
  * Immutable actual-terrain geometry for deterministic starter regional routes.
@@ -92,16 +91,24 @@ public final class StarterRegionalRouteGeometryIndex {
     public static StarterRegionalRouteGeometryIndex build(
             ServerLevel level,
             List<StarterRegionalRoutePlanner.RoutePlan> routes) {
+        return build(level, routes, new StarterGeneratorTerrainCache(level));
+    }
+
+    static StarterRegionalRouteGeometryIndex build(
+            ServerLevel level,
+            List<StarterRegionalRoutePlanner.RoutePlan> routes,
+            StarterGeneratorTerrainCache terrainCache) {
         Objects.requireNonNull(level, "level");
         Objects.requireNonNull(routes, "routes");
+        Objects.requireNonNull(terrainCache, "terrainCache");
         if (routes.isEmpty()) {
             return new StarterRegionalRouteGeometryIndex(Map.of(), Map.of(), 0, 0);
         }
 
         int workers = routePlanningWorkers(routes.size());
         List<PlannedRoute> plannedRoutes = workers <= 1
-                ? planRoutesSequential(level, routes)
-                : planRoutesParallel(level, routes, workers);
+                ? planRoutesSequential(level, routes, terrainCache)
+                : planRoutesParallel(level, routes, terrainCache, workers);
 
         // Merge in the original route order. Route calculations are independent, so parallel
         // execution changes only wall-clock time; chunk slice ordering and deterministic geometry
@@ -155,10 +162,11 @@ public final class StarterRegionalRouteGeometryIndex {
 
     private static List<PlannedRoute> planRoutesSequential(
             ServerLevel level,
-            List<StarterRegionalRoutePlanner.RoutePlan> routes) {
+            List<StarterRegionalRoutePlanner.RoutePlan> routes,
+            StarterGeneratorTerrainCache terrainCache) {
         List<PlannedRoute> planned = new ArrayList<>(routes.size());
         for (StarterRegionalRoutePlanner.RoutePlan route : routes) {
-            planned.add(planRoute(level, route));
+            planned.add(planRoute(level, route, terrainCache));
         }
         return List.copyOf(planned);
     }
@@ -166,6 +174,7 @@ public final class StarterRegionalRouteGeometryIndex {
     private static List<PlannedRoute> planRoutesParallel(
             ServerLevel level,
             List<StarterRegionalRoutePlanner.RoutePlan> routes,
+            StarterGeneratorTerrainCache terrainCache,
             int workers) {
         ExecutorService executor = Executors.newFixedThreadPool(workers, runnable -> {
             Thread thread = new Thread(runnable, "LivingRealms-Route-Precompute");
@@ -175,7 +184,7 @@ public final class StarterRegionalRouteGeometryIndex {
         try {
             List<Future<PlannedRoute>> futures = new ArrayList<>(routes.size());
             for (StarterRegionalRoutePlanner.RoutePlan route : routes) {
-                futures.add(executor.submit(() -> planRoute(level, route)));
+                futures.add(executor.submit(() -> planRoute(level, route, terrainCache)));
             }
 
             // Consume futures in submission order so downstream map/chunk ordering is stable even
@@ -202,32 +211,20 @@ public final class StarterRegionalRouteGeometryIndex {
 
     private static PlannedRoute planRoute(
             ServerLevel level,
-            StarterRegionalRoutePlanner.RoutePlan route) {
-        var chunkSource = level.getChunkSource();
-        var generator = chunkSource.getGenerator();
-        var randomState = chunkSource.randomState();
-
-        // Route-local caches avoid cross-thread synchronization. Generator base-height sampling is
-        // the same immutable operation Minecraft worldgen workers use concurrently.
-        Map<Long, Integer> surfaceCache = new HashMap<>();
-        Map<Long, Integer> floorCache = new HashMap<>();
+            StarterRegionalRoutePlanner.RoutePlan route,
+            StarterGeneratorTerrainCache terrainCache) {
+        // All route workers share the same immutable generator-only cache. Overlapping searches,
+        // expanded passes and settlement refinement therefore reuse height columns instead of
+        // recomputing the same noise samples independently.
         TerrainCorridorPlanner.TerrainSample terrain = new TerrainCorridorPlanner.TerrainSample() {
             @Override
             public int height(int x, int z) {
-                long key = pack(x, z);
-                return surfaceCache.computeIfAbsent(key, ignored ->
-                        generator.getBaseHeight(
-                                x, z, Heightmap.Types.WORLD_SURFACE_WG, level, randomState) - 1);
+                return terrainCache.surfaceY(x, z);
             }
 
             @Override
             public boolean water(int x, int z) {
-                long key = pack(x, z);
-                int surface = height(x, z);
-                int floor = floorCache.computeIfAbsent(key, ignored ->
-                        generator.getBaseHeight(
-                                x, z, Heightmap.Types.OCEAN_FLOOR_WG, level, randomState) - 1);
-                return surface > floor;
+                return terrainCache.water(x, z);
             }
 
             @Override
