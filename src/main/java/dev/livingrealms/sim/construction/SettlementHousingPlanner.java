@@ -107,14 +107,29 @@ final class SettlementHousingPlanner {
                                                    SettlementMorphology morph, SettlementStreetGraph streetGraph,
                                                    int baseRotation, int deficit, CultureArchitecture culture) {
         if (deficit <= 0 || streetGraph == null || streetGraph.segmentByKey().isEmpty()) return;
-        int lanesNeeded = Math.min(24, Math.max(2, (int) Math.ceil(deficit / 3.0)));
+        int laneCap = switch (settlement.tier()) {
+            case CAMP, HAMLET -> 24;
+            case VILLAGE -> 24;
+            case TOWN -> 32;
+            case CITY -> 48;
+            case METROPOLIS -> 64;
+        };
+        int maxRings = switch (settlement.tier()) {
+            case CAMP, HAMLET, VILLAGE -> 4;
+            case TOWN -> 6;
+            case CITY -> 8;
+            case METROPOLIS -> 10;
+        };
+        // Preserve the historical first 24 lane keys/geometry exactly; denser tiers may append
+        // additional rings when the street-frontage parcel supply cannot satisfy real housing demand.
+        int lanesNeeded = Math.min(laneCap, Math.max(2, (int) Math.ceil(deficit / 3.0)));
         int lane = 0;
         List<SettlementStreetGraph.RoadSegment> spines = new ArrayList<>(streetGraph.segmentByKey().values());
         spines.sort(Comparator.comparingInt(SettlementStreetGraph.RoadSegment::priority).reversed()
                 .thenComparing(SettlementStreetGraph.RoadSegment::key));
         List<SettlementStreetGraph.RoadSegment> additions = new ArrayList<>();
 
-        for (int ring = 1; ring <= 4 && lane < lanesNeeded; ring++) {
+        for (int ring = 1; ring <= maxRings && lane < lanesNeeded; ring++) {
             for (SettlementStreetGraph.RoadSegment spine : spines) {
                 if (lane >= lanesNeeded) break;
                 List<SimPosition> path = spine.centerline();
