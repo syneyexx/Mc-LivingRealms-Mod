@@ -143,25 +143,34 @@ public final class StarterCivilizationChunkGenerator {
             int cx,
             int cz) {
         AuthoredOwnerType ownerType = AuthoredOwnerType.forStructureRole(intent.role());
+        Set<Long> virtuallyCleared = new HashSet<>();
         for (BlockPlacement placement : prepared.blueprint().placements()) {
             int[] rotated = rotate(placement.dx(), placement.dz(), prepared.turns());
             int x = cx + rotated[0], z = cz + rotated[1];
             if (!writer.insideCurrentChunk(x, z)) continue;
             int columnBase = prepared.terrainFollowing() ? writer.terrainY(x, z) : prepared.baseY();
             int y = columnBase + placement.dy();
+            BlockPos pos = new BlockPos(x, y, z);
             boolean clearing = placement.slot() == PaletteSlot.AIR;
-            if (!writer.canReplaceForWorldgen(
-                    new BlockPos(x, y, z), clearing, ownerType)) {
-                return false;
+
+            // StructureBlueprint is phase-sorted (CLEAR first). Once a valid clear has been
+            // preflighted, later wall/roof/interior operations at that coordinate see virtual air
+            // rather than re-testing the original vegetation and rejecting the whole structure.
+            if (!virtuallyCleared.contains(pos.asLong())) {
+                if (!writer.canReplaceForWorldgen(pos, clearing, ownerType)) {
+                    return false;
+                }
             }
+            if (clearing) virtuallyCleared.add(pos.asLong());
 
             if (!prepared.terrainFollowing()
                     && placement.slot() == PaletteSlot.FOUNDATION
                     && placement.dy() == 0) {
                 int ground = writer.terrainY(x, z);
                 for (int fy = ground; fy < prepared.baseY(); fy++) {
-                    if (!writer.canReplaceForWorldgen(
-                            new BlockPos(x, fy, z), false, ownerType)) {
+                    BlockPos foundationPos = new BlockPos(x, fy, z);
+                    if (virtuallyCleared.contains(foundationPos.asLong())) continue;
+                    if (!writer.canReplaceForWorldgen(foundationPos, false, ownerType)) {
                         return false;
                     }
                 }
