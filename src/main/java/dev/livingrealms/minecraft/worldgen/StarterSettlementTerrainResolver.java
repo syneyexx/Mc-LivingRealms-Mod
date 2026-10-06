@@ -146,6 +146,55 @@ public final class StarterSettlementTerrainResolver {
                 source.worldSeed(), source.layoutVersion(), realms), moved);
     }
 
+    static StarterCivilizationLayoutPlanner.SettlementPlan resolveOne(
+            StarterCivilizationLayoutPlanner.Layout source,
+            StarterCivilizationLayoutPlanner.SettlementPlan settlement,
+            StarterGeneratorTerrainCache terrainCache) {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(settlement, "settlement");
+        Objects.requireNonNull(terrainCache, "terrainCache");
+        if (settlement.role() == SettlementRole.SPECIAL) return settlement;
+
+        List<StarterCivilizationLayoutPlanner.SettlementPlan> all =
+                new ArrayList<>(source.settlements());
+        Map<Long, StarterCivilizationLayoutPlanner.SettlementPlan> byId = new HashMap<>();
+        for (var other : all) byId.put(other.id(), other);
+
+        int workers = Math.max(1, Math.min(8,
+                Runtime.getRuntime().availableProcessors() - 1));
+        ExecutorService executor = workers <= 1 ? null : Executors.newFixedThreadPool(
+                workers, runnable -> {
+                    Thread thread = new Thread(runnable, "LivingRealms-Settlement-Lazy");
+                    thread.setDaemon(true);
+                    return thread;
+                });
+        try {
+            // Lazy settlement refinement must be chunk-order independent. Spacing and parent
+            // penalties therefore compare against the immutable authored starter positions rather
+            // than whatever neighboring settlement happened to be resolved first.
+            SimPosition chosen = choose(
+                    source.worldSeed(), settlement, all, byId, Map.of(),
+                    searchSpec(settlement.role()), terrainCache, executor);
+            if (chosen.equals(settlement.position())) return settlement;
+            return new StarterCivilizationLayoutPlanner.SettlementPlan(
+                    settlement.id(),
+                    settlement.stableKey(),
+                    settlement.realmId(),
+                    settlement.name(),
+                    chosen,
+                    settlement.population(),
+                    settlement.housing(),
+                    settlement.role(),
+                    settlement.parentSettlementId());
+        } finally {
+            if (executor != null) executor.shutdownNow();
+        }
+    }
+
+    static int maxSearchRadius(SettlementRole role) {
+        return searchSpec(role).maxRadius();
+    }
+
     static int terrainPlanningWorkers(int settlementCount) {
         if (settlementCount <= 1) return 1;
         int processors = Math.max(1, Runtime.getRuntime().availableProcessors());
