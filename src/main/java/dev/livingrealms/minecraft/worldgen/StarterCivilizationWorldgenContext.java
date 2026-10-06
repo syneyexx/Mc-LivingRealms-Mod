@@ -35,16 +35,19 @@ public final class StarterCivilizationWorldgenContext {
         private final long worldSeed;
         private final int worldgenVersion;
         private final StarterCivilizationFabricIndex fabricIndex;
+        private final StarterRegionalRouteGeometryIndex routeGeometryIndex;
         private final WizardTreesWorldgenIndex wizardTreesIndex;
         private final Map<Long, Integer> paletteStyleByFaction;
 
         private Context(long worldSeed, int worldgenVersion,
                         StarterCivilizationFabricIndex fabricIndex,
+                        StarterRegionalRouteGeometryIndex routeGeometryIndex,
                         WizardTreesWorldgenIndex wizardTreesIndex,
                         Map<Long, Integer> paletteStyleByFaction) {
             this.worldSeed = worldSeed;
             this.worldgenVersion = worldgenVersion;
             this.fabricIndex = Objects.requireNonNull(fabricIndex, "fabricIndex");
+            this.routeGeometryIndex = Objects.requireNonNull(routeGeometryIndex, "routeGeometryIndex");
             this.wizardTreesIndex = Objects.requireNonNull(wizardTreesIndex, "wizardTreesIndex");
             this.paletteStyleByFaction = Map.copyOf(
                     Objects.requireNonNull(paletteStyleByFaction, "paletteStyleByFaction"));
@@ -53,6 +56,7 @@ public final class StarterCivilizationWorldgenContext {
         public long worldSeed() { return worldSeed; }
         public int worldgenVersion() { return worldgenVersion; }
         public StarterCivilizationFabricIndex fabricIndex() { return fabricIndex; }
+        public StarterRegionalRouteGeometryIndex routeGeometryIndex() { return routeGeometryIndex; }
         public WizardTreesWorldgenIndex wizardTreesIndex() { return wizardTreesIndex; }
         public int paletteStyle(long factionId) {
             return paletteStyleByFaction.getOrDefault(
@@ -79,6 +83,8 @@ public final class StarterCivilizationWorldgenContext {
         StarterCivilizationLayoutPlanner.Layout layout =
                 StarterCivilizationLayoutPlanner.plan(seed);
         StarterCivilizationFabricIndex index = StarterCivilizationFabricIndex.build(layout);
+        StarterRegionalRouteGeometryIndex routeGeometryIndex =
+                StarterRegionalRouteGeometryIndex.build(level, index.routes());
         WizardTreesWorldgenIndex wizardTreesIndex = WizardTreesWorldgenIndex.build(
                 level, WizardTreesInitialWorldgenPlan.build(data.state()));
         Map<Long, Integer> paletteStyles = new HashMap<>();
@@ -95,7 +101,8 @@ public final class StarterCivilizationWorldgenContext {
             paletteStyles.put(factionId, style);
         }
         BY_LEVEL.put(level, new Context(
-                seed, data.civilizationWorldgenVersion(), index, wizardTreesIndex, paletteStyles));
+                seed, data.civilizationWorldgenVersion(), index, routeGeometryIndex,
+                wizardTreesIndex, paletteStyles));
     }
 
     public static Optional<Context> context(WorldGenLevel worldGenLevel) {
