@@ -50,18 +50,15 @@ public final class StarterCivilizationFabricIndexTest {
         check(referenceChunkCount(index, capital.settlementId(), wall.key(), 20) >= 2,
                 "city wall run must be cross-chunk indexed");
 
-        StarterRegionalRoutePlanner.RoutePlan route = index.routes().stream()
-                .filter(r -> r.fromSettlementId() == capital.settlementId()
-                        || r.toSettlementId() == capital.settlementId())
-                .findFirst().orElseThrow();
-        int fromChunkX = Math.floorDiv((int) Math.floor(route.from().x()), 16);
-        int fromChunkZ = Math.floorDiv((int) Math.floor(route.from().z()), 16);
-        int toChunkX = Math.floorDiv((int) Math.floor(route.to().x()), 16);
-        int toChunkZ = Math.floorDiv((int) Math.floor(route.to().z()), 16);
-        check(index.query(fromChunkX, fromChunkZ).routes().stream().anyMatch(r -> r.route().stableRouteId() == route.stableRouteId()),
-                "route missing from endpoint chunk");
-        check(index.query(toChunkX, toChunkZ).routes().stream().anyMatch(r -> r.route().stableRouteId() == route.stableRouteId()),
-                "route missing from opposite endpoint chunk");
+        check(index.routes().stream().anyMatch(r ->
+                        r.fromSettlementId() == capital.settlementId()
+                                || r.toSettlementId() == capital.settlementId()),
+                "capital must retain pure regional-route topology");
+        check(index.query(
+                        Math.floorDiv((int) Math.floor(capital.center().x()), 16),
+                        Math.floorDiv((int) Math.floor(capital.center().z()), 16))
+                        .routes().isEmpty(),
+                "surface fabric index must not carry obsolete straight route slices");
     }
 
 
