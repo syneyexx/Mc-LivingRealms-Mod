@@ -42,8 +42,15 @@ public final class SettlementDensitySeeder {
     /** Returns the number of canonical changes performed. */
     public static int ensureStarterDensity(SimulationState state) {
         Objects.requireNonNull(state, "state");
-        StarterCivilizationLayoutPlanner.Layout layout =
-                StarterCivilizationLayoutPlanner.plan(state.seed());
+        return ensureStarterDensity(
+                state, StarterCivilizationLayoutPlanner.plan(state.seed()));
+    }
+
+    public static int ensureStarterDensity(
+            SimulationState state,
+            StarterCivilizationLayoutPlanner.Layout layout) {
+        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(layout, "layout");
         int changes = 0;
         for (StarterCivilizationLayoutPlanner.RealmPlan realm : layout.realms()) {
             changes += ensureRealm(state, realm);
