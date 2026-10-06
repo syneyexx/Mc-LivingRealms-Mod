@@ -41,7 +41,6 @@ public final class TransportNetworkMaterializer {
                 if(remaining<=0)break;
                 if(!physicalLandRoute(route))continue;
                 if(data.starterWorldgenEnabled() && StarterRegionalRoutePlanner.isStarterRouteId(route.id())) continue;
-                if(data.starterWorldgenEnabled() && StarterRegionalRoutePlanner.isStarterRouteId(route.id())) continue;
                 var from=data.state().findSettlement(route.fromSettlementId()).orElse(null);
                 var to=data.state().findSettlement(route.toSettlementId()).orElse(null);
                 if(from==null||to==null)continue;
@@ -69,6 +68,7 @@ public final class TransportNetworkMaterializer {
                 TransportRoute route=routes.get(Math.floorMod(routeCursor+n,routes.size()));
                 scanned++;
                 if(!physicalLandRoute(route))continue;
+                if(data.starterWorldgenEnabled() && StarterRegionalRoutePlanner.isStarterRouteId(route.id())) continue;
                 var from=data.state().findSettlement(route.fromSettlementId()).orElse(null);
                 var to=data.state().findSettlement(route.toSettlementId()).orElse(null);
                 if(from==null||to==null)continue;
