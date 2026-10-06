@@ -5,7 +5,7 @@ import java.util.Objects;
 
 /**
  * Sparse wilderness/road feature that is explicitly not a canonical settlement and does not
- * participate in the 2000-block settlement spacing rule.
+ * participate in ordinary living-settlement role-pair spacing rules.
  */
 public final class RoadsideSite {
     public enum Type {
