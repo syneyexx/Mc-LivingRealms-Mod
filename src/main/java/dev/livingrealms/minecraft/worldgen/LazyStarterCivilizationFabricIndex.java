@@ -7,6 +7,7 @@ import dev.livingrealms.sim.construction.StructureBlueprint;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
 import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
 import dev.livingrealms.sim.worldgen.SettlementInitialWorldgenPlan;
 import dev.livingrealms.sim.worldgen.StarterCivilizationFabricIndex;
@@ -53,6 +54,8 @@ public final class LazyStarterCivilizationFabricIndex {
     private final List<SettlementRef> settlements;
     private final Map<Long, SettlementRef> settlementById;
     private final List<StarterRoadsideSitePlanner.SitePlan> roadsideSites;
+    private final Map<Long, List<StarterRoadsideSitePlanner.SitePlan>> roadsideByRoute;
+    private final java.util.Set<Long> resolvedRoadsideRoutes = ConcurrentHashMap.newKeySet();
 
     private final ConcurrentHashMap<Long, FutureTask<ResolvedSettlement>> resolutionTasks =
             new ConcurrentHashMap<>();
@@ -86,7 +89,16 @@ public final class LazyStarterCivilizationFabricIndex {
         this.settlementById = Map.copyOf(byId);
 
         this.roadsideSites = StarterRoadsideSitePlanner.plan(source);
-        indexRoadsideSites(this.roadsideSites);
+        Map<Long, List<StarterRoadsideSitePlanner.SitePlan>> groupedRoadside = new HashMap<>();
+        for (StarterRoadsideSitePlanner.SitePlan site : roadsideSites) {
+            groupedRoadside.computeIfAbsent(
+                    site.relatedRouteId(), ignored -> new ArrayList<>()).add(site);
+        }
+        Map<Long, List<StarterRoadsideSitePlanner.SitePlan>> frozenRoadside = new HashMap<>();
+        for (var entry : groupedRoadside.entrySet()) {
+            frozenRoadside.put(entry.getKey(), List.copyOf(entry.getValue()));
+        }
+        this.roadsideByRoute = Map.copyOf(frozenRoadside);
     }
 
     public StarterCivilizationFabricIndex.ChunkSlice query(int chunkX, int chunkZ) {
@@ -204,15 +216,71 @@ public final class LazyStarterCivilizationFabricIndex {
         return new ResolvedSettlement(resolvedRealm, resolved, physical);
     }
 
-    private void indexRoadsideSites(List<StarterRoadsideSitePlanner.SitePlan> sites) {
+    void indexRoadsideForResolvedRoute(
+            StarterRegionalRouteGeometryIndex.RouteSlice routeSlice) {
+        long routeId = routeSlice.route().stableRouteId();
+        if (!resolvedRoadsideRoutes.add(routeId)) return;
+
+        List<StarterRoadsideSitePlanner.SitePlan> sites =
+                roadsideByRoute.getOrDefault(routeId, List.of());
         for (StarterRoadsideSitePlanner.SitePlan site : sites) {
+            StarterRoadsideSitePlanner.SitePlan resolved =
+                    alignRoadsideSite(site, routeSlice.points());
             StarterCivilizationFabricIndex.RoadsideFabric fabric =
-                    new StarterCivilizationFabricIndex.RoadsideFabric(site);
-            int x = (int) Math.floor(site.position().x());
-            int z = (int) Math.floor(site.position().z());
+                    new StarterCivilizationFabricIndex.RoadsideFabric(resolved);
+            int x = (int) Math.floor(resolved.position().x());
+            int z = (int) Math.floor(resolved.position().z());
             addChunkRectangle(
                     roadsideByChunk, fabric, x - 3, z - 3, x + 3, z + 3);
+
+            if (!resolved.position().equals(site.position())) {
+                level.getServer().execute(() -> {
+                    var canonical = data.state().findRoadsideSite(resolved.stableSiteId()).orElse(null);
+                    if (canonical != null && !canonical.position().equals(resolved.position())) {
+                        canonical.relocate(resolved.position());
+                        data.setDirty();
+                    }
+                });
+            }
         }
+    }
+
+    private static StarterRoadsideSitePlanner.SitePlan alignRoadsideSite(
+            StarterRoadsideSitePlanner.SitePlan site,
+            List<StarterRegionalRouteGeometryIndex.PlannedPoint> points) {
+        if (points == null || points.isEmpty()) return site;
+
+        StarterRegionalRouteGeometryIndex.PlannedPoint nearest = null;
+        double best = Double.POSITIVE_INFINITY;
+        for (StarterRegionalRouteGeometryIndex.PlannedPoint point : points) {
+            double dx = site.position().x() - point.x();
+            double dz = site.position().z() - point.z();
+            double d2 = dx * dx + dz * dz;
+            if (d2 < best) {
+                best = d2;
+                nearest = point;
+            }
+        }
+        if (nearest == null) return site;
+
+        int x = nearest.x();
+        int z = nearest.z();
+        if (!nearest.water()) {
+            int nx = nearest.dz() == 0 ? 0 : Integer.signum(nearest.dz());
+            int nz = nearest.dx() == 0 ? 0 : -Integer.signum(nearest.dx());
+            if (nx == 0 && nz == 0) nx = 1;
+            int side = (site.stableSiteId() & 1L) == 0L ? 1 : -1;
+            x += nx * 4 * side;
+            z += nz * 4 * side;
+        }
+
+        return new StarterRoadsideSitePlanner.SitePlan(
+                site.stableSiteId(),
+                site.stableKey(),
+                site.type(),
+                new SimPosition(x, z),
+                site.relatedSettlementId(),
+                site.relatedRouteId());
     }
 
     private static StarterCivilizationLayoutPlanner.RealmPlan withResolvedSettlement(
