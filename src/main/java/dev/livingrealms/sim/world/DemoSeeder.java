@@ -29,6 +29,9 @@ public final class DemoSeeder {
         WizardTreesSeeder.ensure(s);
         s.history().add(new WorldEvent(0,"world_created","Living Realms simulation initialized."));
         s.ensureNamedRosters();
+        // Seed deterministic roadside anchors after all established starter identities so the
+        // existing canonical starter IDs remain stable; block fabric is still chunk-driven later.
+        RoadLifeEngine.ensureCorridorSites(s);
     }
 
     private static void addIfPresent(SimulationState state,EcosystemRegion region,String speciesId,SimPosition position,double population){
