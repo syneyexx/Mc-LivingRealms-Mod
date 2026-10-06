@@ -35,7 +35,7 @@ public final class WorldgenQualityTest {
                 "city must contain both residential streets and arterials");
 
         List<ConstructionIntent> houses=plan.stream().filter(i->i.role()==StructureRole.HOUSE).toList();
-        check(houses.size()>=60,"city must materially expand housing stock");
+        check(houses.size()>=60,"city must materially expand housing stock: planned="+houses.size());
         ConstructionIntent apartment=houses.stream().filter(i->i.width()>=11||i.depth()>=11).findFirst().orElseThrow();
         check(StructureBlueprintFactory.create(apartment).id().startsWith("apartment_block_"),"city housing must include multi-storey blocks");
         // CultureArchitecture raises minimum footprints; validate floors on a non-apartment home.
