@@ -78,7 +78,9 @@ public final class WorldgenFabricBlockWriter {
                 terrainSnapshot[index] = sampleTerrainY(x, z);
                 int waterSurface = terrainSnapshot[index];
                 for (int y = worldSurfaceSnapshot[index]; y > terrainSnapshot[index]; y--) {
-                    if (!level.getFluidState(new BlockPos(x, y, z)).isEmpty()) {
+                    BlockPos waterPos = new BlockPos(x, y, z);
+                    BlockState waterState = level.getBlockState(waterPos);
+                    if (!level.getFluidState(waterPos).isEmpty() || isFrozenWater(waterState)) {
                         waterSurface = y;
                         break;
                     }
@@ -111,7 +113,9 @@ public final class WorldgenFabricBlockWriter {
         int ground = terrainY(x, z);
         int top = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
         for (int y = top; y > ground; y--) {
-            if (!level.getFluidState(new BlockPos(x, y, z)).isEmpty()) return y;
+            BlockPos waterPos = new BlockPos(x, y, z);
+            BlockState waterState = level.getBlockState(waterPos);
+            if (!level.getFluidState(waterPos).isEmpty() || isFrozenWater(waterState)) return y;
         }
         return ground;
     }
@@ -320,7 +324,7 @@ public final class WorldgenFabricBlockWriter {
                 continue;
             }
             BlockState state = level.getBlockState(pos);
-            if (!state.getFluidState().isEmpty()
+            if (!state.getFluidState().isEmpty() || isFrozenWater(state)
                     || state.is(BlockTags.LEAVES) || state.canBeReplaced()
                     || state.is(Blocks.SNOW) || state.is(Blocks.VINE)
                     || state.is(Blocks.CACTUS) || state.is(Blocks.BAMBOO)
@@ -380,6 +384,10 @@ public final class WorldgenFabricBlockWriter {
         return true;
     }
 
+    private static boolean isFrozenWater(BlockState state) {
+        return state.is(Blocks.ICE) || state.is(Blocks.FROSTED_ICE);
+    }
+
     private static boolean wizardNaturalUnderground(BlockState state) {
         return state.is(Tags.Blocks.ORES)
                 || state.is(Blocks.TUFF)
@@ -394,6 +402,7 @@ public final class WorldgenFabricBlockWriter {
                 || state.is(Blocks.PODZOL) || state.is(Blocks.MYCELIUM)
                 || state.is(Blocks.GRAVEL) || state.is(Blocks.SAND) || state.is(Blocks.RED_SAND)
                 || state.is(Blocks.CLAY) || state.is(Blocks.MUD)
+                || isFrozenWater(state)
                 || !state.getFluidState().isEmpty();
     }
 
