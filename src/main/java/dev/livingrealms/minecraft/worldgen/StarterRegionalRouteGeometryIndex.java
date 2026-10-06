@@ -10,6 +10,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.levelgen.Heightmap;
 
@@ -42,6 +46,12 @@ public final class StarterRegionalRouteGeometryIndex {
 
         public boolean isEmpty() { return routes.isEmpty(); }
     }
+
+    private record PlannedRoute(
+            StarterRegionalRoutePlanner.RoutePlan route,
+            List<PlannedPoint> points,
+            boolean engineeredFallback
+    ) {}
 
     private static final class MutableRouteSlice {
         final StarterRegionalRoutePlanner.RoutePlan route;
@@ -84,13 +94,123 @@ public final class StarterRegionalRouteGeometryIndex {
             List<StarterRegionalRoutePlanner.RoutePlan> routes) {
         Objects.requireNonNull(level, "level");
         Objects.requireNonNull(routes, "routes");
+        if (routes.isEmpty()) {
+            return new StarterRegionalRouteGeometryIndex(Map.of(), Map.of(), 0, 0);
+        }
 
+        int workers = routePlanningWorkers(routes.size());
+        List<PlannedRoute> plannedRoutes = workers <= 1
+                ? planRoutesSequential(level, routes)
+                : planRoutesParallel(level, routes, workers);
+
+        // Merge in the original route order. Route calculations are independent, so parallel
+        // execution changes only wall-clock time; chunk slice ordering and deterministic geometry
+        // remain identical to the single-threaded implementation.
+        Map<Long, LinkedHashMap<Long, MutableRouteSlice>> mutable = new HashMap<>();
+        Map<Long, List<PlannedPoint>> fullRoutes = new HashMap<>();
+        int unresolved = 0;
+        for (PlannedRoute planned : plannedRoutes) {
+            if (planned.engineeredFallback()) unresolved++;
+            if (planned.points().isEmpty()) continue;
+
+            StarterRegionalRoutePlanner.RoutePlan route = planned.route();
+            fullRoutes.put(route.stableRouteId(), planned.points());
+            int halfWidth = route.rural() ? 0 : 2;
+            for (PlannedPoint point : planned.points()) {
+                int minChunkX = Math.floorDiv(point.x() - halfWidth, 16);
+                int maxChunkX = Math.floorDiv(point.x() + halfWidth, 16);
+                int minChunkZ = Math.floorDiv(point.z() - halfWidth, 16);
+                int maxChunkZ = Math.floorDiv(point.z() + halfWidth, 16);
+                for (int cx = minChunkX; cx <= maxChunkX; cx++) {
+                    for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
+                        long chunkKey = pack(cx, cz);
+                        var byRoute = mutable.computeIfAbsent(
+                                chunkKey, ignored -> new LinkedHashMap<>());
+                        byRoute.computeIfAbsent(
+                                route.stableRouteId(),
+                                ignored -> new MutableRouteSlice(
+                                        route, planned.engineeredFallback())).add(point);
+                    }
+                }
+            }
+        }
+
+        Map<Long, ChunkSlice> frozen = new HashMap<>(mutable.size() * 2);
+        for (var entry : mutable.entrySet()) {
+            List<RouteSlice> slices = new ArrayList<>(entry.getValue().size());
+            for (MutableRouteSlice route : entry.getValue().values()) slices.add(route.freeze());
+            frozen.put(entry.getKey(), new ChunkSlice(slices));
+        }
+        return new StarterRegionalRouteGeometryIndex(
+                frozen, fullRoutes, routes.size(), unresolved);
+    }
+
+    static int routePlanningWorkers(int routeCount) {
+        if (routeCount <= 1) return 1;
+        int processors = Math.max(1, Runtime.getRuntime().availableProcessors());
+        // Keep one hardware thread free for JVM/Minecraft housekeeping and cap startup fan-out so
+        // large servers do not create hundreds of short-lived planning threads.
+        return Math.max(1, Math.min(routeCount, Math.min(12, processors - 1)));
+    }
+
+    private static List<PlannedRoute> planRoutesSequential(
+            ServerLevel level,
+            List<StarterRegionalRoutePlanner.RoutePlan> routes) {
+        List<PlannedRoute> planned = new ArrayList<>(routes.size());
+        for (StarterRegionalRoutePlanner.RoutePlan route : routes) {
+            planned.add(planRoute(level, route));
+        }
+        return List.copyOf(planned);
+    }
+
+    private static List<PlannedRoute> planRoutesParallel(
+            ServerLevel level,
+            List<StarterRegionalRoutePlanner.RoutePlan> routes,
+            int workers) {
+        ExecutorService executor = Executors.newFixedThreadPool(workers, runnable -> {
+            Thread thread = new Thread(runnable, "LivingRealms-Route-Precompute");
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
+            List<Future<PlannedRoute>> futures = new ArrayList<>(routes.size());
+            for (StarterRegionalRoutePlanner.RoutePlan route : routes) {
+                futures.add(executor.submit(() -> planRoute(level, route)));
+            }
+
+            // Consume futures in submission order so downstream map/chunk ordering is stable even
+            // though the expensive terrain searches complete in arbitrary order.
+            List<PlannedRoute> planned = new ArrayList<>(routes.size());
+            for (Future<PlannedRoute> future : futures) {
+                try {
+                    planned.add(future.get());
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(
+                            "Interrupted while preparing starter regional routes", interrupted);
+                } catch (ExecutionException failed) {
+                    Throwable cause = failed.getCause() == null ? failed : failed.getCause();
+                    throw new IllegalStateException(
+                            "Failed to prepare starter regional route geometry", cause);
+                }
+            }
+            return List.copyOf(planned);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private static PlannedRoute planRoute(
+            ServerLevel level,
+            StarterRegionalRoutePlanner.RoutePlan route) {
         var chunkSource = level.getChunkSource();
         var generator = chunkSource.getGenerator();
         var randomState = chunkSource.randomState();
+
+        // Route-local caches avoid cross-thread synchronization. Generator base-height sampling is
+        // the same immutable operation Minecraft worldgen workers use concurrently.
         Map<Long, Integer> surfaceCache = new HashMap<>();
         Map<Long, Integer> floorCache = new HashMap<>();
-
         TerrainCorridorPlanner.TerrainSample terrain = new TerrainCorridorPlanner.TerrainSample() {
             @Override
             public int height(int x, int z) {
@@ -118,70 +238,41 @@ public final class StarterRegionalRouteGeometryIndex {
             }
         };
 
-        Map<Long, LinkedHashMap<Long, MutableRouteSlice>> mutable = new HashMap<>();
-        Map<Long, List<PlannedPoint>> fullRoutes = new HashMap<>();
-        int unresolved = 0;
-        for (StarterRegionalRoutePlanner.RoutePlan route : routes) {
-            double distance = route.from().distanceTo(route.to());
-            if (distance < 1.0) continue;
-            SimPosition observer = route.from().lerp(route.to(), 0.5);
-            int maxPoints = Math.min(16_384, Math.max(512, (int) Math.ceil(distance * 2.0) + 512));
-            List<RouteProjectionPlanner.RoutePoint> projected = RouteProjectionPlanner.plan(
+        double distance = route.from().distanceTo(route.to());
+        if (distance < 1.0) return new PlannedRoute(route, List.of(), false);
+
+        SimPosition observer = route.from().lerp(route.to(), 0.5);
+        int maxPoints = Math.min(
+                16_384, Math.max(512, (int) Math.ceil(distance * 2.0) + 512));
+        List<RouteProjectionPlanner.RoutePoint> projected = RouteProjectionPlanner.plan(
+                route.asTransportRoute(),
+                route.from(),
+                route.to(),
+                List.of(observer),
+                distance + 1024.0,
+                maxPoints,
+                terrain);
+
+        boolean engineeredFallback = false;
+        if (projected.isEmpty()) {
+            // Terrain search exhausted its bounded pass/waypoint hierarchy. Fall back to a
+            // deterministic engineered alignment, not a raw surface road: the grade profile
+            // below turns peaks into cuts/tunnels and valleys/water into supported deck.
+            engineeredFallback = true;
+            projected = RouteProjectionPlanner.plan(
                     route.asTransportRoute(),
                     route.from(),
                     route.to(),
                     List.of(observer),
                     distance + 1024.0,
-                    maxPoints,
-                    terrain);
-            boolean engineeredFallback = false;
-            if (projected.isEmpty()) {
-                // Terrain search exhausted its bounded pass/waypoint hierarchy. Fall back to a
-                // deterministic engineered alignment, not a raw surface road: the grade profile
-                // below turns peaks into cuts/tunnels and valleys/water into supported deck.
-                engineeredFallback = true;
-                unresolved++;
-                projected = RouteProjectionPlanner.plan(
-                        route.asTransportRoute(),
-                        route.from(),
-                        route.to(),
-                        List.of(observer),
-                        distance + 1024.0,
-                        maxPoints);
-            }
-            if (projected.isEmpty()) continue;
-
-            List<PlannedPoint> points = gradeProfile(projected, terrain);
-            fullRoutes.put(route.stableRouteId(), points);
-            int halfWidth = route.rural() ? 0 : 2;
-            for (PlannedPoint point : points) {
-                int minChunkX = Math.floorDiv(point.x() - halfWidth, 16);
-                int maxChunkX = Math.floorDiv(point.x() + halfWidth, 16);
-                int minChunkZ = Math.floorDiv(point.z() - halfWidth, 16);
-                int maxChunkZ = Math.floorDiv(point.z() + halfWidth, 16);
-                for (int cx = minChunkX; cx <= maxChunkX; cx++) {
-                    for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
-                        long chunkKey = pack(cx, cz);
-                        var byRoute = mutable.computeIfAbsent(chunkKey, ignored -> new LinkedHashMap<>());
-                        boolean fallback = engineeredFallback;
-                        byRoute.computeIfAbsent(
-                                route.stableRouteId(),
-                                ignored -> new MutableRouteSlice(route, fallback)).add(point);
-                    }
-                }
-            }
+                    maxPoints);
         }
-
-        Map<Long, ChunkSlice> frozen = new HashMap<>(mutable.size() * 2);
-        for (var entry : mutable.entrySet()) {
-            List<RouteSlice> slices = new ArrayList<>(entry.getValue().size());
-            for (MutableRouteSlice route : entry.getValue().values()) slices.add(route.freeze());
-            frozen.put(entry.getKey(), new ChunkSlice(slices));
+        if (projected.isEmpty()) {
+            return new PlannedRoute(route, List.of(), engineeredFallback);
         }
-        return new StarterRegionalRouteGeometryIndex(
-                frozen, fullRoutes, routes.size(), unresolved);
+        return new PlannedRoute(
+                route, gradeProfile(projected, terrain), engineeredFallback);
     }
-
 
     private static List<PlannedPoint> gradeProfile(
             List<RouteProjectionPlanner.RoutePoint> projected,
