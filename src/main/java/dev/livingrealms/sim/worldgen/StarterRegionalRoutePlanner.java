@@ -21,6 +21,8 @@ import java.util.Objects;
 public final class StarterRegionalRoutePlanner {
     public static final long STARTER_ROUTE_ID_BASE = 2_000_000L;
     private static final int ROUTE_IDS_PER_REALM = 100;
+    public static final long STARTER_ROUTE_ID_LIMIT =
+            STARTER_ROUTE_ID_BASE + 12L * ROUTE_IDS_PER_REALM;
 
     public record RoutePlan(
             long stableRouteId,
@@ -85,8 +87,7 @@ public final class StarterRegionalRoutePlanner {
     }
 
     public static boolean isStarterRouteId(long routeId) {
-        return routeId >= STARTER_ROUTE_ID_BASE
-                && routeId < STARTER_ROUTE_ID_BASE + 12L * ROUTE_IDS_PER_REALM;
+        return routeId >= STARTER_ROUTE_ID_BASE && routeId < STARTER_ROUTE_ID_LIMIT;
     }
 
     private static SimPosition endpoint(Faction faction, Settlement settlement, SimPosition target) {
