@@ -1,5 +1,6 @@
 package dev.livingrealms.minecraft.worldgen;
 
+import dev.livingrealms.minecraft.construction.RoadsideSiteTemplate;
 import dev.livingrealms.sim.construction.BlockPlacement;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.construction.ConstructionIntent;
@@ -19,6 +20,7 @@ import java.util.Objects;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
 
 /** Generates only the deterministic starter-fabric slice intersecting one Minecraft chunk. */
@@ -64,6 +66,11 @@ public final class StarterCivilizationChunkGenerator {
         }
         for (StarterCivilizationFabricIndex.RouteFabric route : slice.routes()) {
             writes += generateRegionalRoute(writer, route.route(), chunkX, chunkZ);
+        }
+        // Starter roadside anchors are part of day-zero fabric. Generate them after roads so cells
+        // crossing water can require and reuse the bridge deck authored earlier in this slice.
+        for (StarterCivilizationFabricIndex.RoadsideFabric roadside : slice.roadsideSites()) {
+            writes += generateRoadsideSite(writer, roadside.site());
         }
         return writes;
     }
@@ -182,6 +189,36 @@ public final class StarterCivilizationChunkGenerator {
                         AuthoredOwnerType.SETTLEMENT_ROAD)) {
                     writes++;
                 }
+            }
+        }
+        return writes;
+    }
+
+
+    private static int generateRoadsideSite(
+            WorldgenFabricBlockWriter writer,
+            dev.livingrealms.sim.worldgen.StarterRoadsideSitePlanner.SitePlan plan) {
+        var site = plan.asRoadsideSite();
+        int cx = (int) Math.floor(site.position().x());
+        int cz = (int) Math.floor(site.position().z());
+        int writes = 0;
+        for (RoadsideSiteTemplate.Placement placement : RoadsideSiteTemplate.placements(site)) {
+            int x = cx + placement.dx();
+            int z = cz + placement.dz();
+            if (!writer.insideCurrentChunk(x, z)) continue;
+
+            int ground = writer.terrainY(x, z);
+            int waterSurface = writer.waterSurfaceY(x, z);
+            boolean waterColumn = waterSurface > ground;
+            int supportY = waterColumn ? waterSurface : ground;
+            BlockPos support = new BlockPos(x, supportY, z);
+            if (!writer.canSupportRoadside(support, waterColumn)) continue;
+
+            BlockState target = RoadsideSiteTemplate.worldgenState(placement.state());
+            if (target.hasBlockEntity()) continue;
+            if (writer.writeState(
+                    support.above(), target, false, AuthoredOwnerType.ROADSIDE_SITE)) {
+                writes++;
             }
         }
         return writes;
