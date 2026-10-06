@@ -271,6 +271,15 @@ public final class StarterRegionalRouteGeometryIndex {
                 route, gradeProfile(projected, terrain), engineeredFallback);
     }
 
+    static RouteSlice planOne(
+            ServerLevel level,
+            StarterRegionalRoutePlanner.RoutePlan route,
+            StarterGeneratorTerrainCache terrainCache) {
+        PlannedRoute planned = planRoute(level, route, terrainCache);
+        return new RouteSlice(
+                planned.route(), planned.points(), planned.engineeredFallback());
+    }
+
     private static List<PlannedPoint> gradeProfile(
             List<RouteProjectionPlanner.RoutePoint> projected,
             TerrainCorridorPlanner.TerrainSample terrain) {

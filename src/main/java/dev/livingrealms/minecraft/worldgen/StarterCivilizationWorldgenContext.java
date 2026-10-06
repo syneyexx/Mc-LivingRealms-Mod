@@ -6,9 +6,7 @@ import dev.livingrealms.minecraft.construction.FactionBlockPalette;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
 import dev.livingrealms.sim.world.StarterCultureTraits;
-import dev.livingrealms.sim.worldgen.SettlementInitialWorldgenPlan;
-import dev.livingrealms.sim.worldgen.StarterCivilizationFabricIndex;
-import dev.livingrealms.sim.worldgen.StarterWorldgenCompletion;
+import dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner;
 import dev.livingrealms.sim.worldgen.WizardTreesInitialWorldgenPlan;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,11 +18,12 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.WorldGenLevel;
 
 /**
- * Server-lifetime publication of immutable starter worldgen planning.
+ * Server-lifetime publication of starter worldgen planning.
  *
- * <p>Activation happens on the main thread when the Overworld loads. Generation workers only read
- * the immutable fabric index; provenance is persisted directly on the chunk through a NeoForge
- * attachment, never through mutable SavedData.</p>
+ * <p>Level load publishes only cheap deterministic topology. Terrain-heavy settlement refinement
+ * and full regional-route A* are intentionally lazy and run only when actual chunk generation
+ * reaches the relevant region. This keeps Minecraft fresh-world preparation out of a global
+ * Living Realms terrain pass while preserving true worldgen block placement.</p>
  */
 public final class StarterCivilizationWorldgenContext {
     public record AuthoredWrite(int x, int y, int z, AuthoredOwnerType ownerType) {
@@ -33,20 +32,21 @@ public final class StarterCivilizationWorldgenContext {
         }
     }
 
-
     public static final class Context {
         private final long worldSeed;
         private final int worldgenVersion;
-        private final StarterCivilizationFabricIndex fabricIndex;
-        private final StarterRegionalRouteGeometryIndex routeGeometryIndex;
+        private final LazyStarterCivilizationFabricIndex fabricIndex;
+        private final LazyStarterRegionalRouteGeometryIndex routeGeometryIndex;
         private final WizardTreesWorldgenIndex wizardTreesIndex;
         private final Map<Long, Integer> paletteStyleByFaction;
 
-        private Context(long worldSeed, int worldgenVersion,
-                        StarterCivilizationFabricIndex fabricIndex,
-                        StarterRegionalRouteGeometryIndex routeGeometryIndex,
-                        WizardTreesWorldgenIndex wizardTreesIndex,
-                        Map<Long, Integer> paletteStyleByFaction) {
+        private Context(
+                long worldSeed,
+                int worldgenVersion,
+                LazyStarterCivilizationFabricIndex fabricIndex,
+                LazyStarterRegionalRouteGeometryIndex routeGeometryIndex,
+                WizardTreesWorldgenIndex wizardTreesIndex,
+                Map<Long, Integer> paletteStyleByFaction) {
             this.worldSeed = worldSeed;
             this.worldgenVersion = worldgenVersion;
             this.fabricIndex = Objects.requireNonNull(fabricIndex, "fabricIndex");
@@ -58,16 +58,20 @@ public final class StarterCivilizationWorldgenContext {
 
         public long worldSeed() { return worldSeed; }
         public int worldgenVersion() { return worldgenVersion; }
-        public StarterCivilizationFabricIndex fabricIndex() { return fabricIndex; }
-        public StarterRegionalRouteGeometryIndex routeGeometryIndex() { return routeGeometryIndex; }
+        public LazyStarterCivilizationFabricIndex fabricIndex() { return fabricIndex; }
+        public LazyStarterRegionalRouteGeometryIndex routeGeometryIndex() {
+            return routeGeometryIndex;
+        }
         public WizardTreesWorldgenIndex wizardTreesIndex() { return wizardTreesIndex; }
+
         public int paletteStyle(long factionId) {
             return paletteStyleByFaction.getOrDefault(
                     factionId, FactionBlockPalette.cultureStyle(factionId, 0, 0, 0, 0));
         }
     }
 
-    private static final ConcurrentHashMap<ServerLevel, Context> BY_LEVEL = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<ServerLevel, Context> BY_LEVEL =
+            new ConcurrentHashMap<>();
 
     private StarterCivilizationWorldgenContext() {}
 
@@ -77,79 +81,36 @@ public final class StarterCivilizationWorldgenContext {
             BY_LEVEL.remove(level);
             return;
         }
+
         long seed = level.getSeed();
         Context existing = BY_LEVEL.get(level);
-        if (existing != null && existing.worldSeed() == seed
+        if (existing != null
+                && existing.worldSeed() == seed
                 && existing.worldgenVersion() == data.civilizationWorldgenVersion()) {
             return;
         }
+
         long startedNanos = System.nanoTime();
-        long phaseNanos = startedNanos;
 
-        StarterCivilizationLayoutPlanner.Layout pureLayout =
+        // Cheap authored topology only. No settlement terrain scan, no global blueprint index and
+        // no all-routes A* are allowed in this activation path.
+        StarterCivilizationLayoutPlanner.Layout layout =
                 StarterCivilizationLayoutPlanner.plan(seed);
-        long layoutMillis = elapsedMillis(phaseNanos);
-        phaseNanos = System.nanoTime();
+        StarterGeneratorTerrainCache terrainCache =
+                new StarterGeneratorTerrainCache(level);
 
-        StarterGeneratorTerrainCache terrainCache = new StarterGeneratorTerrainCache(level);
-        int settlementWorkers =
-                StarterSettlementTerrainResolver.terrainPlanningWorkers(
-                        pureLayout.settlements().size());
-        LivingRealms.LOGGER.info(
-                "Starter worldgen: refining {} settlement centers with {} terrain worker(s)",
-                pureLayout.settlements().size(), settlementWorkers);
+        LazyStarterCivilizationFabricIndex fabricIndex =
+                new LazyStarterCivilizationFabricIndex(level, data, layout, terrainCache);
 
-        StarterSettlementTerrainResolver.Resolution terrainResolution =
-                StarterSettlementTerrainResolver.resolve(level, pureLayout, terrainCache);
-        StarterCivilizationLayoutPlanner.Layout layout = terrainResolution.layout();
-        long terrainMillis = elapsedMillis(phaseNanos);
-        phaseNanos = System.nanoTime();
+        var starterRoutes = StarterRegionalRoutePlanner.plan(layout);
+        LazyStarterRegionalRouteGeometryIndex routeGeometryIndex =
+                new LazyStarterRegionalRouteGeometryIndex(
+                        level, starterRoutes, fabricIndex, terrainCache);
 
-        boolean settlementRelocated = false;
-        for (var planned : layout.settlements()) {
-            var canonical = data.state().findSettlement(planned.id()).orElse(null);
-            if (canonical != null && !canonical.position().equals(planned.position())) {
-                canonical.alignStarterWorldgenPosition(planned.position());
-                settlementRelocated = true;
-            }
-        }
-        int resolvedReceiptChanges = StarterWorldgenCompletion.adoptPlannedBaseline(
-                data.state(), SettlementInitialWorldgenPlan.buildAll(layout));
-        if (settlementRelocated || resolvedReceiptChanges > 0) data.setDirty();
-
-        var starterRoutes = dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner.plan(layout);
-        int routeWorkers = StarterRegionalRouteGeometryIndex.routePlanningWorkers(starterRoutes.size());
-        LivingRealms.LOGGER.info(
-                "Starter worldgen: preparing {} terrain-aware regional routes with {} worker(s)",
-                starterRoutes.size(), routeWorkers);
-        StarterRegionalRouteGeometryIndex routeGeometryIndex =
-                StarterRegionalRouteGeometryIndex.build(level, starterRoutes, terrainCache);
-        long routeMillis = elapsedMillis(phaseNanos);
-        phaseNanos = System.nanoTime();
-
-        var resolvedRoadside = StarterRoadsideRouteResolver.resolve(
-                dev.livingrealms.sim.worldgen.StarterRoadsideSitePlanner.plan(layout),
-                routeGeometryIndex);
-        long roadsideMillis = elapsedMillis(phaseNanos);
-        phaseNanos = System.nanoTime();
-        boolean roadsideRelocated = false;
-        for (var plan : resolvedRoadside) {
-            var canonical = data.state().findRoadsideSite(plan.stableSiteId()).orElse(null);
-            if (canonical != null && !canonical.position().equals(plan.position())) {
-                canonical.relocate(plan.position());
-                roadsideRelocated = true;
-            }
-        }
-        if (roadsideRelocated) data.setDirty();
-        StarterCivilizationFabricIndex index =
-                StarterCivilizationFabricIndex.build(layout, starterRoutes, resolvedRoadside);
-        long fabricIndexMillis = elapsedMillis(phaseNanos);
-        phaseNanos = System.nanoTime();
-
+        // Wizard Trees is intentionally retained as a tiny eager index: its starter footprint is
+        // small and bounded, unlike the 267-settlement surface civilization.
         WizardTreesWorldgenIndex wizardTreesIndex = WizardTreesWorldgenIndex.build(
                 level, WizardTreesInitialWorldgenPlan.build(data.state()));
-        long wizardMillis = elapsedMillis(phaseNanos);
-        phaseNanos = System.nanoTime();
 
         Map<Long, Integer> paletteStyles = new HashMap<>();
         for (StarterCivilizationLayoutPlanner.RealmPlan realm : layout.realms()) {
@@ -161,27 +122,28 @@ public final class StarterCivilizationWorldgenContext {
                             traits.agrarian(),
                             traits.martial(),
                             traits.mercantile()))
-                    .orElseGet(() -> FactionBlockPalette.cultureStyle(factionId, 0, 0, 0, 0));
+                    .orElseGet(() ->
+                            FactionBlockPalette.cultureStyle(factionId, 0, 0, 0, 0));
             paletteStyles.put(factionId, style);
         }
-        BY_LEVEL.put(level, new Context(
-                seed, data.civilizationWorldgenVersion(), index, routeGeometryIndex,
-                wizardTreesIndex, paletteStyles));
-        long paletteMillis = elapsedMillis(phaseNanos);
+
+        Context published = new Context(
+                seed,
+                data.civilizationWorldgenVersion(),
+                fabricIndex,
+                routeGeometryIndex,
+                wizardTreesIndex,
+                paletteStyles);
+        BY_LEVEL.put(level, published);
+
         long totalMillis = elapsedMillis(startedNanos);
         LivingRealms.LOGGER.info(
-                "Starter worldgen context ready in {} ms "
-                        + "[layout={} ms, settlementTerrain={} ms, routes={} ms, "
-                        + "roadside={} ms, fabricIndex={} ms, wizardTrees={} ms, palettes={} ms, "
-                        + "movedSettlements={}, indexedRouteChunks={}, routeFallbacks={}, "
-                        + "terrainSurfaceColumns={}, terrainGroundColumns={}]",
-                totalMillis, layoutMillis, terrainMillis, routeMillis,
-                roadsideMillis, fabricIndexMillis, wizardMillis, paletteMillis,
-                terrainResolution.movedSettlements(),
-                routeGeometryIndex.indexedChunkCount(),
-                routeGeometryIndex.unresolvedRouteCount(),
-                terrainCache.cachedSurfaceColumns(),
-                terrainCache.cachedGroundColumns());
+                "Starter worldgen context published in {} ms "
+                        + "[settlements={} lazy, routes={} lazy, wizardChunks={}]",
+                totalMillis,
+                fabricIndex.totalSettlementCount(),
+                routeGeometryIndex.totalRouteCount(),
+                wizardTreesIndex.indexedChunkCount());
     }
 
     private static long elapsedMillis(long startedNanos) {
@@ -193,14 +155,18 @@ public final class StarterCivilizationWorldgenContext {
         ServerLevel level = worldGenLevel.getLevel();
         if (level.dimension() != Level.OVERWORLD) return Optional.empty();
         Context context = BY_LEVEL.get(level);
-        if (context == null || context.worldSeed() != worldGenLevel.getSeed()) return Optional.empty();
+        if (context == null || context.worldSeed() != worldGenLevel.getSeed()) {
+            return Optional.empty();
+        }
         return Optional.of(context);
     }
 
     public static Optional<Context> context(ServerLevel level) {
         if (level == null || level.dimension() != Level.OVERWORLD) return Optional.empty();
         Context context = BY_LEVEL.get(level);
-        if (context == null || context.worldSeed() != level.getSeed()) return Optional.empty();
+        if (context == null || context.worldSeed() != level.getSeed()) {
+            return Optional.empty();
+        }
         return Optional.of(context);
     }
 
@@ -208,9 +174,7 @@ public final class StarterCivilizationWorldgenContext {
         return level != null && BY_LEVEL.containsKey(level);
     }
 
-
     public static void clear() {
         BY_LEVEL.clear();
     }
-
 }

@@ -86,6 +86,40 @@ public final class StarterRegionalRoutePlanner {
         return List.copyOf(out);
     }
 
+    /**
+     * Recomputes one route endpoint for a terrain-relocated starter settlement while preserving
+     * the authored route topology and the same SettlementPlanner boundary/gate rules.
+     */
+    public static SimPosition endpointFor(
+            StarterCivilizationLayoutPlanner.RealmPlan realmPlan,
+            StarterCivilizationLayoutPlanner.SettlementPlan settlement,
+            SimPosition target) {
+        Objects.requireNonNull(realmPlan, "realmPlan");
+        Objects.requireNonNull(settlement, "settlement");
+        Objects.requireNonNull(target, "target");
+
+        Faction faction = new Faction(
+                realmPlan.factionId(),
+                realmPlan.definition().displayName(),
+                realmPlan.definition().rulerSeedName());
+        faction.restoreTechnology(realmPlan.definition().technology());
+        faction.restoreTreasury(realmPlan.definition().treasury());
+
+        Settlement requested = null;
+        for (StarterCivilizationLayoutPlanner.SettlementPlan starter : realmPlan.settlements()) {
+            StarterCivilizationLayoutPlanner.SettlementPlan use =
+                    starter.id() == settlement.id() ? settlement : starter;
+            Settlement snapshot = new Settlement(
+                    use.id(), use.name(), use.position(),
+                    use.population(), use.housing(),
+                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO, use.role());
+            faction.addSettlement(snapshot);
+            if (use.id() == settlement.id()) requested = snapshot;
+        }
+        if (requested == null) throw new IllegalArgumentException("settlement is not part of realm");
+        return endpoint(faction, requested, target);
+    }
+
     public static boolean isStarterRouteId(long routeId) {
         return routeId >= STARTER_ROUTE_ID_BASE && routeId < STARTER_ROUTE_ID_LIMIT;
     }
