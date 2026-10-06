@@ -10,6 +10,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -30,6 +32,16 @@ public final class ModWorldgenAttachments {
 
     public static void register(IEventBus modBus) {
         ATTACHMENTS.register(modBus);
+    }
+
+    /** Loaded-chunk lookup only; never force-loads a chunk. */
+    public static AuthoredOwnerType ownerAt(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) return null;
+        var chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+        if (chunk == null) return null;
+        var type = STARTER_FABRIC_PROVENANCE.get();
+        if (!chunk.hasData(type)) return null;
+        return chunk.getData(type).ownerAt(pos.getX(), pos.getY(), pos.getZ());
     }
 
     public static final class ChunkProvenance {
