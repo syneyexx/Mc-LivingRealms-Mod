@@ -1,7 +1,5 @@
 package dev.livingrealms.sim.world;
 
-import dev.livingrealms.sim.content.CultureDefinition;
-import dev.livingrealms.sim.content.CultureDefinitionRegistry;
 import dev.livingrealms.sim.content.RealmDefinition;
 import dev.livingrealms.sim.content.RealmDefinitionLoader;
 import dev.livingrealms.sim.faction.Army;
@@ -148,18 +146,8 @@ public final class SettlementDensitySeeder {
     }
 
     private static void applyCulturePackTraits(SimulationState state, Faction faction, RealmDefinition spec) {
-        if (spec.cultureId() == null || spec.cultureId().isBlank()) return;
-        CultureDefinition culture = CultureDefinitionRegistry.find(spec.cultureId()).orElse(null);
-        if (culture == null) return;
-        var civ = state.ensureFactionCivilization(faction.id());
-        double agrarian = Math.max(0.2, 0.75 - culture.economicTendency() * 0.35);
-        civ.setCultureTraits(
-                culture.economicTendency(),
-                culture.martialTendency(),
-                agrarian,
-                culture.artisticTendency(),
-                0.55,
-                Math.min(1.0, 0.35 + culture.economicTendency() * 0.4));
+        StarterCultureTraits.resolve(spec)
+                .ifPresent(traits -> traits.applyTo(state.ensureFactionCivilization(faction.id())));
     }
 
     private static void provision(Faction faction, int scale) {
