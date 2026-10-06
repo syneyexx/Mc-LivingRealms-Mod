@@ -5,6 +5,7 @@ import dev.livingrealms.sim.construction.ConstructionIntent;
 import dev.livingrealms.sim.construction.StructureBlueprint;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
 import dev.livingrealms.sim.construction.StructureRole;
+import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,21 +41,38 @@ public final class StarterCivilizationFabricIndex {
         }
     }
 
-    public record ChunkSlice(List<SettlementFabric> settlementFabric, List<RouteFabric> routes) {
-        public static final ChunkSlice EMPTY = new ChunkSlice(List.of(), List.of());
+    /** Day-zero CITY+ cardinal core avenues formerly paved over runtime ticks. */
+    public record UrbanCoreFabric(SettlementInitialWorldgenPlan settlement, int radius) {
+        public UrbanCoreFabric {
+            settlement = Objects.requireNonNull(settlement, "settlement");
+            if (radius <= 0) throw new IllegalArgumentException("radius");
+        }
+    }
+
+    public record ChunkSlice(
+            List<SettlementFabric> settlementFabric,
+            List<RouteFabric> routes,
+            List<UrbanCoreFabric> urbanCores
+    ) {
+        public static final ChunkSlice EMPTY = new ChunkSlice(List.of(), List.of(), List.of());
 
         public ChunkSlice {
             settlementFabric = List.copyOf(Objects.requireNonNull(settlementFabric, "settlementFabric"));
             routes = List.copyOf(Objects.requireNonNull(routes, "routes"));
+            urbanCores = List.copyOf(Objects.requireNonNull(urbanCores, "urbanCores"));
         }
 
         public boolean isEmpty() {
-            return settlementFabric.isEmpty() && routes.isEmpty();
+            return settlementFabric.isEmpty() && routes.isEmpty() && urbanCores.isEmpty();
         }
     }
 
-    private record MutableSlice(List<SettlementFabric> settlements, List<RouteFabric> routes) {
-        MutableSlice() { this(new ArrayList<>(), new ArrayList<>()); }
+    private record MutableSlice(
+            List<SettlementFabric> settlements,
+            List<RouteFabric> routes,
+            List<UrbanCoreFabric> urbanCores
+    ) {
+        MutableSlice() { this(new ArrayList<>(), new ArrayList<>(), new ArrayList<>()); }
     }
 
     private final StarterCivilizationLayoutPlanner.Layout layout;
@@ -107,14 +125,24 @@ public final class StarterCivilizationFabricIndex {
             }
         }
 
+        for (SettlementInitialWorldgenPlan settlement : settlements) {
+            if (settlement.tier().ordinal() < Settlement.Tier.CITY.ordinal()) continue;
+            int radius = settlement.tier() == Settlement.Tier.METROPOLIS ? 96 : 72;
+            UrbanCoreFabric fabric = new UrbanCoreFabric(settlement, radius);
+            for (long key : urbanCoreChunks(settlement, radius)) {
+                mutable.computeIfAbsent(key, ignored -> new MutableSlice()).urbanCores().add(fabric);
+            }
+        }
+
         int refs = 0;
         Map<Long, ChunkSlice> frozen = new HashMap<>(mutable.size() * 2);
         for (Map.Entry<Long, MutableSlice> entry : mutable.entrySet()) {
             MutableSlice slice = entry.getValue();
             List<SettlementFabric> settlementRefs = dedupeSettlements(slice.settlements());
             List<RouteFabric> routeRefs = dedupeRoutes(slice.routes());
-            refs += settlementRefs.size() + routeRefs.size();
-            frozen.put(entry.getKey(), new ChunkSlice(settlementRefs, routeRefs));
+            List<UrbanCoreFabric> urbanCoreRefs = dedupeUrbanCores(slice.urbanCores());
+            refs += settlementRefs.size() + routeRefs.size() + urbanCoreRefs.size();
+            frozen.put(entry.getKey(), new ChunkSlice(settlementRefs, routeRefs, urbanCoreRefs));
         }
         return new StarterCivilizationFabricIndex(layout, settlements, routes, frozen, refs);
     }
@@ -136,6 +164,11 @@ public final class StarterCivilizationFabricIndex {
 
     private static List<RouteFabric> dedupeRoutes(List<RouteFabric> input) {
         LinkedHashSet<RouteFabric> set = new LinkedHashSet<>(input);
+        return List.copyOf(set);
+    }
+
+    private static List<UrbanCoreFabric> dedupeUrbanCores(List<UrbanCoreFabric> input) {
+        LinkedHashSet<UrbanCoreFabric> set = new LinkedHashSet<>(input);
         return List.copyOf(set);
     }
 
@@ -205,6 +238,29 @@ public final class StarterCivilizationFabricIndex {
             addChunk(out, x - nx * 4.0, z - nz * 4.0);
         }
         return out;
+    }
+
+    private static Set<Long> urbanCoreChunks(
+            SettlementInitialWorldgenPlan settlement, int radius) {
+        Set<Long> out = new HashSet<>();
+        int cx = (int) Math.round(settlement.center().x());
+        int cz = (int) Math.round(settlement.center().z());
+        addChunkRectangle(out, cx - radius, cz - 1, cx + radius, cz + 1);
+        addChunkRectangle(out, cx - 1, cz - radius, cx + 1, cz + radius);
+        return out;
+    }
+
+    private static void addChunkRectangle(
+            Set<Long> into, int minX, int minZ, int maxX, int maxZ) {
+        int minChunkX = Math.floorDiv(minX, 16);
+        int maxChunkX = Math.floorDiv(maxX, 16);
+        int minChunkZ = Math.floorDiv(minZ, 16);
+        int maxChunkZ = Math.floorDiv(maxZ, 16);
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                into.add(pack(chunkX, chunkZ));
+            }
+        }
     }
 
     private static void addChunk(Set<Long> into, double x, double z) {
