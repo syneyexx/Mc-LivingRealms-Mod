@@ -584,7 +584,7 @@ The attached/current development line uses **save schema 21** (schemas 1–20 re
 
 ## Current development status
 
-CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 15 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 16 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 - 12 surface kingdoms plus Wizard Trees;
 - 204–300 surface starter settlements (17–25 per realm: capital + 10 authored satellites + 6–14 rural hamlets) under role-aware spacing;
