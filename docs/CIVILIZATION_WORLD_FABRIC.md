@@ -51,6 +51,18 @@ Existing anchored worlds are not wholesale relocated to satisfy the fresh-world 
 
 SPECIAL sites use context-specific placement rather than pretending to be ordinary villages. Examples include refugee camps, Wizard Trees, foreign outlying sites, pirate/bandit sites and roadside sites.
 
+## 2b. Civilization gap filling
+
+Minimum spacing is only half of the placement contract. Fresh inhabited realms also prevent accidental empty corridors.
+
+- Every ordinary starter settlement has another true ordinary settlement within roughly **800 blocks**.
+- Each fresh realm receives an inner capital→town anchor in the **650–800** band.
+- Authored villages are distributed across starter towns so one town does not monopolize the local network.
+- Operational ROAD/CARAVAN corridors longer than 450 blocks receive deterministic non-settlement roadside anchors.
+- Roadside anchors target roughly **380-block** spacing and the regression gate requires no ordinary inhabited road-fabric gap above **450 blocks**.
+- Independent roadside sites retain a **160-block** minimum separation, so the result is inhabited countryside rather than continuous development.
+- All corridor reconciliation is canonical/idempotent and bounded; physical roadside blocks still materialize only when their chunks are loaded.
+
 ## 3. Causal world population
 
 Player proximity is not a settlement generator. `SettlementExpansionEngine.ensureNear(...)` is intentionally a no-op.
