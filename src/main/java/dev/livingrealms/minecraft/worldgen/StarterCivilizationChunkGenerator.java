@@ -92,7 +92,7 @@ public final class StarterCivilizationChunkGenerator {
         boolean terrainFollowing = fixed.terrainFollowing();
         int baseY = fixed.baseY();
 
-        if (conflictsWithForeignStructure(writer, intent, fixed, cx, cz)) return 0;
+        if (!canAuthorIntentSlice(writer, intent, fixed, cx, cz)) return 0;
 
         Set<String> doors = new HashSet<>();
         Set<String> beds = new HashSet<>();
@@ -132,34 +132,42 @@ public final class StarterCivilizationChunkGenerator {
 
 
     /**
-     * Fail the whole current-chunk slice before the first write when a known vanilla/modded
-     * structure piece occupies any required cell. This avoids partial LR buildings around a
-     * protected structure while keeping the decision local, deterministic and force-load free.
+     * Fail the whole current-chunk slice before the first write when any required cell is protected.
+     * This covers registered structure pieces, block entities, foreign LR owner classes and unknown
+     * non-natural solids without mutating or loading neighboring chunks.
      */
-    private static boolean conflictsWithForeignStructure(
+    private static boolean canAuthorIntentSlice(
             WorldgenFabricBlockWriter writer,
             ConstructionIntent intent,
             PreparedIntent prepared,
             int cx,
             int cz) {
+        AuthoredOwnerType ownerType = AuthoredOwnerType.forStructureRole(intent.role());
         for (BlockPlacement placement : prepared.blueprint().placements()) {
             int[] rotated = rotate(placement.dx(), placement.dz(), prepared.turns());
             int x = cx + rotated[0], z = cz + rotated[1];
             if (!writer.insideCurrentChunk(x, z)) continue;
             int columnBase = prepared.terrainFollowing() ? writer.terrainY(x, z) : prepared.baseY();
             int y = columnBase + placement.dy();
-            if (writer.isForeignStructurePiece(new BlockPos(x, y, z))) return true;
+            boolean clearing = placement.slot() == PaletteSlot.AIR;
+            if (!writer.canReplaceForWorldgen(
+                    new BlockPos(x, y, z), clearing, ownerType)) {
+                return false;
+            }
 
             if (!prepared.terrainFollowing()
                     && placement.slot() == PaletteSlot.FOUNDATION
                     && placement.dy() == 0) {
                 int ground = writer.terrainY(x, z);
                 for (int fy = ground; fy < prepared.baseY(); fy++) {
-                    if (writer.isForeignStructurePiece(new BlockPos(x, fy, z))) return true;
+                    if (!writer.canReplaceForWorldgen(
+                            new BlockPos(x, fy, z), false, ownerType)) {
+                        return false;
+                    }
                 }
             }
         }
-        return false;
+        return true;
     }
 
     private static int generatePath(
