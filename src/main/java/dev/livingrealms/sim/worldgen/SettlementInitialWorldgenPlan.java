@@ -70,15 +70,58 @@ public record SettlementInitialWorldgenPlan(
             for (int i = 0; i < settlements.size(); i++) {
                 Settlement settlement = settlements.get(i);
                 StarterCivilizationLayoutPlanner.SettlementPlan starter = realmPlan.settlements().get(i);
-                SettlementPlanner.WorldgenPlan physical = SettlementPlanner.planWorldgen(faction, settlement);
-                List<ConstructionIntent> dayZero = new ArrayList<>(physical.intents());
-                dayZero.addAll(PrimaryEconomyPlanner.planStarterBaseline(faction, settlement));
-                out.add(new SettlementInitialWorldgenPlan(
-                        starter.stableKey(), realmPlan.definition().id(), faction.id(), settlement.id(),
-                        settlement.name(), settlement.role(), settlement.tier(), settlement.position(),
-                        physical.architecture(), dayZero));
+                out.add(buildOne(faction, realmPlan, starter, settlement));
             }
         }
         return List.copyOf(out);
+    }
+
+    /**
+     * Derives one settlement's day-zero physical plan without walking every other starter
+     * settlement. Used by chunk-lazy Minecraft worldgen.
+     */
+    public static SettlementInitialWorldgenPlan buildOne(
+            StarterCivilizationLayoutPlanner.RealmPlan realmPlan,
+            StarterCivilizationLayoutPlanner.SettlementPlan starter) {
+        Objects.requireNonNull(realmPlan, "realmPlan");
+        Objects.requireNonNull(starter, "starter");
+        Faction faction = new Faction(
+                realmPlan.factionId(),
+                realmPlan.definition().displayName(),
+                realmPlan.definition().rulerSeedName());
+        faction.restoreTechnology(realmPlan.definition().technology());
+        faction.restoreTreasury(realmPlan.definition().treasury());
+
+        // Preserve the faction context used by buildAll because boundary/culture planning may
+        // inspect sibling settlements, but derive heavy physical intents only for the requested one.
+        Settlement requested = null;
+        for (StarterCivilizationLayoutPlanner.SettlementPlan sibling : realmPlan.settlements()) {
+            StarterCivilizationLayoutPlanner.SettlementPlan materialized =
+                    sibling.id() == starter.id() ? starter : sibling;
+            Settlement settlement = new Settlement(
+                    materialized.id(), materialized.name(), materialized.position(),
+                    materialized.population(), materialized.housing(),
+                    SettlementOrigin.AUTHORED_SEED, false, DevelopmentMode.AUTO, materialized.role());
+            faction.addSettlement(settlement);
+            if (materialized.id() == starter.id()) requested = settlement;
+        }
+        if (requested == null) {
+            throw new IllegalArgumentException("starter settlement is not part of realm");
+        }
+        return buildOne(faction, realmPlan, starter, requested);
+    }
+
+    private static SettlementInitialWorldgenPlan buildOne(
+            Faction faction,
+            StarterCivilizationLayoutPlanner.RealmPlan realmPlan,
+            StarterCivilizationLayoutPlanner.SettlementPlan starter,
+            Settlement settlement) {
+        SettlementPlanner.WorldgenPlan physical = SettlementPlanner.planWorldgen(faction, settlement);
+        List<ConstructionIntent> dayZero = new ArrayList<>(physical.intents());
+        dayZero.addAll(PrimaryEconomyPlanner.planStarterBaseline(faction, settlement));
+        return new SettlementInitialWorldgenPlan(
+                starter.stableKey(), realmPlan.definition().id(), faction.id(), settlement.id(),
+                settlement.name(), settlement.role(), settlement.tier(), settlement.position(),
+                physical.architecture(), dayZero);
     }
 }
