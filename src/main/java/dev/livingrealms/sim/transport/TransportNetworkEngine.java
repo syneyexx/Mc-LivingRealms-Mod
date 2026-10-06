@@ -2,6 +2,7 @@ package dev.livingrealms.sim.transport;
 
 import dev.livingrealms.sim.faction.*;
 import dev.livingrealms.sim.world.*;
+import dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner;
 import java.util.*;
 
 /** Plans and maintains faction infrastructure. Physical road/rail blocks are projections of these routes. */
@@ -60,10 +61,17 @@ public final class TransportNetworkEngine {
         // projection of these hierarchy edges; player position never decides whether an edge exists.
         for(Faction faction:state.factions()){
             Set<RouteKey> existing=new HashSet<>();
-            for(TransportRoute route:state.routes())if(route.ownerFactionId()==faction.id())
+            Set<EndpointKey> starterCovered=new HashSet<>();
+            for(TransportRoute route:state.routes())if(route.ownerFactionId()==faction.id()){
                 existing.add(RouteKey.of(route.fromSettlementId(),route.toSettlementId(),route.mode()));
+                if(StarterRegionalRoutePlanner.isStarterRouteId(route.id()))
+                    starterCovered.add(EndpointKey.of(route.fromSettlementId(),route.toSettlementId()));
+            }
 
             for(RegionalSettlementGraph.Edge edge:RegionalSettlementGraph.plan(faction)){
+                // Fresh-world starter edges are already canonical and physically authored by worldgen.
+                // Do not invent a second ROAD/CARAVAN/RAIL mode for the same immutable day-zero edge.
+                if(starterCovered.contains(EndpointKey.of(edge.fromSettlementId(),edge.toSettlementId())))continue;
                 Settlement a=state.findSettlement(edge.fromSettlementId()).orElse(null);
                 Settlement b=state.findSettlement(edge.toSettlementId()).orElse(null);
                 if(a==null||b==null)continue;
@@ -159,6 +167,9 @@ public final class TransportNetworkEngine {
         return settlement.role()==SettlementRole.CAPITAL
                 ||settlement.role()==SettlementRole.CITY
                 ||settlement.role()==SettlementRole.TOWN;
+    }
+    private record EndpointKey(long low,long high){
+        static EndpointKey of(long a,long b){return a<b?new EndpointKey(a,b):new EndpointKey(b,a);}
     }
     private record RouteKey(long low,long high,TransportMode mode){
         static RouteKey of(long a,long b,TransportMode mode){return a<b?new RouteKey(a,b,mode):new RouteKey(b,a,mode);}

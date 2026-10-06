@@ -1,7 +1,8 @@
 package dev.livingrealms.sim.world;
 
 import dev.livingrealms.sim.ecology.*;
-import dev.livingrealms.sim.transport.TransportNetworkEngine;
+import dev.livingrealms.sim.worldgen.StarterRegionalRouteBootstrap;
+import dev.livingrealms.sim.worldgen.StarterRoadsideSiteBootstrap;
 
 public final class DemoSeeder {
     private DemoSeeder(){}
@@ -25,13 +26,13 @@ public final class DemoSeeder {
         // Seed deterministic capital→town→village→hamlet civilization fabric for a fresh world.
         SettlementDensitySeeder.ensureStarterDensity(s);
         // Canonical starter road graph must exist before generated chunks begin projecting road fabric.
-        new TransportNetworkEngine().ensureRoutes(s);
+        StarterRegionalRouteBootstrap.ensure(s);
         WizardTreesSeeder.ensure(s);
         s.history().add(new WorldEvent(0,"world_created","Living Realms simulation initialized."));
         s.ensureNamedRosters();
-        // Seed deterministic roadside anchors after all established starter identities so the
-        // existing canonical starter IDs remain stable; block fabric is still chunk-driven later.
-        RoadLifeEngine.ensureCorridorSites(s);
+        // Day-zero corridor anchors use stable route-derived IDs shared with true worldgen.
+        // Later emergent roadside sites remain owned by RoadLifeEngine.
+        StarterRoadsideSiteBootstrap.ensure(s);
     }
 
     private static void addIfPresent(SimulationState state,EcosystemRegion region,String speciesId,SimPosition position,double population){

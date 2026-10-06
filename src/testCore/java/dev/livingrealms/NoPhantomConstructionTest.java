@@ -1,6 +1,7 @@
 package dev.livingrealms;
 
 import dev.livingrealms.sim.construction.ForeignSettlementAdoption;
+import dev.livingrealms.sim.construction.SettlementConstructionPolicy;
 import dev.livingrealms.sim.faction.ConstructionOrigin;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.ResourceType;
@@ -15,6 +16,7 @@ public final class NoPhantomConstructionTest {
 
     public static void main(String[] args) {
         seederWritesNoKeys();
+        freshStarterBootstrapDayIsRuntimeQuiet();
         foreignAdoptedDoesNotProduceGrain();
         System.out.println("PASS no phantom construction: densifier empty + FOREIGN_ADOPTED non-productive");
     }
@@ -31,6 +33,24 @@ public final class NoPhantomConstructionTest {
                 }
             }
         }
+    }
+
+
+    private static void freshStarterBootstrapDayIsRuntimeQuiet() {
+        Settlement starter = new Settlement(9001, "Starter", new SimPosition(0, 0), 300, 320);
+        starter.markPhysicallyAnchored();
+        check(!SettlementConstructionPolicy.allowsRuntimeConstruction(starter, true, 0),
+                "true-worldgen authored starter must be runtime-quiet on day zero");
+        check(SettlementConstructionPolicy.allowsRuntimeConstruction(starter, true, 1),
+                "authored starter must re-enter runtime construction after day zero");
+
+        Settlement playerFounded = new Settlement(
+                9002, "Player Town", new SimPosition(100, 0), 20, 24,
+                dev.livingrealms.sim.faction.SettlementOrigin.PLAYER_FOUNDED,
+                true,
+                dev.livingrealms.sim.faction.DevelopmentMode.AUTO);
+        check(SettlementConstructionPolicy.allowsRuntimeConstruction(playerFounded, true, 0),
+                "player-founded settlement must not be blocked by starter day-zero gate");
     }
 
     private static void foreignAdoptedDoesNotProduceGrain() {

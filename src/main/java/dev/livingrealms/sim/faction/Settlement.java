@@ -91,6 +91,17 @@ public final class Settlement {
         if(physicallyAnchored)throw new IllegalStateException("anchored settlement cannot relocate: "+name+" ("+id+")");
         position=java.util.Objects.requireNonNull(value,"position");
     }
+    /**
+     * Fresh-world bootstrap hook: terrain-resolved starter worldgen may align an AUTHORED_SEED
+     * position after WORLDGEN receipts were predeclared, but never after runtime materialization.
+     */
+    public void alignStarterWorldgenPosition(SimPosition value){
+        if(origin!=SettlementOrigin.AUTHORED_SEED)
+            throw new IllegalStateException("non-starter settlement cannot worldgen-align: "+name+" ("+id+")");
+        if(constructionOrigins.values().stream().anyMatch(v->v!=ConstructionOrigin.WORLDGEN))
+            throw new IllegalStateException("materialized settlement cannot worldgen-align: "+name+" ("+id+")");
+        position=java.util.Objects.requireNonNull(value,"position");
+    }
     private static boolean alwaysAnchored(SettlementOrigin origin){
         return origin==SettlementOrigin.PLAYER_FOUNDED
                 ||origin==SettlementOrigin.FOREIGN_ADOPTED

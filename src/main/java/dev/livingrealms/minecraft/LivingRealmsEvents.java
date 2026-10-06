@@ -47,6 +47,8 @@ import dev.livingrealms.minecraft.construction.SettlementConstructionMaterialize
 import dev.livingrealms.minecraft.construction.TransportNetworkMaterializer;
 import dev.livingrealms.minecraft.construction.CivilizationFabricChunkQueue;
 import dev.livingrealms.minecraft.construction.SettlementGeographyDiscoveryRuntime;
+import dev.livingrealms.minecraft.worldgen.StarterCivilizationWorldgenContext;
+import dev.livingrealms.minecraft.worldgen.ModWorldgenAttachments;
 import dev.livingrealms.minecraft.ForeignStructureDiscoveryRuntime;
 import dev.livingrealms.minecraft.construction.HistoricalSiteMaterializer;
 import dev.livingrealms.minecraft.construction.IndustrialSiteMaterializer;
@@ -70,6 +72,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
+import net.neoforged.neoforge.event.level.LevelEvent;
 import net.minecraft.world.level.Level;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.npc.AbstractVillager;
@@ -82,6 +85,12 @@ public final class LivingRealmsEvents {
     @SubscribeEvent
     public void onServerTick(ServerTickEvent.Post event) {
         runtimeScheduler.tick(event.getServer());
+    }
+
+    @SubscribeEvent
+    public void onLevelLoad(LevelEvent.Load event) {
+        if (!(event.getLevel() instanceof ServerLevel level) || level.dimension() != Level.OVERWORLD) return;
+        StarterCivilizationWorldgenContext.activate(level, SimulationRuntime.data(level.getServer()));
     }
 
     @SubscribeEvent
@@ -142,8 +151,14 @@ public final class LivingRealmsEvents {
         if(HiddenCacheRuntime.broken(player,event.getPos())){event.setCanceled(true);return;}
         if(PirateHideoutRuntime.blockBroken(player,event.getPos()))return;
         HistoricalSiteRuntime.ruinBlockBroken(player,event.getPos());
+        var data=SimulationRuntime.data(level.getServer());
+        ModWorldgenAttachments.forgetAt(level, event.getPos());
+        if (data.authoredBlocks().forget(
+                event.getPos().getX(), event.getPos().getY(), event.getPos().getZ())) {
+            data.setDirty();
+        }
         PlayerStructureRevalidationRuntime.onBlockChanged(level, event.getPos());
-        var data=SimulationRuntime.data(level.getServer());var state=data.state();double x=event.getPos().getX()+.5,z=event.getPos().getZ()+.5;
+        var state=data.state();double x=event.getPos().getX()+.5,z=event.getPos().getZ()+.5;
         IndustrySitePlanner.Site nearest=null;double best=7.0D*7.0D;
         for(var faction:state.factions())for(IndustrySitePlanner.Site site:IndustrySitePlanner.plan(faction)){double dx=site.center().x()-x,dz=site.center().z()-z,d=dx*dx+dz*dz;if(d<best){best=d;nearest=site;}}
         if(nearest==null)return;
@@ -156,6 +171,14 @@ public final class LivingRealmsEvents {
     @SubscribeEvent
     public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
+        if (event.getEntity() instanceof ServerPlayer) {
+            var data = SimulationRuntime.data(level.getServer());
+            ModWorldgenAttachments.forgetAt(level, event.getPos());
+            if (data.authoredBlocks().forget(
+                    event.getPos().getX(), event.getPos().getY(), event.getPos().getZ())) {
+                data.setDirty();
+            }
+        }
         PlayerStructureRevalidationRuntime.onBlockChanged(level, event.getPos());
     }
 
@@ -199,6 +222,7 @@ public final class LivingRealmsEvents {
         CivicChoreographyRuntime.clear();
         SeasonalFarmPresentationRuntime.clear();
         ForeignStructureDiscoveryRuntime.clear();
+        StarterCivilizationWorldgenContext.clear();
         dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.clear();
         SimulationRuntime.data(event.getServer()).dayAdvanceScheduler().clear();
         runtimeScheduler.reset();

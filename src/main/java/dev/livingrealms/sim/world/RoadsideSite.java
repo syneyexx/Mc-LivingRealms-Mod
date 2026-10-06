@@ -54,6 +54,14 @@ public final class RoadsideSite {
     public void repair() { lifecycle = Lifecycle.REPAIRED; active = true; }
     public void deactivate() { active = false; }
 
+    /** Main-thread deterministic alignment hook for starter corridor/worldgen reconciliation. */
+    public void relocate(SimPosition position) {
+        SimPosition next = Objects.requireNonNull(position, "position");
+        boolean defaultNamed = name.equals(defaultName(type, this.position));
+        this.position = next;
+        if (defaultNamed) this.name = defaultName(type, next);
+    }
+
     public void restore(Lifecycle lifecycle, boolean active) {
         this.lifecycle = Objects.requireNonNull(lifecycle, "lifecycle");
         this.active = active;

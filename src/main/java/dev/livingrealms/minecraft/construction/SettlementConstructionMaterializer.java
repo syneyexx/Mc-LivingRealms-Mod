@@ -176,7 +176,8 @@ public final class SettlementConstructionMaterializer {
         java.util.List<Settlement> candidates=new java.util.ArrayList<>();
         java.util.Map<Long,Faction> owners=new HashMap<>();
         for(Faction faction:factions) for(Settlement settlement:faction.settlements()) {
-            if(!SettlementConstructionPolicy.allowsAutomaticCoreFabric(settlement)) continue;
+            if(!SettlementConstructionPolicy.allowsRuntimeConstruction(
+                    settlement,data.starterWorldgenEnabled(),day)) continue;
             candidates.add(settlement);
             owners.put(settlement.id(),faction);
         }

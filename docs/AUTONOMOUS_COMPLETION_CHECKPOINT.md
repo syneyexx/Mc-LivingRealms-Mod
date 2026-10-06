@@ -1,6 +1,6 @@
 # Living Realms Autonomous Completion Checkpoint
 
-CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 16 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 17 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 **Branch:** `cursor/release-ready-100-8c2e`
 

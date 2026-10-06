@@ -1,6 +1,6 @@
 # Living Realms delivery roadmap
 
-CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 16 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 18 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 ## Product scope
 - [x] Offline singleplayer only; integrated server authoritative.

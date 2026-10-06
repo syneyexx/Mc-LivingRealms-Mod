@@ -6,6 +6,8 @@ import dev.livingrealms.minecraft.compat.ModCompatibilityRuntime;
 import dev.livingrealms.minecraft.compat.create.CreateIndustryAdapter;
 import dev.livingrealms.minecraft.compat.npc.CivilianNpcAdapter;
 import dev.livingrealms.minecraft.entity.ModEntities;
+import dev.livingrealms.minecraft.worldgen.ModWorldgenFeatures;
+import dev.livingrealms.minecraft.worldgen.ModWorldgenAttachments;
 import dev.livingrealms.minecraft.network.LivingRealmsNetwork;
 import dev.livingrealms.sim.compat.adapter.DefaultApiProviders;
 import net.neoforged.bus.api.IEventBus;
@@ -29,6 +31,8 @@ public final class LivingRealms {
         LivingRealmsApi.installMagicAdapter(id -> id != null && (
                 id.contains("spell") || id.contains("staff") || id.contains("wand") || id.contains("tome")));
         ModEntities.register(modBus);
+        ModWorldgenFeatures.register(modBus);
+        ModWorldgenAttachments.register(modBus);
         LivingRealmsNetwork.register(modBus);
         NeoForge.EVENT_BUS.register(new LivingRealmsEvents());
         ModCompatibilityRuntime.logDetectedPack();

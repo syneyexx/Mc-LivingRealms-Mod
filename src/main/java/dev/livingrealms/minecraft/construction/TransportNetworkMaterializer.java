@@ -8,6 +8,7 @@ import dev.livingrealms.sim.construction.PaletteSlot;
 import dev.livingrealms.sim.construction.SettlementPlanner;
 import dev.livingrealms.sim.transport.*;
 import dev.livingrealms.sim.world.SimPosition;
+import dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -39,6 +40,7 @@ public final class TransportNetworkMaterializer {
             for(TransportRoute route:data.state().routes()){
                 if(remaining<=0)break;
                 if(!physicalLandRoute(route))continue;
+                if(data.starterWorldgenEnabled() && StarterRegionalRoutePlanner.isStarterRouteId(route.id())) continue;
                 var from=data.state().findSettlement(route.fromSettlementId()).orElse(null);
                 var to=data.state().findSettlement(route.toSettlementId()).orElse(null);
                 if(from==null||to==null)continue;
@@ -66,6 +68,7 @@ public final class TransportNetworkMaterializer {
                 TransportRoute route=routes.get(Math.floorMod(routeCursor+n,routes.size()));
                 scanned++;
                 if(!physicalLandRoute(route))continue;
+                if(data.starterWorldgenEnabled() && StarterRegionalRoutePlanner.isStarterRouteId(route.id())) continue;
                 var from=data.state().findSettlement(route.fromSettlementId()).orElse(null);
                 var to=data.state().findSettlement(route.toSettlementId()).orElse(null);
                 if(from==null||to==null)continue;

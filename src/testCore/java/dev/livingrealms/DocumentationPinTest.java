@@ -49,7 +49,7 @@ public final class DocumentationPinTest {
         check(minSchema == 1, "expected MIN_SUPPORTED_SCHEMA 1, got " + minSchema);
         check(protocol == 20, "expected PROTOCOL_VERSION 20, got " + protocol);
         check("16".equals(network), "expected NETWORK_VERSION 16, got " + network);
-        check(contentRevision == 16, "expected CONTENT_REVISION 16, got " + contentRevision);
+        check(contentRevision == 18, "expected CONTENT_REVISION 18, got " + contentRevision);
         check(authoredSatellites == 10, "expected 10 authored satellites/realm, got " + authoredSatellites);
         check(minRuralHamlets == 6 && maxRuralHamlets == 14,
                 "expected 6-14 rural hamlets/realm, got " + minRuralHamlets + "-" + maxRuralHamlets);

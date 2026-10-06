@@ -4,6 +4,7 @@ import dev.livingrealms.sim.faction.DevelopmentMode;
 import dev.livingrealms.sim.faction.DevelopmentModeGuard;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
+import dev.livingrealms.sim.faction.SettlementOrigin;
 import dev.livingrealms.sim.world.SimPosition;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -81,6 +82,29 @@ final class SettlementHousingPlanner {
             addAtParcel(out, faction, settlement, StructureRole.HOUSE, i, parcel, w, d, face, 88);
             emitted++;
         }
+        // Fresh authored settlements must satisfy their tier's recognizable core without inventing
+        // a countryside grid. Building-template footprints can be larger than the frontage parcels
+        // that a sparse HAMLET graph provides; in that case reserve compact culture-minimum homes
+        // on the already-valid remaining parcels. These use an isolated high key range so existing
+        // demand-slot house identities never move or renumber.
+        if (settlement.origin() == SettlementOrigin.AUTHORED_SEED) {
+            int coreMinimum = SettlementCoreCompleteness.contract(settlement.tier()).minHouses();
+            int compactW = Math.max(9, culture.minHouseWidth());
+            int compactD = Math.max(9, culture.minHouseDepth());
+            for (int pi = 0; pi < remaining.size() && emitted < coreMinimum; ) {
+                SettlementParcelPlanner.ParcelPlan parcel = remaining.get(pi);
+                if (parcel.width() < compactW || parcel.depth() < compactD) {
+                    pi++;
+                    continue;
+                }
+                remaining.remove(pi);
+                int stableHouseIndex = 10_000 + parcelOrdinal(parcel.id());
+                addAtParcel(out, faction, settlement, StructureRole.HOUSE, stableHouseIndex, parcel,
+                        compactW, compactD, parcel.orientationQuarterTurns(), 87);
+                emitted++;
+            }
+        }
+
         // Road-first invariant: never spiral-place houses off the street graph.
         // Remaining demand extends side streets / lanes, then fills new frontage parcels.
         // CAMP/HAMLET keep a sparse countryside path — do not grid-extend them.
@@ -188,14 +212,12 @@ final class SettlementHousingPlanner {
                 .map(SettlementStreetGraph.RoadSegment::key)
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
 
-        int alreadyHouses = (int) out.stream().filter(i -> i.role() == StructureRole.HOUSE).count();
-        // Parcel planning is priority-ordered. Existing arterials and gate approaches can exhaust a
-        // demand-sized candidate cap before the intentionally lower-priority housing lanes are visited.
-        // Search deeper, but keep emission itself bounded by `deficit` below.
-        int parcelSearchBudget = Math.min(2048,
-                alreadyHouses + deficit + additions.size() * 16);
+        // Plan the complete bounded parcel catalog across both old and new streets. Existing/base
+        // frontage then reserves its collision space before extension parcels are chosen, so a
+        // fallback house cannot disappear later when higher housing demand reveals more base lots.
+        // A demand-sized cap was the original bug: it could stop before lower-priority housing lanes.
         List<SettlementParcelPlanner.ParcelPlan> extraParcels = new ArrayList<>(
-                SettlementParcelPlanner.plan(extended, faction, settlement, parcelSearchBudget));
+                SettlementParcelPlanner.plan(extended, faction, settlement, 2048));
         List<SimPosition> occupied = new ArrayList<>(out.stream()
                 .filter(i -> i.role() == StructureRole.HOUSE)
                 .map(ConstructionIntent::center)
@@ -205,8 +227,7 @@ final class SettlementHousingPlanner {
         int d = Math.max(9, culture.minHouseDepth());
         for (SettlementParcelPlanner.ParcelPlan parcel : extraParcels) {
             if (placed >= deficit) break;
-            // Fallback houses belong only to the graph lanes created for the shortage. Reusing
-            // base-street parcels would let later ordinary demand steal them and move house keys.
+            // Fallback houses belong only to the graph lanes created for the shortage.
             if (!extensionRoadKeys.contains(parcel.frontageSegmentKey())) continue;
             if (parcel.width() < w || parcel.depth() < d) continue;
             boolean clash = false;

@@ -13,6 +13,11 @@ public final class SpawnKingdomRuntime {
     private SpawnKingdomRuntime(){}
 
     public static void ensure(ServerLevel level,LivingRealmsSavedData data){
+        if (data.starterWorldgenEnabled()) {
+            // Fresh saves already have one deterministic day-zero surface authority: true chunk
+            // worldgen. Never promote/create a spawn settlement afterward and trigger visible catchup.
+            return;
+        }
         var spawn=level.getSharedSpawnPos();SimPosition p=new SimPosition(spawn.getX(),spawn.getZ());
         Settlement nearest=null;Faction nearestOwner=null;double best=Double.POSITIVE_INFINITY;
         for(Faction faction:data.state().factions())for(Settlement settlement:faction.settlements()){

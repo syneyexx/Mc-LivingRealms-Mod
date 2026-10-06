@@ -34,6 +34,17 @@ public final class ContentMigrationPolicy {
         return contentRevision < 16;
     }
 
+    /**
+     * Revision 18: only saves that already opted into true civilization worldgen receive the
+     * Wizard Trees day-zero completion receipts. Version-0 legacy saves remain runtime-authored.
+     */
+    public static boolean shouldAdoptWizardWorldgenReceipts(
+            int contentRevision, int worldgenVersion, int currentWorldgenVersion) {
+        return contentRevision < 18
+                && currentWorldgenVersion > 0
+                && worldgenVersion == currentWorldgenVersion;
+    }
+
     /** Legacy pre-checksum payload path when integrity token is absent. */
     public static boolean isLegacyIntegrityPath(long expectedIntegrity) {
         return expectedIntegrity == 0L;

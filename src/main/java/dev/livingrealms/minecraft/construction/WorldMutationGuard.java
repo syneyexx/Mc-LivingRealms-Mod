@@ -1,5 +1,6 @@
 package dev.livingrealms.minecraft.construction;
 
+import dev.livingrealms.minecraft.worldgen.ModWorldgenAttachments;
 import dev.livingrealms.sim.construction.AuthoredBlockLedger;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import net.minecraft.core.BlockPos;
@@ -41,20 +42,17 @@ public final class WorldMutationGuard {
 
     public static Classification classify(ServerLevel level, BlockPos pos, BlockState state, AuthoredBlockLedger ledger, AuthoredOwnerType requestedOwner) {
         if (state == null) return Classification.UNKNOWN_STRUCTURE;
+        // Block entities always win over historical provenance: a player/mod machine or container
+        // placed later must never be bulldozed merely because this coordinate was once LR-authored.
+        if (state.hasBlockEntity()) return Classification.BLOCK_ENTITY;
+
+        AuthoredOwnerType existing = authoredOwner(level, pos, ledger);
+        if (existing != null) {
+            return AuthoredOwnerType.allowsOverwrite(existing, requestedOwner)
+                    ? Classification.AUTHORED_COMPATIBLE
+                    : Classification.AUTHORED_FOREIGN_OWNER;
+        }
         if (state.isAir() || state.canBeReplaced()) return Classification.AIR_OR_REPLACEABLE;
-        if (state.hasBlockEntity()) {
-            AuthoredOwnerType existing = ledger == null ? null : ledger.ownerType(pos.getX(), pos.getY(), pos.getZ());
-            if (existing != null && AuthoredOwnerType.allowsOverwrite(existing, requestedOwner)) return Classification.AUTHORED_COMPATIBLE;
-            return Classification.BLOCK_ENTITY;
-        }
-        if (ledger != null) {
-            AuthoredOwnerType existing = ledger.ownerType(pos.getX(), pos.getY(), pos.getZ());
-            if (existing != null) {
-                return AuthoredOwnerType.allowsOverwrite(existing, requestedOwner)
-                        ? Classification.AUTHORED_COMPATIBLE
-                        : Classification.AUTHORED_FOREIGN_OWNER;
-            }
-        }
         if (state.is(BlockTags.LEAVES) || state.is(Blocks.VINE) || state.is(Blocks.SNOW) || state.is(Blocks.CACTUS)
                 || state.is(Blocks.BAMBOO) || state.is(Blocks.BAMBOO_SAPLING)) {
             return Classification.NATURAL_LEAVES;
@@ -112,6 +110,9 @@ public final class WorldMutationGuard {
     ) {
         if (level == null || pos == null || target == null || ledger == null || owner == null) return false;
         if (!level.hasChunkAt(pos)) return false;
+        AuthoredOwnerType chunkOwner = ModWorldgenAttachments.ownerAt(level, pos);
+        boolean chunkAlreadyOwns = chunkOwner != null
+                && AuthoredOwnerType.allowsOverwrite(chunkOwner, owner);
         BlockState current = level.getBlockState(pos);
         if (current.equals(target)) {
             // Geometry satisfied by an existing block — do NOT adopt unknown provenance.
@@ -119,14 +120,27 @@ public final class WorldMutationGuard {
         }
         Decision decision = evaluateReplace(level, pos, current, ledger, owner, allowNaturalTerrain, allowNaturalTreeLogs);
         if (!decision.mayMutate()) return false;
-        if (!ledger.canRecord(pos.getX(), pos.getY(), pos.getZ())) return false;
+        // Worldgen provenance is already persisted on the chunk, so repair of that same owner does
+        // not depend on capacity in the legacy/runtime SavedData ledger.
+        if (!chunkAlreadyOwns && !ledger.canRecord(pos.getX(), pos.getY(), pos.getZ())) return false;
         BlockState previous = current;
         if (!level.setBlock(pos, target, Block.UPDATE_ALL | Block.UPDATE_SUPPRESS_DROPS)) return false;
-        if (!ledger.record(pos.getX(), pos.getY(), pos.getZ(), owner)) {
+        if (!chunkAlreadyOwns && !ledger.record(pos.getX(), pos.getY(), pos.getZ(), owner)) {
             level.setBlock(pos, previous, Block.UPDATE_ALL | Block.UPDATE_SUPPRESS_DROPS);
             return false;
         }
         return true;
+    }
+
+    /** Runtime/legacy ledger wins; otherwise consult persistent chunk-local starter provenance. */
+    public static AuthoredOwnerType authoredOwner(
+            ServerLevel level, BlockPos pos, AuthoredBlockLedger ledger) {
+        if (pos == null) return null;
+        if (ledger != null) {
+            AuthoredOwnerType owner = ledger.ownerType(pos.getX(), pos.getY(), pos.getZ());
+            if (owner != null) return owner;
+        }
+        return ModWorldgenAttachments.ownerAt(level, pos);
     }
 
     public static boolean isNaturalTerrain(BlockState state) {

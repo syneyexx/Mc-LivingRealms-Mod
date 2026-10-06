@@ -24,12 +24,31 @@ import java.util.Optional;
 public final class SettlementPlanner {
     private SettlementPlanner() {}
 
+    public record WorldgenPlan(List<ConstructionIntent> intents, CultureArchitecture architecture) {
+        public WorldgenPlan {
+            intents = List.copyOf(Objects.requireNonNull(intents, "intents"));
+            architecture = Objects.requireNonNull(architecture, "architecture");
+        }
+    }
+
     public static List<ConstructionIntent> plan(Faction faction, Settlement settlement) {
+        return planInternal(faction, settlement, true).intents();
+    }
+
+    /**
+     * Side-effect-free settlement plan for world-generation workers.
+     * Runtime architecture bindings are intentionally not mutated.
+     */
+    public static WorldgenPlan planWorldgen(Faction faction, Settlement settlement) {
+        return planInternal(faction, settlement, false);
+    }
+
+    private static WorldgenPlan planInternal(Faction faction, Settlement settlement, boolean bindRuntimeArchitecture) {
         Objects.requireNonNull(faction, "faction");
         Objects.requireNonNull(settlement, "settlement");
         SettlementMorphology morph = SettlementMorphology.derive(faction, settlement);
         CultureArchitectureProfile cultureProfile = CultureArchitectureProfile.derive(faction, settlement);
-        CultureArchitectureProfile.bind(settlement.id(), cultureProfile.architecture());
+        if (bindRuntimeArchitecture) CultureArchitectureProfile.bind(settlement.id(), cultureProfile.architecture());
         List<ConstructionIntent> out = new ArrayList<>();
         int tier = settlement.tier().ordinal();
         int baseRotation = Math.floorMod((int) mix(settlement.id() ^ 0x4F1BBCDCBFA54001L), 2);
@@ -112,7 +131,7 @@ public final class SettlementPlanner {
         out.replaceAll(intent -> intent.withPriority(
                 adjustPriority(settlement.developmentPriority(), intent.role(), intent.priority())));
         out.sort(Comparator.comparingInt(ConstructionIntent::priority).reversed().thenComparing(ConstructionIntent::key));
-        return List.copyOf(out);
+        return new WorldgenPlan(out, cultureProfile.architecture());
     }
 
     /** Deterministic CITY+ boundary view for transport/world projection. */

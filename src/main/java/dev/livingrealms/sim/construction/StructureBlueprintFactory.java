@@ -124,7 +124,10 @@ public final class StructureBlueprintFactory {
     }
 
     private static StructureBlueprint house(ConstructionIntent intent) {
-        CultureArchitecture culture=CultureArchitectureProfile.forIntent(intent);
+        return house(intent, CultureArchitectureProfile.forIntent(intent));
+    }
+
+    private static StructureBlueprint house(ConstructionIntent intent, CultureArchitecture culture) {
         int w=Math.max(intent.width(),culture.minHouseWidth());
         int d=Math.max(intent.depth(),culture.minHouseDepth());
         if(w>=13&&d>=13)return mansion(w,d);
@@ -145,17 +148,14 @@ public final class StructureBlueprintFactory {
         };
     }
 
-    /** Explicit culture override for planners/tests that already resolved a profile. */
+    /**
+     * Explicit culture override for immutable/worldgen plans.
+     * This path deliberately does not publish to the runtime settlement-binding cache.
+     */
     public static StructureBlueprint create(ConstructionIntent intent, CultureArchitecture culture) {
         Objects.requireNonNull(intent, "intent");
         Objects.requireNonNull(culture, "culture");
-        if (intent.role() != StructureRole.HOUSE) return create(intent);
-        CultureArchitectureProfile.bind(intent.settlementId(), culture);
-        try {
-            return house(intent);
-        } finally {
-            // leave binding for subsequent same-settlement jobs
-        }
+        return intent.role() == StructureRole.HOUSE ? house(intent, culture) : create(intent);
     }
 
     /** Inner courtyard cottage — denser cultural variety inspired by compact village compounds. */

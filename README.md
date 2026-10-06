@@ -1,6 +1,6 @@
 # Living Realms
 
-CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 16 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 17 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 **Living Realms is a simulation-first civilization, society and ecosystem overhaul for Minecraft 1.21.1 on NeoForge.**
 
@@ -31,7 +31,7 @@ You should be able to leave a town, travel for a while and encounter signs of an
 - refugees moving away from war, hunger or disease;
 - monuments and ruins that refer to events that genuinely happened.
 
-A settlement shown on the world map should correspond to a real settlement in the world once that area is physically materialized. A kingdom should not just be a colored circle: it should have a capital, settlements, roads, resources, population, guards, trade and history.
+A starter settlement shown on the world map corresponds to deterministic physical fabric authored as its chunks generate. A kingdom is not just a colored circle: its generated chunks already contain capitals, settlements, roads, baseline resources and infrastructure; entities and later historical changes remain runtime projections.
 
 ---
 
@@ -377,10 +377,11 @@ Key rules:
 - do not blindly overwrite foreign block entities or machines;
 - do not treat player builds as generic natural resources;
 - adopt compatible existing villages/structures instead of erasing them;
-- build only in loaded/approved areas;
+- author deterministic day-zero starter fabric only in chunks Minecraft is already generating;
+- never force-load the civilization map;
 - keep strategic simulation independent from chunk loading;
-- use terrain-aware construction;
-- keep physical projection bounded.
+- reserve loaded-chunk runtime construction for later simulation-driven changes;
+- use terrain-aware construction and bounded entity projection.
 
 This allows Living Realms to coexist with biome/worldgen stacks such as **Regions Unexplored, Biomes O' Plenty, Terralith, TerraBlender and Lithostitched**.
 
@@ -551,8 +552,8 @@ The project uses:
 - bounded representative citizens;
 - bounded wildlife projection;
 - projection identity/reconciliation;
-- construction budgets;
-- loaded-chunk-only physical work;
+- construction budgets for post-worldgen growth/evolution;
+- true-worldgen starter fabric plus loaded-chunk-only later physical work;
 - deterministic strategic simulation;
 - bounded memories/rumors/history;
 - no forced global chunk loading for simulation.
@@ -584,12 +585,12 @@ The attached/current development line uses **save schema 21** (schemas 1–20 re
 
 ## Current development status
 
-CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 16 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 18 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 - 12 surface kingdoms plus Wizard Trees;
 - 204–300 surface starter settlements (17–25 per realm: capital + 10 authored satellites + 6–14 rural hamlets) under role-aware spacing;
 - persistent named roster per settlement; aggregate population for demographic scale;
-- goods chain without FOOD mill fountain; construction keys only via materializer / FOREIGN_ADOPTED;
+- goods chain without FOOD mill fountain; day-zero starter keys use WORLDGEN receipts, later changes use runtime materialization / FOREIGN_ADOPTED;
 - SettlementTransfer on capture/rebellion; capital war targets; tokenized dialogue;
 - settlement streets, sidewalks, denser housing, Waystones, F12/M/K, 134-species ecology;
 - long deterministic soak and migration gates.

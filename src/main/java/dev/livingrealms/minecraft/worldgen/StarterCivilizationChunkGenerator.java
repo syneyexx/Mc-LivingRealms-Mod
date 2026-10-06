@@ -1,0 +1,422 @@
+package dev.livingrealms.minecraft.worldgen;
+
+import dev.livingrealms.minecraft.construction.RoadsideSiteTemplate;
+import dev.livingrealms.sim.construction.BlockPlacement;
+import dev.livingrealms.sim.construction.AuthoredOwnerType;
+import dev.livingrealms.sim.construction.ConstructionIntent;
+import dev.livingrealms.sim.construction.PaletteSlot;
+import dev.livingrealms.sim.construction.StructureBlueprint;
+import dev.livingrealms.sim.construction.StructureRole;
+import dev.livingrealms.sim.transport.RouteProjectionPlanner;
+import dev.livingrealms.sim.world.SimPosition;
+import dev.livingrealms.sim.worldgen.SettlementInitialWorldgenPlan;
+import dev.livingrealms.sim.worldgen.StarterCivilizationFabricIndex;
+import dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BedPart;
+
+/** Generates only the deterministic starter-fabric slice intersecting one Minecraft chunk. */
+public final class StarterCivilizationChunkGenerator {
+    private record PreparedIntent(
+            StructureBlueprint blueprint,
+            int turns,
+            boolean terrainFollowing,
+            int baseY
+    ) {}
+
+    private StarterCivilizationChunkGenerator() {}
+
+    public static int generate(
+            WorldgenFabricBlockWriter writer,
+            StarterCivilizationFabricIndex.ChunkSlice slice,
+            int chunkX,
+            int chunkZ) {
+        return generate(
+                writer, slice, StarterRegionalRouteGeometryIndex.ChunkSlice.EMPTY, chunkX, chunkZ);
+    }
+
+    public static int generate(
+            WorldgenFabricBlockWriter writer,
+            StarterCivilizationFabricIndex.ChunkSlice slice,
+            StarterRegionalRouteGeometryIndex.ChunkSlice routeSlice,
+            int chunkX,
+            int chunkZ) {
+        // Compute every fixed structure base before the first LR write. This keeps cross-chunk
+        // pieces and neighboring intents anchored to the same pre-existing terrain rather than to
+        // geometry emitted earlier in this feature invocation.
+        Map<StarterCivilizationFabricIndex.SettlementFabric, PreparedIntent> prepared = new HashMap<>();
+        for (StarterCivilizationFabricIndex.SettlementFabric fabric : slice.settlementFabric()) {
+            ConstructionIntent intent = fabric.intent();
+            if (intent.role() == StructureRole.ROAD && intent.hasPath()) continue;
+            StructureBlueprint blueprint = fabric.blueprint();
+            int turns = Math.floorMod(intent.rotationQuarterTurns(), 4);
+            boolean terrainFollowing = terrainFollowing(intent.role());
+            int cx = (int) Math.round(intent.center().x());
+            int cz = (int) Math.round(intent.center().z());
+            int baseY = terrainFollowing ? 0
+                    : writer.siteBaseY(cx, cz, blueprint.width(), blueprint.depth(), turns);
+            prepared.put(fabric, new PreparedIntent(blueprint, turns, terrainFollowing, baseY));
+        }
+
+        int writes = 0;
+        for (StarterCivilizationFabricIndex.SettlementFabric fabric : slice.settlementFabric()) {
+            writes += generateSettlementIntent(
+                    writer, fabric.settlement().factionId(), fabric.intent(), prepared.get(fabric));
+        }
+        for (StarterCivilizationFabricIndex.UrbanCoreFabric urbanCore : slice.urbanCores()) {
+            writes += generateUrbanCore(writer, urbanCore, chunkX, chunkZ);
+        }
+        for (StarterRegionalRouteGeometryIndex.RouteSlice route : routeSlice.routes()) {
+            writes += generateRegionalRoute(writer, route, chunkX, chunkZ);
+        }
+        // Starter roadside anchors are part of day-zero fabric. Generate them after roads so cells
+        // crossing water can require and reuse the bridge deck authored earlier in this slice.
+        for (StarterCivilizationFabricIndex.RoadsideFabric roadside : slice.roadsideSites()) {
+            writes += generateRoadsideSite(writer, roadside.site());
+        }
+        return writes;
+    }
+
+    private static int generateSettlementIntent(
+            WorldgenFabricBlockWriter writer,
+            long factionId,
+            ConstructionIntent intent,
+            PreparedIntent prepared) {
+        if (intent.role() == StructureRole.ROAD && intent.hasPath()) {
+            return generatePath(writer, factionId, intent.path(), intent.width());
+        }
+
+        PreparedIntent fixed = Objects.requireNonNull(prepared, "prepared intent");
+        StructureBlueprint blueprint = fixed.blueprint();
+        int turns = fixed.turns();
+        int cx = (int) Math.round(intent.center().x());
+        int cz = (int) Math.round(intent.center().z());
+        boolean terrainFollowing = fixed.terrainFollowing();
+        int baseY = fixed.baseY();
+
+        if (!terrainCompatibleFixedSite(writer, fixed, cx, cz)) return 0;
+        if (!canAuthorIntentSlice(writer, intent, fixed, cx, cz)) return 0;
+
+        Set<String> doors = new HashSet<>();
+        Set<String> beds = new HashSet<>();
+        for (BlockPlacement p : blueprint.placements()) {
+            if (p.slot() == PaletteSlot.DOOR) doors.add(key(p.dx(), p.dy(), p.dz()));
+            if (p.slot() == PaletteSlot.BED) beds.add(key(p.dx(), p.dy(), p.dz()));
+        }
+
+        AuthoredOwnerType ownerType = AuthoredOwnerType.forStructureRole(intent.role());
+        int writes = 0;
+        for (BlockPlacement placement : blueprint.placements()) {
+            int[] rotated = rotate(placement.dx(), placement.dz(), turns);
+            int x = cx + rotated[0], z = cz + rotated[1];
+            if (!writer.insideCurrentChunk(x, z)) continue;
+
+            int columnBase = terrainFollowing ? writer.terrainY(x, z) : baseY;
+            int y = columnBase + placement.dy();
+            if (!terrainFollowing && placement.slot() == PaletteSlot.FOUNDATION && placement.dy() == 0
+                    && writer.terrainY(x, z) < baseY - 1) {
+                if (writer.fillFoundation(factionId, x, baseY - 1, z, ownerType)) writes++;
+            }
+
+            boolean doorUpper = placement.slot() == PaletteSlot.DOOR
+                    && doors.contains(key(placement.dx(), placement.dy() - 1, placement.dz()));
+            BedPart bedPart = null;
+            if (placement.slot() == PaletteSlot.BED) {
+                bedPart = beds.contains(key(placement.dx(), placement.dy(), placement.dz() - 1))
+                        ? BedPart.HEAD : BedPart.FOOT;
+            }
+            if (writer.write(factionId, placement.slot(), new BlockPos(x, y, z),
+                    turns, doorUpper, bedPart, ownerType)) {
+                writes++;
+            }
+        }
+        return writes;
+    }
+
+
+
+    /**
+     * Global terrain viability for fixed structures. Uses generator-only ground samples, so every
+     * intersecting chunk reaches the same decision without reading/generated-neighbor dependency.
+     */
+    private static boolean terrainCompatibleFixedSite(
+            WorldgenFabricBlockWriter writer,
+            PreparedIntent prepared,
+            int cx,
+            int cz) {
+        if (prepared.terrainFollowing()) return true;
+        boolean sawFoundation = false;
+        for (BlockPlacement placement : prepared.blueprint().placements()) {
+            if (placement.slot() != PaletteSlot.FOUNDATION || placement.dy() != 0) continue;
+            sawFoundation = true;
+            int[] rotated = rotate(placement.dx(), placement.dz(), prepared.turns());
+            int x = cx + rotated[0], z = cz + rotated[1];
+            int ground = writer.generatorGroundY(x, z);
+            int delta = prepared.baseY() - ground;
+            if (delta > 32 || delta < -6) return false;
+        }
+        return !sawFoundation || prepared.baseY() > writer.level().getMinBuildHeight() + 1;
+    }
+
+    /**
+     * Fail the whole current-chunk slice before the first write when any required cell is protected.
+     * This covers registered structure pieces, block entities, foreign LR owner classes and unknown
+     * non-natural solids without mutating or loading neighboring chunks.
+     */
+    private static boolean canAuthorIntentSlice(
+            WorldgenFabricBlockWriter writer,
+            ConstructionIntent intent,
+            PreparedIntent prepared,
+            int cx,
+            int cz) {
+        AuthoredOwnerType ownerType = AuthoredOwnerType.forStructureRole(intent.role());
+
+        // Known structure-piece collision is a whole-intent decision, not a per-chunk clipping
+        // decision. The writer caches only already-present generation-region structure references.
+        for (BlockPlacement placement : prepared.blueprint().placements()) {
+            int[] rotated = rotate(placement.dx(), placement.dz(), prepared.turns());
+            int x = cx + rotated[0], z = cz + rotated[1];
+            int columnBase = prepared.terrainFollowing() ? writer.generatorGroundY(x, z) : prepared.baseY();
+            if (writer.isForeignStructurePiece(
+                    new BlockPos(x, columnBase + placement.dy(), z))) {
+                return false;
+            }
+        }
+
+        Set<Long> virtuallyCleared = new HashSet<>();
+        for (BlockPlacement placement : prepared.blueprint().placements()) {
+            int[] rotated = rotate(placement.dx(), placement.dz(), prepared.turns());
+            int x = cx + rotated[0], z = cz + rotated[1];
+            if (!writer.insideCurrentChunk(x, z)) continue;
+            int columnBase = prepared.terrainFollowing() ? writer.terrainY(x, z) : prepared.baseY();
+            int y = columnBase + placement.dy();
+            BlockPos pos = new BlockPos(x, y, z);
+            boolean clearing = placement.slot() == PaletteSlot.AIR;
+
+            // StructureBlueprint is phase-sorted (CLEAR first). Once a valid clear has been
+            // preflighted, later wall/roof/interior operations at that coordinate see virtual air
+            // rather than re-testing the original vegetation and rejecting the whole structure.
+            if (!virtuallyCleared.contains(pos.asLong())) {
+                if (!writer.canReplaceForWorldgen(pos, clearing, ownerType)) {
+                    return false;
+                }
+            }
+            if (clearing) virtuallyCleared.add(pos.asLong());
+
+            if (!prepared.terrainFollowing()
+                    && placement.slot() == PaletteSlot.FOUNDATION
+                    && placement.dy() == 0) {
+                int ground = writer.terrainY(x, z);
+                if (prepared.baseY() - ground > 64) return false;
+                for (int fy = ground; fy < prepared.baseY(); fy++) {
+                    BlockPos foundationPos = new BlockPos(x, fy, z);
+                    if (virtuallyCleared.contains(foundationPos.asLong())) continue;
+                    if (!writer.canReplaceForWorldgen(foundationPos, false, ownerType)) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    private static int generatePath(
+            WorldgenFabricBlockWriter writer,
+            long factionId,
+            List<SimPosition> path,
+            int width) {
+        if (path.size() < 2) return 0;
+        int writes = 0;
+        Set<Long> visited = new HashSet<>();
+        for (int s = 0; s < path.size() - 1; s++) {
+            SimPosition a = path.get(s), b = path.get(s + 1);
+            double dx = b.x() - a.x(), dz = b.z() - a.z();
+            double distance = Math.hypot(dx, dz);
+            int steps = Math.max(1, (int) Math.ceil(distance));
+            double nx = distance < 1.0e-9 ? 1 : -dz / distance;
+            double nz = distance < 1.0e-9 ? 0 : dx / distance;
+            int half = Math.max(0, width / 2);
+            for (int i = 0; i <= steps; i++) {
+                double t = i / (double) steps;
+                double centerX = a.x() + dx * t, centerZ = a.z() + dz * t;
+                for (int side = -half; side <= half; side++) {
+                    int x = (int) Math.round(centerX + nx * side);
+                    int z = (int) Math.round(centerZ + nz * side);
+                    long packed = (((long) x) << 32) ^ (z & 0xffffffffL);
+                    if (!visited.add(packed) || !writer.insideCurrentChunk(x, z)) continue;
+                    if (writeRoadDeck(writer, factionId, x, z, false, false, Integer.MIN_VALUE,
+                            AuthoredOwnerType.SETTLEMENT_ROAD)) writes++;
+                }
+            }
+        }
+        return writes;
+    }
+
+    private static int generateUrbanCore(
+            WorldgenFabricBlockWriter writer,
+            StarterCivilizationFabricIndex.UrbanCoreFabric urbanCore,
+            int chunkX,
+            int chunkZ) {
+        SettlementInitialWorldgenPlan settlement = urbanCore.settlement();
+        int cx = (int) Math.round(settlement.center().x());
+        int cz = (int) Math.round(settlement.center().z());
+        int radius = urbanCore.radius();
+        int minX = chunkX << 4, minZ = chunkZ << 4;
+        int maxX = minX + 15, maxZ = minZ + 15;
+        int writes = 0;
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                boolean onAxis = (Math.abs(x - cx) <= 1 && Math.abs(z - cz) <= radius)
+                        || (Math.abs(z - cz) <= 1 && Math.abs(x - cx) <= radius);
+                if (!onAxis) continue;
+                int ground = writer.terrainY(x, z);
+                if (writer.waterSurfaceY(x, z) > ground) continue;
+                BlockPos groundPos = new BlockPos(x, ground, z);
+                if (!writer.canReplaceForWorldgen(
+                        groundPos, false, AuthoredOwnerType.SETTLEMENT_ROAD)) {
+                    continue;
+                }
+                if (!writer.clearNaturalVegetationAbove(
+                        x, ground, z, 8, AuthoredOwnerType.SETTLEMENT_ROAD)) {
+                    continue;
+                }
+                if (writer.write(
+                        settlement.factionId(), PaletteSlot.PATH,
+                        groundPos, 0, false, null,
+                        AuthoredOwnerType.SETTLEMENT_ROAD)) {
+                    writes++;
+                }
+            }
+        }
+        return writes;
+    }
+
+
+    private static int generateRoadsideSite(
+            WorldgenFabricBlockWriter writer,
+            dev.livingrealms.sim.worldgen.StarterRoadsideSitePlanner.SitePlan plan) {
+        var site = plan.asRoadsideSite();
+        int cx = (int) Math.floor(site.position().x());
+        int cz = (int) Math.floor(site.position().z());
+        int writes = 0;
+        for (RoadsideSiteTemplate.Placement placement : RoadsideSiteTemplate.placements(site)) {
+            int x = cx + placement.dx();
+            int z = cz + placement.dz();
+            if (!writer.insideCurrentChunk(x, z)) continue;
+
+            int ground = writer.terrainY(x, z);
+            int waterSurface = writer.waterSurfaceY(x, z);
+            boolean waterColumn = waterSurface > ground;
+            int supportY = waterColumn ? waterSurface : ground;
+            BlockPos support = new BlockPos(x, supportY, z);
+            if (!writer.canSupportRoadside(support, waterColumn)) continue;
+
+            BlockState target = placement.state();
+            if (writer.writeState(
+                    support.above(), target, false, AuthoredOwnerType.ROADSIDE_SITE)) {
+                writes++;
+            }
+        }
+        return writes;
+    }
+
+    private static int generateRegionalRoute(
+            WorldgenFabricBlockWriter writer,
+            StarterRegionalRouteGeometryIndex.RouteSlice routeSlice,
+            int chunkX,
+            int chunkZ) {
+        StarterRegionalRoutePlanner.RoutePlan route = routeSlice.route();
+        int writes = 0;
+        Set<Long> visited = new HashSet<>();
+        for (StarterRegionalRouteGeometryIndex.PlannedPoint point : routeSlice.points()) {
+            int px = point.x(), pz = point.z();
+            int nx = point.dz() == 0 ? 0 : Integer.signum(point.dz());
+            int nz = point.dx() == 0 ? 0 : -Integer.signum(point.dx());
+            if (nx == 0 && nz == 0) nx = 1;
+            int half = route.rural() ? 0 : 2;
+            for (int side = -half; side <= half; side++) {
+                int x = px + nx * side, z = pz + nz * side;
+                long packed = (((long) x) << 32) ^ (z & 0xffffffffL);
+                if (!visited.add(packed) || !writer.insideCurrentChunk(x, z)) continue;
+                if (writeRoadDeck(writer, route.factionId(), x, z, route.rural(), true,
+                        point.deckY(), AuthoredOwnerType.INTERCITY_ROUTE)) writes++;
+            }
+        }
+        return writes;
+    }
+
+    private static boolean writeRoadDeck(
+            WorldgenFabricBlockWriter writer,
+            long factionId,
+            int x,
+            int z,
+            boolean rural,
+            boolean regional,
+            int plannedDeckY,
+            AuthoredOwnerType ownerType) {
+        int ground = writer.terrainY(x, z);
+        int floor = writer.oceanFloorY(x, z);
+        int waterSurface = writer.waterSurfaceY(x, z);
+        boolean water = waterSurface > ground;
+        int naturalSurface = water ? waterSurface : ground;
+        int y = regional ? plannedDeckY : naturalSurface;
+        if (water) y = Math.max(waterSurface, y);
+        BlockPos pos = new BlockPos(x, y, z);
+
+        if (water) {
+            if (!writer.canReplaceForWorldgen(pos, false, ownerType)) return false;
+            if (!writer.clearNaturalVegetationAbove(x, y, z, 8, ownerType)) return false;
+            var deck = rural ? Blocks.SPRUCE_PLANKS.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState();
+            boolean wrote = writer.writeState(pos, deck, false, ownerType);
+            if (regional && Math.floorMod(x * 31 + z * 17, 11) == 0) {
+                int bottom = Math.max(floor + 1, y - 48);
+                for (int py = bottom; py < y; py++) {
+                    writer.writeState(new BlockPos(x, py, z),
+                            rural ? Blocks.OAK_LOG.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState(),
+                            false, ownerType);
+                }
+            }
+            return wrote;
+        }
+
+        if (!writer.prepareDryRoadColumn(
+                factionId, x, z, ground, y, ownerType)) return false;
+        if (!writer.canReplaceForWorldgen(pos, false, ownerType)) return false;
+        if (y > ground + 3) {
+            BlockState deck = rural
+                    ? Blocks.SPRUCE_PLANKS.defaultBlockState()
+                    : Blocks.STONE_BRICKS.defaultBlockState();
+            return writer.writeState(pos, deck, false, ownerType);
+        }
+        return writer.write(factionId, PaletteSlot.PATH, pos, 0, false, null, ownerType);
+    }
+
+    private static boolean terrainFollowing(StructureRole role) {
+        return role == StructureRole.WALL
+                || role == StructureRole.GATE
+                || role == StructureRole.FARM
+                || role == StructureRole.PASTURE
+                || role == StructureRole.IRRIGATION;
+    }
+
+    private static int[] rotate(int x, int z, int turns) {
+        return switch (turns) {
+            case 0 -> new int[]{x, z};
+            case 1 -> new int[]{-z, x};
+            case 2 -> new int[]{-x, -z};
+            default -> new int[]{z, -x};
+        };
+    }
+
+    private static String key(int x, int y, int z) {
+        return x + ":" + y + ":" + z;
+    }
+}

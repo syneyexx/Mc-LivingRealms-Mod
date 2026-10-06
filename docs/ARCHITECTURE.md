@@ -10,7 +10,7 @@ Living Realms is one deployable NeoForge mod with **internal kernels** instead o
 |---|---|---|
 | **Simulation** | Deterministic day loop and domain engines | `SimulationEngine`, `CivilizationLifecycleEngine`, `MigrationEngine`, `EpidemicEngine`, faction/economy/diplomacy/law engines |
 | **Projection** | LOD / budgets / physical entities as animation of sim truth | `MaterializationPlanner`, `ProjectionBudget`, wildlife/citizen/caravan projectors |
-| **Construction** | Intents → geometry → terrain apply → completion keys | `SettlementPlanner`, `StructureBlueprintFactory`, `ResolvedBuildSite`, `SettlementConstructionMaterializer` |
+| **Construction** | Intents → immutable starter plans / runtime plans → environment-specific block writing → completion keys | `SettlementPlanner`, `StructureBlueprintFactory`, `StarterCivilizationFabricIndex`, `WorldgenFabricBlockWriter`, `SettlementConstructionMaterializer` |
 | **Runtime Scheduler** | Tick-phase budget, deferral, starvation promotion | `RuntimeBudgetController`, `RuntimeDeferTracker`, `RuntimePriority`, `SimulationTickBudget` |
 | **Persistence** | Versioned binary save + migrations | `SimulationStateCodec` + domain codecs (`FactionCodec`, `SettlementCodec`, `SocietyCodec`, `WarfareCodec`, `EconomyCodec`, `LawCodec`, `EcologyCodec`, `ConstructionCodec`, `DiplomacyCodec`, `HistoryCodec`, `UnderworldCodec`, `PlayerAgencyCodec`) |
 | **Dialogue** | No-LLM epistemic conversation | `DialogueInterpreter`, `DialogueKnowledgeService`, `DialoguePlanner`, `DialogueStyleProfile`, `DialogueRealizer` |
@@ -34,15 +34,15 @@ Construction completeness is explicit via `SettlementCoreCompleteness`: tier-spe
 |---|---|---|
 | Population, households, dynasties | `SimulationState` / social engines | Bounded citizen entities |
 | Economy, stockpiles, markets, industry | Faction/settlement stock + engines | Create yards, market stalls (visual) |
-| Construction intents / completion | Settlement completion keys + receipts | `SettlementConstructionMaterializer` |
-| Block ownership | Typed `AuthoredBlockLedger` via `WorldMutationGuard` | Minecraft blocks |
+| Construction intents / completion | Settlement completion keys + `WORLDGEN` / runtime receipts | True-worldgen starter writer; runtime materializer for later changes |
+| Block ownership | Chunk-local worldgen provenance + typed runtime `AuthoredBlockLedger` | Minecraft blocks |
 | Trade shipments / routes | Logistics + transport engines | Caravan entities / road blocks |
 | Crime / custody / justice | Law engines | Guard/prisoner projections |
 | Ecology | Ecosystem regions / groups | Wildlife entities |
 | Geography | `SettlementGeographyProfile` (discovery runtime) | Biome/terrain samples (loaded chunks only) |
 | Client UI (F12 / M / K) | Server snapshots + actions | Screens |
 
-Physical workers, Create networks, and loaded-chunk side effects must never become a second simulation authority. Chunk unload ≠ canonical death or economic shutdown.
+Physical workers, Create networks, worldgen writes and loaded-chunk side effects must never become a second simulation authority. Chunk unload ≠ canonical death or economic shutdown.
 
 ## Non-negotiable rule: simulation != rendering
 
@@ -55,7 +55,7 @@ The canonical state remains authoritative. Materialized entities are a projectio
 
 ## LOD
 
-Block fabric and entity LOD are deliberately separate. Persistent settlement/road/special-site blocks are reconciled from **already-loaded chunks** and never depend on player distance as existence authority. Entity projections remain budgeted around players.
+Block fabric and entity LOD are deliberately separate. Fresh-world deterministic starter settlement/road/roadside/Wizard Trees blocks are authored during chunk generation; later simulation-driven block changes use loaded-chunk runtime materializers. Neither path uses player distance as starter block-existence authority. Entity projections remain budgeted around players.
 
 - **PHYSICAL entities:** per-kind cutoffs. Military, caravans and wildlife follow the configured physical radius; citizens use the larger citizen envelope; migrations and ships use their own mobility-aware envelopes.
 - **REGIONAL impostors:** each token type begins only *outside its corresponding full-entity cutoff* and ends at the configured regional radius. This prevents a caravan, fleet, migration group, army, herd or settlement from being represented simultaneously as both full entities and an impostor.

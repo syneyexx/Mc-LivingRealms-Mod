@@ -14,7 +14,7 @@ public final class PrimaryEconomySuitability {
     public static double score(SimulationState state,Settlement settlement,PrimaryEconomyKind kind){
         Objects.requireNonNull(state,"state");Objects.requireNonNull(settlement,"settlement");Objects.requireNonNull(kind,"kind");
         EcosystemRegion nearest=state.regions().stream().min(Comparator.comparingDouble(r->r.center().distanceTo(settlement.position()))).orElse(null);
-        if(nearest==null||nearest.center().distanceTo(settlement.position())>REGION_INFLUENCE_RADIUS)return fallback(kind);
+        if(nearest==null||nearest.center().distanceTo(settlement.position())>REGION_INFLUENCE_RADIUS)return undiscoveredScore(kind);
         EcoBiome b=nearest.biome();Set<String> t=b.tags();
         return Mathx.clamp(switch(kind){
             case MINE -> (t.contains("mountain")||t.contains("rocky")?1.0:.0)+(t.contains("arid")?.2:0)+(t.contains("forest")?.08:0)+(t.contains("aquatic")?-.65:0)+.28;
@@ -22,5 +22,9 @@ public final class PrimaryEconomySuitability {
             case FISHERY -> (t.contains("aquatic")?.9:0)+(t.contains("freshwater")?.65:0)+(t.contains("coast")?.55:0)+(t.contains("wetland")?.38:0)+b.waterAvailability()*.22-(t.contains("arid")?.55:0);
         },0,1);
     }
-    private static double fallback(PrimaryEconomyKind kind){return switch(kind){case MINE->.38;case LUMBER_CAMP->.32;case FISHERY->.12;};}
+    /** Stable no-geography score used before any ecological region is discovered. */
+    public static double undiscoveredScore(PrimaryEconomyKind kind){
+        Objects.requireNonNull(kind,"kind");
+        return switch(kind){case MINE->.38;case LUMBER_CAMP->.32;case FISHERY->.12;};
+    }
 }

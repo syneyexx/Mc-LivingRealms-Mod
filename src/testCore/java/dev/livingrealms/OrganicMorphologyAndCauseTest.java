@@ -25,6 +25,7 @@ public final class OrganicMorphologyAndCauseTest {
 
     public static void main(String[] args) {
         morphologiesAreGeographyDerived();
+        anchoredStarterMorphologyDoesNotRelayoutAfterDiscovery();
         denseWorldUsesMultipleStreetPatterns();
         plazasAndStreetLightsExist();
         causeExplainerAndDashboardProtocol15();
@@ -48,6 +49,22 @@ public final class OrganicMorphologyAndCauseTest {
         Settlement hill = new Settlement(12, "High Peak", new SimPosition(400, 0), 500, 450);
         hill.setGeography(new SettlementGeographyProfile(false, false, false, false, 0.05, 140, 12, .3, .4, .5, "minecraft:windswept_hills", true));
         check(SettlementMorphology.derive(f, hill) == SettlementMorphology.HILL_TOWN, "steep high elevation must be hill_town");
+    }
+
+
+    private static void anchoredStarterMorphologyDoesNotRelayoutAfterDiscovery() {
+        Faction faction = new Faction(7, "Anchored Realm", "Ruler");
+        Settlement starter = new Settlement(70, "Plainstead", new SimPosition(0, 0), 800, 760);
+        faction.addSettlement(starter);
+        SettlementMorphology initial = SettlementMorphology.derive(faction, starter);
+
+        starter.markPhysicallyAnchored();
+        starter.setGeography(new SettlementGeographyProfile(
+                true, false, true, false, 0.95, 64, 1,
+                .6, .1, .05, "minecraft:beach", true));
+
+        check(SettlementMorphology.derive(faction, starter) == initial,
+                "anchored authored starter must keep its historical morphology after discovery");
     }
 
     private static void denseWorldUsesMultipleStreetPatterns() {
