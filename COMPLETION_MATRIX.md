@@ -1,6 +1,6 @@
 # Living Realms — Definition of Done matrix
 
-CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 17 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 18 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 ## Maturity levels (documentation truth)
 
@@ -21,7 +21,7 @@ A subsystem may be **CANONICAL** without being **PHYSICALIZED**, or **PLAYABLE**
 |---|---|---|---|---|---|---|---|---|
 | World clock/history | ✅ | ✅ | ✅ | ✅ | ✅ History tab + commands | n/a | ✅ | POLISHED |
 | Factions/kingdoms | ✅ 12 + Wizard Trees + player realms | ✅ diplomacy/war/trade/growth + SettlementTransfer | ✅ | ✅ citizen + military projection | ✅ Overview/Realms/Map + Join/Leave + found/locate | ✅ heraldry + citizen skins | ✅ | DEEP |
-| Settlements/growth | ✅ capital + 10 authored satellites + 6–14 rural hamlets (204–300 surface) + role-aware spacing | ✅ organic planning + immigration + causal expansion | ✅ schema 21 + ContentRevision 16 | ✅ terrain-aware construction + provenance + Waystone bridge | ✅ management + locate/found + player register building | ✅ hut→mansion + culture geometry families | ✅ density/authored-names/worldgen | DEEP |
+| Settlements/growth | ✅ capital + 10 authored satellites + 6–14 rural hamlets (204–300 surface) + role-aware spacing | ✅ organic planning + immigration + causal expansion | ✅ schema 21 + ContentRevision 18; fresh-world contract | ✅ true-worldgen day-zero streets/buildings/walls/gates + chunk provenance; runtime construction reserved for later evolution | ✅ management + locate/found + player register building | ✅ hut→mansion + culture geometry families | ✅ density/authored-names/worldgen | DEEP |
 | Society/needs/unrest | ✅ SocialCitizen roster + SocialMobilityEngine | ✅ needs/memory + roster simulateDay | ✅ schema 21 | ✅ physical jobs as animation of sim authority | ✅ Society tab + tokenized dialogue | ✅ 48 citizen skins | ✅ roster/dialogue/society | DEEP |
 | Government/succession | ✅ + SovereignDebt + GrandProject | ✅ debt/projects/succession | ✅ | ✅ court projection | ✅ Politics | ✅ heraldry court kits | ✅ | DEEP |
 | Diplomacy/treaties | ✅ | ✅ typed war goals + peace treaties | ✅ | ✅ strategic | ✅ Politics | n/a | ✅ WarGoal* | DEEP |
@@ -29,7 +29,7 @@ A subsystem may be **CANONICAL** without being **PHYSICALIZED**, or **PLAYABLE**
 | Territory/jurisdiction | ✅ | ✅ | ✅ | ✅ runtime queries | ✅ jurisdiction + claims | n/a | ✅ | CANONICAL |
 | Economy/markets | ✅ GRAIN→FLOUR→BREAD + MEAT/ALE/WOOL | ✅ farms/mills/bakeries/breweries/pastures/hinterland truth | ✅ schema 21 | ✅ player market + vanilla item map | ✅ Economy + dialogue OPEN_TRADE | vanilla commodity bridge | ✅ GoodsChain* | DEEP |
 | Trade/logistics | ✅ TradeShipment | ✅ escort/loss/risk | ✅ | ✅ caravan projection | ✅ Ops | ✅ caravan art | ✅ Trade* | PHYSICALIZED |
-| Transport networks | ✅ StreetType + corridors | ✅ same-realm + cross-faction corridors | ✅ | ✅ carriageways/sidewalks | ✅ Ops | ✅ road projection | ✅ | PHYSICALIZED |
+| Transport networks | ✅ StreetType + corridors | ✅ same-realm + cross-faction corridors | ✅ | ✅ starter regional roads/bridges in true worldgen; later routes runtime | ✅ Ops | ✅ road projection | ✅ | PHYSICALIZED |
 | Industry/Create | ✅ IndustrialSite | ✅ production + maintenance + starvation | ✅ | ✅ Create yard projection | ✅ Ops | ✅ Create blocks | ✅ | PHYSICALIZED |
 | Crime/notoriety | ✅ | ✅ witness-gated theft | ✅ | ✅ authored storage only | ✅ Law | n/a | ✅ | DEEP |
 | Bounty/custody | ✅ | ✅ single payout path | ✅ | ✅ arrest/custody/release | ✅ Law | n/a | ✅ | PLAYABLE |
