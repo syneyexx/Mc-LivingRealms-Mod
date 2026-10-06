@@ -122,6 +122,52 @@ public final class WorldgenFabricBlockWriter {
         return ground;
     }
 
+    public int regionalRouteDeckY(long routeId, int x, int z, int fallbackY) {
+        return worldgenContext.regionalRouteHeights().deckY(routeId, x, z, fallbackY);
+    }
+
+    /**
+     * Performs only bounded dry-land grading for a road column. Cuts deeper than two blocks and
+     * fills higher than three blocks are rejected so worldgen roads never tunnel through hills or
+     * create tall artificial viaducts. The deck block itself is written by the caller.
+     */
+    public boolean prepareDryRoadColumn(
+            long factionId,
+            int x,
+            int z,
+            int groundY,
+            int deckY,
+            AuthoredOwnerType ownerType) {
+        if (!insideCurrentChunk(x, z) || ownerType == null) return false;
+        int delta = deckY - groundY;
+        if (delta < -2 || delta > 3) return false;
+
+        if (delta < 0) {
+            for (int y = deckY + 1; y <= groundY + 2; y++) {
+                if (!canReplaceForWorldgen(new BlockPos(x, y, z), true, ownerType)) return false;
+            }
+            for (int y = deckY + 1; y <= groundY + 2; y++) {
+                if (!writeState(
+                        new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), true, ownerType)) {
+                    BlockState state = level.getBlockState(new BlockPos(x, y, z));
+                    if (!state.isAir()) return false;
+                }
+            }
+            return true;
+        }
+
+        if (!clearNaturalVegetationAbove(x, groundY, z, 8, ownerType)) return false;
+        for (int y = groundY + 1; y < deckY; y++) {
+            if (!canReplaceForWorldgen(new BlockPos(x, y, z), false, ownerType)) return false;
+        }
+        for (int y = groundY + 1; y < deckY; y++) {
+            if (!write(
+                    factionId, PaletteSlot.FOUNDATION, new BlockPos(x, y, z),
+                    0, false, null, ownerType)) return false;
+        }
+        return true;
+    }
+
     public int buildSurfaceY(int x, int z) {
         return Math.max(terrainY(x, z), waterSurfaceY(x, z));
     }
