@@ -59,10 +59,17 @@ public final class WorldgenFabricBlockWriter {
                 ? level.getLevel().structureManager().forWorldGenRegion(region)
                 : level.getLevel().structureManager();
         List<BoundingBox> foreignPieces = new ArrayList<>();
-        for (var start : structureManager.startsForStructure(
-                new ChunkPos(chunkX, chunkZ), structure -> true)) {
-            if (start == null || !start.isValid()) continue;
-            for (var piece : start.getPieces()) foreignPieces.add(piece.getBoundingBox());
+        // Cache only chunks already present in the active generation region. This broadens
+        // cross-chunk structure protection without requesting/generating any neighbor.
+        for (int cx = chunkX - 3; cx <= chunkX + 3; cx++) {
+            for (int cz = chunkZ - 3; cz <= chunkZ + 3; cz++) {
+                if (!level.hasChunk(cx, cz)) continue;
+                for (var start : structureManager.startsForStructure(
+                        new ChunkPos(cx, cz), structure -> true)) {
+                    if (start == null || !start.isValid()) continue;
+                    for (var piece : start.getPieces()) foreignPieces.add(piece.getBoundingBox());
+                }
+            }
         }
         this.foreignStructurePieces = List.copyOf(foreignPieces);
         // Snapshot the whole writable chunk before any Living Realms block is placed. Later roads,
@@ -360,7 +367,7 @@ public final class WorldgenFabricBlockWriter {
     }
 
     public boolean isForeignStructurePiece(BlockPos pos) {
-        if (pos == null || !insideCurrentChunk(pos.getX(), pos.getZ())) return false;
+        if (pos == null) return false;
         for (BoundingBox box : foreignStructurePieces) {
             if (box.isInside(pos)) return true;
         }
