@@ -4,7 +4,9 @@ import dev.livingrealms.minecraft.construction.FactionBlockPalette;
 import dev.livingrealms.sim.construction.PaletteSlot;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -35,6 +37,7 @@ public final class WorldgenFabricBlockWriter {
     private final int[] worldSurfaceSnapshot = new int[16 * 16];
     private final int[] oceanFloorSnapshot = new int[16 * 16];
     private final int[] waterSurfaceSnapshot = new int[16 * 16];
+    private final Map<Long, AuthoredOwnerType> authoredOwnerByPos = new HashMap<>();
     private final List<StarterCivilizationWorldgenContext.AuthoredWrite> authoredWrites = new ArrayList<>();
 
     public WorldgenFabricBlockWriter(
@@ -144,6 +147,7 @@ public final class WorldgenFabricBlockWriter {
         if (!mayReplace(pos, current, clearing)) return false;
         boolean changed = level.setBlock(pos, target, WORLDGEN_FLAGS);
         if (changed && ownerType != null) {
+            authoredOwnerByPos.put(pos.asLong(), ownerType);
             authoredWrites.add(new StarterCivilizationWorldgenContext.AuthoredWrite(
                     pos.getX(), pos.getY(), pos.getZ(), ownerType));
         }
@@ -188,6 +192,25 @@ public final class WorldgenFabricBlockWriter {
             if (!writeState(pos, Blocks.AIR.defaultBlockState(), true, ownerType)) return false;
         }
         return true;
+    }
+
+    /**
+     * Roadside fabric may use dry natural ground, but water columns require a bridge/road deck
+     * authored by Living Realms. This prevents floating waystations beside a one-block bridge.
+     */
+    public boolean canSupportRoadside(BlockPos support, boolean waterColumn) {
+        if (support == null || !insideCurrentChunk(support.getX(), support.getZ())) return false;
+        BlockState state = level.getBlockState(support);
+        if (state.hasBlockEntity()) return false;
+        AuthoredOwnerType owner = authoredOwnerByPos.get(support.asLong());
+        if (owner == null) owner = ModWorldgenAttachments.ownerAt(level, support);
+        if (owner == AuthoredOwnerType.SETTLEMENT_ROAD
+                || owner == AuthoredOwnerType.INTERCITY_ROUTE
+                || owner == AuthoredOwnerType.ROADSIDE_SITE) {
+            return true;
+        }
+        if (waterColumn) return false;
+        return naturalTerrain(state) || state.is(Blocks.DIRT_PATH);
     }
 
     public boolean insideCurrentChunk(int x, int z) {
