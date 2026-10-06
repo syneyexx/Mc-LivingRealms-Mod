@@ -87,6 +87,8 @@ public final class StarterCivilizationWorldgenContext {
                 StarterRegionalRouteGeometryIndex.build(level, index.routes());
         WizardTreesWorldgenIndex wizardTreesIndex = WizardTreesWorldgenIndex.build(
                 level, WizardTreesInitialWorldgenPlan.build(data.state()));
+        StarterRegionalRouteHeightIndex regionalRouteHeights =
+                StarterRegionalRouteHeightIndex.build(level, index.routes());
         Map<Long, Integer> paletteStyles = new HashMap<>();
         for (StarterCivilizationLayoutPlanner.RealmPlan realm : layout.realms()) {
             long factionId = realm.factionId();
