@@ -82,9 +82,23 @@ public final class StarterCivilizationWorldgenContext {
         }
         StarterCivilizationLayoutPlanner.Layout layout =
                 StarterCivilizationLayoutPlanner.plan(seed);
-        StarterCivilizationFabricIndex index = StarterCivilizationFabricIndex.build(layout);
+        var starterRoutes = dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner.plan(layout);
         StarterRegionalRouteGeometryIndex routeGeometryIndex =
-                StarterRegionalRouteGeometryIndex.build(level, index.routes());
+                StarterRegionalRouteGeometryIndex.build(level, starterRoutes);
+        var resolvedRoadside = StarterRoadsideRouteResolver.resolve(
+                dev.livingrealms.sim.worldgen.StarterRoadsideSitePlanner.plan(layout),
+                routeGeometryIndex);
+        boolean roadsideRelocated = false;
+        for (var plan : resolvedRoadside) {
+            var canonical = data.state().findRoadsideSite(plan.stableSiteId()).orElse(null);
+            if (canonical != null && !canonical.position().equals(plan.position())) {
+                canonical.relocate(plan.position());
+                roadsideRelocated = true;
+            }
+        }
+        if (roadsideRelocated) data.setDirty();
+        StarterCivilizationFabricIndex index =
+                StarterCivilizationFabricIndex.build(layout, starterRoutes, resolvedRoadside);
         WizardTreesWorldgenIndex wizardTreesIndex = WizardTreesWorldgenIndex.build(
                 level, WizardTreesInitialWorldgenPlan.build(data.state()));
         Map<Long, Integer> paletteStyles = new HashMap<>();
