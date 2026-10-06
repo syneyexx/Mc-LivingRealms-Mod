@@ -2,7 +2,6 @@ package dev.livingrealms.sim.content;
 
 import dev.livingrealms.sim.construction.CultureArchitecture;
 import dev.livingrealms.sim.data.MiniJson;
-import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,13 +51,13 @@ public final class ArchitecturePaletteLoader {
     }
 
     private static Map<String, ArchitecturePaletteDefinition> loadFromFilesystem() {
-        List<Path> files = ContentDataPaths.listJsonFiles(ContentDataPaths.ARCHITECTURE);
+        List<String> files = ContentDataPaths.listJsonFileNames(ContentDataPaths.ARCHITECTURE);
         if (files.isEmpty()) {
             throw new IllegalStateException("No architecture palettes under data/livingrealms/architecture");
         }
         Map<String, ArchitecturePaletteDefinition> byId = new LinkedHashMap<>();
-        for (Path path : files) {
-            ArchitecturePaletteDefinition def = decode(ContentDataPaths.readUtf8(path));
+        for (String fileName : files) {
+            ArchitecturePaletteDefinition def = decode(ContentDataPaths.readClasspathOrFs(ContentDataPaths.ARCHITECTURE, fileName));
             if (byId.put(def.id(), def) != null) {
                 throw new IllegalStateException("Duplicate architecture palette id: " + def.id());
             }
