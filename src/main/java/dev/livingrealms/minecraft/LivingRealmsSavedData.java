@@ -97,6 +97,14 @@ public final class LivingRealmsSavedData extends SavedData {
         AuthoredBlockLedgerNbt.read(tag, loaded.authoredBlocks);
         SettlementGeographyNbt.read(tag, loaded.state());
         readOnboardedPlayers(tag, loaded.onboardedPlayers);
+        Set<Long> legacyStreetFabricSettlementIds = new HashSet<>();
+        if (ContentMigrationPolicy.shouldFreezeLegacyStreetFabric(contentRevision)) {
+            for (var faction : loaded.state().factions()) for (var settlement : faction.settlements()) {
+                if (SettlementConstructionPolicy.hasLegacyRoadReceipt(settlement)) {
+                    legacyStreetFabricSettlementIds.add(settlement.id());
+                }
+            }
+        }
         // Morphology reset MUST run before densifier so new hamlets keep empty completion, while
         // already-present settlements lose obsolete geometry keys exactly once (revision < 10).
         int constructionResets = 0;
@@ -106,9 +114,12 @@ public final class LivingRealmsSavedData extends SavedData {
             }
         }
         int legacyFabricFreezes = 0;
-        if (ContentMigrationPolicy.shouldFreezeLegacyStreetFabric(contentRevision)) {
+        if (!legacyStreetFabricSettlementIds.isEmpty()) {
             for (var faction : loaded.state().factions()) for (var settlement : faction.settlements()) {
-                if (SettlementConstructionPolicy.migrateLegacyStreetFabric(settlement)) legacyFabricFreezes++;
+                if (legacyStreetFabricSettlementIds.contains(settlement.id())
+                        && SettlementConstructionPolicy.markLegacyStreetFabric(settlement)) {
+                    legacyFabricFreezes++;
+                }
             }
         }
         int densityChanges = ContentMigrationPolicy.shouldEnsureDensity(contentRevision, CONTENT_REVISION)
