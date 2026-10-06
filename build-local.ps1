@@ -11,7 +11,9 @@ if (!(Test-Path $GradleHome)) {
   Expand-Archive -Force $Zip $Cache
 }
 $Log = Join-Path $PSScriptRoot 'build-local.log'
-& (Join-Path $GradleHome 'bin\gradle.bat') --no-daemon clean build --stacktrace 2>&1 |
+$GradleExe = Join-Path $GradleHome 'bin\gradle.bat'
+$GradleCommand = "`"$GradleExe`" --no-daemon clean build --stacktrace 2>&1"
+& $env:ComSpec /d /s /c $GradleCommand |
   Tee-Object -FilePath $Log
 $GradleExit = $LASTEXITCODE
 if ($GradleExit -ne 0) {
