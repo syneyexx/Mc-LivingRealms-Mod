@@ -26,6 +26,12 @@ public final class MigrationOrderTest {
         check(ContentMigrationPolicy.shouldEnsureDensity(9, 15), "rev9 densifies");
         check(ContentMigrationPolicy.shouldEnsureDensity(11, 15), "rev11 densifies toward 15");
         check(!ContentMigrationPolicy.shouldEnsureDensity(15, 15), "current densifier is one-shot");
+        check(ContentMigrationPolicy.shouldAdoptWizardWorldgenReceipts(17, 1, 1),
+                "rev17 true-worldgen save adopts Wizard Trees receipts");
+        check(!ContentMigrationPolicy.shouldAdoptWizardWorldgenReceipts(17, 0, 1),
+                "legacy worldgen-v0 save must not adopt Wizard Trees receipts");
+        check(!ContentMigrationPolicy.shouldAdoptWizardWorldgenReceipts(18, 1, 1),
+                "rev18 save already adopted Wizard Trees receipts");
         check(ContentMigrationPolicy.shouldRejectCorruptPayload(42L, 7L), "bad CRC rejected");
         check(!ContentMigrationPolicy.shouldRejectCorruptPayload(0L, 7L), "legacy integrity path allowed");
     }
