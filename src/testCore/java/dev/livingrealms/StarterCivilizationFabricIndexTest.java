@@ -16,6 +16,7 @@ public final class StarterCivilizationFabricIndexTest {
         chunkQueriesAreOrderIndependent();
         multiChunkCoreFabricIsIndexed();
         multiChunkFabricReusesPrecomputedBlueprint();
+        starterRoadsideSitesAreChunkIndexed();
         regionalRoadsUseCityGates();
         emptyChunkLookupIsDirectAndEmpty();
         System.out.println("PASS starter fabric index: order-independent + cross-chunk + gate-connected + bounded lookup");
@@ -91,6 +92,22 @@ public final class StarterCivilizationFabricIndexTest {
             }
         }
         check(references >= 2, "test keep must span multiple chunks");
+    }
+
+
+    private static void starterRoadsideSitesAreChunkIndexed() {
+        var index = StarterCivilizationFabricIndex.build(
+                StarterCivilizationLayoutPlanner.plan(0xA11CE77L));
+        check(!index.roadsideSites().isEmpty(), "starter roadside plan must not be empty");
+        for (var site : index.roadsideSites()) {
+            int x = (int) Math.floor(site.position().x());
+            int z = (int) Math.floor(site.position().z());
+            int cx = Math.floorDiv(x, 16);
+            int cz = Math.floorDiv(z, 16);
+            check(index.query(cx, cz).roadsideSites().stream()
+                            .anyMatch(f -> f.site().stableSiteId() == site.stableSiteId()),
+                    "roadside anchor missing from center chunk " + site.stableKey());
+        }
     }
 
     private static void regionalRoadsUseCityGates() {
