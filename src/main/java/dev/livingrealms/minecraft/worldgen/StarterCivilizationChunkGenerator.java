@@ -189,10 +189,11 @@ public final class StarterCivilizationChunkGenerator {
             boolean rural,
             boolean regional,
             AuthoredOwnerType ownerType) {
-        int surface = writer.terrainY(x, z);
+        int ground = writer.terrainY(x, z);
         int floor = writer.oceanFloorY(x, z);
-        boolean water = surface - floor >= 2;
-        int y = surface;
+        int waterSurface = writer.waterSurfaceY(x, z);
+        boolean water = waterSurface > ground;
+        int y = water ? waterSurface : ground;
         if (!writer.clearNaturalVegetationAbove(x, y, z, 8, ownerType)) return false;
         BlockPos pos = new BlockPos(x, y, z);
         if (water) {
