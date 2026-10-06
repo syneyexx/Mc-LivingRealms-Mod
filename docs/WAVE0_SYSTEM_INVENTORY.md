@@ -8,7 +8,7 @@ Maturity levels: FOUNDATION / CANONICAL / PLAYABLE / PHYSICALIZED / DEEP / POLIS
 |---|---|---|---|---|---|---|
 | Clock/history | SimulationState | schema 21 | n/a | History | soak/save | POLISHED |
 | Factions | FactionEngine + SettlementTransfer | schema 21 | citizens/military | Overview | transfer/density | DEEP |
-| Settlements | DensitySeeder + planner | ContentRevision 15 | construction | map/manage | density/names | DEEP |
+| Settlements | DensitySeeder + planner | ContentRevision 16 | construction | map/manage | density/names | DEEP |
 | Society | SocialPopulationEngine roster | schema 21 | citizen entities | Society/dialogue | roster/dialogue | DEEP |
 | Economy | SettlementEconomyEngine goods | schema 21 | markets | Economy | GoodsChain | DEEP |
 | Diplomacy/war | DiplomacyEngine + goals | schema 21 | military | War/Politics | WarGoal | DEEP |
