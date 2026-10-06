@@ -1,9 +1,13 @@
 package dev.livingrealms.minecraft.worldgen;
 
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
+import dev.livingrealms.minecraft.construction.FactionBlockPalette;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
+import dev.livingrealms.sim.world.StarterCultureTraits;
 import dev.livingrealms.sim.worldgen.StarterCivilizationFabricIndex;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,16 +34,25 @@ public final class StarterCivilizationWorldgenContext {
         private final long worldSeed;
         private final int worldgenVersion;
         private final StarterCivilizationFabricIndex fabricIndex;
+        private final Map<Long, Integer> paletteStyleByFaction;
 
-        private Context(long worldSeed, int worldgenVersion, StarterCivilizationFabricIndex fabricIndex) {
+        private Context(long worldSeed, int worldgenVersion,
+                        StarterCivilizationFabricIndex fabricIndex,
+                        Map<Long, Integer> paletteStyleByFaction) {
             this.worldSeed = worldSeed;
             this.worldgenVersion = worldgenVersion;
             this.fabricIndex = Objects.requireNonNull(fabricIndex, "fabricIndex");
+            this.paletteStyleByFaction = Map.copyOf(
+                    Objects.requireNonNull(paletteStyleByFaction, "paletteStyleByFaction"));
         }
 
         public long worldSeed() { return worldSeed; }
         public int worldgenVersion() { return worldgenVersion; }
         public StarterCivilizationFabricIndex fabricIndex() { return fabricIndex; }
+        public int paletteStyle(long factionId) {
+            return paletteStyleByFaction.getOrDefault(
+                    factionId, FactionBlockPalette.cultureStyle(factionId, 0, 0, 0, 0));
+        }
     }
 
     private static final ConcurrentHashMap<ServerLevel, Context> BY_LEVEL = new ConcurrentHashMap<>();
@@ -58,9 +71,24 @@ public final class StarterCivilizationWorldgenContext {
                 && existing.worldgenVersion() == data.civilizationWorldgenVersion()) {
             return;
         }
-        StarterCivilizationFabricIndex index = StarterCivilizationFabricIndex.build(
-                StarterCivilizationLayoutPlanner.plan(seed));
-        BY_LEVEL.put(level, new Context(seed, data.civilizationWorldgenVersion(), index));
+        StarterCivilizationLayoutPlanner.Layout layout =
+                StarterCivilizationLayoutPlanner.plan(seed);
+        StarterCivilizationFabricIndex index = StarterCivilizationFabricIndex.build(layout);
+        Map<Long, Integer> paletteStyles = new HashMap<>();
+        for (StarterCivilizationLayoutPlanner.RealmPlan realm : layout.realms()) {
+            long factionId = realm.factionId();
+            int style = StarterCultureTraits.resolve(realm.definition())
+                    .map(traits -> FactionBlockPalette.cultureStyle(
+                            factionId,
+                            traits.artistic(),
+                            traits.agrarian(),
+                            traits.martial(),
+                            traits.mercantile()))
+                    .orElseGet(() -> FactionBlockPalette.cultureStyle(factionId, 0, 0, 0, 0));
+            paletteStyles.put(factionId, style);
+        }
+        BY_LEVEL.put(level, new Context(
+                seed, data.civilizationWorldgenVersion(), index, paletteStyles));
     }
 
     public static Optional<Context> context(WorldGenLevel worldGenLevel) {
