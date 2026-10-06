@@ -57,14 +57,10 @@ public final class LivingRealmsLiveHud {
                     ? "Contested: " + jurisdiction.primaryName()
                     : jurisdiction.primaryName();
             line2 = "Day " + snap.day() + "  ·  walk the living world — citizens, roads and markets update live";
-            line3 = "Join here or Found settlement (F12 Overview) · need "
-                    + (int) Math.round(dev.livingrealms.sim.player.PlayerSettlementFounder.MIN_SETTLEMENT_SPACING)
-                    + "m clearance · M map";
+            line3 = "Join here or Found settlement (F12 Overview) · founding clearance is role-aware · M map";
         } else {
             title = "Wilderness";
-            line2 = "Day " + snap.day() + "  ·  open land — found a realm when "
-                    + (int) Math.round(dev.livingrealms.sim.player.PlayerSettlementFounder.MIN_SETTLEMENT_SPACING)
-                    + "m from every town";
+            line2 = "Day " + snap.day() + "  ·  open land — founding clearance varies by nearby settlement type";
             line3 = "F12 Overview → Found settlement here  ·  /livingrealms found <name>  ·  M map";
         }
 
