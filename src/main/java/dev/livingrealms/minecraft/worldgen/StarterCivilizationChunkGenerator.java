@@ -12,8 +12,11 @@ import dev.livingrealms.sim.world.SimPosition;
 import dev.livingrealms.sim.worldgen.SettlementInitialWorldgenPlan;
 import dev.livingrealms.sim.worldgen.StarterCivilizationFabricIndex;
 import dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Blocks;
@@ -21,6 +24,13 @@ import net.minecraft.world.level.block.state.properties.BedPart;
 
 /** Generates only the deterministic starter-fabric slice intersecting one Minecraft chunk. */
 public final class StarterCivilizationChunkGenerator {
+    private record PreparedIntent(
+            StructureBlueprint blueprint,
+            int turns,
+            boolean terrainFollowing,
+            int baseY
+    ) {}
+
     private StarterCivilizationChunkGenerator() {}
 
     public static int generate(
@@ -28,9 +38,28 @@ public final class StarterCivilizationChunkGenerator {
             StarterCivilizationFabricIndex.ChunkSlice slice,
             int chunkX,
             int chunkZ) {
+        // Compute every fixed structure base before the first LR write. This keeps cross-chunk
+        // pieces and neighboring intents anchored to the same pre-existing terrain rather than to
+        // geometry emitted earlier in this feature invocation.
+        Map<StarterCivilizationFabricIndex.SettlementFabric, PreparedIntent> prepared = new HashMap<>();
+        for (StarterCivilizationFabricIndex.SettlementFabric fabric : slice.settlementFabric()) {
+            ConstructionIntent intent = fabric.intent();
+            if (intent.role() == StructureRole.ROAD && intent.hasPath()) continue;
+            StructureBlueprint blueprint =
+                    StructureBlueprintFactory.create(intent, fabric.settlement().architecture());
+            int turns = Math.floorMod(intent.rotationQuarterTurns(), 4);
+            boolean terrainFollowing = terrainFollowing(intent.role());
+            int cx = (int) Math.round(intent.center().x());
+            int cz = (int) Math.round(intent.center().z());
+            int baseY = terrainFollowing ? 0
+                    : writer.siteBaseY(cx, cz, blueprint.width(), blueprint.depth(), turns);
+            prepared.put(fabric, new PreparedIntent(blueprint, turns, terrainFollowing, baseY));
+        }
+
         int writes = 0;
         for (StarterCivilizationFabricIndex.SettlementFabric fabric : slice.settlementFabric()) {
-            writes += generateSettlementIntent(writer, fabric.settlement(), fabric.intent());
+            writes += generateSettlementIntent(
+                    writer, fabric.settlement(), fabric.intent(), prepared.get(fabric));
         }
         for (StarterCivilizationFabricIndex.RouteFabric route : slice.routes()) {
             writes += generateRegionalRoute(writer, route.route(), chunkX, chunkZ);
@@ -41,21 +70,19 @@ public final class StarterCivilizationChunkGenerator {
     private static int generateSettlementIntent(
             WorldgenFabricBlockWriter writer,
             SettlementInitialWorldgenPlan settlement,
-            ConstructionIntent intent) {
+            ConstructionIntent intent,
+            PreparedIntent prepared) {
         if (intent.role() == StructureRole.ROAD && intent.hasPath()) {
             return generatePath(writer, settlement.factionId(), intent.path(), intent.width());
         }
 
-        StructureBlueprint blueprint = StructureBlueprintFactory.create(intent, settlement.architecture());
-        int turns = Math.floorMod(intent.rotationQuarterTurns(), 4);
+        PreparedIntent fixed = Objects.requireNonNull(prepared, "prepared intent");
+        StructureBlueprint blueprint = fixed.blueprint();
+        int turns = fixed.turns();
         int cx = (int) Math.round(intent.center().x());
         int cz = (int) Math.round(intent.center().z());
-        boolean terrainFollowing = intent.role() == StructureRole.WALL
-                || intent.role() == StructureRole.GATE
-                || intent.role() == StructureRole.FARM
-                || intent.role() == StructureRole.PASTURE
-                || intent.role() == StructureRole.IRRIGATION;
-        int baseY = terrainFollowing ? 0 : writer.siteBaseY(cx, cz, blueprint.width(), blueprint.depth(), turns);
+        boolean terrainFollowing = fixed.terrainFollowing();
+        int baseY = fixed.baseY();
 
         Set<String> doors = new HashSet<>();
         Set<String> beds = new HashSet<>();
@@ -182,6 +209,14 @@ public final class StarterCivilizationChunkGenerator {
             return wrote;
         }
         return writer.write(factionId, PaletteSlot.PATH, pos, 0, false, null, ownerType);
+    }
+
+    private static boolean terrainFollowing(StructureRole role) {
+        return role == StructureRole.WALL
+                || role == StructureRole.GATE
+                || role == StructureRole.FARM
+                || role == StructureRole.PASTURE
+                || role == StructureRole.IRRIGATION;
     }
 
     private static int[] rotate(int x, int z, int turns) {
