@@ -146,13 +146,6 @@ public final class StarterCivilizationFabricIndex {
             }
         }
 
-        for (StarterRegionalRoutePlanner.RoutePlan route : routes) {
-            RouteFabric fabric = new RouteFabric(route);
-            for (long key : routeChunks(route)) {
-                mutable.computeIfAbsent(key, ignored -> new MutableSlice()).routes().add(fabric);
-            }
-        }
-
         for (StarterRoadsideSitePlanner.SitePlan site : roadsideSites) {
             RoadsideFabric fabric = new RoadsideFabric(site);
             int x = (int) Math.floor(site.position().x());
