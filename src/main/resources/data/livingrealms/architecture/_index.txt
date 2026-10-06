@@ -1,0 +1,9 @@
+coastal_villa.json
+desert_courtyard.json
+fantasy_manor.json
+generic_lr_fallback.json
+medieval_fachwerk.json
+mercantile_townhouse.json
+nordic_fortress.json
+scholar_villa.json
+timber_pavilion.json
