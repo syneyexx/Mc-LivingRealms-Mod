@@ -230,7 +230,8 @@ require('ContentRevision' in saved_data and 'ContentMigrationPolicy.shouldEnsure
 require('resetConstructionCompletion' in saved_data
         and 'ContentMigrationPolicy.shouldResetMorphology' in saved_data
         and 'ContentMigrationPolicy.shouldFreezeLegacyStreetFabric' in saved_data
-        and 'SettlementConstructionPolicy.migrateLegacyStreetFabric' in saved_data
+        and 'SettlementConstructionPolicy.hasLegacyRoadReceipt' in saved_data
+        and 'SettlementConstructionPolicy.markLegacyStreetFabric' in saved_data
         and 'CONTENT_REVISION = 16' in saved_data,
         'content revision 16 must preserve old morphology migration and freeze materialized legacy road fabric')
 require((root/'LICENSE').exists() and 'MIT License' in (root/'LICENSE').read_text(),'MIT LICENSE file must exist at repo root (matches mod_license)')
