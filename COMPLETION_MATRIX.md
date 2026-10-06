@@ -21,13 +21,13 @@ A subsystem may be **CANONICAL** without being **PHYSICALIZED**, or **PLAYABLE**
 |---|---|---|---|---|---|---|---|---|
 | World clock/history | ✅ | ✅ | ✅ | ✅ | ✅ History tab + commands | n/a | ✅ | POLISHED |
 | Factions/kingdoms | ✅ 12 + Wizard Trees + player realms | ✅ diplomacy/war/trade/growth + SettlementTransfer | ✅ | ✅ citizen + military projection | ✅ Overview/Realms/Map + Join/Leave + found/locate | ✅ heraldry + citizen skins | ✅ | DEEP |
-| Settlements/growth | ✅ capital + 10 authored satellites + 6–14 rural hamlets (204–300 surface) + role-aware spacing | ✅ organic planning + immigration + causal expansion | ✅ schema 20 + ContentRevision 15 | ✅ terrain-aware construction + provenance + Waystone bridge | ✅ management + locate/found + player register building | ✅ hut→mansion + culture geometry families | ✅ density/authored-names/worldgen | DEEP |
-| Society/needs/unrest | ✅ SocialCitizen roster + SocialMobilityEngine | ✅ needs/memory + roster simulateDay | ✅ schema 20 | ✅ physical jobs as animation of sim authority | ✅ Society tab + tokenized dialogue | ✅ 48 citizen skins | ✅ roster/dialogue/society | DEEP |
+| Settlements/growth | ✅ capital + 10 authored satellites + 6–14 rural hamlets (204–300 surface) + role-aware spacing | ✅ organic planning + immigration + causal expansion | ✅ schema 21 + ContentRevision 15 | ✅ terrain-aware construction + provenance + Waystone bridge | ✅ management + locate/found + player register building | ✅ hut→mansion + culture geometry families | ✅ density/authored-names/worldgen | DEEP |
+| Society/needs/unrest | ✅ SocialCitizen roster + SocialMobilityEngine | ✅ needs/memory + roster simulateDay | ✅ schema 21 | ✅ physical jobs as animation of sim authority | ✅ Society tab + tokenized dialogue | ✅ 48 citizen skins | ✅ roster/dialogue/society | DEEP |
 | Government/succession | ✅ + SovereignDebt + GrandProject | ✅ debt/projects/succession | ✅ | ✅ court projection | ✅ Politics | ✅ heraldry court kits | ✅ | DEEP |
 | Diplomacy/treaties | ✅ | ✅ typed war goals + peace treaties | ✅ | ✅ strategic | ✅ Politics | n/a | ✅ WarGoal* | DEEP |
 | War/objectives/sieges | ✅ CampaignPlan + SiegeState | ✅ capital targets + multi-key breach | ✅ | ✅ military + siege equipment | ✅ War tab + War Room | ✅ troop/siege art | ✅ SiegeBreach* + FinalProduct | PLAYABLE |
 | Territory/jurisdiction | ✅ | ✅ | ✅ | ✅ runtime queries | ✅ jurisdiction + claims | n/a | ✅ | CANONICAL |
-| Economy/markets | ✅ GRAIN→FLOUR→BREAD + MEAT/ALE/WOOL | ✅ farms/mills/bakeries/breweries/pastures/hinterland truth | ✅ schema 20 | ✅ player market + vanilla item map | ✅ Economy + dialogue OPEN_TRADE | vanilla commodity bridge | ✅ GoodsChain* | DEEP |
+| Economy/markets | ✅ GRAIN→FLOUR→BREAD + MEAT/ALE/WOOL | ✅ farms/mills/bakeries/breweries/pastures/hinterland truth | ✅ schema 21 | ✅ player market + vanilla item map | ✅ Economy + dialogue OPEN_TRADE | vanilla commodity bridge | ✅ GoodsChain* | DEEP |
 | Trade/logistics | ✅ TradeShipment | ✅ escort/loss/risk | ✅ | ✅ caravan projection | ✅ Ops | ✅ caravan art | ✅ Trade* | PHYSICALIZED |
 | Transport networks | ✅ StreetType + corridors | ✅ same-realm + cross-faction corridors | ✅ | ✅ carriageways/sidewalks | ✅ Ops | ✅ road projection | ✅ | PHYSICALIZED |
 | Industry/Create | ✅ IndustrialSite | ✅ production + maintenance + starvation | ✅ | ✅ Create yard projection | ✅ Ops | ✅ Create blocks | ✅ | PHYSICALIZED |
@@ -41,7 +41,7 @@ A subsystem may be **CANONICAL** without being **PHYSICALIZED**, or **PLAYABLE**
 | Player reputation/membership/influence/careers | ✅ | ✅ join/leave/found/tax/policy | ✅ | ✅ commands + unlocks | ✅ dashboard | n/a | ✅ | PLAYABLE |
 | Bounty hunters | ✅ | ✅ | ✅ | ✅ hunter runtime | ✅ Law | ✅ | ✅ | PLAYABLE |
 | Assistance/contracts | ✅ | ✅ verified delivery + shortage contracts | ✅ | ✅ assist runtime | ✅ Ops + dialogue | n/a | ✅ | DEEP |
-| Underworld board | ✅ contracts + stolen-goods ledger | ✅ matcher never fabricates | ✅ schema 20 | ✅ | ✅ Underworld Accept/Bribe/Fence | n/a | ✅ Underworld* | PLAYABLE |
+| Underworld board | ✅ contracts + stolen-goods ledger | ✅ matcher never fabricates | ✅ schema 21 | ✅ | ✅ Underworld Accept/Bribe/Fence | n/a | ✅ Underworld* | PLAYABLE |
 | Singleplayer client sync | ✅ protocol 20 snapshot | ✅ request/response | server save | ✅ NeoForge payloads | ✅ F12/M/K | ✅ | ✅ | POLISHED |
 | Config/data packs | ✅ | ✅ | ✅ | ✅ | ✅ Settings | ✅ | ✅ | POLISHED |
 | Requested modpack compatibility | ✅ Guns++/GamingBarn player-only | n/a | n/a | ✅ Waystones soft + Create hard | n/a | ✅ | ✅ | POLISHED |
@@ -56,7 +56,7 @@ A subsystem may be **CANONICAL** without being **PHYSICALIZED**, or **PLAYABLE**
 2. Linked NeoForge/Create `clean --no-build-cache build`.
 3. `python3 scripts/release-audit.py`.
 4. `RELEASE_MANIFEST.json` generated for exact HEAD.
-5. Save/load for schema 20 with migrations from schema 1.
+5. Save/load for schema 21 with migrations from schema 1.
 6. 30/365/3650-day soak invariants.
 7. Projection stress under budgets.
 8. No phantom completion keys; no FOOD×mill fountain; capture keeps `citizen.factionId` aligned.
