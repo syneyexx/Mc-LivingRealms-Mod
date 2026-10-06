@@ -28,6 +28,9 @@ public final class StarterRoadsideSiteBootstrap {
             existingIds.add(plan.stableSiteId());
             added++;
         }
+        // Keep later simulation-created sites outside every unused starter slot as well.
+        state.restoreNextId(Math.max(
+                state.peekNextId(), StarterRoadsideSitePlanner.STARTER_ROADSIDE_SITE_ID_LIMIT));
         return added;
     }
 }
