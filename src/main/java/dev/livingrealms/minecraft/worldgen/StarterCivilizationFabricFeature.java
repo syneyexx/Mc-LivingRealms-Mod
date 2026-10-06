@@ -20,13 +20,14 @@ public final class StarterCivilizationFabricFeature extends Feature<NoneFeatureC
         var published = StarterCivilizationWorldgenContext.context(context.level());
         if (published.isEmpty()) return false;
 
+        var worldgen = published.get();
         int chunkX = Math.floorDiv(context.origin().getX(), 16);
         int chunkZ = Math.floorDiv(context.origin().getZ(), 16);
-        var slice = published.get().fabricIndex().query(chunkX, chunkZ);
+        var slice = worldgen.fabricIndex().query(chunkX, chunkZ);
         if (slice.isEmpty()) return false;
 
         WorldgenFabricBlockWriter writer =
-                new WorldgenFabricBlockWriter(context.level(), chunkX, chunkZ);
+                new WorldgenFabricBlockWriter(context.level(), chunkX, chunkZ, worldgen);
         int writes = StarterCivilizationChunkGenerator.generate(writer, slice, chunkX, chunkZ);
         List<StarterCivilizationWorldgenContext.AuthoredWrite> authored = writer.authoredWrites();
         if (!authored.isEmpty()) {
@@ -40,7 +41,7 @@ public final class StarterCivilizationFabricFeature extends Feature<NoneFeatureC
             var existing = chunk.hasData(type)
                     ? chunk.getData(type)
                     : ModWorldgenAttachments.ChunkProvenance.empty();
-            chunk.setData(type, existing.merge(published.get().worldgenVersion(), packed));
+            chunk.setData(type, existing.merge(worldgen.worldgenVersion(), packed));
         }
         return writes > 0;
     }
