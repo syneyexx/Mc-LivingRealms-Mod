@@ -1,5 +1,6 @@
 package dev.livingrealms;
 
+import dev.livingrealms.sim.construction.StructureBlueprintFactory;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
@@ -26,10 +27,26 @@ public final class WorldgenStartupBenchmark {
         var physical = SettlementInitialWorldgenPlan.buildAll(layout);
         long t4 = System.nanoTime();
 
+        var aster = layout.realm("aster");
+        var capitalStarter = aster.capital();
+        var capital = SettlementInitialWorldgenPlan.buildOne(aster, capitalStarter);
+        long t5 = System.nanoTime();
+        int blueprintPlacements = 0;
+        for (var intent : capital.intents()) {
+            blueprintPlacements += StructureBlueprintFactory
+                    .create(intent, capital.architecture())
+                    .placements().size();
+        }
+        long t6 = System.nanoTime();
+
         System.out.println("BENCH demoSeederMs=" + ms(t0, t1)
                 + " layoutMs=" + ms(t1, t2)
                 + " routeTopologyMs=" + ms(t2, t3)
                 + " physicalAllMs=" + ms(t3, t4)
+                + " capitalPlanMs=" + ms(t4, t5)
+                + " capitalBlueprintMs=" + ms(t5, t6)
+                + " capitalIntents=" + capital.intents().size()
+                + " capitalBlueprintPlacements=" + blueprintPlacements
                 + " settlements=" + physical.size()
                 + " routes=" + routes.size());
     }
