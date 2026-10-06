@@ -42,6 +42,7 @@ public final class WorldgenFabricBlockWriter {
     private final int[] oceanFloorSnapshot = new int[16 * 16];
     private final int[] waterSurfaceSnapshot = new int[16 * 16];
     private final Map<Long, AuthoredOwnerType> authoredOwnerByPos = new HashMap<>();
+    private final Map<Long, Boolean> naturalTreeLogSnapshot = new HashMap<>();
     private final List<StarterCivilizationWorldgenContext.AuthoredWrite> authoredWrites = new ArrayList<>();
 
     public WorldgenFabricBlockWriter(
@@ -327,7 +328,7 @@ public final class WorldgenFabricBlockWriter {
     private boolean mayReplace(BlockPos pos, BlockState current, boolean clearing) {
         if (current.isAir()) return true;
         if (current.canBeReplaced() || current.is(BlockTags.LEAVES) || current.is(BlockTags.REPLACEABLE)) return true;
-        if (clearing && current.is(BlockTags.LOGS) && isNaturalTreeLog(pos)) return true;
+        if (current.is(BlockTags.LOGS) && isNaturalTreeLog(pos)) return true;
         if (naturalTerrain(current)) return true;
         // Never bulldoze foreign structure solids or existing block entities during generation.
         return false;
@@ -340,6 +341,15 @@ public final class WorldgenFabricBlockWriter {
     private boolean isNaturalTreeLog(BlockPos log) {
         BlockState state = level.getBlockState(log);
         if (!state.is(BlockTags.LOGS)) return false;
+        return naturalTreeLogSnapshot.computeIfAbsent(log.asLong(), ignored -> classifyNaturalTreeLog(log));
+    }
+
+    /**
+     * Classification is cached on first observation. The writer snapshots every current-chunk
+     * terrain column before LR writes, so ordinary trunks encountered by surface sampling retain
+     * their original natural/foreign identity even after nearby LR vegetation clears.
+     */
+    private boolean classifyNaturalTreeLog(BlockPos log) {
         boolean leaves = false;
         for (BlockPos p : BlockPos.betweenClosed(log.offset(-3, -1, -3), log.offset(3, 6, 3))) {
             if (level.getBlockState(p).is(BlockTags.LEAVES)) {
