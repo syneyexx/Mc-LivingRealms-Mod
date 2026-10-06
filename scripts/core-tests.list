@@ -7,6 +7,7 @@ dev.livingrealms.WorldgenQualityTest
 dev.livingrealms.ProductionCompletionPassTest
 dev.livingrealms.SocietyDialogueTest
 dev.livingrealms.GoodsChainTest
+dev.livingrealms.UnderworldGameplayTest
 dev.livingrealms.CoreSimulationTest
 dev.livingrealms.ConstructionIntegrityTest
 dev.livingrealms.ProvenanceSafetyTest
@@ -91,7 +92,6 @@ dev.livingrealms.SettlementAnchorInvariantTest
 dev.livingrealms.ForeignSettlementSpacingTest
 dev.livingrealms.PlayerWarRoomTest
 dev.livingrealms.WarRoomOptionsBuilderTest
-dev.livingrealms.UnderworldGameplayTest
 dev.livingrealms.PlayerExperienceSurfaceTest
 dev.livingrealms.RoadLifeLayerTest
 dev.livingrealms.RoadLifeMaterializationTest
