@@ -1,5 +1,6 @@
 package dev.livingrealms;
 
+import dev.livingrealms.sim.construction.SettlementCoreCompleteness;
 import dev.livingrealms.sim.construction.SettlementPlanner;
 import dev.livingrealms.sim.faction.ConstructionOrigin;
 import dev.livingrealms.sim.faction.Settlement;
@@ -19,6 +20,7 @@ public final class StarterWorldgenReconciliationTest {
     public static void main(String[] args) {
         canonicalBootstrapUsesSharedStarterRouteIds();
         worldgenReceiptsSuppressBaselineButNotFutureGrowth();
+        starterSettlementsAreCoreComplete();
         constructionOriginOrdinalsRemainBackwardCompatible();
         System.out.println("PASS starter worldgen reconciliation: shared routes + no baseline duplication + runtime growth preserved");
     }
@@ -69,6 +71,25 @@ public final class StarterWorldgenReconciliationTest {
         village.addHousing(2_500);
         check(!SettlementPlanner.pending(faction, village).isEmpty(),
                 "future growth must remain available to runtime construction");
+    }
+
+    private static void starterSettlementsAreCoreComplete() {
+        long seed = 0x55CC7711L;
+        SimulationState state = new SimulationState(seed);
+        DemoSeeder.seed(state);
+        StarterWorldgenCompletion.adoptPlannedBaseline(state);
+
+        var layout = StarterCivilizationLayoutPlanner.plan(seed);
+        for (var realm : layout.realms()) {
+            var faction = state.findFaction(realm.factionId()).orElseThrow();
+            for (var starter : realm.settlements()) {
+                Settlement settlement = state.findSettlement(starter.id()).orElseThrow();
+                var status = SettlementCoreCompleteness.analyze(faction, settlement);
+                check(status.complete(),
+                        "starter settlement is not core-complete after worldgen adoption: "
+                                + starter.stableKey() + " gaps=" + status);
+            }
+        }
     }
 
     private static void constructionOriginOrdinalsRemainBackwardCompatible() {
