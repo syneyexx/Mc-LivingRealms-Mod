@@ -44,6 +44,7 @@ import dev.livingrealms.minecraft.network.DialogueRequestLimiter;
 import dev.livingrealms.minecraft.network.DialogueSessionRuntime;
 import dev.livingrealms.sim.law.CrimeType;
 import dev.livingrealms.minecraft.construction.SettlementConstructionMaterializer;
+import dev.livingrealms.minecraft.construction.TransportNetworkMaterializer;
 import dev.livingrealms.minecraft.construction.CivilizationFabricChunkQueue;
 import dev.livingrealms.minecraft.construction.SettlementGeographyDiscoveryRuntime;
 import dev.livingrealms.minecraft.ForeignStructureDiscoveryRuntime;
