@@ -166,9 +166,16 @@ public final class WorldgenFabricBlockWriter {
 
         BlockState current = level.getBlockState(pos);
         if (isForeignStructurePiece(pos)) return false;
-        if (current.equals(target)) return true;
         if (current.hasBlockEntity()) return false;
         AuthoredOwnerType existingOwner = authoredOwnerAt(pos);
+        if (current.equals(target)) {
+            // Exact material equality is not proof of LR authorship. Preserve unknown matching
+            // foreign blocks rather than silently adopting them into starter provenance.
+            if (existingOwner != null) {
+                return AuthoredOwnerType.allowsOverwrite(existingOwner, ownerType);
+            }
+            return clearing && current.isAir();
+        }
         if (existingOwner != null) {
             if (!AuthoredOwnerType.allowsOverwrite(existingOwner, ownerType)) return false;
         } else if (!mayReplace(pos, current, clearing)) {
