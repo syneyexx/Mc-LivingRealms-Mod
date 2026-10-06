@@ -80,8 +80,22 @@ public final class StarterCivilizationWorldgenContext {
                 && existing.worldgenVersion() == data.civilizationWorldgenVersion()) {
             return;
         }
-        StarterCivilizationLayoutPlanner.Layout layout =
+        StarterCivilizationLayoutPlanner.Layout pureLayout =
                 StarterCivilizationLayoutPlanner.plan(seed);
+        StarterSettlementTerrainResolver.Resolution terrainResolution =
+                StarterSettlementTerrainResolver.resolve(level, pureLayout);
+        StarterCivilizationLayoutPlanner.Layout layout = terrainResolution.layout();
+
+        boolean settlementRelocated = false;
+        for (var planned : layout.settlements()) {
+            var canonical = data.state().findSettlement(planned.id()).orElse(null);
+            if (canonical != null && !canonical.position().equals(planned.position())) {
+                canonical.alignStarterWorldgenPosition(planned.position());
+                settlementRelocated = true;
+            }
+        }
+        if (settlementRelocated) data.setDirty();
+
         var starterRoutes = dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner.plan(layout);
         StarterRegionalRouteGeometryIndex routeGeometryIndex =
                 StarterRegionalRouteGeometryIndex.build(level, starterRoutes);
