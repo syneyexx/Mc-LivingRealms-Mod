@@ -3,6 +3,7 @@ package dev.livingrealms.sim.construction;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementGeographyProfile;
+import dev.livingrealms.sim.faction.SettlementOrigin;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -50,7 +51,7 @@ public enum SettlementMorphology {
     }
 
     private static SettlementMorphology derive(Settlement settlement, boolean capital, double technology) {
-        SettlementGeographyProfile geo = settlement.geography();
+        SettlementGeographyProfile geo = morphologyGeography(settlement);
         int tier = settlement.tier().ordinal();
         long salt = mix(settlement.id() * 0x9E3779B97F4A7C15L);
 
@@ -79,6 +80,19 @@ public enum SettlementMorphology {
             return (salt & 1L) == 0L ? ORGANIC_MEDIEVAL : LINEAR_VALLEY;
         }
         return ORGANIC_MEDIEVAL;
+    }
+
+
+    /**
+     * A true-worldgen starter settlement owns an already-materialized historical street skeleton.
+     * Later terrain discovery may drive economy/harbors, but must not retroactively re-layout that
+     * anchored core into a different morphology while the player is watching.
+     */
+    private static SettlementGeographyProfile morphologyGeography(Settlement settlement) {
+        if (settlement.origin() == SettlementOrigin.AUTHORED_SEED && settlement.physicallyAnchored()) {
+            return SettlementGeographyProfile.fromNameHeuristic(settlement.name());
+        }
+        return settlement.geography();
     }
 
     private static long mix(long z) {
