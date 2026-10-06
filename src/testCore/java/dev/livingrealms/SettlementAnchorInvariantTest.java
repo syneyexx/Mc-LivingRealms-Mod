@@ -4,6 +4,7 @@ import dev.livingrealms.sim.faction.DevelopmentMode;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.faction.SettlementOrigin;
+import dev.livingrealms.sim.faction.SettlementRole;
 import dev.livingrealms.sim.persistence.SimulationStateCodec;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.ForeignAdoptionClassifier;
@@ -88,11 +89,18 @@ public final class SettlementAnchorInvariantTest {
     }
 
     private static void foreignSpacingCases() {
+        // Isolate the role-pair spacing contract from the dense fresh-world network. Using
+        // DemoSeeder here can put another starter village/hamlet inside the 190-block duplicate
+        // footprint and turn this into a BOUND_EXISTING test by accident.
         SimulationState state = new SimulationState(33L);
-        DemoSeeder.seed(state);
-        Settlement host = state.factions().getFirst().settlements().getFirst();
-        int settlementsBefore = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
-        int sitesBefore = state.outlyingSites().size();
+        Faction owner = new Faction(state.nextId(), "Anchor Realm", "Queen");
+        Settlement host = new Settlement(state.nextId(), "Anchor Capital", new SimPosition(0, 0),
+                5_000, 5_500, SettlementOrigin.AUTHORED_SEED, false,
+                DevelopmentMode.AUTO, SettlementRole.CAPITAL);
+        owner.addSettlement(host);
+        state.addFaction(owner);
+        int settlementsBefore = 1;
+        int sitesBefore = 0;
 
         // Outside duplicate-footprint radius but inside CAPITAL↔VILLAGE floor → outlying site
         var near = ForeignAdoptionClassifier.classifyAndAdopt(state,
