@@ -57,13 +57,10 @@ public final class RoadsideSiteMaterializer {
         int cz = (int) Math.floor(site.position().z());
         BlockPos probe = new BlockPos(cx, level.getSeaLevel(), cz);
         if (!level.hasChunkAt(probe)) return false;
-        int[][] offsets = RoadsideSiteTemplate.offsetsFor(site.type());
-        int target = Math.max(1, Math.min(offsets.length, RoadsideSiteTemplate.footprintBudget(site)));
         boolean touched = false;
-        int placed = 0;
-        for (int i = 0; i < offsets.length && placed < target; i++) {
-            int idx = Math.floorMod(i + Long.hashCode(site.id()), offsets.length);
-            int x = cx + offsets[idx][0], z = cz + offsets[idx][1];
+        int present = 0;
+        for (RoadsideSiteTemplate.Placement placement : RoadsideSiteTemplate.placements(site)) {
+            int x = cx + placement.dx(), z = cz + placement.dz();
             BlockPos column = new BlockPos(x, level.getSeaLevel(), z);
             if (!level.hasChunkAt(column)) continue;
             int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
@@ -74,11 +71,11 @@ public final class RoadsideSiteMaterializer {
             BlockState current = level.getBlockState(pos);
             if (groundState.hasBlockEntity()) continue;
             AuthoredOwnerType existing = ledger.ownerType(pos.getX(), pos.getY(), pos.getZ());
-            BlockState desired = RoadsideSiteTemplate.blockFor(site, i);
+            BlockState desired = placement.state();
             if (existing == AuthoredOwnerType.ROADSIDE_SITE
                     && (current.equals(desired) || RoadsideSiteTemplate.isRoadsideMaterial(current))) {
                 PLACED.put(pos.asLong(), site.id());
-                placed++;
+                present++;
                 continue;
             }
             if (current.hasBlockEntity()) continue;
@@ -96,11 +93,11 @@ public final class RoadsideSiteMaterializer {
             if (!current.isAir() && !current.canBeReplaced() && !RoadsideSiteTemplate.isRoadsideMaterial(current)) continue;
             if (WorldMutationGuard.trySetAuthored(level, pos, desired, ledger, AuthoredOwnerType.ROADSIDE_SITE, false, false)) {
                 PLACED.put(pos.asLong(), site.id());
-                placed++;
+                present++;
                 touched = true;
             }
         }
-        return touched || placed > 0;
+        return touched || present > 0;
     }
 
 
