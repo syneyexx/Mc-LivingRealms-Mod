@@ -270,8 +270,7 @@ public final class StarterCivilizationChunkGenerator {
             BlockPos support = new BlockPos(x, supportY, z);
             if (!writer.canSupportRoadside(support, waterColumn)) continue;
 
-            BlockState target = RoadsideSiteTemplate.worldgenState(placement.state());
-            if (target.hasBlockEntity()) continue;
+            BlockState target = placement.state();
             if (writer.writeState(
                     support.above(), target, false, AuthoredOwnerType.ROADSIDE_SITE)) {
                 writes++;
