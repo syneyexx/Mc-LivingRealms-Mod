@@ -1,0 +1,36 @@
+name: Worldgen Fix Core
+
+on:
+  pull_request:
+
+jobs:
+  worldgen-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Compile core sources
+        run: |
+          set -euo pipefail
+          OUT=build/worldgen-core
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          {
+            find src/main/java/dev/livingrealms/sim src/main/java/dev/livingrealms/api src/testCore/java -name '*.java' | sort
+          } > "$OUT/sources.txt"
+          javac --release 21 -Xlint:all -Werror -d "$OUT" @"$OUT/sources.txt"
+      - name: Run worldgen gates
+        run: |
+          set -euo pipefail
+          CP=build/worldgen-core
+          java -cp "$CP" dev.livingrealms.WorldgenQualityTest
+          java -cp "$CP" dev.livingrealms.TerrainCorridorLocalBoundTest
+          java -cp "$CP" dev.livingrealms.StarterCivilizationLayoutPlannerTest
+          java -cp "$CP" dev.livingrealms.StarterCivilizationFabricIndexTest
+          java -cp "$CP" dev.livingrealms.StarterWorldgenReconciliationTest
+          java -cp "$CP" dev.livingrealms.StarterRoadsideSitePlannerTest
+          java -cp "$CP" dev.livingrealms.WorldFabricChunkPolicyTest
+          java -cp "$CP" dev.livingrealms.WorldFabricActivationPolicyTest
