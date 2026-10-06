@@ -41,6 +41,12 @@ public final class StarterCivilizationFabricIndex {
         }
     }
 
+    public record RoadsideFabric(StarterRoadsideSitePlanner.SitePlan site) {
+        public RoadsideFabric {
+            site = Objects.requireNonNull(site, "site");
+        }
+    }
+
     /** Day-zero CITY+ cardinal core avenues formerly paved over runtime ticks. */
     public record UrbanCoreFabric(SettlementInitialWorldgenPlan settlement, int radius) {
         public UrbanCoreFabric {
@@ -52,32 +58,40 @@ public final class StarterCivilizationFabricIndex {
     public record ChunkSlice(
             List<SettlementFabric> settlementFabric,
             List<RouteFabric> routes,
-            List<UrbanCoreFabric> urbanCores
+            List<UrbanCoreFabric> urbanCores,
+            List<RoadsideFabric> roadsideSites
     ) {
-        public static final ChunkSlice EMPTY = new ChunkSlice(List.of(), List.of(), List.of());
+        public static final ChunkSlice EMPTY =
+                new ChunkSlice(List.of(), List.of(), List.of(), List.of());
 
         public ChunkSlice {
             settlementFabric = List.copyOf(Objects.requireNonNull(settlementFabric, "settlementFabric"));
             routes = List.copyOf(Objects.requireNonNull(routes, "routes"));
             urbanCores = List.copyOf(Objects.requireNonNull(urbanCores, "urbanCores"));
+            roadsideSites = List.copyOf(Objects.requireNonNull(roadsideSites, "roadsideSites"));
         }
 
         public boolean isEmpty() {
-            return settlementFabric.isEmpty() && routes.isEmpty() && urbanCores.isEmpty();
+            return settlementFabric.isEmpty() && routes.isEmpty()
+                    && urbanCores.isEmpty() && roadsideSites.isEmpty();
         }
     }
 
     private record MutableSlice(
             List<SettlementFabric> settlements,
             List<RouteFabric> routes,
-            List<UrbanCoreFabric> urbanCores
+            List<UrbanCoreFabric> urbanCores,
+            List<RoadsideFabric> roadsideSites
     ) {
-        MutableSlice() { this(new ArrayList<>(), new ArrayList<>(), new ArrayList<>()); }
+        MutableSlice() {
+            this(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+        }
     }
 
     private final StarterCivilizationLayoutPlanner.Layout layout;
     private final List<SettlementInitialWorldgenPlan> settlements;
     private final List<StarterRegionalRoutePlanner.RoutePlan> routes;
+    private final List<StarterRoadsideSitePlanner.SitePlan> roadsideSites;
     private final Map<Long, ChunkSlice> byChunk;
     private final int indexedReferences;
 
@@ -85,11 +99,13 @@ public final class StarterCivilizationFabricIndex {
             StarterCivilizationLayoutPlanner.Layout layout,
             List<SettlementInitialWorldgenPlan> settlements,
             List<StarterRegionalRoutePlanner.RoutePlan> routes,
+            List<StarterRoadsideSitePlanner.SitePlan> roadsideSites,
             Map<Long, ChunkSlice> byChunk,
             int indexedReferences) {
         this.layout = Objects.requireNonNull(layout, "layout");
         this.settlements = List.copyOf(settlements);
         this.routes = List.copyOf(routes);
+        this.roadsideSites = List.copyOf(roadsideSites);
         this.byChunk = Map.copyOf(byChunk);
         this.indexedReferences = indexedReferences;
     }
@@ -98,6 +114,7 @@ public final class StarterCivilizationFabricIndex {
         Objects.requireNonNull(layout, "layout");
         List<SettlementInitialWorldgenPlan> settlements = SettlementInitialWorldgenPlan.buildAll(layout);
         List<StarterRegionalRoutePlanner.RoutePlan> routes = StarterRegionalRoutePlanner.plan(layout);
+        List<StarterRoadsideSitePlanner.SitePlan> roadsideSites = StarterRoadsideSitePlanner.plan(layout);
         Map<Long, MutableSlice> mutable = new HashMap<>();
 
         for (SettlementInitialWorldgenPlan settlement : settlements) {
@@ -125,6 +142,17 @@ public final class StarterCivilizationFabricIndex {
             }
         }
 
+        for (StarterRoadsideSitePlanner.SitePlan site : roadsideSites) {
+            RoadsideFabric fabric = new RoadsideFabric(site);
+            int x = (int) Math.floor(site.position().x());
+            int z = (int) Math.floor(site.position().z());
+            // Shared Minecraft roadside templates currently stay within two blocks of the anchor.
+            // Keep a one-block conservative halo without coupling pure simulation code to MC blocks.
+            for (long key : rectangleChunks(x - 3, z - 3, x + 3, z + 3)) {
+                mutable.computeIfAbsent(key, ignored -> new MutableSlice()).roadsideSites().add(fabric);
+            }
+        }
+
         for (SettlementInitialWorldgenPlan settlement : settlements) {
             if (settlement.tier().ordinal() < Settlement.Tier.CITY.ordinal()) continue;
             int radius = settlement.tier() == Settlement.Tier.METROPOLIS ? 96 : 72;
@@ -141,10 +169,13 @@ public final class StarterCivilizationFabricIndex {
             List<SettlementFabric> settlementRefs = dedupeSettlements(slice.settlements());
             List<RouteFabric> routeRefs = dedupeRoutes(slice.routes());
             List<UrbanCoreFabric> urbanCoreRefs = dedupeUrbanCores(slice.urbanCores());
-            refs += settlementRefs.size() + routeRefs.size() + urbanCoreRefs.size();
-            frozen.put(entry.getKey(), new ChunkSlice(settlementRefs, routeRefs, urbanCoreRefs));
+            List<RoadsideFabric> roadsideRefs = dedupeRoadsideSites(slice.roadsideSites());
+            refs += settlementRefs.size() + routeRefs.size() + urbanCoreRefs.size() + roadsideRefs.size();
+            frozen.put(entry.getKey(),
+                    new ChunkSlice(settlementRefs, routeRefs, urbanCoreRefs, roadsideRefs));
         }
-        return new StarterCivilizationFabricIndex(layout, settlements, routes, frozen, refs);
+        return new StarterCivilizationFabricIndex(
+                layout, settlements, routes, roadsideSites, frozen, refs);
     }
 
     public ChunkSlice query(int chunkX, int chunkZ) {
@@ -154,6 +185,7 @@ public final class StarterCivilizationFabricIndex {
     public StarterCivilizationLayoutPlanner.Layout layout() { return layout; }
     public List<SettlementInitialWorldgenPlan> settlements() { return settlements; }
     public List<StarterRegionalRoutePlanner.RoutePlan> routes() { return routes; }
+    public List<StarterRoadsideSitePlanner.SitePlan> roadsideSites() { return roadsideSites; }
     public int indexedChunkCount() { return byChunk.size(); }
     public int indexedReferences() { return indexedReferences; }
 
@@ -169,6 +201,11 @@ public final class StarterCivilizationFabricIndex {
 
     private static List<UrbanCoreFabric> dedupeUrbanCores(List<UrbanCoreFabric> input) {
         LinkedHashSet<UrbanCoreFabric> set = new LinkedHashSet<>(input);
+        return List.copyOf(set);
+    }
+
+    private static List<RoadsideFabric> dedupeRoadsideSites(List<RoadsideFabric> input) {
+        LinkedHashSet<RoadsideFabric> set = new LinkedHashSet<>(input);
         return List.copyOf(set);
     }
 
@@ -247,6 +284,12 @@ public final class StarterCivilizationFabricIndex {
         int cz = (int) Math.round(settlement.center().z());
         addChunkRectangle(out, cx - radius, cz - 1, cx + radius, cz + 1);
         addChunkRectangle(out, cx - 1, cz - radius, cx + 1, cz + radius);
+        return out;
+    }
+
+    private static Set<Long> rectangleChunks(int minX, int minZ, int maxX, int maxZ) {
+        Set<Long> out = new HashSet<>();
+        addChunkRectangle(out, minX, minZ, maxX, maxZ);
         return out;
     }
 
