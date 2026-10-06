@@ -255,24 +255,21 @@ public final class StarterCivilizationFabricIndex {
     }
 
     /**
-     * Bounded corridor indexing. Eight-block samples plus a four-block cross-width halo guarantee
-     * every chunk touched by the straight deterministic starter centerline is indexed.
+     * Exact bounded corridor indexing. One centerline sample per block plus a conservative four-block
+     * halo covers diagonal chunk-corner crossings and the full generated road width. This whole-route
+     * walk happens once while the immutable index is built; generated-chunk queries stay O(1).
      */
     private static Set<Long> routeChunks(StarterRegionalRoutePlanner.RoutePlan route) {
         Set<Long> out = new HashSet<>();
         double dx = route.to().x() - route.from().x();
         double dz = route.to().z() - route.from().z();
         double distance = Math.hypot(dx, dz);
-        int steps = Math.max(1, (int) Math.ceil(distance / 8.0));
-        double len = Math.max(1.0e-9, distance);
-        double nx = -dz / len, nz = dx / len;
+        int steps = Math.max(1, (int) Math.ceil(distance));
         for (int i = 0; i <= steps; i++) {
             double t = i / (double) steps;
-            double x = route.from().x() + dx * t;
-            double z = route.from().z() + dz * t;
-            addChunk(out, x, z);
-            addChunk(out, x + nx * 4.0, z + nz * 4.0);
-            addChunk(out, x - nx * 4.0, z - nz * 4.0);
+            int x = (int) Math.round(route.from().x() + dx * t);
+            int z = (int) Math.round(route.from().z() + dz * t);
+            addChunkRectangle(out, x - 4, z - 4, x + 4, z + 4);
         }
         return out;
     }
