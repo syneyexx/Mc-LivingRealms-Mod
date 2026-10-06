@@ -122,14 +122,10 @@ public final class WorldgenFabricBlockWriter {
         return ground;
     }
 
-    public int regionalRouteDeckY(long routeId, int x, int z, int fallbackY) {
-        return worldgenContext.regionalRouteHeights().deckY(routeId, x, z, fallbackY);
-    }
-
     /**
-     * Performs only bounded dry-land grading for a road column. Cuts deeper than two blocks and
-     * fills higher than three blocks are rejected so worldgen roads never tunnel through hills or
-     * create tall artificial viaducts. The deck block itself is written by the caller.
+     * Applies the immutable regional-road grade profile without touching foreign structure pieces.
+     * Negative deltas become short natural-terrain cuts/tunnels; positive deltas become filled
+     * causeways or periodically supported bridge decks. All earthwork is bounded.
      */
     public boolean prepareDryRoadColumn(
             long factionId,
@@ -140,23 +136,28 @@ public final class WorldgenFabricBlockWriter {
             AuthoredOwnerType ownerType) {
         if (!insideCurrentChunk(x, z) || ownerType == null) return false;
         int delta = deckY - groundY;
-        if (delta < -2 || delta > 3) return false;
+        if (delta < -16 || delta > 24) return false;
 
         if (delta < 0) {
-            for (int y = deckY + 1; y <= groundY + 2; y++) {
+            int headTop = Math.min(groundY + 2, deckY + 3);
+            for (int y = deckY + 1; y <= headTop; y++) {
                 if (!canReplaceForWorldgen(new BlockPos(x, y, z), true, ownerType)) return false;
             }
-            for (int y = deckY + 1; y <= groundY + 2; y++) {
-                if (!writeState(
-                        new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), true, ownerType)) {
-                    BlockState state = level.getBlockState(new BlockPos(x, y, z));
-                    if (!state.isAir()) return false;
+            for (int y = deckY + 1; y <= headTop; y++) {
+                BlockPos carve = new BlockPos(x, y, z);
+                if (!writeState(carve, Blocks.AIR.defaultBlockState(), true, ownerType)
+                        && !level.getBlockState(carve).isAir()) {
+                    return false;
                 }
             }
             return true;
         }
 
         if (!clearNaturalVegetationAbove(x, groundY, z, 8, ownerType)) return false;
+        boolean fullCauseway = delta <= 4;
+        boolean supportColumn = fullCauseway || Math.floorMod(x * 31 + z * 17, 7) == 0;
+        if (!supportColumn) return true;
+
         for (int y = groundY + 1; y < deckY; y++) {
             if (!canReplaceForWorldgen(new BlockPos(x, y, z), false, ownerType)) return false;
         }
