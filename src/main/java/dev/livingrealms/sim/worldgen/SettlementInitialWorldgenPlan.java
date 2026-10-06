@@ -3,6 +3,7 @@ package dev.livingrealms.sim.worldgen;
 import dev.livingrealms.sim.construction.ConstructionIntent;
 import dev.livingrealms.sim.construction.CultureArchitecture;
 import dev.livingrealms.sim.construction.SettlementPlanner;
+import dev.livingrealms.sim.economy.primary.PrimaryEconomyPlanner;
 import dev.livingrealms.sim.faction.DevelopmentMode;
 import dev.livingrealms.sim.faction.Faction;
 import dev.livingrealms.sim.faction.Settlement;
@@ -70,10 +71,12 @@ public record SettlementInitialWorldgenPlan(
                 Settlement settlement = settlements.get(i);
                 StarterCivilizationLayoutPlanner.SettlementPlan starter = realmPlan.settlements().get(i);
                 SettlementPlanner.WorldgenPlan physical = SettlementPlanner.planWorldgen(faction, settlement);
+                List<ConstructionIntent> dayZero = new ArrayList<>(physical.intents());
+                dayZero.addAll(PrimaryEconomyPlanner.planStarterBaseline(faction, settlement));
                 out.add(new SettlementInitialWorldgenPlan(
                         starter.stableKey(), realmPlan.definition().id(), faction.id(), settlement.id(),
                         settlement.name(), settlement.role(), settlement.tier(), settlement.position(),
-                        physical.architecture(), physical.intents()));
+                        physical.architecture(), dayZero));
             }
         }
         return List.copyOf(out);
