@@ -21,7 +21,9 @@ public final class StarterWorldgenCompletion {
     public static int adoptPlannedBaseline(SimulationState state) {
         Objects.requireNonNull(state, "state");
         var layout = StarterCivilizationLayoutPlanner.plan(state.seed());
-        return adoptPlannedBaseline(state, SettlementInitialWorldgenPlan.buildAll(layout));
+        int changes = adoptPlannedBaseline(state, SettlementInitialWorldgenPlan.buildAll(layout));
+        changes += adoptWizardTreesBaseline(state, WizardTreesInitialWorldgenPlan.build(state));
+        return changes;
     }
 
     public static int adoptWizardTreesBaseline(SimulationState state) {
@@ -34,6 +36,29 @@ public final class StarterWorldgenCompletion {
         int changes = 0;
         for (WizardTreesInitialWorldgenPlan.SettlementPlan plan
                 : WizardTreesInitialWorldgenPlan.build(state)) {
+            Settlement settlement = canonical.get(plan.settlementId());
+            if (settlement == null) continue;
+            for (var intent : plan.intents()) {
+                if (settlement.markConstruction(intent.key(), ConstructionOrigin.WORLDGEN)) changes++;
+            }
+            settlement.markPhysicallyAnchored();
+        }
+        return changes;
+    }
+
+
+    public static int adoptWizardTreesBaseline(
+            SimulationState state,
+            java.util.List<WizardTreesInitialWorldgenPlan.SettlementPlan> plans) {
+        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(plans, "plans");
+        Map<Long, Settlement> canonical = new HashMap<>();
+        for (var faction : state.factions()) for (var settlement : faction.settlements()) {
+            canonical.put(settlement.id(), settlement);
+        }
+
+        int changes = 0;
+        for (WizardTreesInitialWorldgenPlan.SettlementPlan plan : plans) {
             Settlement settlement = canonical.get(plan.settlementId());
             if (settlement == null) continue;
             for (var intent : plan.intents()) {
