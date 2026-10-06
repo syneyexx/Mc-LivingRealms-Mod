@@ -1,0 +1,25 @@
+name: Worldgen Startup Benchmark
+
+on:
+  pull_request:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Compile benchmark
+        run: |
+          set -euo pipefail
+          OUT=build/startup-bench
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          find src/main/java/dev/livingrealms/sim src/main/java/dev/livingrealms/api -name '*.java' | sort > "$OUT/sources.txt"
+          echo src/testCore/java/dev/livingrealms/WorldgenStartupBenchmark.java >> "$OUT/sources.txt"
+          javac --release 21 -d "$OUT" @"$OUT/sources.txt"
+      - name: Run benchmark
+        run: java -cp build/startup-bench dev.livingrealms.WorldgenStartupBenchmark
