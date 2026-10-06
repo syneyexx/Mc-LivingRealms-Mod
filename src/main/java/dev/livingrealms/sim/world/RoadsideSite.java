@@ -56,7 +56,10 @@ public final class RoadsideSite {
 
     /** Main-thread deterministic alignment hook for starter corridor/worldgen reconciliation. */
     public void relocate(SimPosition position) {
-        this.position = Objects.requireNonNull(position, "position");
+        SimPosition next = Objects.requireNonNull(position, "position");
+        boolean defaultNamed = name.equals(defaultName(type, this.position));
+        this.position = next;
+        if (defaultNamed) this.name = defaultName(type, next);
     }
 
     public void restore(Lifecycle lifecycle, boolean active) {
