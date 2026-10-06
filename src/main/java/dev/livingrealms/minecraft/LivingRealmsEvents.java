@@ -48,6 +48,7 @@ import dev.livingrealms.minecraft.construction.TransportNetworkMaterializer;
 import dev.livingrealms.minecraft.construction.CivilizationFabricChunkQueue;
 import dev.livingrealms.minecraft.construction.SettlementGeographyDiscoveryRuntime;
 import dev.livingrealms.minecraft.worldgen.StarterCivilizationWorldgenContext;
+import dev.livingrealms.minecraft.worldgen.ModWorldgenAttachments;
 import dev.livingrealms.minecraft.ForeignStructureDiscoveryRuntime;
 import dev.livingrealms.minecraft.construction.HistoricalSiteMaterializer;
 import dev.livingrealms.minecraft.construction.IndustrialSiteMaterializer;
@@ -150,6 +151,7 @@ public final class LivingRealmsEvents {
         if(HiddenCacheRuntime.broken(player,event.getPos())){event.setCanceled(true);return;}
         if(PirateHideoutRuntime.blockBroken(player,event.getPos()))return;
         HistoricalSiteRuntime.ruinBlockBroken(player,event.getPos());
+        ModWorldgenAttachments.forgetAt(level, event.getPos());
         PlayerStructureRevalidationRuntime.onBlockChanged(level, event.getPos());
         var data=SimulationRuntime.data(level.getServer());var state=data.state();double x=event.getPos().getX()+.5,z=event.getPos().getZ()+.5;
         IndustrySitePlanner.Site nearest=null;double best=7.0D*7.0D;
@@ -164,6 +166,9 @@ public final class LivingRealmsEvents {
     @SubscribeEvent
     public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
+        if (event.getEntity() instanceof ServerPlayer) {
+            ModWorldgenAttachments.forgetAt(level, event.getPos());
+        }
         PlayerStructureRevalidationRuntime.onBlockChanged(level, event.getPos());
     }
 
