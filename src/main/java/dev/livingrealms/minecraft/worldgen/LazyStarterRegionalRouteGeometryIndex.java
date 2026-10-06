@@ -148,6 +148,7 @@ public final class LazyStarterRegionalRouteGeometryIndex {
                         level, resolvedRoute, terrainCache);
         pointsByRoute.put(resolvedRoute.stableRouteId(), slice.points());
         index(slice);
+        settlementFabric.indexRoadsideForResolvedRoute(slice);
         return slice;
     }
 

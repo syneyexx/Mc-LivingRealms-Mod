@@ -32,8 +32,10 @@ public final class StarterCivilizationFabricFeature extends Feature<NoneFeatureC
             chunkX = Math.floorDiv(context.origin().getX(), 16);
             chunkZ = Math.floorDiv(context.origin().getZ(), 16);
         }
-        var slice = worldgen.fabricIndex().query(chunkX, chunkZ);
+        // Resolve route geometry first: lazy route completion also aligns and indexes its
+        // roadside sites, so the fabric query below sees them in this same worldgen invocation.
         var routeSlice = worldgen.routeGeometryIndex().query(chunkX, chunkZ);
+        var slice = worldgen.fabricIndex().query(chunkX, chunkZ);
         var wizardSlice = worldgen.wizardTreesIndex().query(chunkX, chunkZ);
         if (slice.isEmpty() && routeSlice.isEmpty() && wizardSlice.isEmpty()) return false;
 
