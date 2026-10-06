@@ -5,7 +5,9 @@ import dev.livingrealms.minecraft.construction.FactionBlockPalette;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
 import dev.livingrealms.sim.world.StarterCultureTraits;
+import dev.livingrealms.sim.worldgen.SettlementInitialWorldgenPlan;
 import dev.livingrealms.sim.worldgen.StarterCivilizationFabricIndex;
+import dev.livingrealms.sim.worldgen.StarterWorldgenCompletion;
 import dev.livingrealms.sim.worldgen.WizardTreesInitialWorldgenPlan;
 import java.util.HashMap;
 import java.util.Map;
@@ -94,7 +96,9 @@ public final class StarterCivilizationWorldgenContext {
                 settlementRelocated = true;
             }
         }
-        if (settlementRelocated) data.setDirty();
+        int resolvedReceiptChanges = StarterWorldgenCompletion.adoptPlannedBaseline(
+                data.state(), SettlementInitialWorldgenPlan.buildAll(layout));
+        if (settlementRelocated || resolvedReceiptChanges > 0) data.setDirty();
 
         var starterRoutes = dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner.plan(layout);
         StarterRegionalRouteGeometryIndex routeGeometryIndex =
