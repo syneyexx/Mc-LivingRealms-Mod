@@ -39,6 +39,16 @@ public final class StarterCivilizationChunkGenerator {
             StarterCivilizationFabricIndex.ChunkSlice slice,
             int chunkX,
             int chunkZ) {
+        return generate(
+                writer, slice, StarterRegionalRouteGeometryIndex.ChunkSlice.EMPTY, chunkX, chunkZ);
+    }
+
+    public static int generate(
+            WorldgenFabricBlockWriter writer,
+            StarterCivilizationFabricIndex.ChunkSlice slice,
+            StarterRegionalRouteGeometryIndex.ChunkSlice routeSlice,
+            int chunkX,
+            int chunkZ) {
         // Compute every fixed structure base before the first LR write. This keeps cross-chunk
         // pieces and neighboring intents anchored to the same pre-existing terrain rather than to
         // geometry emitted earlier in this feature invocation.
@@ -64,8 +74,8 @@ public final class StarterCivilizationChunkGenerator {
         for (StarterCivilizationFabricIndex.UrbanCoreFabric urbanCore : slice.urbanCores()) {
             writes += generateUrbanCore(writer, urbanCore, chunkX, chunkZ);
         }
-        for (StarterCivilizationFabricIndex.RouteFabric route : slice.routes()) {
-            writes += generateRegionalRoute(writer, route.route(), chunkX, chunkZ);
+        for (StarterRegionalRouteGeometryIndex.RouteSlice route : routeSlice.routes()) {
+            writes += generateRegionalRoute(writer, route, chunkX, chunkZ);
         }
         // Starter roadside anchors are part of day-zero fabric. Generate them after roads so cells
         // crossing water can require and reuse the bridge deck authored earlier in this slice.
@@ -281,17 +291,13 @@ public final class StarterCivilizationChunkGenerator {
 
     private static int generateRegionalRoute(
             WorldgenFabricBlockWriter writer,
-            StarterRegionalRoutePlanner.RoutePlan route,
+            StarterRegionalRouteGeometryIndex.RouteSlice routeSlice,
             int chunkX,
             int chunkZ) {
-        int minX = chunkX << 4, minZ = chunkZ << 4;
-        int halo = route.rural() ? 1 : 3;
-        var points = RouteProjectionPlanner.planInBounds(
-                route.asTransportRoute(), route.from(), route.to(),
-                minX - halo, minZ - halo, minX + 15 + halo, minZ + 15 + halo, 4096);
+        StarterRegionalRoutePlanner.RoutePlan route = routeSlice.route();
         int writes = 0;
         Set<Long> visited = new HashSet<>();
-        for (RouteProjectionPlanner.RoutePoint point : points) {
+        for (RouteProjectionPlanner.RoutePoint point : routeSlice.points()) {
             int px = point.x(), pz = point.z();
             int nx = point.dz() == 0 ? 0 : Integer.signum(point.dz());
             int nz = point.dx() == 0 ? 0 : -Integer.signum(point.dx());
