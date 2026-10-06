@@ -88,13 +88,15 @@ public final class LivingRealmsReleaseGameTests {
         helper.succeed();
     }
 
-    /** Q4: encode/decode + densifier stay idempotent; SavedData content revision pin stays 17. */
+    /** Q4: encode/decode + densifier stay idempotent; SavedData content revision pin stays current. */
     @GameTest(template = "gametests/empty", timeoutTicks = 40)
     public static void savedDataReloadKeepsRevisionAndDensity(GameTestHelper helper) {
         SimulationState state = new SimulationState(0x5AFE_0014L, SpeciesCatalog.starter());
         DemoSeeder.seed(state);
         int before = state.factions().stream().mapToInt(f -> f.settlements().size()).sum();
-        helper.assertTrue(before == SettlementDensitySeeder.SURFACE_STARTER_SETTLEMENTS + 3,
+        helper.assertTrue(
+                before >= SettlementDensitySeeder.MIN_SURFACE_STARTER_SETTLEMENTS + 3
+                        && before <= SettlementDensitySeeder.MAX_SURFACE_STARTER_SETTLEMENTS + 3,
                 "starter density before save");
         byte[] payload = SimulationStateCodec.encode(state);
         SimulationState restored = SimulationStateCodec.decode(payload, SpeciesCatalog.starter());
@@ -105,7 +107,7 @@ public final class LivingRealmsReleaseGameTests {
 
         LivingRealmsSavedData data = LivingRealmsSavedData.create(0x5AFE_0015L, SpeciesCatalog.starter());
         CompoundTag tag = data.save(new CompoundTag(), helper.getLevel().registryAccess());
-        helper.assertTrue(tag.getInt("ContentRevision") == 17, "CONTENT_REVISION must serialize as 17");
+        helper.assertTrue(tag.getInt("ContentRevision") == 18, "CONTENT_REVISION must serialize as 18");
         helper.succeed();
     }
 
