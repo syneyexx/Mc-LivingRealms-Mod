@@ -2,6 +2,7 @@ package dev.livingrealms;
 
 import dev.livingrealms.sim.construction.SettlementCoreCompleteness;
 import dev.livingrealms.sim.construction.SettlementPlanner;
+import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.faction.ConstructionOrigin;
 import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.transport.TransportNetworkEngine;
@@ -9,6 +10,7 @@ import dev.livingrealms.sim.transport.TransportRoute;
 import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
+import dev.livingrealms.sim.worldgen.SettlementInitialWorldgenPlan;
 import dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner;
 import dev.livingrealms.sim.worldgen.StarterWorldgenCompletion;
 import java.util.HashSet;
@@ -22,6 +24,7 @@ public final class StarterWorldgenReconciliationTest {
         canonicalBootstrapUsesSharedStarterRouteIds();
         dynamicTransportDoesNotDuplicateStarterEdges();
         worldgenReceiptsSuppressBaselineButNotFutureGrowth();
+        fallbackPrimaryEconomyBelongsToWorldgen();
         starterSettlementsAreCoreComplete();
         constructionOriginOrdinalsRemainBackwardCompatible();
         System.out.println("PASS starter worldgen reconciliation: shared routes + no baseline duplication + runtime growth preserved");
@@ -97,6 +100,41 @@ public final class StarterWorldgenReconciliationTest {
         village.addHousing(2_500);
         check(!SettlementPlanner.pending(faction, village).isEmpty(),
                 "future growth must remain available to runtime construction");
+    }
+
+
+    private static void fallbackPrimaryEconomyBelongsToWorldgen() {
+        long seed = 0x4455AA11L;
+        SimulationState state = new SimulationState(seed);
+        DemoSeeder.seed(state);
+        StarterWorldgenCompletion.adoptPlannedBaseline(state);
+
+        var layout = StarterCivilizationLayoutPlanner.plan(seed);
+        for (SettlementInitialWorldgenPlan plan : SettlementInitialWorldgenPlan.buildAll(layout)) {
+            Settlement settlement = state.findSettlement(plan.settlementId()).orElseThrow();
+            boolean hasLumber = plan.intents().stream().anyMatch(i ->
+                    i.role() == StructureRole.LUMBER_CAMP && i.key().equals("lumber_camp:0"));
+            boolean hasMine = plan.intents().stream().anyMatch(i ->
+                    i.role() == StructureRole.MINE && i.key().equals("mine:0"));
+            boolean hasFishery = plan.intents().stream().anyMatch(i ->
+                    i.role() == StructureRole.FISHERY && i.key().equals("fishery:0"));
+
+            check(hasLumber == (plan.tier().ordinal() >= Settlement.Tier.HAMLET.ordinal()),
+                    "starter lumber baseline tier mismatch: " + plan.stableKey());
+            check(hasMine == (plan.tier().ordinal() >= Settlement.Tier.VILLAGE.ordinal()),
+                    "starter mine baseline tier mismatch: " + plan.stableKey());
+            check(!hasFishery,
+                    "fishery must wait for discovered geography: " + plan.stableKey());
+
+            if (hasLumber) {
+                check(settlement.constructionOrigin("lumber_camp:0") == ConstructionOrigin.WORLDGEN,
+                        "starter lumber receipt not WORLDGEN: " + plan.stableKey());
+            }
+            if (hasMine) {
+                check(settlement.constructionOrigin("mine:0") == ConstructionOrigin.WORLDGEN,
+                        "starter mine receipt not WORLDGEN: " + plan.stableKey());
+            }
+        }
     }
 
     private static void starterSettlementsAreCoreComplete() {
