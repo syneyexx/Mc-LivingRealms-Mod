@@ -98,6 +98,30 @@ public final class TerrainCorridorPlanner {
         return List.of();
     }
 
+    /**
+     * Strictly bounded local corridor search for chunk/region worldgen.
+     *
+     * <p>Unlike {@link #plan}, this method never runs the 36 shifted-pass hierarchy or midpoint
+     * waypoint fallback. Callers provide a blocker that fences the local planning tile. A failed
+     * local search returns empty quickly so the Minecraft adapter can use a bounded engineered
+     * segment instead of turning one chunk into a multi-kilometre A* job.</p>
+     */
+    public static List<Cell> planLocal(
+            int fromX, int fromZ, int toX, int toZ,
+            int cellSize, int maxNodes, TerrainSample sample) {
+        Objects.requireNonNull(sample, "sample");
+        if (cellSize < 4 || maxNodes < 16) throw new IllegalArgumentException("budget");
+
+        List<Cell> primary = search(
+                fromX, fromZ, toX, toZ, cellSize, maxNodes, sample);
+        if (!primary.isEmpty()) return primary;
+
+        int fine = Math.max(4, cellSize / 2);
+        return search(
+                fromX, fromZ, toX, toZ, fine,
+                Math.min(maxNodes * 2, 4_000), sample);
+    }
+
     private static List<Cell> search(int fromX, int fromZ, int toX, int toZ, int cellSize, int maxNodes, TerrainSample sample) {
         int sx = quantize(fromX, cellSize), sz = quantize(fromZ, cellSize);
         int gx = quantize(toX, cellSize), gz = quantize(toZ, cellSize);
