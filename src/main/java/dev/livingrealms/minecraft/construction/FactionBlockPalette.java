@@ -26,7 +26,11 @@ public final class FactionBlockPalette {
      * registry/cache calls and no active Create machinery.
      */
     public static BlockState worldgenState(long factionId, PaletteSlot slot) {
-        return state(factionId, slot, cultureStyle(factionId, 0, 0, 0, 0), false);
+        return worldgenState(factionId, slot, cultureStyle(factionId, 0, 0, 0, 0));
+    }
+
+    public static BlockState worldgenState(long factionId, PaletteSlot slot, int cultureStyle) {
+        return state(factionId, slot, cultureStyle, false);
     }
 
     /**
