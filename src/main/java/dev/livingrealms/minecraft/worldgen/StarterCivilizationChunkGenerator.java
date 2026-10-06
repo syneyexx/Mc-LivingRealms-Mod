@@ -59,6 +59,9 @@ public final class StarterCivilizationChunkGenerator {
             writes += generateSettlementIntent(
                     writer, fabric.settlement(), fabric.intent(), prepared.get(fabric));
         }
+        for (StarterCivilizationFabricIndex.UrbanCoreFabric urbanCore : slice.urbanCores()) {
+            writes += generateUrbanCore(writer, urbanCore, chunkX, chunkZ);
+        }
         for (StarterCivilizationFabricIndex.RouteFabric route : slice.routes()) {
             writes += generateRegionalRoute(writer, route.route(), chunkX, chunkZ);
         }
@@ -144,6 +147,40 @@ public final class StarterCivilizationChunkGenerator {
                     if (!visited.add(packed) || !writer.insideCurrentChunk(x, z)) continue;
                     if (writeRoadDeck(writer, factionId, x, z, false, false,
                             AuthoredOwnerType.SETTLEMENT_ROAD)) writes++;
+                }
+            }
+        }
+        return writes;
+    }
+
+    private static int generateUrbanCore(
+            WorldgenFabricBlockWriter writer,
+            StarterCivilizationFabricIndex.UrbanCoreFabric urbanCore,
+            int chunkX,
+            int chunkZ) {
+        SettlementInitialWorldgenPlan settlement = urbanCore.settlement();
+        int cx = (int) Math.round(settlement.center().x());
+        int cz = (int) Math.round(settlement.center().z());
+        int radius = urbanCore.radius();
+        int minX = chunkX << 4, minZ = chunkZ << 4;
+        int maxX = minX + 15, maxZ = minZ + 15;
+        int writes = 0;
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                boolean onAxis = (Math.abs(x - cx) <= 1 && Math.abs(z - cz) <= radius)
+                        || (Math.abs(z - cz) <= 1 && Math.abs(x - cx) <= radius);
+                if (!onAxis) continue;
+                int ground = writer.terrainY(x, z);
+                if (writer.waterSurfaceY(x, z) > ground) continue;
+                if (!writer.clearNaturalVegetationAbove(
+                        x, ground, z, 8, AuthoredOwnerType.SETTLEMENT_ROAD)) {
+                    continue;
+                }
+                if (writer.write(
+                        settlement.factionId(), PaletteSlot.PATH,
+                        new BlockPos(x, ground, z), 0, false, null,
+                        AuthoredOwnerType.SETTLEMENT_ROAD)) {
+                    writes++;
                 }
             }
         }
