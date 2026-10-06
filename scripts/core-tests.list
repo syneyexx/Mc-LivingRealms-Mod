@@ -4,6 +4,9 @@
 # Keep the worldgen architecture gate first so physical-layout regressions fail fast before
 # expensive long-running simulation/fuzz suites; a green run still executes every test below.
 dev.livingrealms.WorldgenQualityTest
+dev.livingrealms.StarterCivilizationLayoutPlannerTest
+dev.livingrealms.StarterCivilizationFabricIndexTest
+dev.livingrealms.StarterWorldgenReconciliationTest
 dev.livingrealms.ProductionCompletionPassTest
 dev.livingrealms.SocietyDialogueTest
 dev.livingrealms.GoodsChainTest
