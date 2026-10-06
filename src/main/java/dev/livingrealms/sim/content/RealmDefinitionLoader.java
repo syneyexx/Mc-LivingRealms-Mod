@@ -1,7 +1,6 @@
 package dev.livingrealms.sim.content;
 
 import dev.livingrealms.sim.data.MiniJson;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -82,11 +81,11 @@ public final class RealmDefinitionLoader {
             "sablemere", "verdance", "aurenthal", "redmarch", "stormcoast", "glassmere");
 
     private static List<RealmDefinition> loadFromFilesystem() {
-        List<Path> files = ContentDataPaths.listJsonFiles(ContentDataPaths.REALMS);
+        List<String> files = ContentDataPaths.listJsonFileNames(ContentDataPaths.REALMS);
         if (files.isEmpty()) throw new IllegalStateException("No realm definitions under data/livingrealms/realms");
         Map<String, RealmDefinition> byId = new LinkedHashMap<>();
-        for (Path path : files) {
-            RealmDefinition def = decode(ContentDataPaths.readUtf8(path));
+        for (String fileName : files) {
+            RealmDefinition def = decode(ContentDataPaths.readClasspathOrFs(ContentDataPaths.REALMS, fileName));
             if (byId.put(def.id(), def) != null) {
                 throw new IllegalStateException("Duplicate realm id: " + def.id());
             }
