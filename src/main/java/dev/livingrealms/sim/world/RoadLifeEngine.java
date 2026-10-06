@@ -72,7 +72,7 @@ public final class RoadLifeEngine {
             Settlement to = state.findSettlement(route.toSettlementId()).orElse(null);
             if (from == null || to == null) continue;
             double distance = from.position().distanceTo(to.position());
-            if (distance < TARGET_CORRIDOR_SPACING * 1.35) continue;
+            if (distance <= 450.0) continue;
 
             int segments = Math.max(2, (int) Math.ceil(distance / TARGET_CORRIDOR_SPACING));
             int anchors = Math.min(MAX_CORRIDOR_ANCHORS_PER_ROUTE, segments - 1);
