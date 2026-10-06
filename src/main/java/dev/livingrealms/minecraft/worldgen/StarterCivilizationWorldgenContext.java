@@ -1,5 +1,6 @@
 package dev.livingrealms.minecraft.worldgen;
 
+import dev.livingrealms.LivingRealms;
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
 import dev.livingrealms.minecraft.construction.FactionBlockPalette;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
@@ -82,11 +83,19 @@ public final class StarterCivilizationWorldgenContext {
                 && existing.worldgenVersion() == data.civilizationWorldgenVersion()) {
             return;
         }
+        long startedNanos = System.nanoTime();
+        long phaseNanos = startedNanos;
+
         StarterCivilizationLayoutPlanner.Layout pureLayout =
                 StarterCivilizationLayoutPlanner.plan(seed);
+        long layoutMillis = elapsedMillis(phaseNanos);
+        phaseNanos = System.nanoTime();
+
         StarterSettlementTerrainResolver.Resolution terrainResolution =
                 StarterSettlementTerrainResolver.resolve(level, pureLayout);
         StarterCivilizationLayoutPlanner.Layout layout = terrainResolution.layout();
+        long terrainMillis = elapsedMillis(phaseNanos);
+        phaseNanos = System.nanoTime();
 
         boolean settlementRelocated = false;
         for (var planned : layout.settlements()) {
@@ -101,11 +110,20 @@ public final class StarterCivilizationWorldgenContext {
         if (settlementRelocated || resolvedReceiptChanges > 0) data.setDirty();
 
         var starterRoutes = dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner.plan(layout);
+        int routeWorkers = StarterRegionalRouteGeometryIndex.routePlanningWorkers(starterRoutes.size());
+        LivingRealms.LOGGER.info(
+                "Starter worldgen: preparing {} terrain-aware regional routes with {} worker(s)",
+                starterRoutes.size(), routeWorkers);
         StarterRegionalRouteGeometryIndex routeGeometryIndex =
                 StarterRegionalRouteGeometryIndex.build(level, starterRoutes);
+        long routeMillis = elapsedMillis(phaseNanos);
+        phaseNanos = System.nanoTime();
+
         var resolvedRoadside = StarterRoadsideRouteResolver.resolve(
                 dev.livingrealms.sim.worldgen.StarterRoadsideSitePlanner.plan(layout),
                 routeGeometryIndex);
+        long roadsideMillis = elapsedMillis(phaseNanos);
+        phaseNanos = System.nanoTime();
         boolean roadsideRelocated = false;
         for (var plan : resolvedRoadside) {
             var canonical = data.state().findRoadsideSite(plan.stableSiteId()).orElse(null);
@@ -117,8 +135,14 @@ public final class StarterCivilizationWorldgenContext {
         if (roadsideRelocated) data.setDirty();
         StarterCivilizationFabricIndex index =
                 StarterCivilizationFabricIndex.build(layout, starterRoutes, resolvedRoadside);
+        long fabricIndexMillis = elapsedMillis(phaseNanos);
+        phaseNanos = System.nanoTime();
+
         WizardTreesWorldgenIndex wizardTreesIndex = WizardTreesWorldgenIndex.build(
                 level, WizardTreesInitialWorldgenPlan.build(data.state()));
+        long wizardMillis = elapsedMillis(phaseNanos);
+        phaseNanos = System.nanoTime();
+
         Map<Long, Integer> paletteStyles = new HashMap<>();
         for (StarterCivilizationLayoutPlanner.RealmPlan realm : layout.realms()) {
             long factionId = realm.factionId();
@@ -135,6 +159,22 @@ public final class StarterCivilizationWorldgenContext {
         BY_LEVEL.put(level, new Context(
                 seed, data.civilizationWorldgenVersion(), index, routeGeometryIndex,
                 wizardTreesIndex, paletteStyles));
+        long paletteMillis = elapsedMillis(phaseNanos);
+        long totalMillis = elapsedMillis(startedNanos);
+        LivingRealms.LOGGER.info(
+                "Starter worldgen context ready in {} ms "
+                        + "[layout={} ms, settlementTerrain={} ms, routes={} ms, "
+                        + "roadside={} ms, fabricIndex={} ms, wizardTrees={} ms, palettes={} ms, "
+                        + "movedSettlements={}, indexedRouteChunks={}, routeFallbacks={}]",
+                totalMillis, layoutMillis, terrainMillis, routeMillis,
+                roadsideMillis, fabricIndexMillis, wizardMillis, paletteMillis,
+                terrainResolution.movedSettlements(),
+                routeGeometryIndex.indexedChunkCount(),
+                routeGeometryIndex.unresolvedRouteCount());
+    }
+
+    private static long elapsedMillis(long startedNanos) {
+        return (System.nanoTime() - startedNanos) / 1_000_000L;
     }
 
     public static Optional<Context> context(WorldGenLevel worldGenLevel) {
