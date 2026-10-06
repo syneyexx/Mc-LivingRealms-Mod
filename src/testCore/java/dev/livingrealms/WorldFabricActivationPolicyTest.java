@@ -16,7 +16,7 @@ public final class WorldFabricActivationPolicyTest {
     public static void main(String[] args) throws Exception {
         String settlement = read("src/main/java/dev/livingrealms/minecraft/construction/SettlementConstructionMaterializer.java");
         String transport = read("src/main/java/dev/livingrealms/minecraft/construction/TransportNetworkMaterializer.java");
-        String urban = read("src/main/java/dev/livingrealms/minecraft/construction/UrbanCoreMaterializer.java");
+        String catalog = read("src/main/java/dev/livingrealms/minecraft/runtime/LivingRealmsRuntimeTaskCatalog.java");
         String events = read("src/main/java/dev/livingrealms/minecraft/LivingRealmsEvents.java");
         String demo = read("src/main/java/dev/livingrealms/sim/world/DemoSeeder.java");
 
@@ -44,10 +44,9 @@ public final class WorldFabricActivationPolicyTest {
                         && transport.contains("level.hasChunkAt"),
                 "regional roads must consume loaded-chunk hints without force loading");
 
-        check(!urban.contains("nearPlayer(") && !urban.contains("level.players()"),
-                "urban core block fabric must not be player-proximity driven");
-        check(urban.contains("level.hasChunkAt(core)") && urban.contains("level.hasChunkAt(probe)"),
-                "urban core work must only touch already-loaded chunks");
+        check(!catalog.contains("construction.urban_core")
+                        && !catalog.contains("UrbanCoreMaterializer.tick"),
+                "independent urban road writer must not bypass SettlementStreetGraph authority");
 
         check(events.contains("onChunkLoad(ChunkEvent.Load event)")
                         && events.contains("CivilizationFabricChunkQueue.onChunkAvailable"),
