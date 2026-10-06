@@ -272,7 +272,7 @@ public final class WorldgenFabricBlockWriter {
                                   AuthoredOwnerType ownerType) {
         if (!insideCurrentChunk(x, z)) return false;
         int ground = terrainY(x, z);
-        if (topY - ground > 32) return false;
+        if (topY - ground > 64) return false;
         boolean changed = false;
         for (int y = ground; y <= topY; y++) {
             changed |= write(factionId, PaletteSlot.FOUNDATION, new BlockPos(x, y, z),
