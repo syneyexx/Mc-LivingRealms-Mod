@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.WorldGenLevel;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -34,7 +35,22 @@ public final class ModWorldgenAttachments {
         ATTACHMENTS.register(modBus);
     }
 
-    /** Loaded-chunk lookup only; never force-loads a chunk. */
+    /**
+     * Worldgen-region lookup. Reads only chunks already present in the active generation region and
+     * therefore never requests/generates a neighbor solely for provenance.
+     */
+    public static AuthoredOwnerType ownerAt(WorldGenLevel level, BlockPos pos) {
+        if (level == null || pos == null) return null;
+        int chunkX = pos.getX() >> 4;
+        int chunkZ = pos.getZ() >> 4;
+        if (!level.hasChunk(chunkX, chunkZ)) return null;
+        var chunk = level.getChunk(chunkX, chunkZ);
+        var type = STARTER_FABRIC_PROVENANCE.get();
+        if (!chunk.hasData(type)) return null;
+        return chunk.getData(type).ownerAt(pos.getX(), pos.getY(), pos.getZ());
+    }
+
+    /** Loaded-chunk runtime lookup only; never force-loads a chunk. */
     public static AuthoredOwnerType ownerAt(ServerLevel level, BlockPos pos) {
         if (level == null || pos == null) return null;
         var chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
