@@ -1,0 +1,13 @@
+aster_riverborn.json
+aurenthal_mercantile.json
+dravik_stoneward.json
+eldermere_deepwood.json
+glassmere_scholar.json
+norwyn_highland.json
+redmarch_martial.json
+sablemere_crownland.json
+solenne_sunfield.json
+stormcoast_coastal.json
+verdance_forest.json
+veyran_ironland.json
+wizard_trees.json
