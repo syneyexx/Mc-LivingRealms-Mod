@@ -20,13 +20,13 @@ FOUNDATION · CANONICAL · PLAYABLE · PHYSICALIZED · DEEP · POLISHED (see `CO
 | UI blur removed | clearBackground overrides | POLISHED | M / dialogue / dashboard |
 | M-map terrain | RealmWorldMapScreen + ClientTerrainMapCache | POLISHED | |
 | Named roster | SocialPopulationEngine | DEEP | hamlet6…capital64; no projection required |
-| Goods chains | ResourceType + SettlementEconomyEngine | DEEP | schema 20; no FOOD×mill fountain |
+| Goods chains | ResourceType + SettlementEconomyEngine | DEEP | schema 21; no FOOD×mill fountain |
 | Farms/pastures/hinterland keys | completion keys + receipts | CANONICAL | No seeder phantoms |
 | Settlement transfer | SettlementTransfer | DEEP | Capture + rebellion |
 | War capital targets | DiplomacyEngine | DEEP | Typed goals |
 | Density | SettlementDensitySeeder + SettlementSpacingPolicy | POLISHED | 17–25/realm, 204–300 surface starters, role-aware spacing |
 | Runtime scheduler | RuntimeBudgetController | DEEP | Soft/hard deferral + starvation |
-| Domain persistence codecs | sim/persistence/codec/* | DEEP | Schema 20 envelope |
+| Domain persistence codecs | sim/persistence/codec/* | DEEP | Schema 21 envelope |
 
 ## Geschiedenis
 - Older detail rows cited schema 16–17, 32/realm (~380+), FOOD mill proxies, COMPLETE (core), and EXTERNAL GATE. Historical only.
