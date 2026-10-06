@@ -24,6 +24,7 @@ public final class WizardTreesTest {
         check(WizardTreesSeeder.ensure(state)==0,"Wizard Trees seeding must be idempotent");
 
         StarterWorldgenCompletion.adoptPlannedBaseline(state);
+        StarterWorldgenCompletion.adoptWizardTreesBaseline(state);
         for (var starter : WizardTreesInitialWorldgenPlan.build(state)) {
             var canonical = state.findSettlement(starter.settlementId()).orElseThrow();
             for (var intent : starter.intents()) {
