@@ -166,6 +166,7 @@ public final class StarterCivilizationChunkGenerator {
         int floor = writer.oceanFloorY(x, z);
         boolean water = surface - floor >= 2;
         int y = surface;
+        if (!writer.clearNaturalVegetationAbove(x, y, z, 8, ownerType)) return false;
         BlockPos pos = new BlockPos(x, y, z);
         if (water) {
             var deck = rural ? Blocks.SPRUCE_PLANKS.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState();
