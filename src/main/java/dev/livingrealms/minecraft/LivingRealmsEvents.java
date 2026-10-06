@@ -151,9 +151,14 @@ public final class LivingRealmsEvents {
         if(HiddenCacheRuntime.broken(player,event.getPos())){event.setCanceled(true);return;}
         if(PirateHideoutRuntime.blockBroken(player,event.getPos()))return;
         HistoricalSiteRuntime.ruinBlockBroken(player,event.getPos());
+        var data=SimulationRuntime.data(level.getServer());
         ModWorldgenAttachments.forgetAt(level, event.getPos());
+        if (data.authoredBlocks().forget(
+                event.getPos().getX(), event.getPos().getY(), event.getPos().getZ())) {
+            data.setDirty();
+        }
         PlayerStructureRevalidationRuntime.onBlockChanged(level, event.getPos());
-        var data=SimulationRuntime.data(level.getServer());var state=data.state();double x=event.getPos().getX()+.5,z=event.getPos().getZ()+.5;
+        var state=data.state();double x=event.getPos().getX()+.5,z=event.getPos().getZ()+.5;
         IndustrySitePlanner.Site nearest=null;double best=7.0D*7.0D;
         for(var faction:state.factions())for(IndustrySitePlanner.Site site:IndustrySitePlanner.plan(faction)){double dx=site.center().x()-x,dz=site.center().z()-z,d=dx*dx+dz*dz;if(d<best){best=d;nearest=site;}}
         if(nearest==null)return;
@@ -167,7 +172,12 @@ public final class LivingRealmsEvents {
     public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         if (event.getEntity() instanceof ServerPlayer) {
+            var data = SimulationRuntime.data(level.getServer());
             ModWorldgenAttachments.forgetAt(level, event.getPos());
+            if (data.authoredBlocks().forget(
+                    event.getPos().getX(), event.getPos().getY(), event.getPos().getZ())) {
+                data.setDirty();
+            }
         }
         PlayerStructureRevalidationRuntime.onBlockChanged(level, event.getPos());
     }
