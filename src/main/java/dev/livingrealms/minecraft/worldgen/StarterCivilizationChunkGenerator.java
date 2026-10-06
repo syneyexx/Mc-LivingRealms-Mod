@@ -230,13 +230,18 @@ public final class StarterCivilizationChunkGenerator {
                 if (!onAxis) continue;
                 int ground = writer.terrainY(x, z);
                 if (writer.waterSurfaceY(x, z) > ground) continue;
+                BlockPos groundPos = new BlockPos(x, ground, z);
+                if (!writer.canReplaceForWorldgen(
+                        groundPos, false, AuthoredOwnerType.SETTLEMENT_ROAD)) {
+                    continue;
+                }
                 if (!writer.clearNaturalVegetationAbove(
                         x, ground, z, 8, AuthoredOwnerType.SETTLEMENT_ROAD)) {
                     continue;
                 }
                 if (writer.write(
                         settlement.factionId(), PaletteSlot.PATH,
-                        new BlockPos(x, ground, z), 0, false, null,
+                        groundPos, 0, false, null,
                         AuthoredOwnerType.SETTLEMENT_ROAD)) {
                     writes++;
                 }
@@ -317,8 +322,9 @@ public final class StarterCivilizationChunkGenerator {
         int waterSurface = writer.waterSurfaceY(x, z);
         boolean water = waterSurface > ground;
         int y = water ? waterSurface : ground;
-        if (!writer.clearNaturalVegetationAbove(x, y, z, 8, ownerType)) return false;
         BlockPos pos = new BlockPos(x, y, z);
+        if (!writer.canReplaceForWorldgen(pos, false, ownerType)) return false;
+        if (!writer.clearNaturalVegetationAbove(x, y, z, 8, ownerType)) return false;
         if (water) {
             var deck = rural ? Blocks.SPRUCE_PLANKS.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState();
             boolean wrote = writer.writeState(pos, deck, false, ownerType);
