@@ -1,6 +1,6 @@
 # Civilization World Fabric
 
-CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 16 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 18 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 This document is the current architecture contract for the civilization/world-fabric branch. Source and executable tests remain authoritative if this document ever drifts.
 
@@ -25,7 +25,7 @@ Fresh surface realms seed:
 
 That yields **17–25 settlements per surface realm** and **204–300 surface starter settlements** across twelve realms. Wizard Trees remain a separate SPECIAL underground layer.
 
-Existing anchored worlds are not wholesale relocated to satisfy the fresh-world layout. Schema/content migration preserves canonical positions and applies role/state migration without teleporting established settlements.
+This branch is developed against a fresh-world-per-update contract. Old-world physical-layout migration is not a release target; starter worldgen is authoritative for newly created worlds.
 
 ## 2. Role-aware spacing
 
@@ -113,29 +113,25 @@ Construction discovery prioritizes pending intents that close active core defici
 
 Completion truth remains receipt-backed. The completeness evaluator does not create a second construction authority.
 
-## 7. Loaded-chunk world fabric
+## 7. True-worldgen starter fabric and runtime evolution
 
-Persistent civilization blocks are **loaded-chunk driven**, not player-distance driven.
+Fresh-world deterministic day-zero civilization fabric is authored during Minecraft chunk generation, not by post-load construction ticks.
 
-Core domains include:
+The true-worldgen path includes:
 
-- settlement structures/streets;
-- inter-settlement roads/rail;
-- urban core;
-- roadside sites;
-- historical ruins/caches/pirate hideouts;
-- industrial sites;
-- canonical outlying sites.
+- settlement streets, houses, farms and civic/economic baseline structures;
+- keeps/castles, CITY+ walls and explicit gates;
+- initial inter-settlement regional roads and bridge decks;
+- deterministic starter roadside anchors;
+- the frozen Wizard Trees day-zero underground colonies.
 
-Materializers:
+`StarterCivilizationLayoutPlanner` is the shared deterministic layout authority. `SettlementInitialWorldgenPlan`, `StarterRegionalRoutePlanner` and the immutable chunk indexes derive from that plan. The NeoForge placed feature runs in `top_layer_modification` and writes only the current requested chunk through `WorldgenFabricBlockWriter`; it never force-loads neighboring chunks and never mutates SavedData from generation workers.
 
-- never force-load chunks;
-- mutate only when the relevant chunk/column is already available;
-- use typed `AuthoredBlockLedger` provenance and `WorldMutationGuard`;
-- do not adopt arbitrary player blocks as Living Realms ownership;
-- use bounded work/fairness cursors so one site category cannot permanently starve another.
+Worldgen provenance is persisted chunk-locally through `ModWorldgenAttachments`. Canonical completion receipts are metadata only: they suppress duplicate starter construction and do not build blocks after generation.
 
-Player proximity may still control **presentation** such as particles or entities. It is not block-existence authority.
+Runtime materializers remain authoritative for **later simulation-driven changes** such as settlement growth, player-founded settlements, later roads, reconstruction, industry, ruined/repaired roadside sites and other emergent history. `ChunkEvent.Load` may provide runtime hints/reconciliation, but it is not the author of fresh-world starter fabric.
+
+Player proximity may still control **presentation/entity LOD** such as citizens, guards, particles and impostors. It never controls whether starter buildings, walls or roads exist.
 
 ## 8. Entity LOD reconciliation
 
