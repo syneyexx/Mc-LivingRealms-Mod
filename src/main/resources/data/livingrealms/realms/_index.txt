@@ -1,0 +1,12 @@
+aster.json
+aurenthal.json
+dravik.json
+eldermere.json
+glassmere.json
+norwyn.json
+redmarch.json
+sablemere.json
+solenne.json
+stormcoast.json
+verdance.json
+veyran.json
