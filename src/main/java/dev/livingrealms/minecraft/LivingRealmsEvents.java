@@ -47,6 +47,7 @@ import dev.livingrealms.minecraft.construction.SettlementConstructionMaterialize
 import dev.livingrealms.minecraft.construction.TransportNetworkMaterializer;
 import dev.livingrealms.minecraft.construction.CivilizationFabricChunkQueue;
 import dev.livingrealms.minecraft.construction.SettlementGeographyDiscoveryRuntime;
+import dev.livingrealms.minecraft.worldgen.StarterCivilizationWorldgenContext;
 import dev.livingrealms.minecraft.ForeignStructureDiscoveryRuntime;
 import dev.livingrealms.minecraft.construction.HistoricalSiteMaterializer;
 import dev.livingrealms.minecraft.construction.IndustrialSiteMaterializer;
@@ -70,6 +71,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
+import net.neoforged.neoforge.event.level.LevelEvent;
 import net.minecraft.world.level.Level;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.npc.AbstractVillager;
@@ -82,6 +84,12 @@ public final class LivingRealmsEvents {
     @SubscribeEvent
     public void onServerTick(ServerTickEvent.Post event) {
         runtimeScheduler.tick(event.getServer());
+    }
+
+    @SubscribeEvent
+    public void onLevelLoad(LevelEvent.Load event) {
+        if (!(event.getLevel() instanceof ServerLevel level) || level.dimension() != Level.OVERWORLD) return;
+        StarterCivilizationWorldgenContext.activate(level, SimulationRuntime.data(level.getServer()));
     }
 
     @SubscribeEvent
@@ -199,6 +207,7 @@ public final class LivingRealmsEvents {
         CivicChoreographyRuntime.clear();
         SeasonalFarmPresentationRuntime.clear();
         ForeignStructureDiscoveryRuntime.clear();
+        StarterCivilizationWorldgenContext.clear();
         dev.livingrealms.minecraft.player.PlayerOnboardingRuntime.clear();
         SimulationRuntime.data(event.getServer()).dayAdvanceScheduler().clear();
         runtimeScheduler.reset();
