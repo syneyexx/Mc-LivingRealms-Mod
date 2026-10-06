@@ -67,8 +67,7 @@ public final class MapPanel implements DashboardPanel {
         graphics.fill(px, py - 4, px + 1, py + 5, 0xFFFFFFFF);
         graphics.drawString(font, "Geographic map · settlements labeled · press M for full terrain", x + 4, y + 4, 0xFFB9C2CC, false);
         graphics.drawString(font, "You @ X " + DashboardPanel.whole(map.playerX()) + "  Z " + DashboardPanel.whole(map.playerZ())
-                        + "  ·  founding needs "
-                        + (int) Math.round(dev.livingrealms.sim.player.PlayerSettlementFounder.MIN_SETTLEMENT_SPACING) + "m clearance",
+                        + "  ·  founding clearance depends on nearby settlement type",
                 x + 4, y + h - 11, 0xFFB9C2CC, false);
     }
 
