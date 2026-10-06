@@ -5,7 +5,6 @@ import dev.livingrealms.sim.construction.SettlementDistrict;
 import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.data.MiniJson;
 import dev.livingrealms.sim.faction.Settlement;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -52,11 +51,11 @@ public final class BuildingDefinitionLoader {
     }
 
     private static List<BuildingDefinition> loadFromFilesystem() {
-        List<Path> files = ContentDataPaths.listJsonFiles(ContentDataPaths.BUILDINGS);
+        List<String> files = ContentDataPaths.listJsonFileNames(ContentDataPaths.BUILDINGS);
         if (files.isEmpty()) throw new IllegalStateException("No building definitions under data/livingrealms/buildings");
         Map<String, BuildingDefinition> byId = new LinkedHashMap<>();
-        for (Path path : files) {
-            BuildingDefinition def = decode(ContentDataPaths.readUtf8(path));
+        for (String fileName : files) {
+            BuildingDefinition def = decode(ContentDataPaths.readClasspathOrFs(ContentDataPaths.BUILDINGS, fileName));
             if (byId.put(def.id(), def) != null) {
                 throw new IllegalStateException("Duplicate building id: " + def.id());
             }
