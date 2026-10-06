@@ -4,6 +4,7 @@ import dev.livingrealms.minecraft.LivingRealmsSavedData;
 import dev.livingrealms.sim.construction.AuthoredBlockLedger;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.world.RoadsideSite;
+import dev.livingrealms.sim.worldgen.StarterRoadsideSitePlanner;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +38,10 @@ public final class RoadsideSiteMaterializer {
         for (int n = 0; n < sites.size() && scanned < MAX_SCANNED_PER_TICK && budget > 0; n++) {
             RoadsideSite site = sites.get(Math.floorMod(cursor + n, sites.size()));
             scanned++;
+            if (data.starterWorldgenEnabled()
+                    && StarterRoadsideSitePlanner.isStarterRoadsideSiteId(site.id())) {
+                continue;
+            }
             if (!physicallyPresent(site)) continue;
             // materializeSite() refuses unloaded columns, so this loop never force-loads terrain.
             if (materializeSite(level, ledger, site)) budget--;
