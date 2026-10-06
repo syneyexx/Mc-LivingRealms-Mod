@@ -50,6 +50,8 @@ public final class StarterWorldgenReconciliationTest {
         int starterCount = planned.size();
         check(state.routes().stream().filter(r -> StarterRegionalRoutePlanner.isStarterRouteId(r.id())).count() == starterCount,
                 "starter route bootstrap count mismatch");
+        check(state.peekNextId() >= StarterRegionalRoutePlanner.STARTER_ROUTE_ID_LIMIT,
+                "runtime id watermark must clear reserved starter route range");
 
         new TransportNetworkEngine().ensureRoutes(state);
         for (var starter : planned) {
