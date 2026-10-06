@@ -79,16 +79,6 @@ public final class RoadsideSiteTemplate {
         };
     }
 
-    /**
-     * Worldgen-safe representation: avoid targets with block entities/ticking setup during chunk
-     * decoration. Runtime-created later-history sites may still use the richer active blocks.
-     */
-    public static BlockState worldgenState(BlockState state) {
-        if (state.is(Blocks.CAMPFIRE)) return Blocks.TORCH.defaultBlockState();
-        if (state.is(Blocks.WHITE_BANNER)) return Blocks.WHITE_WOOL.defaultBlockState();
-        return state;
-    }
-
     public static boolean isRoadsideMaterial(BlockState state) {
         return state.is(Blocks.CAMPFIRE) || state.is(Blocks.OAK_FENCE) || state.is(Blocks.OAK_PLANKS)
                 || state.is(Blocks.STONE_BRICKS) || state.is(Blocks.MOSSY_STONE_BRICKS) || state.is(Blocks.TORCH)
