@@ -1,6 +1,6 @@
 # Living Realms project state
 
-CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 16 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
+CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevision 17 / starterSettlements 204-300 / perRealm 17-25 / capitalSpacing 3000-4500 / roleAwareSpacing
 
 ## Current production state
 - Twelve surface kingdoms each seed 1 capital + 10 authored satellites + 6–14 rural hamlets: **17–25 settlements per realm**, **204–300 surface starter settlements** total. Wizard Trees remain a separate SPECIAL underground layer.
