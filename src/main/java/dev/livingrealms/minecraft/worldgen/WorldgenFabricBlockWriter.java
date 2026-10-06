@@ -185,9 +185,15 @@ public final class WorldgenFabricBlockWriter {
         }
         boolean changed = level.setBlock(pos, target, WORLDGEN_FLAGS);
         if (changed && ownerType != null) {
+            // Keep transient ownership even for cleared air so later operations in this same
+            // feature invocation see the correct LR author. Persistent provenance, however, only
+            // describes physical blocks; recording every excavated interior/vegetation AIR cell
+            // would bloat chunk NBT without protecting any material.
             authoredOwnerByPos.put(pos.asLong(), ownerType);
-            authoredWrites.add(new StarterCivilizationWorldgenContext.AuthoredWrite(
-                    pos.getX(), pos.getY(), pos.getZ(), ownerType));
+            if (!target.isAir()) {
+                authoredWrites.add(new StarterCivilizationWorldgenContext.AuthoredWrite(
+                        pos.getX(), pos.getY(), pos.getZ(), ownerType));
+            }
         }
         return changed;
     }
