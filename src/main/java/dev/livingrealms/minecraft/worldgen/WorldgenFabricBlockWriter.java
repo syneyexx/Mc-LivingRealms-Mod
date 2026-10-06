@@ -34,6 +34,7 @@ public final class WorldgenFabricBlockWriter {
     private final int[] terrainSnapshot = new int[16 * 16];
     private final int[] worldSurfaceSnapshot = new int[16 * 16];
     private final int[] oceanFloorSnapshot = new int[16 * 16];
+    private final int[] waterSurfaceSnapshot = new int[16 * 16];
     private final List<StarterCivilizationWorldgenContext.AuthoredWrite> authoredWrites = new ArrayList<>();
 
     public WorldgenFabricBlockWriter(
@@ -53,9 +54,17 @@ public final class WorldgenFabricBlockWriter {
                 int x = minX + lx, z = minZ + lz;
                 worldSurfaceSnapshot[index] =
                         level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
-                terrainSnapshot[index] = sampleTerrainY(x, z);
                 oceanFloorSnapshot[index] =
                         level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z) - 1;
+                terrainSnapshot[index] = sampleTerrainY(x, z);
+                int waterSurface = terrainSnapshot[index];
+                for (int y = worldSurfaceSnapshot[index]; y > terrainSnapshot[index]; y--) {
+                    if (!level.getFluidState(new BlockPos(x, y, z)).isEmpty()) {
+                        waterSurface = y;
+                        break;
+                    }
+                }
+                waterSurfaceSnapshot[index] = waterSurface;
             }
         }
     }
@@ -79,25 +88,28 @@ public final class WorldgenFabricBlockWriter {
      * Scanning down from WORLD_SURFACE_WG also handles vegetation/lily pads and frozen surfaces.
      */
     public int waterSurfaceY(int x, int z) {
+        if (insideCurrentChunk(x, z)) return waterSurfaceSnapshot[columnIndex(x, z)];
         int ground = terrainY(x, z);
-        int top = insideCurrentChunk(x, z)
-                ? worldSurfaceSnapshot[columnIndex(x, z)]
-                : level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
+        int top = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
         for (int y = top; y > ground; y--) {
             if (!level.getFluidState(new BlockPos(x, y, z)).isEmpty()) return y;
         }
         return ground;
     }
 
+    public int buildSurfaceY(int x, int z) {
+        return Math.max(terrainY(x, z), waterSurfaceY(x, z));
+    }
+
     public int siteBaseY(int centerX, int centerZ, int width, int depth, int turns) {
         int w = (turns & 1) == 0 ? width : depth;
         int d = (turns & 1) == 0 ? depth : width;
         int hx = Math.max(1, w / 2), hz = Math.max(1, d / 2);
-        int y = terrainY(centerX, centerZ);
-        y = Math.max(y, terrainY(centerX - hx, centerZ - hz));
-        y = Math.max(y, terrainY(centerX + hx, centerZ - hz));
-        y = Math.max(y, terrainY(centerX - hx, centerZ + hz));
-        y = Math.max(y, terrainY(centerX + hx, centerZ + hz));
+        int y = buildSurfaceY(centerX, centerZ);
+        y = Math.max(y, buildSurfaceY(centerX - hx, centerZ - hz));
+        y = Math.max(y, buildSurfaceY(centerX + hx, centerZ - hz));
+        y = Math.max(y, buildSurfaceY(centerX - hx, centerZ + hz));
+        y = Math.max(y, buildSurfaceY(centerX + hx, centerZ + hz));
         return y;
     }
 
@@ -201,7 +213,8 @@ public final class WorldgenFabricBlockWriter {
                 continue;
             }
             BlockState state = level.getBlockState(pos);
-            if (state.is(BlockTags.LEAVES) || state.canBeReplaced()
+            if (!state.getFluidState().isEmpty()
+                    || state.is(BlockTags.LEAVES) || state.canBeReplaced()
                     || state.is(Blocks.SNOW) || state.is(Blocks.VINE)
                     || state.is(Blocks.CACTUS) || state.is(Blocks.BAMBOO)
                     || state.is(Blocks.BAMBOO_SAPLING)
