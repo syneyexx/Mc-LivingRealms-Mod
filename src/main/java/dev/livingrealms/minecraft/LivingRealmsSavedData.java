@@ -12,6 +12,7 @@ import dev.livingrealms.sim.world.ManualDayAdvanceScheduler;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.SettlementDensitySeeder;
 import dev.livingrealms.sim.world.WizardTreesSeeder;
+import dev.livingrealms.sim.worldgen.StarterWorldgenCompletion;
 import dev.livingrealms.sim.ecology.SpeciesDefinition;
 import java.util.Collections;
 import java.util.HashSet;
@@ -35,14 +36,18 @@ public final class LivingRealmsSavedData extends SavedData {
     private static final String KEY_PAYLOAD = "Payload";
     private static final String KEY_PAYLOAD_INTEGRITY = "PayloadCrc32Plus1";
     private static final String KEY_CONTENT_REVISION = "ContentRevision";
+    private static final String KEY_CIVILIZATION_WORLDGEN_VERSION = "CivilizationWorldgenVersion";
     private static final String KEY_ONBOARDED_PLAYERS = "OnboardedPlayers";
     /**
-     * Revision 16: graph-first street topology. Existing settlements with materialized legacy
-     * road:* receipts are marked as legacy physical fabric and are never auto-rebuilt in place.
+     * Revision 17: fresh saves adopt deterministic starter-worldgen receipts. Legacy saves remain
+     * explicitly worldgen-disabled even after they are re-saved at the new content revision.
      */
-    private static final int CONTENT_REVISION = 16;
+    private static final int CONTENT_REVISION = 17;
+    public static final int CURRENT_CIVILIZATION_WORLDGEN_VERSION = 1;
 
     private final SimulationState state;
+    /** 0 = legacy runtime-authored starter layout; current value = true day-zero chunk worldgen. */
+    private final int civilizationWorldgenVersion;
     /** settlementId -> packed BlockPos of Living Realms-authored Waystone only. */
     private final Map<Long, Long> waystonesBySettlement = new LinkedHashMap<>();
     /** Chunk-local Living Realms-authored block provenance (not part of binary schema payload). */
@@ -52,8 +57,9 @@ public final class LivingRealmsSavedData extends SavedData {
     /** Transient setday/advance backlog; not persisted across reload. */
     private final ManualDayAdvanceScheduler dayAdvanceScheduler = new ManualDayAdvanceScheduler();
 
-    private LivingRealmsSavedData(SimulationState state) {
+    private LivingRealmsSavedData(SimulationState state, int civilizationWorldgenVersion) {
         this.state = state;
+        this.civilizationWorldgenVersion = Math.max(0, civilizationWorldgenVersion);
     }
 
     public ManualDayAdvanceScheduler dayAdvanceScheduler() {
@@ -67,7 +73,8 @@ public final class LivingRealmsSavedData extends SavedData {
     public static LivingRealmsSavedData create(long worldSeed, Map<String, SpeciesDefinition> speciesCatalog) {
         SimulationState state = new SimulationState(worldSeed, speciesCatalog);
         DemoSeeder.seed(state);
-        LivingRealmsSavedData data = new LivingRealmsSavedData(state);
+        LivingRealmsSavedData data = new LivingRealmsSavedData(state, CURRENT_CIVILIZATION_WORLDGEN_VERSION);
+        StarterWorldgenCompletion.adoptPlannedBaseline(state);
         data.setDirty();
         return data;
     }
@@ -92,7 +99,13 @@ public final class LivingRealmsSavedData extends SavedData {
         }
         int contentRevision = tag.getInt(KEY_CONTENT_REVISION);
         if (contentRevision > CONTENT_REVISION) throw new IllegalStateException("Unsupported Living Realms content revision " + contentRevision);
-        LivingRealmsSavedData loaded = new LivingRealmsSavedData(SimulationStateCodec.decode(payload, SpeciesDataRegistry.current()));
+        int worldgenVersion = tag.contains(KEY_CIVILIZATION_WORLDGEN_VERSION, Tag.TAG_INT)
+                ? tag.getInt(KEY_CIVILIZATION_WORLDGEN_VERSION) : 0;
+        if (worldgenVersion > CURRENT_CIVILIZATION_WORLDGEN_VERSION) {
+            throw new IllegalStateException("Unsupported Living Realms civilization worldgen version " + worldgenVersion);
+        }
+        LivingRealmsSavedData loaded = new LivingRealmsSavedData(
+                SimulationStateCodec.decode(payload, SpeciesDataRegistry.current()), worldgenVersion);
         loaded.waystonesBySettlement.putAll(WaystoneSettlementRuntime.readProvenance(tag));
         AuthoredBlockLedgerNbt.read(tag, loaded.authoredBlocks);
         SettlementGeographyNbt.read(tag, loaded.state());
@@ -149,6 +162,14 @@ public final class LivingRealmsSavedData extends SavedData {
         return authoredBlocks;
     }
 
+    public int civilizationWorldgenVersion() {
+        return civilizationWorldgenVersion;
+    }
+
+    public boolean starterWorldgenEnabled() {
+        return civilizationWorldgenVersion == CURRENT_CIVILIZATION_WORLDGEN_VERSION;
+    }
+
     public Long waystoneForSettlement(long settlementId){return waystonesBySettlement.get(settlementId);}
     public Set<Long> livingRealmsWaystonePositions(){return Set.copyOf(waystonesBySettlement.values());}
     public Map<Long,Long> waystonesBySettlement(){return Collections.unmodifiableMap(waystonesBySettlement);}
@@ -188,6 +209,7 @@ public final class LivingRealmsSavedData extends SavedData {
         tag.putByteArray(KEY_PAYLOAD, payload);
         tag.putLong(KEY_PAYLOAD_INTEGRITY, SimulationStateCodec.integrityToken(payload));
         tag.putInt(KEY_CONTENT_REVISION, CONTENT_REVISION);
+        tag.putInt(KEY_CIVILIZATION_WORLDGEN_VERSION, civilizationWorldgenVersion);
         WaystoneSettlementRuntime.writeProvenance(tag, waystonesBySettlement);
         AuthoredBlockLedgerNbt.write(tag, authoredBlocks);
         SettlementGeographyNbt.write(tag, state);
