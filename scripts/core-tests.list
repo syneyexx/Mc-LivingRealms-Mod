@@ -1,6 +1,9 @@
 # Canonical ordered core-suite mains. Both Linux (test-core.sh) and Windows
 # (build-production.ps1) must execute exactly this list. Lines starting with #
 # and blank lines are ignored.
+# Keep the worldgen architecture gate first so physical-layout regressions fail fast before
+# expensive long-running simulation/fuzz suites; a green run still executes every test below.
+dev.livingrealms.WorldgenQualityTest
 dev.livingrealms.CoreSimulationTest
 dev.livingrealms.ConstructionIntegrityTest
 dev.livingrealms.ProvenanceSafetyTest
@@ -26,7 +29,6 @@ dev.livingrealms.StructureAccessValidatorTest
 dev.livingrealms.ResolvedBuildSiteTest
 dev.livingrealms.CultureArchitectureDerivationTest
 dev.livingrealms.HonestCartographyTest
-dev.livingrealms.WorldgenQualityTest
 dev.livingrealms.WorldFabricChunkPolicyTest
 dev.livingrealms.SpecialSiteWorldFabricTest
 dev.livingrealms.ProductionQualityTest
