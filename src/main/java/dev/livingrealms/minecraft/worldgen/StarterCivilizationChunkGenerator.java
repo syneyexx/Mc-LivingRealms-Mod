@@ -102,6 +102,7 @@ public final class StarterCivilizationChunkGenerator {
         boolean terrainFollowing = fixed.terrainFollowing();
         int baseY = fixed.baseY();
 
+        if (!terrainCompatibleFixedSite(writer, fixed, cx, cz)) return 0;
         if (!canAuthorIntentSlice(writer, intent, fixed, cx, cz)) return 0;
 
         Set<String> doors = new HashSet<>();
@@ -140,6 +141,30 @@ public final class StarterCivilizationChunkGenerator {
         return writes;
     }
 
+
+
+    /**
+     * Global terrain viability for fixed structures. Uses generator-only ground samples, so every
+     * intersecting chunk reaches the same decision without reading/generated-neighbor dependency.
+     */
+    private static boolean terrainCompatibleFixedSite(
+            WorldgenFabricBlockWriter writer,
+            PreparedIntent prepared,
+            int cx,
+            int cz) {
+        if (prepared.terrainFollowing()) return true;
+        boolean sawFoundation = false;
+        for (BlockPlacement placement : prepared.blueprint().placements()) {
+            if (placement.slot() != PaletteSlot.FOUNDATION || placement.dy() != 0) continue;
+            sawFoundation = true;
+            int[] rotated = rotate(placement.dx(), placement.dz(), prepared.turns());
+            int x = cx + rotated[0], z = cz + rotated[1];
+            int ground = writer.generatorGroundY(x, z);
+            int delta = prepared.baseY() - ground;
+            if (delta > 32 || delta < -6) return false;
+        }
+        return !sawFoundation || prepared.baseY() > writer.level().getMinBuildHeight() + 1;
+    }
 
     /**
      * Fail the whole current-chunk slice before the first write when any required cell is protected.
