@@ -6,6 +6,7 @@ import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
 import dev.livingrealms.sim.world.StarterCultureTraits;
 import dev.livingrealms.sim.worldgen.StarterCivilizationFabricIndex;
+import dev.livingrealms.sim.worldgen.WizardTreesInitialWorldgenPlan;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -34,14 +35,17 @@ public final class StarterCivilizationWorldgenContext {
         private final long worldSeed;
         private final int worldgenVersion;
         private final StarterCivilizationFabricIndex fabricIndex;
+        private final WizardTreesWorldgenIndex wizardTreesIndex;
         private final Map<Long, Integer> paletteStyleByFaction;
 
         private Context(long worldSeed, int worldgenVersion,
                         StarterCivilizationFabricIndex fabricIndex,
+                        WizardTreesWorldgenIndex wizardTreesIndex,
                         Map<Long, Integer> paletteStyleByFaction) {
             this.worldSeed = worldSeed;
             this.worldgenVersion = worldgenVersion;
             this.fabricIndex = Objects.requireNonNull(fabricIndex, "fabricIndex");
+            this.wizardTreesIndex = Objects.requireNonNull(wizardTreesIndex, "wizardTreesIndex");
             this.paletteStyleByFaction = Map.copyOf(
                     Objects.requireNonNull(paletteStyleByFaction, "paletteStyleByFaction"));
         }
@@ -49,6 +53,7 @@ public final class StarterCivilizationWorldgenContext {
         public long worldSeed() { return worldSeed; }
         public int worldgenVersion() { return worldgenVersion; }
         public StarterCivilizationFabricIndex fabricIndex() { return fabricIndex; }
+        public WizardTreesWorldgenIndex wizardTreesIndex() { return wizardTreesIndex; }
         public int paletteStyle(long factionId) {
             return paletteStyleByFaction.getOrDefault(
                     factionId, FactionBlockPalette.cultureStyle(factionId, 0, 0, 0, 0));
@@ -74,6 +79,8 @@ public final class StarterCivilizationWorldgenContext {
         StarterCivilizationLayoutPlanner.Layout layout =
                 StarterCivilizationLayoutPlanner.plan(seed);
         StarterCivilizationFabricIndex index = StarterCivilizationFabricIndex.build(layout);
+        WizardTreesWorldgenIndex wizardTreesIndex = WizardTreesWorldgenIndex.build(
+                level, WizardTreesInitialWorldgenPlan.build(data.state()));
         Map<Long, Integer> paletteStyles = new HashMap<>();
         for (StarterCivilizationLayoutPlanner.RealmPlan realm : layout.realms()) {
             long factionId = realm.factionId();
@@ -88,7 +95,7 @@ public final class StarterCivilizationWorldgenContext {
             paletteStyles.put(factionId, style);
         }
         BY_LEVEL.put(level, new Context(
-                seed, data.civilizationWorldgenVersion(), index, paletteStyles));
+                seed, data.civilizationWorldgenVersion(), index, wizardTreesIndex, paletteStyles));
     }
 
     public static Optional<Context> context(WorldGenLevel worldGenLevel) {
