@@ -34,9 +34,8 @@ public final class LongRunSoakTest {
                 }
             }
 
-            if (day == 30 || day == 365 || day == FINAL_DAY || day % 365 == 0) {
-                assertRoundTrip(a, day);
-            }
+            // Size audit first so a hard-cap failure reports structural contributors before
+            // the persistence round-trip attempts the same encode.
             if (day == 365) {
                 size365 = SaveSizeAuditor.measure(a);
                 assertSaveSize(size365, "day365");
@@ -45,6 +44,9 @@ public final class LongRunSoakTest {
                 size3650 = SaveSizeAuditor.measure(a);
                 assertSaveSize(size3650, "day3650");
                 System.out.println("SAVE_SIZE " + size3650.documentLine());
+            }
+            if (day == 30 || day == 365 || day == FINAL_DAY) {
+                assertRoundTrip(a, day);
             }
 
             day30 |= day == 30;
