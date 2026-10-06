@@ -24,11 +24,17 @@ public final class StarterCivilizationFabricFeature extends Feature<NoneFeatureC
         int chunkX = Math.floorDiv(context.origin().getX(), 16);
         int chunkZ = Math.floorDiv(context.origin().getZ(), 16);
         var slice = worldgen.fabricIndex().query(chunkX, chunkZ);
-        if (slice.isEmpty()) return false;
+        var wizardSlice = worldgen.wizardTreesIndex().query(chunkX, chunkZ);
+        if (slice.isEmpty() && wizardSlice.isEmpty()) return false;
 
         WorldgenFabricBlockWriter writer =
                 new WorldgenFabricBlockWriter(context.level(), chunkX, chunkZ, worldgen);
-        int writes = StarterCivilizationChunkGenerator.generate(writer, slice, chunkX, chunkZ);
+        int writes = slice.isEmpty()
+                ? 0
+                : StarterCivilizationChunkGenerator.generate(writer, slice, chunkX, chunkZ);
+        if (!wizardSlice.isEmpty()) {
+            writes += WizardTreesChunkGenerator.generate(writer, wizardSlice);
+        }
         List<StarterCivilizationWorldgenContext.AuthoredWrite> authored = writer.authoredWrites();
         if (!authored.isEmpty()) {
             List<Long> packed = new ArrayList<>(authored.size());
