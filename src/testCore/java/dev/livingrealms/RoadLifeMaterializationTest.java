@@ -83,7 +83,7 @@ public final class RoadLifeMaterializationTest {
     }
 
     private static void sitesAreNotSettlementsAndUseOwnSpacing() {
-        check(RoadLifeEngine.MIN_SITE_SPACING == 420.0, "roadside site spacing pin");
+        check(RoadLifeEngine.MIN_SITE_SPACING == 280.0, "roadside site spacing pin");
         check(SettlementSpacingPolicy.minimumDistance(SettlementRole.TOWN, SettlementRole.HAMLET) == 180.0,
                 "town-hamlet floor pin remains independent from roadside sites");
 
