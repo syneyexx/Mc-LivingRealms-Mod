@@ -268,6 +268,10 @@ public final class SettlementStreetGraph {
         double q=r*.55;
         b.add(StreetType.RESIDENTIAL_STREET,110,SettlementGrowthLayer.EARLY_EXPANSION,p(-q,-q),p(-q,0),p(-q,q));
         b.add(StreetType.RESIDENTIAL_STREET,110,SettlementGrowthLayer.EARLY_EXPANSION,p(q,-q),p(q,0),p(q,q));
+        // Planned cities still need a topology beyond an orthogonal grid: a deliberate diagonal
+        // civic promenade ties opposite quarters through a shallow bend around the central axis.
+        b.add(StreetType.COMMERCIAL_STREET,124,SettlementGrowthLayer.EARLY_EXPANSION,
+                p(-q,-q),p(-q*.18,-q*.34),p(q*.28,q*.12),p(q,q));
         if(tier>=Settlement.Tier.TOWN.ordinal()){
             b.add(StreetType.RESIDENTIAL_STREET,106,SettlementGrowthLayer.EARLY_EXPANSION,p(-q,-q),p(0,-q),p(q,-q));
             b.add(StreetType.RESIDENTIAL_STREET,106,SettlementGrowthLayer.EARLY_EXPANSION,p(-q,q),p(0,q),p(q,q));
