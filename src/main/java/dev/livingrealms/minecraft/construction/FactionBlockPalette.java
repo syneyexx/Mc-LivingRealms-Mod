@@ -18,7 +18,15 @@ public final class FactionBlockPalette {
     private FactionBlockPalette() {}
 
     public static BlockState state(long factionId, PaletteSlot slot) {
-        return state(factionId, slot, cultureStyle(factionId, 0, 0, 0, 0));
+        return state(factionId, slot, cultureStyle(factionId, 0, 0, 0, 0), true);
+    }
+
+    /**
+     * Worldgen-safe palette path: deterministic vanilla states only, with no runtime compatibility
+     * registry/cache calls and no active Create machinery.
+     */
+    public static BlockState worldgenState(long factionId, PaletteSlot slot) {
+        return state(factionId, slot, cultureStyle(factionId, 0, 0, 0, 0), false);
     }
 
     /**
@@ -26,11 +34,11 @@ public final class FactionBlockPalette {
      * material family so realms read differently without a second city system.
      */
     public static BlockState state(long factionId, PaletteSlot slot, double artistic, double agrarian, double martial) {
-        return state(factionId, slot, cultureStyle(factionId, artistic, agrarian, martial, 0));
+        return state(factionId, slot, cultureStyle(factionId, artistic, agrarian, martial, 0), true);
     }
 
     public static BlockState state(long factionId, PaletteSlot slot, double artistic, double agrarian, double martial, double mercantile) {
-        return state(factionId, slot, cultureStyle(factionId, artistic, agrarian, martial, mercantile));
+        return state(factionId, slot, cultureStyle(factionId, artistic, agrarian, martial, mercantile), true);
     }
 
     /** Exposed for tests and planners that need the resolved family index. */
@@ -50,9 +58,9 @@ public final class FactionBlockPalette {
         return base;
     }
 
-    private static BlockState state(long factionId, PaletteSlot slot, int style) {
-        // Foreign registry blocks are intentionally restricted to decorative/non-structural slots.
-        if(slot==PaletteSlot.GLASS||slot==PaletteSlot.FENCE||slot==PaletteSlot.PATH||slot==PaletteSlot.LIGHT||slot==PaletteSlot.DOOR){
+    private static BlockState state(long factionId, PaletteSlot slot, int style, boolean allowRuntimeCompat) {
+        // Foreign registry blocks are intentionally restricted to runtime decorative/non-structural slots.
+        if(allowRuntimeCompat && (slot==PaletteSlot.GLASS||slot==PaletteSlot.FENCE||slot==PaletteSlot.PATH||slot==PaletteSlot.LIGHT||slot==PaletteSlot.DOOR)){
             var compatible = CompatibleContentRuntime.decorativeBlock(factionId, slot);
             if (compatible.isPresent()) return compatible.get();
         }
@@ -147,8 +155,12 @@ public final class FactionBlockPalette {
                 case 5 -> Blocks.SEA_LANTERN.defaultBlockState();
                 default -> Blocks.GLOWSTONE.defaultBlockState();
             };
-            case METAL -> CreateBlockLookup.orElse("copper_casing", Blocks.IRON_BLOCK).defaultBlockState();
-            case MACHINE -> CreateBlockLookup.orElse("andesite_casing", Blocks.COPPER_BLOCK).defaultBlockState();
+            case METAL -> (allowRuntimeCompat
+                    ? CreateBlockLookup.orElse("copper_casing", Blocks.IRON_BLOCK)
+                    : Blocks.IRON_BLOCK).defaultBlockState();
+            case MACHINE -> (allowRuntimeCompat
+                    ? CreateBlockLookup.orElse("andesite_casing", Blocks.COPPER_BLOCK)
+                    : Blocks.COPPER_BLOCK).defaultBlockState();
             case STORAGE -> Blocks.BARREL.defaultBlockState();
             case RUNWAY -> Blocks.GRAY_CONCRETE.defaultBlockState();
             case REDSTONE_LIGHT -> Blocks.REDSTONE_TORCH.defaultBlockState();
