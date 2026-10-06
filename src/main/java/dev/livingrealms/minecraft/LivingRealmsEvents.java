@@ -83,11 +83,6 @@ public final class LivingRealmsEvents {
 
     @SubscribeEvent
     public void onServerTick(ServerTickEvent.Post event) {
-        ServerLevel overworld = event.getServer().overworld();
-        if (StarterCivilizationWorldgenContext.active(overworld)) {
-            StarterCivilizationWorldgenContext.reconcileAvailable(
-                    overworld, SimulationRuntime.data(event.getServer()), 64);
-        }
         runtimeScheduler.tick(event.getServer());
     }
 
