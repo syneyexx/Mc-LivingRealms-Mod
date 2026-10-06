@@ -31,6 +31,9 @@ public final class StarterRegionalRouteBootstrap {
             state.liveness().onRouteBuilt();
             added++;
         }
+        // Reserve the complete starter-route range. Dynamic nextId()-allocated routes must never
+        // land in an unused starter slot and be misclassified as worldgen-owned.
+        state.restoreNextId(Math.max(state.peekNextId(), StarterRegionalRoutePlanner.STARTER_ROUTE_ID_LIMIT));
         return added;
     }
 
