@@ -178,6 +178,19 @@ public final class StarterCivilizationChunkGenerator {
             int cx,
             int cz) {
         AuthoredOwnerType ownerType = AuthoredOwnerType.forStructureRole(intent.role());
+
+        // Known structure-piece collision is a whole-intent decision, not a per-chunk clipping
+        // decision. The writer caches only already-present generation-region structure references.
+        for (BlockPlacement placement : prepared.blueprint().placements()) {
+            int[] rotated = rotate(placement.dx(), placement.dz(), prepared.turns());
+            int x = cx + rotated[0], z = cz + rotated[1];
+            int columnBase = prepared.terrainFollowing() ? writer.generatorGroundY(x, z) : prepared.baseY();
+            if (writer.isForeignStructurePiece(
+                    new BlockPos(x, columnBase + placement.dy(), z))) {
+                return false;
+            }
+        }
+
         Set<Long> virtuallyCleared = new HashSet<>();
         for (BlockPlacement placement : prepared.blueprint().placements()) {
             int[] rotated = rotate(placement.dx(), placement.dz(), prepared.turns());
