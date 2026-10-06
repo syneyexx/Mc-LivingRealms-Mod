@@ -2,6 +2,8 @@ package dev.livingrealms.sim.world;
 
 import dev.livingrealms.sim.logistics.TradeShipment;
 import dev.livingrealms.sim.social.CitizenMemory;
+import dev.livingrealms.sim.social.CitizenRelationship;
+import dev.livingrealms.sim.social.FamilyBond;
 import dev.livingrealms.sim.social.MemoryType;
 import dev.livingrealms.sim.social.SocialCitizen;
 import dev.livingrealms.sim.underworld.UnderworldActions;
@@ -155,6 +157,7 @@ public final class StateRetentionCompactor {
         for (SocialCitizen citizen : state.socialCitizens()) {
             if (!citizen.alive()) {
                 folded += compactDeceasedCitizenMemories(citizen);
+                compactDeceasedCitizenRelationships(citizen);
                 continue;
             }
             folded += compactOneCitizen(citizen, day, deep);
@@ -200,6 +203,42 @@ public final class StateRetentionCompactor {
                 .thenComparing(CitizenMemory::sourceKey));
         citizen.replaceMemories(keep);
         return foldedRows.size();
+    }
+
+    /**
+     * Dead identities retain every explicit family bond plus at most two strongest non-family ties.
+     * Active relationship graphs are untouched.
+     */
+    static int compactDeceasedCitizenRelationships(SocialCitizen citizen) {
+        List<CitizenRelationship> relationships = new ArrayList<>(citizen.relationships().values());
+        if (relationships.size() <= 4) return 0;
+
+        List<CitizenRelationship> family = relationships.stream()
+                .filter(r -> r.familyBond() != FamilyBond.NONE)
+                .sorted(Comparator.comparing(CitizenRelationship::targetKey))
+                .toList();
+        List<CitizenRelationship> social = relationships.stream()
+                .filter(r -> r.familyBond() == FamilyBond.NONE)
+                .sorted(Comparator
+                        .comparingDouble(StateRetentionCompactor::relationshipStrength).reversed()
+                        .thenComparing(CitizenRelationship::targetKey))
+                .limit(2)
+                .toList();
+
+        List<CitizenRelationship> keep = new ArrayList<>(family.size() + social.size());
+        keep.addAll(family);
+        keep.addAll(social);
+        keep.sort(Comparator.comparing(CitizenRelationship::targetKey));
+        int removed = Math.max(0, relationships.size() - keep.size());
+        if (removed > 0) citizen.replaceRelationships(keep);
+        return removed;
+    }
+
+    private static double relationshipStrength(CitizenRelationship relationship) {
+        return Math.max(
+                Math.max(relationship.friendship(), relationship.hostility()),
+                Math.max(Math.max(relationship.romance(), relationship.rivalry()),
+                        Math.abs(relationship.trust() - 0.5) * 2.0));
     }
 
     static int compactOneCitizen(SocialCitizen citizen, long day, boolean deep) {
