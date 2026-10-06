@@ -22,6 +22,7 @@ import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.neoforged.neoforge.common.Tags;
 import net.minecraft.server.level.WorldGenRegion;
 
 /**
@@ -179,7 +180,7 @@ public final class WorldgenFabricBlockWriter {
         }
         if (existingOwner != null) {
             if (!AuthoredOwnerType.allowsOverwrite(existingOwner, ownerType)) return false;
-        } else if (!mayReplace(pos, current, clearing)) {
+        } else if (!mayReplaceForOwner(pos, current, clearing, ownerType)) {
             return false;
         }
         boolean changed = level.setBlock(pos, target, WORLDGEN_FLAGS);
@@ -268,7 +269,13 @@ public final class WorldgenFabricBlockWriter {
         if (existingOwner != null) {
             return AuthoredOwnerType.allowsOverwrite(existingOwner, ownerType);
         }
-        return mayReplace(pos, current, clearing);
+        return mayReplaceForOwner(pos, current, clearing, ownerType);
+    }
+
+    private boolean mayReplaceForOwner(
+            BlockPos pos, BlockState current, boolean clearing, AuthoredOwnerType ownerType) {
+        if (mayReplace(pos, current, clearing)) return true;
+        return ownerType == AuthoredOwnerType.WIZARD_TREES && wizardNaturalUnderground(current);
     }
 
     private AuthoredOwnerType authoredOwnerAt(BlockPos pos) {
@@ -365,6 +372,13 @@ public final class WorldgenFabricBlockWriter {
             return naturalTerrain(below);
         }
         return true;
+    }
+
+    private static boolean wizardNaturalUnderground(BlockState state) {
+        return state.is(Tags.Blocks.ORES)
+                || state.is(Blocks.TUFF)
+                || state.is(Blocks.CALCITE)
+                || state.is(Blocks.DRIPSTONE_BLOCK);
     }
 
     private static boolean naturalTerrain(BlockState state) {
