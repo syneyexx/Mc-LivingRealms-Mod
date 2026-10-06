@@ -17,7 +17,6 @@ import dev.livingrealms.minecraft.construction.RoadsideSiteMaterializer;
 import dev.livingrealms.minecraft.construction.SettlementConstructionMaterializer;
 import dev.livingrealms.minecraft.construction.SettlementGeographyDiscoveryRuntime;
 import dev.livingrealms.minecraft.construction.TransportNetworkMaterializer;
-import dev.livingrealms.minecraft.construction.UrbanCoreMaterializer;
 import dev.livingrealms.minecraft.construction.HistoricalSiteMaterializer;
 import dev.livingrealms.minecraft.entity.AircraftMaterializer;
 import dev.livingrealms.minecraft.entity.BountyHunterMaterializer;
@@ -167,9 +166,6 @@ final class LivingRealmsRuntimeTaskCatalog {
         tasks.add(task("construction.transport", RuntimeDomain.CONSTRUCTION, RuntimePriority.HIGH, 4, 8,
                 tick -> (tick & 3L) == 1L,
                 ctx -> TransportNetworkMaterializer.tick(ctx.overworld(), ctx.data())));
-        tasks.add(task("construction.urban_core", RuntimeDomain.CONSTRUCTION, RuntimePriority.HIGH, 4, 8,
-                tick -> (tick & 3L) == 2L,
-                ctx -> UrbanCoreMaterializer.tick(ctx.overworld(), ctx.data())));
         tasks.add(task("construction.industrial", RuntimeDomain.CONSTRUCTION, RuntimePriority.HIGH, 4, 8,
                 tick -> (tick & 3L) == 3L,
                 ctx -> IndustrialSiteMaterializer.tick(ctx.overworld(), ctx.data())));
