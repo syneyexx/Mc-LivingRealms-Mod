@@ -46,6 +46,40 @@ public final class ContentDataPaths {
         }
     }
 
+    /**
+     * Lists authored JSON names both in a source checkout and from the packaged mod JAR.
+     * Packaged resources cannot be enumerated as ordinary filesystem directories under ModLauncher,
+     * so each category ships a tiny _index.txt manifest.
+     */
+    public static List<String> listJsonFileNames(String category) {
+        Objects.requireNonNull(category, "category");
+        List<Path> files = listJsonFiles(category);
+        if (!files.isEmpty()) {
+            List<String> names = new ArrayList<>(files.size());
+            for (Path path : files) names.add(path.getFileName().toString());
+            return List.copyOf(names);
+        }
+
+        String cp = classpathPrefix(category) + "_index.txt";
+        try (var in = ContentDataPaths.class.getResourceAsStream(cp)) {
+            if (in == null) return List.of();
+            String text = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            List<String> names = new ArrayList<>();
+            for (String raw : text.split("\\R")) {
+                String name = raw.strip();
+                if (name.isEmpty() || name.startsWith("#")) continue;
+                if (!name.endsWith(".json") || name.contains("/") || name.contains("\\")) {
+                    throw new IllegalStateException("Invalid content index entry " + category + "/" + name);
+                }
+                names.add(name);
+            }
+            names.sort(String::compareTo);
+            return List.copyOf(names);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed reading content index " + cp, e);
+        }
+    }
+
     public static String readUtf8(Path path) {
         try {
             return Files.readString(path);
