@@ -35,17 +35,27 @@ public final class SettlementConstructionPolicy {
         return settlement.isConstructionCompleted(LEGACY_STREET_FABRIC_MARKER);
     }
 
+    /** True when a pre-graph ROAD completion receipt proves physical legacy street fabric. */
+    public static boolean hasLegacyRoadReceipt(Settlement settlement) {
+        Objects.requireNonNull(settlement, "settlement");
+        return settlement.completedConstruction().stream().anyMatch(key -> key.startsWith("road:"));
+    }
+
     /**
-     * Marks only settlements that demonstrably completed at least one pre-graph ROAD intent.
-     * Identity/origin/position and all existing completion receipts remain untouched.
+     * Persists the compatibility marker without changing identity/origin/position.
+     * This is separate from detection so very old morphology migrations may clear obsolete receipts
+     * after evidence is captured without losing the v16 freeze decision.
      */
-    public static boolean migrateLegacyStreetFabric(Settlement settlement) {
+    public static boolean markLegacyStreetFabric(Settlement settlement) {
         Objects.requireNonNull(settlement, "settlement");
         if (hasLegacyStreetFabric(settlement)) return false;
-        boolean legacyRoadReceipt = settlement.completedConstruction().stream()
-                .anyMatch(key -> key.startsWith("road:"));
-        if (!legacyRoadReceipt) return false;
         settlement.restoreConstructionCompleted(LEGACY_STREET_FABRIC_MARKER);
         return true;
+    }
+
+    /** Convenience path when no earlier migration step can clear the evidence. */
+    public static boolean migrateLegacyStreetFabric(Settlement settlement) {
+        Objects.requireNonNull(settlement, "settlement");
+        return hasLegacyRoadReceipt(settlement) && markLegacyStreetFabric(settlement);
     }
 }
