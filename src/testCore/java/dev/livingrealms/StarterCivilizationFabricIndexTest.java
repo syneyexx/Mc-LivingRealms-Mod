@@ -15,6 +15,7 @@ public final class StarterCivilizationFabricIndexTest {
     public static void main(String[] args) {
         chunkQueriesAreOrderIndependent();
         multiChunkCoreFabricIsIndexed();
+        multiChunkFabricReusesPrecomputedBlueprint();
         regionalRoadsUseCityGates();
         emptyChunkLookupIsDirectAndEmpty();
         System.out.println("PASS starter fabric index: order-independent + cross-chunk + gate-connected + bounded lookup");
@@ -60,6 +61,36 @@ public final class StarterCivilizationFabricIndexTest {
                 "route missing from endpoint chunk");
         check(index.query(toChunkX, toChunkZ).routes().stream().anyMatch(r -> r.route().stableRouteId() == route.stableRouteId()),
                 "route missing from opposite endpoint chunk");
+    }
+
+
+    private static void multiChunkFabricReusesPrecomputedBlueprint() {
+        var index = StarterCivilizationFabricIndex.build(StarterCivilizationLayoutPlanner.plan(0x7719L));
+        SettlementInitialWorldgenPlan capital = index.settlements().stream()
+                .filter(s -> s.realmId().equals("aster"))
+                .filter(s -> s.role() == dev.livingrealms.sim.faction.SettlementRole.CAPITAL)
+                .findFirst().orElseThrow();
+        ConstructionIntent keep = capital.intents().stream()
+                .filter(i -> i.role() == StructureRole.KEEP).findFirst().orElseThrow();
+        int cx = Math.floorDiv((int) Math.floor(keep.center().x()), 16);
+        int cz = Math.floorDiv((int) Math.floor(keep.center().z()), 16);
+
+        Object shared = null;
+        int references = 0;
+        for (int x = cx - 3; x <= cx + 3; x++) {
+            for (int z = cz - 3; z <= cz + 3; z++) {
+                for (var fabric : index.query(x, z).settlementFabric()) {
+                    if (fabric.settlement().settlementId() != capital.settlementId()
+                            || !fabric.intent().key().equals(keep.key())) continue;
+                    check(fabric.blueprint() != null, "indexed fabric requires precomputed blueprint");
+                    if (shared == null) shared = fabric.blueprint();
+                    else check(shared == fabric.blueprint(),
+                            "multi-chunk slices must reuse one immutable blueprint instance");
+                    references++;
+                }
+            }
+        }
+        check(references >= 2, "test keep must span multiple chunks");
     }
 
     private static void regionalRoadsUseCityGates() {
