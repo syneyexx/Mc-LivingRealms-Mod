@@ -182,20 +182,18 @@ final class SettlementHousingPlanner {
         }
         if (additions.isEmpty()) return;
 
-        SettlementStreetGraph extended = streetGraph.withAdditionalSegments(additions);
         SettlementRoadPlanner.addRoadSegments(out, faction, settlement, additions);
-        java.util.Set<String> extensionRoadKeys = additions.stream()
-                .map(SettlementStreetGraph.RoadSegment::key)
-                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
 
-        int alreadyHouses = (int) out.stream().filter(i -> i.role() == StructureRole.HOUSE).count();
-        // Parcel planning is priority-ordered. Existing arterials and gate approaches can exhaust a
-        // demand-sized candidate cap before the intentionally lower-priority housing lanes are visited.
-        // Search deeper, but keep emission itself bounded by `deficit` below.
+        // Reserve infill frontage directly from the newly-authored housing lanes. Planning against
+        // the full graph is incorrect here: higher-priority existing arterials can consume the
+        // candidate cap before these lower-priority lanes are visited, after which the frontage
+        // filter discards every candidate and leaves a permanent core-housing deficit.
+        SettlementStreetGraph housingOnly = new SettlementStreetGraph(
+                settlement.id(), List.of(), additions, List.of());
         int parcelSearchBudget = Math.min(2048,
-                alreadyHouses + deficit + additions.size() * 16);
+                Math.max(deficit * 4, additions.size() * 12));
         List<SettlementParcelPlanner.ParcelPlan> extraParcels = new ArrayList<>(
-                SettlementParcelPlanner.plan(extended, faction, settlement, parcelSearchBudget));
+                SettlementParcelPlanner.plan(housingOnly, faction, settlement, parcelSearchBudget));
         List<SimPosition> occupied = new ArrayList<>(out.stream()
                 .filter(i -> i.role() == StructureRole.HOUSE)
                 .map(ConstructionIntent::center)
@@ -207,7 +205,6 @@ final class SettlementHousingPlanner {
             if (placed >= deficit) break;
             // Fallback houses belong only to the graph lanes created for the shortage. Reusing
             // base-street parcels would let later ordinary demand steal them and move house keys.
-            if (!extensionRoadKeys.contains(parcel.frontageSegmentKey())) continue;
             if (parcel.width() < w || parcel.depth() < d) continue;
             boolean clash = false;
             double parcelWorldW = worldWidth(parcel.width(), parcel.depth(), parcel.orientationQuarterTurns());
