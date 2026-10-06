@@ -24,7 +24,7 @@ require(world_contract.exists(),'buildfix10 world-integration acceptance contrac
 if readiness.exists():
     readiness_text=readiness.read_text()
     require('CURRENT PINS:' in readiness_text and 'schema 21' in readiness_text,'production readiness must carry CURRENT PINS with schema 21')
-    require('contentRevision 17' in readiness_text,'production readiness must pin contentRevision 17')
+    require('contentRevision 18' in readiness_text,'production readiness must pin contentRevision 18')
     require('runtimeSmoke' in readiness_text and 'pass' in readiness_text.lower(),'readiness must document that runtimeSmoke pass requires a real client run')
     require('EXTERNAL GATE' not in readiness_text.split('## Geschiedenis')[0],'readiness current status must not claim EXTERNAL GATE')
 
@@ -112,7 +112,7 @@ require(schema_version==21,f'save schema must be 21 (source currently {schema_ve
 require(min_schema==1,f'min supported schema must remain 1 (source {min_schema})')
 require(dashboard_protocol==20,f'dashboard protocol must be 20 (source {dashboard_protocol})')
 require(network_version=='16',f'network registration version must be 16 (source {network_version!r})')
-require(content_revision==17,f'content revision must be 17 (source {content_revision})')
+require(content_revision==18,f'content revision must be 18 (source {content_revision})')
 
 
 
@@ -227,13 +227,10 @@ founder=(root/'src/main/java/dev/livingrealms/sim/player/PlayerSettlementFounder
 require('Realm of ' in founder and 'assumeRule' in founder and 'relationWith' in founder,'player-founded settlements must enter canonical government/membership/diplomacy as the actual ruler')
 saved_data=(root/'src/main/java/dev/livingrealms/minecraft/LivingRealmsSavedData.java').read_text()
 require('ContentRevision' in saved_data and 'ContentMigrationPolicy.shouldEnsureDensity' in saved_data,'density content migration must remain one-shot and persisted')
-require('resetConstructionCompletion' in saved_data
-        and 'ContentMigrationPolicy.shouldResetMorphology' in saved_data
-        and 'ContentMigrationPolicy.shouldFreezeLegacyStreetFabric' in saved_data
-        and 'SettlementConstructionPolicy.hasLegacyRoadReceipt' in saved_data
-        and 'SettlementConstructionPolicy.markLegacyStreetFabric' in saved_data
-        and 'CONTENT_REVISION = 17' in saved_data,
-        'content revision 17 must preserve old morphology migration, freeze materialized legacy road fabric, and gate true starter worldgen')
+require('CONTENT_REVISION = 18' in saved_data
+        and 'CURRENT_CIVILIZATION_WORLDGEN_VERSION = 1' in saved_data
+        and 'StarterWorldgenCompletion.adoptPlannedBaseline' in saved_data,
+        'content revision 18 must pin the fresh-world true starter-worldgen contract')
 require((root/'LICENSE').exists() and 'MIT License' in (root/'LICENSE').read_text(),'MIT LICENSE file must exist at repo root (matches mod_license)')
 require((root/'scripts/runtime-smoke.sh').exists(),'runtime smoke script must exist')
 require('dev.livingrealms.RuntimeSmokeTest' in canonical_tests,'core suite must include headless runtime smoke gate')
