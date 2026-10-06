@@ -39,6 +39,15 @@ public final class StarterCivilizationChunkGenerator {
             StarterCivilizationFabricIndex.ChunkSlice slice,
             int chunkX,
             int chunkZ) {
+        return generate(writer, slice, WizardTreesWorldgenIndex.ChunkSlice.EMPTY, chunkX, chunkZ);
+    }
+
+    public static int generate(
+            WorldgenFabricBlockWriter writer,
+            StarterCivilizationFabricIndex.ChunkSlice slice,
+            WizardTreesWorldgenIndex.ChunkSlice wizardSlice,
+            int chunkX,
+            int chunkZ) {
         // Compute every fixed structure base before the first LR write. This keeps cross-chunk
         // pieces and neighboring intents anchored to the same pre-existing terrain rather than to
         // geometry emitted earlier in this feature invocation.
@@ -59,7 +68,16 @@ public final class StarterCivilizationChunkGenerator {
         int writes = 0;
         for (StarterCivilizationFabricIndex.SettlementFabric fabric : slice.settlementFabric()) {
             writes += generateSettlementIntent(
-                    writer, fabric.settlement(), fabric.intent(), prepared.get(fabric));
+                    writer, fabric.settlement().factionId(), fabric.intent(), prepared.get(fabric));
+        }
+        for (WizardTreesWorldgenIndex.WizardFabric fabric : wizardSlice.fabric()) {
+            PreparedIntent wizardPrepared = new PreparedIntent(
+                    fabric.blueprint(),
+                    Math.floorMod(fabric.intent().rotationQuarterTurns(), 4),
+                    false,
+                    fabric.baseY());
+            writes += generateSettlementIntent(
+                    writer, fabric.factionId(), fabric.intent(), wizardPrepared);
         }
         for (StarterCivilizationFabricIndex.UrbanCoreFabric urbanCore : slice.urbanCores()) {
             writes += generateUrbanCore(writer, urbanCore, chunkX, chunkZ);
@@ -77,11 +95,11 @@ public final class StarterCivilizationChunkGenerator {
 
     private static int generateSettlementIntent(
             WorldgenFabricBlockWriter writer,
-            SettlementInitialWorldgenPlan settlement,
+            long factionId,
             ConstructionIntent intent,
             PreparedIntent prepared) {
         if (intent.role() == StructureRole.ROAD && intent.hasPath()) {
-            return generatePath(writer, settlement.factionId(), intent.path(), intent.width());
+            return generatePath(writer, factionId, intent.path(), intent.width());
         }
 
         PreparedIntent fixed = Objects.requireNonNull(prepared, "prepared intent");
@@ -112,7 +130,7 @@ public final class StarterCivilizationChunkGenerator {
             int y = columnBase + placement.dy();
             if (!terrainFollowing && placement.slot() == PaletteSlot.FOUNDATION && placement.dy() == 0
                     && writer.terrainY(x, z) < baseY - 1) {
-                if (writer.fillFoundation(settlement.factionId(), x, baseY - 1, z, ownerType)) writes++;
+                if (writer.fillFoundation(factionId, x, baseY - 1, z, ownerType)) writes++;
             }
 
             boolean doorUpper = placement.slot() == PaletteSlot.DOOR
@@ -122,7 +140,7 @@ public final class StarterCivilizationChunkGenerator {
                 bedPart = beds.contains(key(placement.dx(), placement.dy(), placement.dz() - 1))
                         ? BedPart.HEAD : BedPart.FOOT;
             }
-            if (writer.write(settlement.factionId(), placement.slot(), new BlockPos(x, y, z),
+            if (writer.write(factionId, placement.slot(), new BlockPos(x, y, z),
                     turns, doorUpper, bedPart, ownerType)) {
                 writes++;
             }
