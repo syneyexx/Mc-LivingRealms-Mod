@@ -7,6 +7,7 @@ import dev.livingrealms.sim.world.DemoSeeder;
 import dev.livingrealms.sim.world.SettlementSpacingPolicy;
 import dev.livingrealms.sim.world.SimulationState;
 import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
+import dev.livingrealms.sim.world.StarterCultureTraits;
 import java.util.List;
 
 /** Determinism and bootstrap parity gate for the shared fresh-world starter layout authority. */
@@ -60,6 +61,13 @@ public final class StarterCivilizationLayoutPlannerTest {
         for (var realmPlan : layout.realms()) {
             Faction faction = state.findFaction(realmPlan.factionId()).orElseThrow();
             check(faction.name().equals(realmPlan.definition().displayName()), "faction identity mismatch");
+            StarterCultureTraits.resolve(realmPlan.definition()).ifPresent(expected -> {
+                var actual = state.findFactionCivilization(realmPlan.factionId()).orElseThrow();
+                check(close(actual.mercantileTradition(), expected.mercantile()), "mercantile starter trait mismatch");
+                check(close(actual.martialTradition(), expected.martial()), "martial starter trait mismatch");
+                check(close(actual.agrarianTradition(), expected.agrarian()), "agrarian starter trait mismatch");
+                check(close(actual.artisticTradition(), expected.artistic()), "artistic starter trait mismatch");
+            });
             for (var starter : realmPlan.settlements()) {
                 Settlement settlement = state.findSettlement(starter.id()).orElseThrow();
                 check(settlement.name().equals(starter.name()), "settlement name mismatch " + starter.stableKey());
@@ -67,6 +75,10 @@ public final class StarterCivilizationLayoutPlannerTest {
                 check(settlement.role() == starter.role(), "settlement role mismatch " + starter.stableKey());
             }
         }
+    }
+
+    private static boolean close(double a, double b) {
+        return Math.abs(a - b) < 1.0e-9;
     }
 
     private static void check(boolean condition, String message) {
