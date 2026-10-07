@@ -66,14 +66,6 @@ public final class StarterSettlementTerrainResolver {
     }
 
     private static final int ANGLES_PER_RING = 12;
-    private static final int LAZY_WORKERS = Math.max(
-            1, Math.min(8, Runtime.getRuntime().availableProcessors() - 1));
-    private static final ExecutorService LAZY_EXECUTOR =
-            Executors.newFixedThreadPool(LAZY_WORKERS, runnable -> {
-                Thread thread = new Thread(runnable, "LivingRealms-Lazy-Terrain");
-                thread.setDaemon(true);
-                return thread;
-            });
 
     private StarterSettlementTerrainResolver() {}
 
