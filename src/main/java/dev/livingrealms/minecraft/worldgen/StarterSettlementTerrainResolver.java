@@ -200,9 +200,17 @@ public final class StarterSettlementTerrainResolver {
         candidates.add(origin);
 
         double phase = unitAngle(mix(seed ^ settlement.id()));
+        int maxRadius = spec.maxRadius();
+        // Keep the central starter capital close enough to world spawn to read as the player's
+        // first kingdom. Other capitals retain the full relocation radius for terrain quality.
+        if (settlement.role() == SettlementRole.CAPITAL
+                && Math.abs(origin.x()) < 1.0
+                && Math.abs(origin.z()) < 1.0) {
+            maxRadius = Math.min(maxRadius, 192);
+        }
         int[] radii = {
-                Math.max(spec.ringStep(), spec.maxRadius() / 2),
-                spec.maxRadius()
+                Math.max(spec.ringStep(), maxRadius / 2),
+                maxRadius
         };
         for (int radius : radii) {
             if (radius <= 0) continue;
