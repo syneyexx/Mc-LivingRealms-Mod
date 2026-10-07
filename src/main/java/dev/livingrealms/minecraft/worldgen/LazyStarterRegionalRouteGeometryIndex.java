@@ -44,6 +44,7 @@ public final class LazyStarterRegionalRouteGeometryIndex {
     private final ServerLevel level;
     private final List<StarterRegionalRoutePlanner.RoutePlan> routes;
     private final Map<Long, StarterRegionalRoutePlanner.RoutePlan> routeById;
+    private final Map<Long, List<StarterRegionalRoutePlanner.RoutePlan>> routesByTile;
     private final LazyStarterCivilizationFabricIndex settlementFabric;
     private final StarterGeneratorTerrainCache terrainCache;
 
@@ -67,10 +68,31 @@ public final class LazyStarterRegionalRouteGeometryIndex {
         this.terrainCache = Objects.requireNonNull(terrainCache, "terrainCache");
 
         Map<Long, StarterRegionalRoutePlanner.RoutePlan> mutable = new HashMap<>();
-        for (StarterRegionalRoutePlanner.RoutePlan route : routes) {
+        Map<Long, List<StarterRegionalRoutePlanner.RoutePlan>> tileRoutes = new HashMap<>();
+        for (StarterRegionalRoutePlanner.RoutePlan route
+                : routesByTile.getOrDefault(pack(tileX, tileZ), List.of())) {
             mutable.put(route.stableRouteId(), route);
+
+            int minX = (int) Math.floor(Math.min(route.from().x(), route.to().x()) - ENDPOINT_TRIGGER_RADIUS);
+            int maxX = (int) Math.ceil(Math.max(route.from().x(), route.to().x()) + ENDPOINT_TRIGGER_RADIUS);
+            int minZ = (int) Math.floor(Math.min(route.from().z(), route.to().z()) - ENDPOINT_TRIGGER_RADIUS);
+            int maxZ = (int) Math.ceil(Math.max(route.from().z(), route.to().z()) + ENDPOINT_TRIGGER_RADIUS);
+            int minTileX = Math.floorDiv(minX, TILE_BLOCKS);
+            int maxTileX = Math.floorDiv(maxX, TILE_BLOCKS);
+            int minTileZ = Math.floorDiv(minZ, TILE_BLOCKS);
+            int maxTileZ = Math.floorDiv(maxZ, TILE_BLOCKS);
+            for (int tx = minTileX; tx <= maxTileX; tx++) {
+                for (int tz = minTileZ; tz <= maxTileZ; tz++) {
+                    tileRoutes.computeIfAbsent(pack(tx, tz), ignored -> new ArrayList<>()).add(route);
+                }
+            }
         }
         this.routeById = Map.copyOf(mutable);
+        Map<Long, List<StarterRegionalRoutePlanner.RoutePlan>> frozenTiles = new HashMap<>();
+        for (var entry : tileRoutes.entrySet()) {
+            frozenTiles.put(entry.getKey(), List.copyOf(entry.getValue()));
+        }
+        this.routesByTile = Map.copyOf(frozenTiles);
     }
 
     public StarterRegionalRouteGeometryIndex.ChunkSlice query(int chunkX, int chunkZ) {
@@ -225,17 +247,24 @@ public final class LazyStarterRegionalRouteGeometryIndex {
             return emptySlice(route);
         }
 
-        Bounds bounds = boundsAround(resolvedGate, authoredGate, 40);
+        Bounds bounds = boundsAround(resolvedGate, authoredGate, 96);
         TerrainCorridorPlanner.TerrainSample terrain = boundedTerrain(bounds);
 
-        // Endpoint relocation is at most a few hundred blocks and exists only to reconnect a
-        // terrain-shifted gate to the authored regional corridor. Do not spend another A* budget
-        // for every outgoing capital route: use a deterministic engineered connector and let the
-        // grade profile/road writer turn elevation differences into bounded cuts, causeways,
-        // bridge supports or tunnel clearance.
-        List<TerrainCorridorPlanner.Cell> corridor =
-                straightCells(resolvedGate, authoredGate);
-        boolean engineeredFallback = true;
+        // A relocated settlement must not reconnect to the authored corridor as a straight
+        // staircase across a lake/cliff. Give the short connector its own bounded terrain search.
+        // Only if that local search is exhausted do we fall back to an engineered alignment.
+        List<TerrainCorridorPlanner.Cell> corridor = TerrainCorridorPlanner.planLocal(
+                (int) Math.round(resolvedGate.x()),
+                (int) Math.round(resolvedGate.z()),
+                (int) Math.round(authoredGate.x()),
+                (int) Math.round(authoredGate.z()),
+                LOCAL_CELL_SIZE,
+                256,
+                terrain);
+        boolean engineeredFallback = corridor.isEmpty();
+        if (engineeredFallback) {
+            corridor = straightCells(resolvedGate, authoredGate);
+        }
 
         List<RouteProjectionPlanner.RoutePoint> projected =
                 densify(route, corridor, bounds);
