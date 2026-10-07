@@ -3,7 +3,6 @@ package dev.livingrealms.minecraft.worldgen;
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
 import dev.livingrealms.sim.construction.BlockPlacement;
 import dev.livingrealms.sim.construction.ConstructionIntent;
-import dev.livingrealms.sim.construction.ConstructionIntentChunkSelector;
 import dev.livingrealms.sim.construction.StructureBlueprint;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
 import dev.livingrealms.sim.construction.StructureRole;
@@ -49,6 +48,11 @@ public final class LazyStarterCivilizationFabricIndex {
 
     private record BlueprintKey(long settlementId, String intentKey) {}
 
+    private record IndexedIntent(
+            SettlementInitialWorldgenPlan physical,
+            ConstructionIntent intent
+    ) {}
+
     private final net.minecraft.server.level.ServerLevel level;
     private final LivingRealmsSavedData data;
     private final StarterCivilizationLayoutPlanner.Layout source;
@@ -63,6 +67,8 @@ public final class LazyStarterCivilizationFabricIndex {
             new ConcurrentHashMap<>();
     private final ConcurrentHashMap<BlueprintKey, StructureBlueprint> blueprintCache =
             new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, CopyOnWriteArrayList<IndexedIntent>>
+            settlementByChunk = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, CopyOnWriteArrayList<StarterCivilizationFabricIndex.UrbanCoreFabric>>
             urbanByChunk = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, CopyOnWriteArrayList<StarterCivilizationFabricIndex.RoadsideFabric>>
@@ -115,34 +121,22 @@ public final class LazyStarterCivilizationFabricIndex {
     private List<StarterCivilizationFabricIndex.SettlementFabric> settlementFabricForChunk(
             int chunkX,
             int chunkZ) {
-        List<StarterCivilizationFabricIndex.SettlementFabric> out = new ArrayList<>();
-        for (FutureTask<ResolvedSettlement> task : resolutionTasks.values()) {
-            if (!task.isDone()) continue;
-            ResolvedSettlement resolved;
-            try {
-                resolved = task.get();
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException(
-                        "Interrupted while reading resolved starter settlement", interrupted);
-            } catch (ExecutionException failed) {
-                Throwable cause = failed.getCause() == null ? failed : failed.getCause();
-                throw new IllegalStateException(
-                        "Failed to read resolved starter settlement", cause);
-            }
+        List<IndexedIntent> indexed = snapshot(settlementByChunk.get(pack(chunkX, chunkZ)));
+        if (indexed.isEmpty()) return List.of();
 
-            SettlementInitialWorldgenPlan physical = resolved.physical();
-            for (ConstructionIntent intent : physical.intents()) {
-                if (!ConstructionIntentChunkSelector.intersects(intent, chunkX, chunkZ)) continue;
-                BlueprintKey blueprintKey =
-                        new BlueprintKey(physical.settlementId(), intent.key());
-                StructureBlueprint blueprint = blueprintCache.computeIfAbsent(
-                        blueprintKey,
-                        ignored -> StructureBlueprintFactory.create(
-                                intent, physical.architecture()));
-                out.add(new StarterCivilizationFabricIndex.SettlementFabric(
-                        physical, intent, blueprint));
-            }
+        List<StarterCivilizationFabricIndex.SettlementFabric> out =
+                new ArrayList<>(indexed.size());
+        for (IndexedIntent ref : indexed) {
+            SettlementInitialWorldgenPlan physical = ref.physical();
+            ConstructionIntent intent = ref.intent();
+            BlueprintKey blueprintKey =
+                    new BlueprintKey(physical.settlementId(), intent.key());
+            StructureBlueprint blueprint = blueprintCache.computeIfAbsent(
+                    blueprintKey,
+                    ignored -> StructureBlueprintFactory.create(
+                            intent, physical.architecture()));
+            out.add(new StarterCivilizationFabricIndex.SettlementFabric(
+                    physical, intent, blueprint));
         }
         return List.copyOf(out);
     }
@@ -234,9 +228,10 @@ public final class LazyStarterCivilizationFabricIndex {
             if (dirty) data.setDirty();
         });
 
-        // Do not create every blueprint for the whole settlement here. Chunk queries use
-        // ConstructionIntentChunkSelector first and instantiate/cache only intents that intersect
-        // the currently generating chunk.
+        // Index lightweight intent references once. Chunk queries no longer rescan every resolved
+        // settlement and every one of its intents while the player explores the world. Blueprints
+        // themselves remain lazy and are created only for the chunk that actually requests them.
+        indexSettlementIntents(physical);
 
         if (physical.tier().ordinal() >= Settlement.Tier.CITY.ordinal()) {
             int radius = physical.tier() == Settlement.Tier.METROPOLIS ? 96 : 72;
@@ -249,6 +244,45 @@ public final class LazyStarterCivilizationFabricIndex {
         }
 
         return new ResolvedSettlement(resolvedRealm, resolved, physical);
+    }
+
+    private void indexSettlementIntents(SettlementInitialWorldgenPlan physical) {
+        for (ConstructionIntent intent : physical.intents()) {
+            int minX;
+            int minZ;
+            int maxX;
+            int maxZ;
+            if (intent.hasPath()) {
+                double pathMinX = intent.path().stream()
+                        .mapToDouble(SimPosition::x).min().orElse(intent.center().x());
+                double pathMaxX = intent.path().stream()
+                        .mapToDouble(SimPosition::x).max().orElse(intent.center().x());
+                double pathMinZ = intent.path().stream()
+                        .mapToDouble(SimPosition::z).min().orElse(intent.center().z());
+                double pathMaxZ = intent.path().stream()
+                        .mapToDouble(SimPosition::z).max().orElse(intent.center().z());
+                int margin = Math.max(2, intent.width() / 2 + 2);
+                minX = (int) Math.floor(pathMinX) - margin;
+                maxX = (int) Math.ceil(pathMaxX) + margin;
+                minZ = (int) Math.floor(pathMinZ) - margin;
+                maxZ = (int) Math.ceil(pathMaxZ) + margin;
+            } else {
+                int turns = Math.floorMod(intent.rotationQuarterTurns(), 4);
+                int width = (turns & 1) == 0 ? intent.width() : intent.depth();
+                int depth = (turns & 1) == 0 ? intent.depth() : intent.width();
+                int cx = (int) Math.round(intent.center().x());
+                int cz = (int) Math.round(intent.center().z());
+                int margin = 16;
+                minX = cx - width / 2 - margin;
+                maxX = cx + (width - 1) / 2 + margin;
+                minZ = cz - depth / 2 - margin;
+                maxZ = cz + (depth - 1) / 2 + margin;
+            }
+            addChunkRectangle(
+                    settlementByChunk,
+                    new IndexedIntent(physical, intent),
+                    minX, minZ, maxX, maxZ);
+        }
     }
 
     void indexRoadsideForRouteWindow(
