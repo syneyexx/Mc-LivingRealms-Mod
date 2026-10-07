@@ -31,6 +31,8 @@ public record StarterCivilizationManifest(
         int routeCount,
         Map<String, RealmSummary> realms
 ) {
+    private static final int EXPECTED_SURFACE_REALMS = 12;
+
     public record RealmSummary(
             String realmId,
             long factionId,
@@ -54,6 +56,11 @@ public record StarterCivilizationManifest(
             List<StarterRegionalRoutePlanner.RoutePlan> routes) {
         Objects.requireNonNull(layout, "layout");
         Objects.requireNonNull(routes, "routes");
+
+        if (layout.realms().size() != EXPECTED_SURFACE_REALMS) {
+            throw new IllegalStateException(
+                    "expected " + EXPECTED_SURFACE_REALMS + " starter realms, got " + layout.realms().size());
+        }
 
         Set<Long> settlementIds = new HashSet<>();
         Set<String> settlementKeys = new HashSet<>();
@@ -122,6 +129,12 @@ public record StarterCivilizationManifest(
                     || summary.hamlets > SettlementDensitySeeder.MAX_RURAL_HAMLETS_PER_REALM) {
                 throw new IllegalStateException(realmId + " hamlet count outside authored range: " + summary.hamlets);
             }
+        }
+
+        if (settlementIds.size() < SettlementDensitySeeder.MIN_SURFACE_STARTER_SETTLEMENTS
+                || settlementIds.size() > SettlementDensitySeeder.MAX_SURFACE_STARTER_SETTLEMENTS) {
+            throw new IllegalStateException(
+                    "starter settlement total outside authored range: " + settlementIds.size());
         }
 
         Set<Long> routeIds = new HashSet<>();
