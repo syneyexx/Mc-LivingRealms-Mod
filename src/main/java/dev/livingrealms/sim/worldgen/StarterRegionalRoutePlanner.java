@@ -125,9 +125,7 @@ public final class StarterRegionalRoutePlanner {
     }
 
     private static SimPosition endpoint(Faction faction, Settlement settlement, SimPosition target) {
-        return SettlementPlanner.boundary(faction, settlement)
-                .map(boundary -> boundary.gateToward(settlement.position(), target).position())
-                .orElse(settlement.position());
+        return SettlementPlanner.exitToward(faction, settlement, target);
     }
 
     private static Faction snapshot(StarterCivilizationLayoutPlanner.RealmPlan realmPlan) {
