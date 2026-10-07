@@ -161,7 +161,7 @@ public final class StarterCivilizationChunkGenerator {
             int x = cx + rotated[0], z = cz + rotated[1];
             int ground = writer.generatorGroundY(x, z);
             int delta = prepared.baseY() - ground;
-            if (delta > 32 || delta < -6) return false;
+            if (delta > 64 || delta < -10) return false;
         }
         return !sawFoundation || prepared.baseY() > writer.level().getMinBuildHeight() + 1;
     }
@@ -177,22 +177,10 @@ public final class StarterCivilizationChunkGenerator {
             PreparedIntent prepared,
             int cx,
             int cz) {
-        // Keep only deterministic terrain hard-bounds here. Per-block foreign-structure and
-        // block-entity protection stays in WorldgenFabricBlockWriter. Rejecting an entire
-        // current-chunk slice because one protected block is present creates visibly half-built
-        // multi-chunk houses when the neighboring slice makes a different decision.
-        for (BlockPlacement placement : prepared.blueprint().placements()) {
-            if (prepared.terrainFollowing()
-                    || placement.slot() != PaletteSlot.FOUNDATION
-                    || placement.dy() != 0) {
-                continue;
-            }
-            int[] rotated = rotate(placement.dx(), placement.dz(), prepared.turns());
-            int x = cx + rotated[0], z = cz + rotated[1];
-            if (!writer.insideCurrentChunk(x, z)) continue;
-            int ground = writer.terrainY(x, z);
-            if (prepared.baseY() - ground > 64) return false;
-        }
+        // Global generator-only terrain compatibility above is the deterministic all-chunk
+        // acceptance decision. The writer still protects foreign blocks one cell at a time, but a
+        // ravine/carver or one protected decoration in this particular chunk must not make only
+        // this slice of a multi-chunk building disappear.
         return true;
     }
 
