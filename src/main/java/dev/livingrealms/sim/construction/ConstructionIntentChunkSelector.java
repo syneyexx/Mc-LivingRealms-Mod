@@ -19,6 +19,10 @@ public final class ConstructionIntentChunkSelector {
     }
 
     private static final int ACCESS_MARGIN = 2;
+    // Blueprints may intentionally overhang the nominal lot (culture minimum house sizes,
+    // porches/wings/roof eaves). Keep fixed structures visible to every intersecting chunk so a
+    // house cannot be clipped merely because its authored blueprint is wider than the intent lot.
+    private static final int FIXED_STRUCTURE_MARGIN = 16;
 
     private ConstructionIntentChunkSelector() {}
 
@@ -47,10 +51,10 @@ public final class ConstructionIntentChunkSelector {
             int depth = (turns & 1) == 0 ? intent.depth() : intent.width();
             int cx = (int) Math.round(intent.center().x());
             int cz = (int) Math.round(intent.center().z());
-            minX = cx - width / 2 - ACCESS_MARGIN;
-            maxX = cx + (width - 1) / 2 + ACCESS_MARGIN;
-            minZ = cz - depth / 2 - ACCESS_MARGIN;
-            maxZ = cz + (depth - 1) / 2 + ACCESS_MARGIN;
+            minX = cx - width / 2 - FIXED_STRUCTURE_MARGIN;
+            maxX = cx + (width - 1) / 2 + FIXED_STRUCTURE_MARGIN;
+            minZ = cz - depth / 2 - FIXED_STRUCTURE_MARGIN;
+            maxZ = cz + (depth - 1) / 2 + FIXED_STRUCTURE_MARGIN;
         }
         return maxX >= chunk.minX() && minX <= chunk.maxX()
                 && maxZ >= chunk.minZ() && minZ <= chunk.maxZ();
