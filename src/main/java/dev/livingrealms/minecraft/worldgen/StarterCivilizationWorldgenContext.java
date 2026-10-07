@@ -6,6 +6,7 @@ import dev.livingrealms.minecraft.construction.FactionBlockPalette;
 import dev.livingrealms.sim.construction.AuthoredOwnerType;
 import dev.livingrealms.sim.world.StarterCivilizationLayoutPlanner;
 import dev.livingrealms.sim.world.StarterCultureTraits;
+import dev.livingrealms.sim.worldgen.StarterCivilizationManifest;
 import dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner;
 import dev.livingrealms.sim.worldgen.WizardTreesInitialWorldgenPlan;
 import java.util.HashMap;
@@ -35,6 +36,7 @@ public final class StarterCivilizationWorldgenContext {
     public static final class Context {
         private final long worldSeed;
         private final int worldgenVersion;
+        private final StarterCivilizationManifest manifest;
         private final LazyStarterCivilizationFabricIndex fabricIndex;
         private final LazyStarterRegionalRouteGeometryIndex routeGeometryIndex;
         private final WizardTreesWorldgenIndex wizardTreesIndex;
@@ -43,12 +45,14 @@ public final class StarterCivilizationWorldgenContext {
         private Context(
                 long worldSeed,
                 int worldgenVersion,
+                StarterCivilizationManifest manifest,
                 LazyStarterCivilizationFabricIndex fabricIndex,
                 LazyStarterRegionalRouteGeometryIndex routeGeometryIndex,
                 WizardTreesWorldgenIndex wizardTreesIndex,
                 Map<Long, Integer> paletteStyleByFaction) {
             this.worldSeed = worldSeed;
             this.worldgenVersion = worldgenVersion;
+            this.manifest = Objects.requireNonNull(manifest, "manifest");
             this.fabricIndex = Objects.requireNonNull(fabricIndex, "fabricIndex");
             this.routeGeometryIndex = Objects.requireNonNull(routeGeometryIndex, "routeGeometryIndex");
             this.wizardTreesIndex = Objects.requireNonNull(wizardTreesIndex, "wizardTreesIndex");
@@ -58,6 +62,7 @@ public final class StarterCivilizationWorldgenContext {
 
         public long worldSeed() { return worldSeed; }
         public int worldgenVersion() { return worldgenVersion; }
+        public StarterCivilizationManifest manifest() { return manifest; }
         public LazyStarterCivilizationFabricIndex fabricIndex() { return fabricIndex; }
         public LazyStarterRegionalRouteGeometryIndex routeGeometryIndex() {
             return routeGeometryIndex;
@@ -103,6 +108,7 @@ public final class StarterCivilizationWorldgenContext {
                 new LazyStarterCivilizationFabricIndex(level, data, layout, terrainCache);
 
         var starterRoutes = StarterRegionalRoutePlanner.plan(layout);
+        StarterCivilizationManifest manifest = StarterCivilizationManifest.build(layout, starterRoutes);
         LazyStarterRegionalRouteGeometryIndex routeGeometryIndex =
                 new LazyStarterRegionalRouteGeometryIndex(
                         level, starterRoutes, fabricIndex, terrainCache);
@@ -130,6 +136,7 @@ public final class StarterCivilizationWorldgenContext {
         Context published = new Context(
                 seed,
                 data.civilizationWorldgenVersion(),
+                manifest,
                 fabricIndex,
                 routeGeometryIndex,
                 wizardTreesIndex,
@@ -139,10 +146,15 @@ public final class StarterCivilizationWorldgenContext {
         long totalMillis = elapsedMillis(startedNanos);
         LivingRealms.LOGGER.info(
                 "Starter worldgen context published in {} ms "
-                        + "[settlements={} lazy, routes={} lazy, wizardChunks={}]",
+                        + "[realms={}, settlements={} lazy, capitals={}, towns={}, villages={}, hamlets={}, routes={} lazy, wizardChunks={}]",
                 totalMillis,
-                fabricIndex.totalSettlementCount(),
-                routeGeometryIndex.totalRouteCount(),
+                manifest.realmCount(),
+                manifest.settlementCount(),
+                manifest.capitalCount(),
+                manifest.townCount(),
+                manifest.villageCount(),
+                manifest.hamletCount(),
+                manifest.routeCount(),
                 wizardTreesIndex.indexedChunkCount());
     }
 
