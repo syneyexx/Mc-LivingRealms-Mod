@@ -1,0 +1,448 @@
+---
+description: Living Realms worldgen architecture map, invariants, task routing, and completion criteria. Apply when editing starter worldgen, settlements, roads, structures, or related planning.
+globs:
+  - "src/main/java/dev/livingrealms/minecraft/worldgen/**/*.java"
+  - "src/main/java/dev/livingrealms/minecraft/construction/**/*.java"
+  - "src/main/java/dev/livingrealms/sim/worldgen/**/*.java"
+  - "src/main/java/dev/livingrealms/sim/construction/**/*.java"
+  - "src/main/java/dev/livingrealms/sim/world/**/*.java"
+  - "src/main/resources/data/livingrealms/worldgen/**/*.json"
+  - "src/main/resources/data/livingrealms/neoforge/biome_modifier/**/*.json"
+alwaysApply: false
+---
+
+# Living Realms worldgen working map
+
+## Purpose
+
+This rule exists so Cursor does **not** need to rescan the whole repository for every worldgen task.
+
+Start from the file map below. Read only the smallest relevant set of files first. Search outward only when a referenced symbol requires it.
+
+The target is not merely “worldgen that compiles”. The target is **deterministic, complete, visually coherent starter civilization worldgen**.
+
+## Product goal
+
+For a fresh world:
+
+- The 12 surface realms are strategically known before Living Realms authors any blocks.
+- Capitals, towns, villages, hamlets, roads, gates, walls, farms, roadside sites, and Wizard Trees are day-zero worldgen fabric.
+- When a Minecraft chunk finishes generation, all Living Realms fabric belonging to that chunk is already final.
+- Nothing from the starter baseline should visibly appear later because the player flew closer.
+- Later simulation growth, war damage, ruins, repair, expansion, and other evolving state may remain runtime systems.
+- “100% worldgen” does **not** mean pregenerating every chunk of all kingdoms at world creation. It means the complete civilization plan is deterministic and each generated chunk is complete the first time it becomes playable.
+
+## Non-negotiable invariants
+
+1. **Fresh worlds only.** Do not spend engineering time on old-world migration or backward compatibility unless explicitly requested.
+2. **No day-zero runtime construction fallback.** Starter physical civilization must not depend on player distance, chunk-load events, presentation radius, or tick-time construction.
+3. **No half structures.** A multi-chunk structure must have one global accept/reject decision. Chunk A may not place half a house while chunk B independently rejects the rest.
+4. **Chunk-order independence.** Generating chunks in a different order must produce the same physical result.
+5. **Never force-generate/load neighbor chunks from worldgen.**
+6. **No writes outside the chunk/worldgen region Minecraft currently allows.**
+7. **Protect foreign content.** Never bulldoze vanilla/mod structures, block entities, or unknown non-natural construction.
+8. **Terrain decisions happen before writes.** A building/bridge/wall must be planned against generator terrain before the first block of that object is authored.
+9. **Roads are continuous surfaces.** No checkerboard/diamond holes caused by rounded side offsets.
+10. **CITY+ boundaries have usable exits.** Gates, approach roads, internal streets, and regional routes must form one connected transport graph.
+11. **No duplicate planners.** Reuse/extend existing manifest, settlement contract, street graph, boundary, and route planner instead of creating parallel competing truth.
+12. **Keep worldgen bounded.** No unbounded A*, global terrain scan, or all-settlement blueprint materialization on the level-load/worldgen hot path.
+13. **Do not trigger remote CI just to validate.** The user builds/tests locally. Keep changes easy to build with `build-local.ps1`.
+
+## Known user-observed failures to eliminate
+
+These are real in-game failures, not theoretical edge cases:
+
+- Worldgen can visibly “catch up” behind the player while flying.
+- Some houses/buildings are cut in half at chunk boundaries.
+- Local paths can appear as a diamond/checkerboard mask with natural blocks between road cells.
+- Regional water crossings can look like thin stone skeletons / isolated pillars rather than bridges.
+- Walled settlements can have no obvious usable exit.
+- Gate placement, internal roads, and regional routes can fail to read as one connected system.
+- Some settlements feel like scattered buildings instead of a city/kingdom center.
+- Terrain adaptation can create absurd walls/supports when the site should have been relocated or re-planned.
+- Worldgen quality varies too much by terrain/seed.
+- Houses are temporary quality-wise; the user plans to replace/improve the house library later. Keep architecture asset concerns separated from worldgen correctness.
+
+## Current strategic authority
+
+### Realm and settlement identity / spacing
+
+- `src/main/java/dev/livingrealms/sim/world/StarterCivilizationLayoutPlanner.java`
+  - Seed-stable starter realm + settlement IDs, names, roles, parent hierarchy, strategic positions.
+  - Capital lattice and authored realm topology start here.
+- `src/main/java/dev/livingrealms/sim/world/SettlementDensitySeeder.java`
+  - Starter count targets/ranges.
+- `src/main/java/dev/livingrealms/sim/world/SettlementSpacingPolicy.java`
+  - Role-aware minimum/preferred settlement spacing.
+- `src/main/java/dev/livingrealms/sim/world/StarterCultureTraits.java`
+  - Realm/culture traits used for style decisions.
+
+Do not invent another starter identity source.
+
+## Complete civilization manifest
+
+- `src/main/java/dev/livingrealms/sim/worldgen/StarterCivilizationManifest.java`
+
+This already validates cheap seed-stable topology before block placement:
+- 12 realms
+- unique settlement/faction/route IDs
+- per-realm settlement ranges
+- regional route connectivity
+- no isolated starter settlement
+
+Extend this class when new **strategic invariants** are needed. Do not duplicate it.
+
+## Settlement planning and physical contract
+
+- `src/main/java/dev/livingrealms/sim/worldgen/SettlementInitialWorldgenPlan.java`
+  - Day-zero physical intent set for one starter settlement.
+- `src/main/java/dev/livingrealms/sim/worldgen/StarterSettlementWorldgenContract.java`
+  - Fail-fast completeness validation for one planned settlement.
+  - Existing checks include roads, houses, farms, government anchors, gates, walls, and gate approach connectivity.
+- `src/main/java/dev/livingrealms/sim/construction/SettlementCoreCompleteness.java`
+  - Tier-specific minimum recognizable fabric.
+- `src/main/java/dev/livingrealms/sim/construction/SettlementPlanner.java`
+  - Main deterministic planner for roads, housing, civic fabric, farms, walls, gates.
+- `src/main/java/dev/livingrealms/sim/construction/SettlementStreetGraph.java`
+  - Internal street topology and centerlines.
+- `src/main/java/dev/livingrealms/sim/construction/SettlementRoadPlanner.java`
+  - Projects street graph segments into ROAD intents.
+- `src/main/java/dev/livingrealms/sim/construction/SettlementBoundary.java`
+  - CITY+ perimeter, wall runs, gate nodes, and approach segments.
+- `src/main/java/dev/livingrealms/sim/construction/SettlementHousingPlanner.java`
+  - Housing lot/intent planning.
+- `src/main/java/dev/livingrealms/sim/construction/SettlementParcelPlanner.java`
+  - Parcel geometry.
+- `src/main/java/dev/livingrealms/sim/construction/EntranceAccessPlanner.java`
+  - Entrance/access logic.
+- `src/main/java/dev/livingrealms/sim/construction/StructureAccessValidator.java`
+  - Structure access validation.
+- `src/main/java/dev/livingrealms/sim/construction/StructureGeometryRules.java`
+- `src/main/java/dev/livingrealms/sim/construction/StructureIntegrityRules.java`
+
+If a settlement is missing a recognizable required component, fix planning/contract here before touching block placement.
+
+## Structure geometry / house templates
+
+- `src/main/java/dev/livingrealms/sim/construction/StructureBlueprint.java`
+- `src/main/java/dev/livingrealms/sim/construction/StructureBlueprintFactory.java`
+  - Converts structure intents into vanilla-safe block placement geometry.
+- `src/main/java/dev/livingrealms/sim/construction/BlockPlacement.java`
+- `src/main/java/dev/livingrealms/sim/construction/PaletteSlot.java`
+- `src/main/java/dev/livingrealms/sim/construction/StructureRole.java`
+- `src/main/java/dev/livingrealms/sim/construction/CultureArchitecture.java`
+- `src/main/java/dev/livingrealms/sim/construction/CultureArchitectureProfile.java`
+
+House visuals can be replaced later without changing settlement/worldgen topology. Do not solve a geometry/chunk-atomicity bug by redesigning houses.
+
+## Palette / actual Minecraft blocks
+
+- `src/main/java/dev/livingrealms/minecraft/construction/FactionBlockPalette.java`
+
+Important:
+- `PaletteSlot.PATH` currently resolves by faction style.
+- If roads look wrong because of **shape/masking**, fix road rasterization first.
+- If roads are geometrically correct but material choice is ugly, fix the palette here.
+- Worldgen palette must remain deterministic and safe without requiring active block-entity integrations.
+
+## Worldgen publication / terrain sampling
+
+- `src/main/java/dev/livingrealms/minecraft/worldgen/StarterCivilizationWorldgenContext.java`
+  - Publishes world seed, manifest, lazy indexes, Wizard Trees index, palette styles.
+- `src/main/java/dev/livingrealms/minecraft/worldgen/StarterGeneratorTerrainCache.java`
+  - Generator-only surface/ocean-floor sampling cache. Must not load chunks.
+- `src/main/java/dev/livingrealms/minecraft/worldgen/StarterSettlementTerrainResolver.java`
+  - Terrain refinement for strategic settlement positions.
+
+The current implementation deliberately avoids a global heavy terrain pass during level load. Preserve bounded startup.
+
+## Current settlement fabric indexing
+
+- `src/main/java/dev/livingrealms/minecraft/worldgen/LazyStarterCivilizationFabricIndex.java`
+  - Resolves nearby settlements lazily.
+  - Builds/indexes settlement physical intents and roadside fabric.
+- `src/main/java/dev/livingrealms/sim/worldgen/StarterCivilizationFabricIndex.java`
+  - Chunk-slice data model.
+- `src/main/java/dev/livingrealms/sim/construction/ConstructionIntentChunkSelector.java`
+  - Determines whether an intent intersects a chunk.
+
+### Critical warning
+
+The current lazy placed-feature pipeline is **transitional**.
+
+A known failure mode is that a multi-chunk fixed structure can be preflighted independently per current chunk. That can create half buildings.
+
+Do **not** fix this by force-writing neighboring chunks.
+
+The durable fix is a **single global object-level acceptance decision** plus chunk-local emission of already-approved pieces.
+
+## Regional routes / roads
+
+- `src/main/java/dev/livingrealms/sim/worldgen/StarterRegionalRoutePlanner.java`
+  - Stable strategic inter-settlement route topology and endpoints.
+- `src/main/java/dev/livingrealms/minecraft/worldgen/LazyStarterRegionalRouteGeometryIndex.java`
+  - Current bounded terrain-aware route tiling.
+- `src/main/java/dev/livingrealms/minecraft/worldgen/StarterRegionalRouteGeometryIndex.java`
+  - Route slice / planned-point geometry and grade profile.
+- `src/main/java/dev/livingrealms/minecraft/worldgen/StarterRoadsideRouteResolver.java`
+- `src/main/java/dev/livingrealms/sim/worldgen/StarterRoadsideSitePlanner.java`
+- `src/main/java/dev/livingrealms/sim/worldgen/StarterRoadsideSiteBootstrap.java`
+
+### Road geometry requirement
+
+For a road centerline:
+1. Rasterize the full polyline with a **supercover**-style discrete mask so diagonal movement cannot skip cells.
+2. Dilate that centerline by road width using a deterministic integer mask.
+3. Cache/index the resulting road surface by chunk.
+4. Chunk placement only emits its share of the already-defined mask.
+
+Do not derive a multi-block road by rounding independent perpendicular offsets for every centerline sample. That is the source class of checkerboard/diamond holes.
+
+## Bridges / engineered crossings
+
+Relevant files:
+- `LazyStarterRegionalRouteGeometryIndex.java`
+- `StarterRegionalRouteGeometryIndex.java`
+- `StarterCivilizationChunkGenerator.java`
+- `WorldgenFabricBlockWriter.java`
+
+Desired direction:
+- Detect a water/ravine crossing as one **crossing object**.
+- Determine abutments, deck elevation, width, span and support spacing before writes.
+- Emit one continuous bridge deck.
+- Supports are secondary structure, not the road itself.
+- A failed bridge site should trigger deterministic reroute/replan/fallback, not produce a sparse skeleton.
+
+## CITY+ gates / walls / exits
+
+Primary files:
+- `SettlementBoundary.java`
+- `SettlementPlanner.java`
+- `SettlementStreetGraph.java`
+- `StarterRegionalRoutePlanner.java`
+- `StarterSettlementWorldgenContract.java`
+
+Required topology:
+`settlement core/internal street -> gate approach -> gate opening -> external approach -> regional route`
+
+A boundary is not complete merely because wall blocks and gate blueprints exist.
+
+For CITY+:
+- Gate openings must actually remain open.
+- Wall runs must stop around gates.
+- Every required gate must touch an internal approach road.
+- At least the intended regional-facing gates must connect to regional routes.
+- The final physical contract should validate this before placement.
+
+## Minecraft worldgen integration
+
+- `src/main/java/dev/livingrealms/minecraft/worldgen/ModWorldgenFeatures.java`
+- `src/main/java/dev/livingrealms/minecraft/worldgen/StarterCivilizationFabricFeature.java`
+  - Current NeoForge placed feature entry point.
+- `src/main/resources/data/livingrealms/worldgen/configured_feature/starter_civilization_fabric.json`
+- `src/main/resources/data/livingrealms/worldgen/placed_feature/starter_civilization_fabric.json`
+- `src/main/resources/data/livingrealms/neoforge/biome_modifier/starter_civilization_fabric.json`
+
+The feature currently runs at decoration time and delegates chunk-local writes.
+
+For Worldgen V2, prefer native Minecraft `Structure` / `StructurePiece` semantics (or an equivalent immutable piece registry) for multi-chunk authored objects so one object is planned once and clipped per chunk. Do not make each chunk re-decide whether the same object is valid.
+
+## Block placement / provenance / protection
+
+- `src/main/java/dev/livingrealms/minecraft/worldgen/StarterCivilizationChunkGenerator.java`
+  - Current per-chunk settlement, urban core, route, roadside generation.
+- `src/main/java/dev/livingrealms/minecraft/worldgen/WorldgenFabricBlockWriter.java`
+  - Terrain snapshots, current-chunk writes, replacement safety, foundations, roads, foreign structure protection.
+- `src/main/java/dev/livingrealms/minecraft/worldgen/ModWorldgenAttachments.java`
+  - Persistent chunk provenance.
+- `src/main/java/dev/livingrealms/sim/construction/AuthoredOwnerType.java`
+  - Ownership classes.
+
+Do not weaken foreign-structure/block-entity safety to make generation “more complete”. Replan the Living Realms object instead.
+
+## Wizard Trees
+
+- `src/main/java/dev/livingrealms/sim/world/WizardTreesSeeder.java`
+- `src/main/java/dev/livingrealms/sim/worldgen/WizardTreesInitialWorldgenPlan.java`
+- `src/main/java/dev/livingrealms/minecraft/worldgen/WizardTreesWorldgenIndex.java`
+- `src/main/java/dev/livingrealms/minecraft/worldgen/WizardTreesChunkGenerator.java`
+- `src/main/java/dev/livingrealms/sim/construction/WizardTreesPlanner.java`
+
+Wizard Trees are a separate underground starter fabric. Preserve their worldgen path while refactoring surface civilization.
+
+## Runtime baseline suppression / reconciliation
+
+- `src/main/java/dev/livingrealms/sim/worldgen/StarterWorldgenCompletion.java`
+- `src/main/java/dev/livingrealms/sim/construction/SettlementConstructionPolicy.java`
+- `src/main/java/dev/livingrealms/sim/construction/PhysicalDevelopmentReconciler.java`
+
+Starter baseline receipts should prevent runtime from rebuilding the same day-zero fabric.
+
+Runtime remains valid for later growth/evolution.
+
+## Task router
+
+### “Half buildings / structures cut at chunk edges”
+Read first:
+1. `LazyStarterCivilizationFabricIndex.java`
+2. `ConstructionIntentChunkSelector.java`
+3. `StarterCivilizationChunkGenerator.java`
+4. `WorldgenFabricBlockWriter.java`
+5. `StructureBlueprint.java`
+
+Target fix:
+- One deterministic object-level terrain/collision decision.
+- One stable object base Y.
+- Immutable piece/bounding-box plan.
+- Chunk-local emission only.
+
+### “Checkerboard / diamond roads”
+Read first:
+1. `SettlementStreetGraph.java`
+2. `SettlementRoadPlanner.java`
+3. `StarterCivilizationChunkGenerator.java`
+4. `FactionBlockPalette.java`
+
+Target fix:
+- Supercover centerline.
+- Integer width dilation.
+- Continuous mask.
+- Material styling only after geometry is correct.
+
+### “Bad bridge / stone skeleton / floating supports”
+Read first:
+1. `LazyStarterRegionalRouteGeometryIndex.java`
+2. `StarterRegionalRouteGeometryIndex.java`
+3. `StarterCivilizationChunkGenerator.java`
+4. `WorldgenFabricBlockWriter.java`
+
+Target fix:
+- Planned bridge object with full deck and abutments.
+- Deterministic grade.
+- Bounded supports.
+- Reroute/fallback if crossing is invalid.
+
+### “No gate / no city exit / regional road misses wall”
+Read first:
+1. `SettlementBoundary.java`
+2. `SettlementPlanner.java`
+3. `StarterRegionalRoutePlanner.java`
+4. `StarterSettlementWorldgenContract.java`
+
+Target fix:
+- Gate is topology, not decoration.
+- Regional endpoint must resolve to a usable gate.
+- Gate approach and internal street must be physically continuous.
+
+### “Settlement does not look like a city”
+Read first:
+1. `SettlementCoreCompleteness.java`
+2. `SettlementPlanner.java`
+3. `SettlementHousingPlanner.java`
+4. `SettlementStreetGraph.java`
+5. `StarterSettlementWorldgenContract.java`
+
+Do not immediately edit house templates. First confirm required building count, lot density, civic anchors, street area, and boundary completeness.
+
+### “Worldgen too slow / chunks appear gradually”
+Read first:
+1. `StarterCivilizationFabricFeature.java`
+2. `StarterCivilizationWorldgenContext.java`
+3. `LazyStarterCivilizationFabricIndex.java`
+4. `LazyStarterRegionalRouteGeometryIndex.java`
+5. `StarterGeneratorTerrainCache.java`
+
+Use the existing logs:
+- `Starter fabric first chunk ...`
+- `Slow starter worldgen chunk=...`
+
+Do not reintroduce global all-settlement terrain scans or full-route A* at startup.
+
+### “Change culture building visuals”
+Read first:
+1. `StructureBlueprintFactory.java`
+2. `CultureArchitecture.java`
+3. `CultureArchitectureProfile.java`
+4. `FactionBlockPalette.java`
+5. content building definitions under `src/main/resources/data/livingrealms/buildings/`
+
+Keep visual library changes independent from worldgen topology/correctness.
+
+## Worldgen V2 implementation direction
+
+Use this order unless code evidence shows a better dependency sequence.
+
+### Phase 1 — Manifest and contracts
+- Keep `StarterCivilizationManifest` as the strategic source audit.
+- Expand `StarterSettlementWorldgenContract` until a planned settlement cannot silently be incomplete.
+- Add explicit physical counts/connectivity checks needed for capitals/towns/villages/hamlets.
+
+### Phase 2 — Resolve settlement sites once
+- Resolve terrain position once per settlement.
+- Derive one immutable physical settlement plan.
+- Determine fixed-structure base Y / terrain viability before block writes.
+- If an essential object is invalid, deterministically relocate/replan the object or settlement.
+- Do not silently omit required fabric.
+
+### Phase 3 — Immutable physical objects / structure pieces
+- Convert fixed structures into globally accepted immutable objects with bounding boxes.
+- Prefer Minecraft `StructurePiece`-style semantics for cross-chunk emission.
+- Every chunk gets a clipped view of the same accepted object.
+- Eliminate current per-chunk object acceptance.
+
+### Phase 4 — Roads
+- Convert each planned centerline into one cached continuous integer road mask.
+- Roads must be chunk-order independent.
+- Local roads, gate approaches, and regional roads should share compatible rasterization rules.
+
+### Phase 5 — Bridges and terrain engineering
+- Detect crossings before placement.
+- Represent bridges/causeways/tunnels as explicit planned objects.
+- Enforce grade, width, clearance, abutments, and support limits.
+
+### Phase 6 — Gate-to-route graph
+- Validate physical core -> gate -> regional route continuity.
+- Make this a fail-fast contract, not a visual best-effort.
+
+### Phase 7 — Performance
+- Keep startup strategic planning cheap.
+- Heavy terrain work must be bounded and cached.
+- No chunk should solve an entire multi-kilometre network.
+- Avoid repeated blueprint construction and repeated generator-height sampling.
+- A generated chunk should not receive visible starter additions later.
+
+## Definition of done
+
+Do not call starter worldgen “done” until all of these are true on multiple fresh seeds:
+
+- Fresh world reaches playable state without a worldgen stall.
+- 12/12 surface realms exist in the manifest.
+- Every realm has exactly one capital and valid towns/villages/hamlets in configured ranges.
+- Every starter settlement passes `StarterSettlementWorldgenContract`.
+- No half house/building at chunk borders.
+- No wall chopped because an adjacent chunk rejected the same object.
+- CITY+ has a complete boundary and obvious usable gate exits.
+- Gate approaches connect to internal roads.
+- Regional routes connect to intended settlement gates.
+- Roads are visually continuous with no checkerboard holes.
+- Water crossings are coherent bridges/causeways, not sparse stone skeletons.
+- Terrain-fit failures replan/relocate instead of creating absurd vertical structures.
+- Capitals read visually as capitals; towns as towns; villages as villages; hamlets as hamlets.
+- Flying quickly through new terrain does not reveal starter buildings appearing later in chunks that were already complete.
+- No forced neighbor chunk generation.
+- Vanilla/mod structures and block entities remain protected.
+- Wizard Trees remain valid.
+- Starter baseline is not rebuilt by runtime simulation.
+- Later growth/evolution still works as runtime behavior.
+
+## Working style for Cursor
+
+- Do not scan the entire repository before each task.
+- Start from the “Task router” file list.
+- Read symbol definitions only when needed.
+- Make small, reviewable batches.
+- Before editing, identify the invariant being fixed.
+- Prefer deleting transitional behavior after its replacement is proven rather than maintaining two worldgen paths.
+- Do not add compatibility machinery for old worlds.
+- Do not hide missing required content behind fallback success.
+- If an essential worldgen contract fails, fail loudly in development/logging rather than silently generating half a settlement.
