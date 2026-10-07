@@ -26,12 +26,22 @@ public final class StarterCivilizationFabricIndex {
     public record SettlementFabric(
             SettlementInitialWorldgenPlan settlement,
             ConstructionIntent intent,
-            StructureBlueprint blueprint
+            StructureBlueprint blueprint,
+            WorldgenObjectAcceptance.Decision acceptance
     ) {
         public SettlementFabric {
             settlement = Objects.requireNonNull(settlement, "settlement");
             intent = Objects.requireNonNull(intent, "intent");
             blueprint = Objects.requireNonNull(blueprint, "blueprint");
+            // Null acceptance means terrain-following / road / planning-only fabric where a single
+            // fixed base Y is not part of the object contract.
+        }
+
+        public SettlementFabric(
+                SettlementInitialWorldgenPlan settlement,
+                ConstructionIntent intent,
+                StructureBlueprint blueprint) {
+            this(settlement, intent, blueprint, null);
         }
     }
 

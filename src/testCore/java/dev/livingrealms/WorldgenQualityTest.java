@@ -5,6 +5,7 @@ import dev.livingrealms.sim.faction.*;
 import dev.livingrealms.sim.transport.*;
 import dev.livingrealms.sim.world.*;
 import java.util.*;
+// StarterCivilizationLayoutPlanner + validation used for multi-seed gate below.
 
 /** Regression gate for the physical-layout complaints fixed by content revision 6. */
 public final class WorldgenQualityTest {
@@ -68,7 +69,20 @@ public final class WorldgenQualityTest {
         List<RouteProjectionPlanner.RoutePoint> terrainPoints=RouteProjectionPlanner.plan(route,from,to,List.of(new SimPosition(60,35)),500,500,ridge);
         check(!terrainPoints.isEmpty(),"terrain-aware route must still project near observers");
 
-        System.out.println("PASS worldgen quality: city castle + graph-first polyline streets + apartments + accessible floors + tier growth + terrain-aware routes");
+        // Continuous road mask: diagonal polylines must not leave corner gaps before dilation.
+        List<SimPosition> diagonal = List.of(new SimPosition(0, 0), new SimPosition(12, 12));
+        var roadMask = dev.livingrealms.sim.worldgen.RoadSurfaceMask.rasterize(diagonal, 3);
+        check(roadMask.size() >= 30, "diagonal road mask must be continuous: " + roadMask.size());
+
+        // Multi-seed strategic validation (topology + hierarchy + road access).
+        for (long seed : List.of(1L, 42L, 60606L)) {
+            var layout = StarterCivilizationLayoutPlanner.plan(seed);
+            var report = dev.livingrealms.sim.worldgen.StarterWorldgenValidationEngine.validate(layout);
+            check(report.ok(), "starter validation seed=" + seed + " " + report.issues());
+            check(report.metrics().disconnectedStreetGraphs() == 0, "disconnected streets seed=" + seed);
+        }
+
+        System.out.println("PASS worldgen quality: city castle + graph-first polyline streets + apartments + accessible floors + tier growth + terrain-aware routes + road mask + multi-seed validation");
     }
 
     private static void check(boolean condition,String message){if(!condition)throw new AssertionError(message);}

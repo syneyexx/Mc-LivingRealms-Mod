@@ -15,7 +15,7 @@ CURRENT PINS: schema 21 / minSchema 1 / protocol 20 / network 16 / contentRevisi
 | Save schema | **21** (1–20 readable; settlement roles + hierarchical world-fabric migration) |
 | Dashboard protocol | **20** |
 | Network | **16** |
-| ContentRevision | **15** |
+| ContentRevision | **18** |
 | Surface starter settlements | **204–300** (12 × 17–25: capital + 10 authored satellites + 6–14 rural hamlets) |
 | Spacing | **role-aware**; capital↔capital preferred **3000–4500** blocks |
 | Dashboard / map / catalog | F12 / M / K |

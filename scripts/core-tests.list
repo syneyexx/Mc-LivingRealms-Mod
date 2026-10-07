@@ -4,6 +4,10 @@
 # Keep the worldgen architecture gate first so physical-layout regressions fail fast before
 # expensive long-running simulation/fuzz suites; a green run still executes every test below.
 dev.livingrealms.WorldgenQualityTest
+dev.livingrealms.RoadSurfaceMaskTest
+dev.livingrealms.BridgeCrossingPlannerTest
+dev.livingrealms.WorldgenObjectAcceptanceTest
+dev.livingrealms.StarterWorldgenValidationEngineTest
 dev.livingrealms.TerrainCorridorLocalBoundTest
 dev.livingrealms.LazyWorldgenBoundedSourceTest
 dev.livingrealms.StarterCivilizationLayoutPlannerTest

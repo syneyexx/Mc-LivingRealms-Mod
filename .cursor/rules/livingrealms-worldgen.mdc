@@ -92,6 +92,17 @@ This already validates cheap seed-stable topology before block placement:
 
 Extend this class when new **strategic invariants** are needed. Do not duplicate it.
 
+### Post-planning structural validation
+
+- `src/main/java/dev/livingrealms/sim/worldgen/StarterWorldgenValidationEngine.java`
+  - Multi-settlement invariants: unique IDs, street connectivity, building overlaps, road-access ratios, capital keeps, route↔gate attachment.
+- `src/main/java/dev/livingrealms/sim/worldgen/RoadSurfaceMask.java`
+  - Supercover centerline + integer width dilation for continuous road surfaces.
+- `src/main/java/dev/livingrealms/sim/worldgen/BridgeCrossingPlanner.java`
+  - Contiguous water/ravine crossings as one bridge object (abutments, deck Y, support spacing, reject overlong spans).
+- `src/main/java/dev/livingrealms/sim/worldgen/WorldgenObjectAcceptance.java`
+  - Single global accept/reject + base Y for fixed structures (chunk-order independent).
+
 ## Settlement planning and physical contract
 
 - `src/main/java/dev/livingrealms/sim/worldgen/SettlementInitialWorldgenPlan.java`
@@ -284,43 +295,46 @@ Runtime remains valid for later growth/evolution.
 
 ### “Half buildings / structures cut at chunk edges”
 Read first:
-1. `LazyStarterCivilizationFabricIndex.java`
-2. `ConstructionIntentChunkSelector.java`
-3. `StarterCivilizationChunkGenerator.java`
-4. `WorldgenFabricBlockWriter.java`
-5. `StructureBlueprint.java`
+1. `WorldgenObjectAcceptance.java`
+2. `LazyStarterCivilizationFabricIndex.java`
+3. `ConstructionIntentChunkSelector.java`
+4. `StarterCivilizationChunkGenerator.java`
+5. `WorldgenFabricBlockWriter.java`
+6. `StructureBlueprint.java`
 
 Target fix:
-- One deterministic object-level terrain/collision decision.
-- One stable object base Y.
+- One deterministic object-level terrain/collision decision (`WorldgenObjectAcceptance.Decision`).
+- One stable object base Y cached on `SettlementFabric.acceptance`.
 - Immutable piece/bounding-box plan.
-- Chunk-local emission only.
+- Chunk-local emission only; globally rejected objects emit nothing in any chunk.
 
 ### “Checkerboard / diamond roads”
 Read first:
-1. `SettlementStreetGraph.java`
-2. `SettlementRoadPlanner.java`
-3. `StarterCivilizationChunkGenerator.java`
-4. `FactionBlockPalette.java`
+1. `RoadSurfaceMask.java`
+2. `SettlementStreetGraph.java`
+3. `SettlementRoadPlanner.java`
+4. `StarterCivilizationChunkGenerator.java`
+5. `FactionBlockPalette.java`
 
 Target fix:
-- Supercover centerline.
+- Supercover centerline via `RoadSurfaceMask`.
 - Integer width dilation.
 - Continuous mask.
 - Material styling only after geometry is correct.
 
 ### “Bad bridge / stone skeleton / floating supports”
 Read first:
-1. `LazyStarterRegionalRouteGeometryIndex.java`
-2. `StarterRegionalRouteGeometryIndex.java`
-3. `StarterCivilizationChunkGenerator.java`
-4. `WorldgenFabricBlockWriter.java`
+1. `BridgeCrossingPlanner.java`
+2. `LazyStarterRegionalRouteGeometryIndex.java`
+3. `StarterRegionalRouteGeometryIndex.java`
+4. `StarterCivilizationChunkGenerator.java`
+5. `WorldgenFabricBlockWriter.java`
 
 Target fix:
-- Planned bridge object with full deck and abutments.
+- Planned bridge object with full deck and abutments (`BridgeCrossingPlanner.Crossing`).
 - Deterministic grade.
-- Bounded supports.
-- Reroute/fallback if crossing is invalid.
+- Bounded supports at planned spacing.
+- Rejected spans emit no sparse pillars.
 
 ### “No gate / no city exit / regional road misses wall”
 Read first:

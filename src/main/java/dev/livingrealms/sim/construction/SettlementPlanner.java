@@ -86,10 +86,8 @@ public final class SettlementPlanner {
             addAt(out, faction, settlement, StructureRole.KEEP, 0, keep, keepW, keepD, baseRotation, capital ? 190 : 120);
         }
 
-        SettlementHousingPlanner.addHousing(out, faction, settlement, morph, baseRotation, streetGraph, cultureProfile.architecture());
-        addFarms(out, faction, settlement, morph, baseRotation);
-        addPastures(out, faction, settlement, morph, baseRotation);
-
+        // Civic core before housing so temples/markets/workshops claim reserved sites instead of
+        // being spiral-squeezed into already-filled residential parcels.
         if (tier >= Settlement.Tier.HAMLET.ordinal()) addCivic(out, faction, settlement, morph, baseRotation, StructureRole.WELL, 0, 5, 5, 116);
         if (tier >= Settlement.Tier.VILLAGE.ordinal()) {
             addCivic(out, faction, settlement, morph, baseRotation, StructureRole.IRRIGATION, 0, 7, 31, 74);
@@ -115,6 +113,13 @@ public final class SettlementPlanner {
             addCivic(out, faction, settlement, morph, baseRotation, StructureRole.ORPHANAGE, 0, 15, 13, 79);
             addCivic(out, faction, settlement, morph, baseRotation, StructureRole.MONUMENT, 0, 9, 9, 76);
             if (faction.technology() >= .55) addCivic(out, faction, settlement, morph, baseRotation, StructureRole.OBSERVATORY, 0, 15, 15, 72);
+        }
+
+        SettlementHousingPlanner.addHousing(out, faction, settlement, morph, baseRotation, streetGraph, cultureProfile.architecture());
+        addFarms(out, faction, settlement, morph, baseRotation);
+        addPastures(out, faction, settlement, morph, baseRotation);
+
+        if (tier >= Settlement.Tier.CITY.ordinal()) {
             addCityWalls(out, faction, settlement, Objects.requireNonNull(boundary, "boundary"));
         }
         if (tier >= Settlement.Tier.TOWN.ordinal() && faction.technology() >= .35) {
@@ -124,7 +129,8 @@ public final class SettlementPlanner {
             addCivic(out, faction, settlement, morph, baseRotation, StructureRole.DOCK, 0, 17, 11, 118);
         }
         if (tier >= Settlement.Tier.CITY.ordinal() && faction.technology() >= .75) {
-            SimPosition edge = local(settlement, baseRotation, 132, -96);
+            SimPosition edge = resolveClearSite(
+                    out, local(settlement, baseRotation, 132, -96), 25, 70, baseRotation);
             addAt(out, faction, settlement, StructureRole.AIRFIELD, 0, edge, 25, 70, baseRotation, 64);
         }
 
@@ -262,8 +268,81 @@ public final class SettlementPlanner {
 
     private static void addCivic(List<ConstructionIntent> out, Faction faction, Settlement settlement,
                                  SettlementMorphology morph, int baseRotation, StructureRole role, int index, int w, int d, int priority) {
-        SimPosition center = civicPoint(settlement, morph, role, baseRotation);
-        addAt(out, faction, settlement, role, index, center, w, d, baseRotation + orientationFor(role), priority);
+        int rotation = baseRotation + orientationFor(role);
+        SimPosition preferred = civicPoint(settlement, morph, role, baseRotation);
+        SimPosition center = resolveClearSite(out, preferred, w, d, rotation);
+        addAt(out, faction, settlement, role, index, center, w, d, rotation, priority);
+    }
+
+    /**
+     * Spiral-search for a nearby site whose footprint clears already-planned fixed structures.
+     * Roads/walls/farms are ignored so civic buildings stay near the street graph without being
+     * blocked by long wall runs or agricultural perimeter.
+     */
+    public static SimPosition resolveClearSite(
+            List<ConstructionIntent> existing,
+            SimPosition preferred,
+            int width,
+            int depth,
+            int rotation) {
+        Objects.requireNonNull(existing, "existing");
+        Objects.requireNonNull(preferred, "preferred");
+        if (!footprintConflicts(existing, preferred, width, depth, rotation)) return preferred;
+        for (int n = 1; n < 384; n++) {
+            int[] offset = spiral(n);
+            SimPosition candidate = new SimPosition(
+                    preferred.x() + offset[0] * 4.0,
+                    preferred.z() + offset[1] * 4.0);
+            if (!footprintConflicts(existing, candidate, width, depth, rotation)) return candidate;
+        }
+        // Dense urban cores can exhaust the local spiral. Push outward on cardinal rays until clear.
+        for (int radius = 24; radius <= 220; radius += 8) {
+            SimPosition[] rays = {
+                    new SimPosition(preferred.x() + radius, preferred.z()),
+                    new SimPosition(preferred.x() - radius, preferred.z()),
+                    new SimPosition(preferred.x(), preferred.z() + radius),
+                    new SimPosition(preferred.x(), preferred.z() - radius),
+                    new SimPosition(preferred.x() + radius, preferred.z() + radius),
+                    new SimPosition(preferred.x() - radius, preferred.z() + radius),
+                    new SimPosition(preferred.x() + radius, preferred.z() - radius),
+                    new SimPosition(preferred.x() - radius, preferred.z() - radius)
+            };
+            for (SimPosition candidate : rays) {
+                if (!footprintConflicts(existing, candidate, width, depth, rotation)) return candidate;
+            }
+        }
+        return preferred;
+    }
+
+    public static boolean footprintConflicts(
+            List<ConstructionIntent> existing,
+            SimPosition center,
+            int width,
+            int depth,
+            int rotation) {
+        double worldW = (Math.floorMod(rotation, 4) & 1) == 0 ? width : depth;
+        double worldD = (Math.floorMod(rotation, 4) & 1) == 0 ? depth : width;
+        double pad = 2.0;
+        for (ConstructionIntent other : existing) {
+            if (!occupiesExclusiveFootprint(other.role())) continue;
+            double otherW = (Math.floorMod(other.rotationQuarterTurns(), 4) & 1) == 0
+                    ? other.width() : other.depth();
+            double otherD = (Math.floorMod(other.rotationQuarterTurns(), 4) & 1) == 0
+                    ? other.depth() : other.width();
+            double dx = Math.abs(other.center().x() - center.x());
+            double dz = Math.abs(other.center().z() - center.z());
+            if (dx < (otherW + worldW) / 2.0 + pad && dz < (otherD + worldD) / 2.0 + pad) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean occupiesExclusiveFootprint(StructureRole role) {
+        return switch (role) {
+            case ROAD, WALL, GATE, FARM, PASTURE, IRRIGATION, AQUEDUCT -> false;
+            default -> true;
+        };
     }
 
     private static SimPosition civicPoint(Settlement settlement, SettlementMorphology morph, StructureRole role, int baseRotation) {

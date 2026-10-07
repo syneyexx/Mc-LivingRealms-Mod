@@ -3,6 +3,7 @@ package dev.livingrealms.sim.worldgen;
 import dev.livingrealms.sim.construction.ConstructionIntent;
 import dev.livingrealms.sim.construction.SettlementCoreCompleteness;
 import dev.livingrealms.sim.construction.StructureRole;
+import dev.livingrealms.sim.faction.Settlement;
 import dev.livingrealms.sim.world.SimPosition;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -112,6 +113,36 @@ public final class StarterSettlementWorldgenContract {
         if (contract.requireExternalRoad() && connectedGates < contract.minGates()) {
             problems.add("gates not connected to settlement streets: "
                     + connectedGates + "/" + contract.minGates());
+        }
+
+        List<ConstructionIntent> roadIntents = plan.intents().stream()
+                .filter(i -> i.role() == StructureRole.ROAD)
+                .toList();
+        if (roads >= 2) {
+            var graph = dev.livingrealms.sim.construction.SettlementStreetGraph
+                    .fromRoadIntents(plan.settlementId(), roadIntents);
+            if (!graph.hasConnectedCore()) {
+                problems.add("street graph is not fully connected");
+            }
+        }
+
+        // Capitals/cities must expose a recognizable keep/civic core, not only scattered houses.
+        if (plan.tier().ordinal() >= Settlement.Tier.CITY.ordinal()) {
+            int keep = count(counts, StructureRole.KEEP);
+            if (keep == 0) problems.add("city-scale settlement missing keep");
+            ConstructionIntent keepIntent = plan.intents().stream()
+                    .filter(i -> i.role() == StructureRole.KEEP)
+                    .findFirst().orElse(null);
+            if (keepIntent != null && (keepIntent.width() < 27 || keepIntent.depth() < 23)) {
+                problems.add("city keep footprint too small: "
+                        + keepIntent.width() + "x" + keepIntent.depth());
+            }
+        }
+
+        if (plan.tier().ordinal() >= Settlement.Tier.TOWN.ordinal()
+                && count(counts, StructureRole.WAREHOUSE) == 0
+                && count(counts, StructureRole.MARKET) == 0) {
+            problems.add("town-scale settlement missing commercial storage/market");
         }
 
         return new Report(
