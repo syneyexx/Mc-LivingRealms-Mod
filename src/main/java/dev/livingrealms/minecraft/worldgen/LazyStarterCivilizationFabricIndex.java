@@ -34,6 +34,8 @@ import java.util.concurrent.FutureTask;
  */
 public final class LazyStarterCivilizationFabricIndex {
     private static final int RESOLUTION_HALO_BLOCKS = 256;
+    private static final int RESOLUTION_TILE_CHUNKS = 16;
+    private static final int RESOLUTION_TILE_BLOCKS = RESOLUTION_TILE_CHUNKS * 16;
 
     public record ResolvedSettlement(
             StarterCivilizationLayoutPlanner.RealmPlan realm,
@@ -59,6 +61,7 @@ public final class LazyStarterCivilizationFabricIndex {
     private final StarterGeneratorTerrainCache terrainCache;
     private final List<SettlementRef> settlements;
     private final Map<Long, SettlementRef> settlementById;
+    private final Map<Long, List<SettlementRef>> resolutionRefsByTile;
     private final List<StarterRoadsideSitePlanner.SitePlan> roadsideSites;
     private final Map<Long, List<StarterRoadsideSitePlanner.SitePlan>> roadsideByRoute;
     private final java.util.Set<Long> resolvedRoadsideSites = ConcurrentHashMap.newKeySet();
@@ -95,6 +98,7 @@ public final class LazyStarterCivilizationFabricIndex {
         }
         this.settlements = List.copyOf(refs);
         this.settlementById = Map.copyOf(byId);
+        this.resolutionRefsByTile = buildResolutionTileIndex(refs);
 
         this.roadsideSites = StarterRoadsideSitePlanner.plan(source);
         Map<Long, List<StarterRoadsideSitePlanner.SitePlan>> groupedRoadside = new HashMap<>();
@@ -187,8 +191,10 @@ public final class LazyStarterCivilizationFabricIndex {
         int minZ = chunkZ << 4;
         int maxX = minX + 15;
         int maxZ = minZ + 15;
+        int tileX = Math.floorDiv(chunkX, RESOLUTION_TILE_CHUNKS);
+        int tileZ = Math.floorDiv(chunkZ, RESOLUTION_TILE_CHUNKS);
 
-        for (SettlementRef ref : settlements) {
+        for (SettlementRef ref : resolutionRefsByTile.getOrDefault(pack(tileX, tileZ), List.of())) {
             var settlement = ref.settlement();
             int maxShift = StarterSettlementTerrainResolver.maxSearchRadius(settlement.role());
             int halo = maxShift + RESOLUTION_HALO_BLOCKS;
@@ -199,6 +205,31 @@ public final class LazyStarterCivilizationFabricIndex {
             }
             resolveSettlement(settlement.id());
         }
+    }
+
+    private static Map<Long, List<SettlementRef>> buildResolutionTileIndex(List<SettlementRef> refs) {
+        Map<Long, List<SettlementRef>> mutable = new HashMap<>();
+        for (SettlementRef ref : refs) {
+            var settlement = ref.settlement();
+            int halo = StarterSettlementTerrainResolver.maxSearchRadius(settlement.role())
+                    + RESOLUTION_HALO_BLOCKS;
+            int sx = (int) Math.round(settlement.position().x());
+            int sz = (int) Math.round(settlement.position().z());
+            int minTileX = Math.floorDiv(sx - halo, RESOLUTION_TILE_BLOCKS);
+            int maxTileX = Math.floorDiv(sx + halo, RESOLUTION_TILE_BLOCKS);
+            int minTileZ = Math.floorDiv(sz - halo, RESOLUTION_TILE_BLOCKS);
+            int maxTileZ = Math.floorDiv(sz + halo, RESOLUTION_TILE_BLOCKS);
+            for (int tx = minTileX; tx <= maxTileX; tx++) {
+                for (int tz = minTileZ; tz <= maxTileZ; tz++) {
+                    mutable.computeIfAbsent(pack(tx, tz), ignored -> new ArrayList<>()).add(ref);
+                }
+            }
+        }
+        Map<Long, List<SettlementRef>> frozen = new HashMap<>(mutable.size() * 2);
+        for (var entry : mutable.entrySet()) {
+            frozen.put(entry.getKey(), List.copyOf(entry.getValue()));
+        }
+        return Map.copyOf(frozen);
     }
 
     private ResolvedSettlement resolveAndIndex(SettlementRef ref) {
