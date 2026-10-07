@@ -119,7 +119,12 @@ public final class CitizenRoutinePlanner {
     }
 
     private static CitizenRoutine commuteViaStreet(SimulationState state,Settlement settlement,CitizenRole role,int slot,List<ConstructionIntent> completed){
-        if(role==CitizenRole.BUILDER||role==CitizenRole.GUARD)return null;
+        // Specialists with dedicated civic workplaces must not be diverted onto street patrol;
+        // otherwise deterministic slot/day phases can replace temple/clinic/school work forever.
+        if(role==CitizenRole.BUILDER||role==CitizenRole.GUARD
+                ||role==CitizenRole.PRIEST||role==CitizenRole.HEALER
+                ||role==CitizenRole.SCHOLAR||role==CitizenRole.TEACHER
+                ||role==CitizenRole.OFFICIAL)return null;
         List<ConstructionIntent> roads=completed.stream().filter(i->i.role()==StructureRole.ROAD).toList();
         if(roads.isEmpty())return null;
         // Citizens periodically move through the authored street network before returning to work.
