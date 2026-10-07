@@ -198,6 +198,10 @@ public final class WorldgenFabricBlockWriter {
         y = Math.max(y, generatorSurfaceY(centerX + hx, centerZ - hz));
         y = Math.max(y, generatorSurfaceY(centerX - hx, centerZ + hz));
         y = Math.max(y, generatorSurfaceY(centerX + hx, centerZ + hz));
+        y = Math.max(y, generatorSurfaceY(centerX - hx, centerZ));
+        y = Math.max(y, generatorSurfaceY(centerX + hx, centerZ));
+        y = Math.max(y, generatorSurfaceY(centerX, centerZ - hz));
+        y = Math.max(y, generatorSurfaceY(centerX, centerZ + hz));
         return y;
     }
 
