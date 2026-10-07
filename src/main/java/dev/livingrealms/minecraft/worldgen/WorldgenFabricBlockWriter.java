@@ -167,8 +167,10 @@ public final class WorldgenFabricBlockWriter {
         }
 
         if (!clearNaturalVegetationAbove(x, groundY, z, 8, ownerType)) return false;
+        // Short rises become full causeway fill. Longer engineered decks keep regularly spaced
+        // piers (spacing 5) so dry ravine crossings are continuous rather than sparse skeletons.
         boolean fullCauseway = delta <= 4;
-        boolean supportColumn = fullCauseway || Math.floorMod(x * 31 + z * 17, 7) == 0;
+        boolean supportColumn = fullCauseway || Math.floorMod(x * 31 + z * 17, 5) == 0;
         if (!supportColumn) return true;
 
         for (int y = groundY + 1; y < deckY; y++) {

@@ -9,14 +9,17 @@ import dev.livingrealms.sim.construction.StructureBlueprint;
 import dev.livingrealms.sim.construction.StructureRole;
 import dev.livingrealms.sim.transport.RouteProjectionPlanner;
 import dev.livingrealms.sim.world.SimPosition;
+import dev.livingrealms.sim.worldgen.BridgeCrossingPlanner;
+import dev.livingrealms.sim.worldgen.RoadSurfaceMask;
 import dev.livingrealms.sim.worldgen.SettlementInitialWorldgenPlan;
 import dev.livingrealms.sim.worldgen.StarterCivilizationFabricIndex;
 import dev.livingrealms.sim.worldgen.StarterRegionalRoutePlanner;
+import dev.livingrealms.sim.worldgen.WorldgenObjectAcceptance;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Blocks;
@@ -49,9 +52,9 @@ public final class StarterCivilizationChunkGenerator {
             StarterRegionalRouteGeometryIndex.ChunkSlice routeSlice,
             int chunkX,
             int chunkZ) {
-        // Compute every fixed structure base before the first LR write. This keeps cross-chunk
-        // pieces and neighboring intents anchored to the same pre-existing terrain rather than to
-        // geometry emitted earlier in this feature invocation.
+        // Prefer the globally accepted object decision computed once during settlement resolution.
+        // Falling back to a local generator sample only happens for legacy/null-acceptance fabric
+        // (terrain-following roles skip fixed-base preparation entirely).
         Map<StarterCivilizationFabricIndex.SettlementFabric, PreparedIntent> prepared = new HashMap<>();
         for (StarterCivilizationFabricIndex.SettlementFabric fabric : slice.settlementFabric()) {
             ConstructionIntent intent = fabric.intent();
@@ -59,10 +62,21 @@ public final class StarterCivilizationChunkGenerator {
             StructureBlueprint blueprint = fabric.blueprint();
             int turns = Math.floorMod(intent.rotationQuarterTurns(), 4);
             boolean terrainFollowing = terrainFollowing(intent.role());
-            int cx = (int) Math.round(intent.center().x());
-            int cz = (int) Math.round(intent.center().z());
-            int baseY = terrainFollowing ? 0
-                    : writer.siteBaseY(cx, cz, blueprint.width(), blueprint.depth(), turns);
+            WorldgenObjectAcceptance.Decision acceptance = fabric.acceptance();
+            if (!terrainFollowing && acceptance != null && !acceptance.accepted()) {
+                // Globally rejected objects emit nothing in any intersecting chunk.
+                continue;
+            }
+            int baseY;
+            if (terrainFollowing) {
+                baseY = 0;
+            } else if (acceptance != null) {
+                baseY = acceptance.baseY();
+            } else {
+                int cx = (int) Math.round(intent.center().x());
+                int cz = (int) Math.round(intent.center().z());
+                baseY = writer.siteBaseY(cx, cz, blueprint.width(), blueprint.depth(), turns);
+            }
             prepared.put(fabric, new PreparedIntent(blueprint, turns, terrainFollowing, baseY));
         }
 
@@ -94,7 +108,8 @@ public final class StarterCivilizationChunkGenerator {
             return generatePath(writer, factionId, intent.path(), intent.width());
         }
 
-        PreparedIntent fixed = Objects.requireNonNull(prepared, "prepared intent");
+        if (prepared == null) return 0; // globally rejected fixed structure
+        PreparedIntent fixed = prepared;
         StructureBlueprint blueprint = fixed.blueprint();
         int turns = fixed.turns();
         int cx = (int) Math.round(intent.center().x());
@@ -102,6 +117,8 @@ public final class StarterCivilizationChunkGenerator {
         boolean terrainFollowing = fixed.terrainFollowing();
         int baseY = fixed.baseY();
 
+        // Global acceptance already decided terrain viability. Keep the local generator check as a
+        // defense-in-depth assert that must agree with the cached decision.
         if (!terrainCompatibleFixedSite(writer, fixed, cx, cz)) return 0;
         if (!canAuthorIntentSlice(writer, intent, fixed, cx, cz)) return 0;
 
@@ -192,19 +209,14 @@ public final class StarterCivilizationChunkGenerator {
         if (path.size() < 2) return 0;
         int writes = 0;
         Set<Long> visited = new HashSet<>();
-        for (int s = 0; s < path.size() - 1; s++) {
-            SimPosition a = path.get(s), b = path.get(s + 1);
-            double dx = b.x() - a.x(), dz = b.z() - a.z();
-            double distance = Math.hypot(dx, dz);
-            int steps = Math.max(1, (int) Math.ceil(distance));
-            for (int i = 0; i <= steps; i++) {
-                double t = i / (double) steps;
-                int centerX = (int) Math.round(a.x() + dx * t);
-                int centerZ = (int) Math.round(a.z() + dz * t);
-                writes += writeRoadBrush(
-                        writer, factionId, centerX, centerZ, Math.max(1, width),
-                        false, false, Integer.MIN_VALUE,
-                        AuthoredOwnerType.SETTLEMENT_ROAD, visited);
+        // Supercover centerline + integer dilation: continuous road surface without diagonal holes.
+        for (RoadSurfaceMask.Cell cell : RoadSurfaceMask.rasterize(path, Math.max(1, width))) {
+            if (!visited.add(cell.packed()) || !writer.insideCurrentChunk(cell.x(), cell.z())) continue;
+            if (writeRoadDeck(
+                    writer, factionId, cell.x(), cell.z(),
+                    false, false, Integer.MIN_VALUE,
+                    AuthoredOwnerType.SETTLEMENT_ROAD)) {
+                writes++;
             }
         }
         return writes;
@@ -284,50 +296,77 @@ public final class StarterCivilizationChunkGenerator {
             int chunkX,
             int chunkZ) {
         StarterRegionalRoutePlanner.RoutePlan route = routeSlice.route();
+        List<StarterRegionalRouteGeometryIndex.PlannedPoint> points = routeSlice.points();
+        if (points.isEmpty()) return 0;
+
+        List<BridgeCrossingPlanner.Sample> samples = new ArrayList<>(points.size());
+        List<RoadSurfaceMask.Cell> centers = new ArrayList<>(points.size());
+        for (StarterRegionalRouteGeometryIndex.PlannedPoint point : points) {
+            int ground = writer.generatorGroundY(point.x(), point.z());
+            samples.add(new BridgeCrossingPlanner.Sample(
+                    point.x(), point.z(), point.deckY(), point.water(), ground));
+            centers.add(new RoadSurfaceMask.Cell(point.x(), point.z()));
+        }
+        List<BridgeCrossingPlanner.Crossing> crossings = BridgeCrossingPlanner.plan(samples);
+
+        int width = route.rural() ? 3 : 5;
         int writes = 0;
         Set<Long> visited = new HashSet<>();
-        int width = route.rural() ? 3 : 5;
-        for (StarterRegionalRouteGeometryIndex.PlannedPoint point : routeSlice.points()) {
-            writes += writeRoadBrush(
-                    writer, route.factionId(), point.x(), point.z(), width,
-                    route.rural(), true, point.deckY(),
-                    AuthoredOwnerType.INTERCITY_ROUTE, visited);
+        List<RoadSurfaceMask.Cell> surface = RoadSurfaceMask.rasterizeCenters(centers, width);
+
+        for (RoadSurfaceMask.Cell cell : surface) {
+            if (!visited.add(cell.packed()) || !writer.insideCurrentChunk(cell.x(), cell.z())) {
+                continue;
+            }
+            StarterRegionalRouteGeometryIndex.PlannedPoint nearest =
+                    nearestPlannedPoint(points, cell.x(), cell.z());
+            if (nearest == null) continue;
+
+            int sampleIndex = indexOfPoint(points, nearest);
+            BridgeCrossingPlanner.Crossing crossing =
+                    BridgeCrossingPlanner.findCovering(crossings, sampleIndex);
+            if (crossing != null && !crossing.accepted()) {
+                // Rejected span: do not emit sparse pillars. Leave the column natural.
+                continue;
+            }
+
+            int deckY = crossing != null ? crossing.deckY() : nearest.deckY();
+            boolean engineeredDeck = crossing != null
+                    || nearest.water()
+                    || deckY > writer.terrainY(cell.x(), cell.z()) + 3;
+            writes += writeRoadDeck(
+                    writer, route.factionId(), cell.x(), cell.z(),
+                    route.rural(), true, deckY,
+                    AuthoredOwnerType.INTERCITY_ROUTE,
+                    engineeredDeck ? crossing : null) ? 1 : 0;
         }
         return writes;
     }
 
-    /**
-     * Stamps a filled road surface around each rasterized center point. The previous normal-only
-     * cross-section left diagonal roads and bridges as a checkerboard/ladder because successive
-     * rounded center points did not cover the cells between them.
-     */
-    private static int writeRoadBrush(
-            WorldgenFabricBlockWriter writer,
-            long factionId,
-            int centerX,
-            int centerZ,
-            int width,
-            boolean rural,
-            boolean regional,
-            int plannedDeckY,
-            AuthoredOwnerType ownerType,
-            Set<Long> visited) {
-        int minOffset = -(width / 2);
-        int maxOffset = (width - 1) / 2;
-        int writes = 0;
-        for (int ox = minOffset; ox <= maxOffset; ox++) {
-            for (int oz = minOffset; oz <= maxOffset; oz++) {
-                int x = centerX + ox;
-                int z = centerZ + oz;
-                long packed = (((long) x) << 32) ^ (z & 0xffffffffL);
-                if (!visited.add(packed) || !writer.insideCurrentChunk(x, z)) continue;
-                if (writeRoadDeck(
-                        writer, factionId, x, z, rural, regional, plannedDeckY, ownerType)) {
-                    writes++;
-                }
+    private static StarterRegionalRouteGeometryIndex.PlannedPoint nearestPlannedPoint(
+            List<StarterRegionalRouteGeometryIndex.PlannedPoint> points, int x, int z) {
+        StarterRegionalRouteGeometryIndex.PlannedPoint best = null;
+        long bestDist = Long.MAX_VALUE;
+        for (StarterRegionalRouteGeometryIndex.PlannedPoint point : points) {
+            long dx = point.x() - x;
+            long dz = point.z() - z;
+            long d2 = dx * dx + dz * dz;
+            if (d2 < bestDist) {
+                bestDist = d2;
+                best = point;
             }
         }
-        return writes;
+        return best;
+    }
+
+    private static int indexOfPoint(
+            List<StarterRegionalRouteGeometryIndex.PlannedPoint> points,
+            StarterRegionalRouteGeometryIndex.PlannedPoint target) {
+        for (int i = 0; i < points.size(); i++) {
+            var point = points.get(i);
+            if (point.x() == target.x() && point.z() == target.z()) return i;
+        }
+        return -1;
     }
 
     private static boolean writeRoadDeck(
@@ -339,6 +378,19 @@ public final class StarterCivilizationChunkGenerator {
             boolean regional,
             int plannedDeckY,
             AuthoredOwnerType ownerType) {
+        return writeRoadDeck(writer, factionId, x, z, rural, regional, plannedDeckY, ownerType, null);
+    }
+
+    private static boolean writeRoadDeck(
+            WorldgenFabricBlockWriter writer,
+            long factionId,
+            int x,
+            int z,
+            boolean rural,
+            boolean regional,
+            int plannedDeckY,
+            AuthoredOwnerType ownerType,
+            BridgeCrossingPlanner.Crossing crossing) {
         int ground = writer.terrainY(x, z);
         int floor = writer.oceanFloorY(x, z);
         int waterSurface = writer.waterSurfaceY(x, z);
@@ -348,18 +400,13 @@ public final class StarterCivilizationChunkGenerator {
         if (water) y = Math.max(waterSurface, y);
         BlockPos pos = new BlockPos(x, y, z);
 
-        if (water) {
+        if (water || (crossing != null && crossing.accepted())) {
             if (!writer.canReplaceForWorldgen(pos, false, ownerType)) return false;
             if (!writer.clearNaturalVegetationAbove(x, y, z, 8, ownerType)) return false;
             var deck = rural ? Blocks.SPRUCE_PLANKS.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState();
             boolean wrote = writer.writeState(pos, deck, false, ownerType);
-            if (regional && Math.floorMod(x * 31 + z * 17, 11) == 0) {
-                int bottom = Math.max(floor + 1, y - 48);
-                for (int py = bottom; py < y; py++) {
-                    writer.writeState(new BlockPos(x, py, z),
-                            rural ? Blocks.OAK_LOG.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState(),
-                            false, ownerType);
-                }
+            if (regional && wrote) {
+                writeBridgeSupports(writer, x, z, y, floor, rural, ownerType, crossing);
             }
             return wrote;
         }
@@ -374,6 +421,35 @@ public final class StarterCivilizationChunkGenerator {
             return writer.writeState(pos, deck, false, ownerType);
         }
         return writer.write(factionId, PaletteSlot.PATH, pos, 0, false, null, ownerType);
+    }
+
+    /**
+     * Continuous bridge deck supports: abutments are solid, mid-span piers follow the planned
+     * spacing. Never emits the old sparse 1-in-11 pillar skeleton without a deck object.
+     */
+    private static void writeBridgeSupports(
+            WorldgenFabricBlockWriter writer,
+            int x,
+            int z,
+            int deckY,
+            int floorY,
+            boolean rural,
+            AuthoredOwnerType ownerType,
+            BridgeCrossingPlanner.Crossing crossing) {
+        int spacing = crossing == null ? 6 : crossing.supportSpacing();
+        boolean abutment = crossing != null
+                && ((x == crossing.abutmentFromX() && z == crossing.abutmentFromZ())
+                || (x == crossing.abutmentToX() && z == crossing.abutmentToZ()));
+        boolean pier = abutment || Math.floorMod(x * 31 + z * 17, spacing) == 0;
+        if (!pier) return;
+
+        int bottom = Math.max(floorY + 1, deckY - 48);
+        BlockState pierState = rural
+                ? Blocks.OAK_LOG.defaultBlockState()
+                : Blocks.STONE_BRICKS.defaultBlockState();
+        for (int py = bottom; py < deckY; py++) {
+            writer.writeState(new BlockPos(x, py, z), pierState, false, ownerType);
+        }
     }
 
     private static boolean terrainFollowing(StructureRole role) {

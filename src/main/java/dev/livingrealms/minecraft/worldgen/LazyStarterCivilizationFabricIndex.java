@@ -1,8 +1,8 @@
 package dev.livingrealms.minecraft.worldgen;
 
 import dev.livingrealms.minecraft.LivingRealmsSavedData;
-import dev.livingrealms.sim.construction.BlockPlacement;
 import dev.livingrealms.sim.construction.ConstructionIntent;
+import dev.livingrealms.sim.construction.ConstructionIntentChunkSelector;
 import dev.livingrealms.sim.construction.StructureBlueprint;
 import dev.livingrealms.sim.construction.StructureBlueprintFactory;
 import dev.livingrealms.sim.construction.StructureRole;
@@ -13,6 +13,7 @@ import dev.livingrealms.sim.worldgen.SettlementInitialWorldgenPlan;
 import dev.livingrealms.sim.worldgen.StarterCivilizationFabricIndex;
 import dev.livingrealms.sim.worldgen.StarterRoadsideSitePlanner;
 import dev.livingrealms.sim.worldgen.StarterWorldgenCompletion;
+import dev.livingrealms.sim.worldgen.WorldgenObjectAcceptance;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -52,7 +53,8 @@ public final class LazyStarterCivilizationFabricIndex {
 
     private record IndexedIntent(
             SettlementInitialWorldgenPlan physical,
-            ConstructionIntent intent
+            ConstructionIntent intent,
+            WorldgenObjectAcceptance.Decision acceptance
     ) {}
 
     private final net.minecraft.server.level.ServerLevel level;
@@ -69,6 +71,8 @@ public final class LazyStarterCivilizationFabricIndex {
     private final ConcurrentHashMap<Long, FutureTask<ResolvedSettlement>> resolutionTasks =
             new ConcurrentHashMap<>();
     private final ConcurrentHashMap<BlueprintKey, StructureBlueprint> blueprintCache =
+            new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<BlueprintKey, WorldgenObjectAcceptance.Decision> acceptanceCache =
             new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, CopyOnWriteArrayList<IndexedIntent>>
             settlementByChunk = new ConcurrentHashMap<>();
@@ -135,12 +139,15 @@ public final class LazyStarterCivilizationFabricIndex {
             ConstructionIntent intent = ref.intent();
             BlueprintKey blueprintKey =
                     new BlueprintKey(physical.settlementId(), intent.key());
+            // Intent selection happens during indexing via ConstructionIntentChunkSelector.
+            // Blueprints and global acceptance are created lazily here on first chunk demand.
             StructureBlueprint blueprint = blueprintCache.computeIfAbsent(
                     blueprintKey,
                     ignored -> StructureBlueprintFactory.create(
                             intent, physical.architecture()));
+            WorldgenObjectAcceptance.Decision acceptance = acceptanceFor(physical, intent, blueprint);
             out.add(new StarterCivilizationFabricIndex.SettlementFabric(
-                    physical, intent, blueprint));
+                    physical, intent, blueprint, acceptance));
         }
         return List.copyOf(out);
     }
@@ -309,11 +316,49 @@ public final class LazyStarterCivilizationFabricIndex {
                 minZ = cz - depth / 2 - margin;
                 maxZ = cz + (depth - 1) / 2 + margin;
             }
-            addChunkRectangle(
-                    settlementByChunk,
-                    new IndexedIntent(physical, intent),
-                    minX, minZ, maxX, maxZ);
+            // Select intersecting chunks with the shared pure selector before any blueprint work.
+            int minChunkX = Math.floorDiv(minX, 16);
+            int maxChunkX = Math.floorDiv(maxX, 16);
+            int minChunkZ = Math.floorDiv(minZ, 16);
+            int maxChunkZ = Math.floorDiv(maxZ, 16);
+            IndexedIntent indexed = new IndexedIntent(physical, intent, null);
+            for (int cx = minChunkX; cx <= maxChunkX; cx++) {
+                for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
+                    if (!ConstructionIntentChunkSelector.intersects(intent, cx, cz)) continue;
+                    settlementByChunk
+                            .computeIfAbsent(pack(cx, cz), ignored -> new CopyOnWriteArrayList<>())
+                            .addIfAbsent(indexed);
+                }
+            }
         }
+    }
+
+    /**
+     * One global terrain accept/reject + base Y per fixed structure. Roads and terrain-following
+     * roles leave acceptance null so chunk emission stays path/column based. Computed lazily so
+     * indexing never forces blueprint materialization for remote settlements.
+     */
+    private WorldgenObjectAcceptance.Decision acceptanceFor(
+            SettlementInitialWorldgenPlan physical,
+            ConstructionIntent intent,
+            StructureBlueprint blueprint) {
+        if (intent.role() == StructureRole.ROAD
+                || intent.role() == StructureRole.WALL
+                || intent.role() == StructureRole.GATE
+                || intent.role() == StructureRole.FARM
+                || intent.role() == StructureRole.PASTURE
+                || intent.role() == StructureRole.IRRIGATION) {
+            return null;
+        }
+        BlueprintKey key = new BlueprintKey(physical.settlementId(), intent.key());
+        return acceptanceCache.computeIfAbsent(
+                key,
+                ignored -> WorldgenObjectAcceptance.decide(
+                        intent,
+                        blueprint,
+                        terrainCache::surfaceY,
+                        terrainCache::groundY,
+                        level.getMinBuildHeight()));
     }
 
     void indexRoadsideForRouteWindow(

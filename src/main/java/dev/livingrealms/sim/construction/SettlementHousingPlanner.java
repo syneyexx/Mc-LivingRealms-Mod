@@ -11,6 +11,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import static dev.livingrealms.sim.construction.SettlementPlanner.addAtParcel;
+import static dev.livingrealms.sim.construction.SettlementPlanner.footprintConflicts;
 import static dev.livingrealms.sim.construction.SettlementPlanner.houseFootprintFromTemplate;
 import static dev.livingrealms.sim.construction.SettlementPlanner.mix;
 
@@ -64,11 +65,12 @@ final class SettlementHousingPlanner {
             int parcelIndex = -1;
             for (int pi = 0; pi < remaining.size(); pi++) {
                 SettlementParcelPlanner.ParcelPlan candidate = remaining.get(pi);
-                if (candidate.width() >= w && candidate.depth() >= d) {
-                    parcel = candidate;
-                    parcelIndex = pi;
-                    break;
-                }
+                if (candidate.width() < w || candidate.depth() < d) continue;
+                int face = candidate.orientationQuarterTurns();
+                if (footprintConflicts(out, candidate.center(), w, d, face)) continue;
+                parcel = candidate;
+                parcelIndex = pi;
+                break;
             }
             if (parcel == null) {
                 // No parcel fits this archetype — defer rather than place off-street.
@@ -93,14 +95,16 @@ final class SettlementHousingPlanner {
             int compactD = Math.max(9, culture.minHouseDepth());
             for (int pi = 0; pi < remaining.size() && emitted < coreMinimum; ) {
                 SettlementParcelPlanner.ParcelPlan parcel = remaining.get(pi);
-                if (parcel.width() < compactW || parcel.depth() < compactD) {
+                int face = parcel.orientationQuarterTurns();
+                if (parcel.width() < compactW || parcel.depth() < compactD
+                        || footprintConflicts(out, parcel.center(), compactW, compactD, face)) {
                     pi++;
                     continue;
                 }
                 remaining.remove(pi);
                 int stableHouseIndex = 10_000 + parcelOrdinal(parcel.id());
                 addAtParcel(out, faction, settlement, StructureRole.HOUSE, stableHouseIndex, parcel,
-                        compactW, compactD, parcel.orientationQuarterTurns(), 87);
+                        compactW, compactD, face, 87);
                 emitted++;
             }
         }
@@ -230,26 +234,15 @@ final class SettlementHousingPlanner {
             // Fallback houses belong only to the graph lanes created for the shortage.
             if (!extensionRoadKeys.contains(parcel.frontageSegmentKey())) continue;
             if (parcel.width() < w || parcel.depth() < d) continue;
-            boolean clash = false;
-            double parcelWorldW = worldWidth(parcel.width(), parcel.depth(), parcel.orientationQuarterTurns());
-            double parcelWorldD = worldDepth(parcel.width(), parcel.depth(), parcel.orientationQuarterTurns());
-            double houseWorldW = worldWidth(w, d, parcel.orientationQuarterTurns());
-            double houseWorldD = worldDepth(w, d, parcel.orientationQuarterTurns());
-            for (ConstructionIntent existing : out) {
-                if (existing.role() != StructureRole.HOUSE) continue;
-                double existingWorldW = worldWidth(existing.width(), existing.depth(), existing.rotationQuarterTurns());
-                double existingWorldD = worldDepth(existing.width(), existing.depth(), existing.rotationQuarterTurns());
-                if (Math.abs(existing.center().x() - parcel.center().x()) < (existingWorldW + Math.max(parcelWorldW, houseWorldW)) / 2.0 + 2
-                        && Math.abs(existing.center().z() - parcel.center().z()) < (existingWorldD + Math.max(parcelWorldD, houseWorldD)) / 2.0 + 2) {
-                    clash = true;
-                    break;
-                }
+            int placedW = Math.min(parcel.width(), w + 2);
+            int placedD = Math.min(parcel.depth(), d + 2);
+            if (footprintConflicts(
+                    out, parcel.center(), placedW, placedD, parcel.orientationQuarterTurns())) {
+                continue;
             }
-            if (clash) continue;
             int stableHouseIndex = 900 + parcelOrdinal(parcel.id());
             addAtParcel(out, faction, settlement, StructureRole.HOUSE, stableHouseIndex, parcel,
-                    Math.min(parcel.width(), w + 2), Math.min(parcel.depth(), d + 2),
-                    parcel.orientationQuarterTurns(), 86);
+                    placedW, placedD, parcel.orientationQuarterTurns(), 86);
             occupied.add(parcel.center());
             placed++;
         }
