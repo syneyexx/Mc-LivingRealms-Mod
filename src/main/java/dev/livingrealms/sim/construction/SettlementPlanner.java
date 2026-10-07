@@ -134,6 +134,54 @@ public final class SettlementPlanner {
         return new WorldgenPlan(out, cultureProfile.architecture());
     }
 
+    /**
+     * Stable physical exit used by regional starter roads.
+     *
+     * <p>CITY+ settlements use their authored gate toward the destination. Smaller settlements do
+     * not have walls, so the route attaches to the outermost existing street-graph point in the
+     * destination direction instead of terminating at the settlement center.</p>
+     */
+    public static SimPosition exitToward(
+            Faction faction,
+            Settlement settlement,
+            SimPosition target) {
+        Objects.requireNonNull(faction, "faction");
+        Objects.requireNonNull(settlement, "settlement");
+        Objects.requireNonNull(target, "target");
+
+        Optional<SettlementBoundary> boundary = boundary(faction, settlement);
+        if (boundary.isPresent()) {
+            return boundary.get().gateToward(settlement.position(), target).position();
+        }
+
+        SettlementMorphology morph = SettlementMorphology.derive(faction, settlement);
+        int baseRotation = Math.floorMod(
+                (int) mix(settlement.id() ^ 0x4F1BBCDCBFA54001L), 2);
+        SettlementStreetGraph graph =
+                SettlementRoadPlanner.planGraph(faction, settlement, morph, baseRotation);
+
+        double tx = target.x() - settlement.position().x();
+        double tz = target.z() - settlement.position().z();
+        double len = Math.max(1.0e-9, Math.hypot(tx, tz));
+        tx /= len;
+        tz /= len;
+
+        SimPosition best = settlement.position();
+        double bestProjection = -Double.MAX_VALUE;
+        for (SettlementStreetGraph.RoadSegment segment : graph.segments()) {
+            for (SimPosition point : segment.centerline()) {
+                double dx = point.x() - settlement.position().x();
+                double dz = point.z() - settlement.position().z();
+                double projection = dx * tx + dz * tz;
+                if (projection > bestProjection) {
+                    bestProjection = projection;
+                    best = point;
+                }
+            }
+        }
+        return best;
+    }
+
     /** Deterministic CITY+ boundary view for transport/world projection. */
     public static Optional<SettlementBoundary> boundary(Faction faction, Settlement settlement) {
         Objects.requireNonNull(faction, "faction");
