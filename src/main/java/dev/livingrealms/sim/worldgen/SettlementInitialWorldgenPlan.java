@@ -119,9 +119,11 @@ public record SettlementInitialWorldgenPlan(
         SettlementPlanner.WorldgenPlan physical = SettlementPlanner.planWorldgen(faction, settlement);
         List<ConstructionIntent> dayZero = new ArrayList<>(physical.intents());
         dayZero.addAll(PrimaryEconomyPlanner.planStarterBaseline(faction, settlement));
-        return new SettlementInitialWorldgenPlan(
+        SettlementInitialWorldgenPlan plan = new SettlementInitialWorldgenPlan(
                 starter.stableKey(), realmPlan.definition().id(), faction.id(), settlement.id(),
                 settlement.name(), settlement.role(), settlement.tier(), settlement.position(),
                 physical.architecture(), dayZero);
+        StarterSettlementWorldgenContract.requireComplete(plan);
+        return plan;
     }
 }
