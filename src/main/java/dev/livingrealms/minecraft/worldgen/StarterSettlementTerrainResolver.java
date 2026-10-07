@@ -220,8 +220,10 @@ public final class StarterSettlementTerrainResolver {
         SimPosition best = origin;
         double bestScore = Double.POSITIVE_INFINITY;
         for (SimPosition position : candidates) {
+            boolean detailed = settlement.role() == SettlementRole.CAPITAL
+                    || settlement.role() == SettlementRole.CITY;
             TerrainStats terrain = sampleTerrainLazy(
-                    position, spec.sampleRadius(), terrainCache);
+                    position, spec.sampleRadius(), terrainCache, detailed);
             double displacement = position.distanceTo(origin);
             double parentPenalty = parentDistancePenalty(
                     settlement, position, byId, Map.of());
@@ -251,11 +253,15 @@ public final class StarterSettlementTerrainResolver {
     private static TerrainStats sampleTerrainLazy(
             SimPosition center,
             int radius,
-            StarterGeneratorTerrainCache terrainCache) {
+            StarterGeneratorTerrainCache terrainCache,
+            boolean detailed) {
         int cx = (int) Math.round(center.x());
         int cz = (int) Math.round(center.z());
         int r = Math.max(8, radius);
-        int[] offsets = {-r, 0, r};
+        int half = Math.max(4, r / 2);
+        int[] offsets = detailed
+                ? new int[]{-r, -half, 0, half, r}
+                : new int[]{-r, 0, r};
 
         int water = 0;
         int count = 0;
