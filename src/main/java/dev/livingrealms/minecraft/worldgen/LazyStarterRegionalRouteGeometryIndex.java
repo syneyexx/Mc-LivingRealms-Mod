@@ -69,8 +69,7 @@ public final class LazyStarterRegionalRouteGeometryIndex {
 
         Map<Long, StarterRegionalRoutePlanner.RoutePlan> mutable = new HashMap<>();
         Map<Long, List<StarterRegionalRoutePlanner.RoutePlan>> tileRoutes = new HashMap<>();
-        for (StarterRegionalRoutePlanner.RoutePlan route
-                : routesByTile.getOrDefault(pack(tileX, tileZ), List.of())) {
+        for (StarterRegionalRoutePlanner.RoutePlan route : routes) {
             mutable.put(route.stableRouteId(), route);
 
             int minX = (int) Math.floor(Math.min(route.from().x(), route.to().x()) - ENDPOINT_TRIGGER_RADIUS);
@@ -104,7 +103,8 @@ public final class LazyStarterRegionalRouteGeometryIndex {
         double chunkCenterX = (chunkX << 4) + 7.5;
         double chunkCenterZ = (chunkZ << 4) + 7.5;
 
-        for (StarterRegionalRoutePlanner.RoutePlan route : routes) {
+        for (StarterRegionalRoutePlanner.RoutePlan route
+                : routesByTile.getOrDefault(pack(tileX, tileZ), List.of())) {
             // Endpoint connectors are short and bounded. Every potentially affected chunk is inside
             // this trigger radius, so a connector cannot appear after an already-generated slice.
             if (nearPoint(chunkCenterX, chunkCenterZ, route.from(), ENDPOINT_TRIGGER_RADIUS)) {
