@@ -177,53 +177,21 @@ public final class StarterCivilizationChunkGenerator {
             PreparedIntent prepared,
             int cx,
             int cz) {
-        AuthoredOwnerType ownerType = AuthoredOwnerType.forStructureRole(intent.role());
-
-        // Known structure-piece collision is a whole-intent decision, not a per-chunk clipping
-        // decision. The writer caches only already-present generation-region structure references.
+        // Keep only deterministic terrain hard-bounds here. Per-block foreign-structure and
+        // block-entity protection stays in WorldgenFabricBlockWriter. Rejecting an entire
+        // current-chunk slice because one protected block is present creates visibly half-built
+        // multi-chunk houses when the neighboring slice makes a different decision.
         for (BlockPlacement placement : prepared.blueprint().placements()) {
-            int[] rotated = rotate(placement.dx(), placement.dz(), prepared.turns());
-            int x = cx + rotated[0], z = cz + rotated[1];
-            int columnBase = prepared.terrainFollowing() ? writer.generatorGroundY(x, z) : prepared.baseY();
-            if (writer.isForeignStructurePiece(
-                    new BlockPos(x, columnBase + placement.dy(), z))) {
-                return false;
+            if (prepared.terrainFollowing()
+                    || placement.slot() != PaletteSlot.FOUNDATION
+                    || placement.dy() != 0) {
+                continue;
             }
-        }
-
-        Set<Long> virtuallyCleared = new HashSet<>();
-        for (BlockPlacement placement : prepared.blueprint().placements()) {
             int[] rotated = rotate(placement.dx(), placement.dz(), prepared.turns());
             int x = cx + rotated[0], z = cz + rotated[1];
             if (!writer.insideCurrentChunk(x, z)) continue;
-            int columnBase = prepared.terrainFollowing() ? writer.terrainY(x, z) : prepared.baseY();
-            int y = columnBase + placement.dy();
-            BlockPos pos = new BlockPos(x, y, z);
-            boolean clearing = placement.slot() == PaletteSlot.AIR;
-
-            // StructureBlueprint is phase-sorted (CLEAR first). Once a valid clear has been
-            // preflighted, later wall/roof/interior operations at that coordinate see virtual air
-            // rather than re-testing the original vegetation and rejecting the whole structure.
-            if (!virtuallyCleared.contains(pos.asLong())) {
-                if (!writer.canReplaceForWorldgen(pos, clearing, ownerType)) {
-                    return false;
-                }
-            }
-            if (clearing) virtuallyCleared.add(pos.asLong());
-
-            if (!prepared.terrainFollowing()
-                    && placement.slot() == PaletteSlot.FOUNDATION
-                    && placement.dy() == 0) {
-                int ground = writer.terrainY(x, z);
-                if (prepared.baseY() - ground > 64) return false;
-                for (int fy = ground; fy < prepared.baseY(); fy++) {
-                    BlockPos foundationPos = new BlockPos(x, fy, z);
-                    if (virtuallyCleared.contains(foundationPos.asLong())) continue;
-                    if (!writer.canReplaceForWorldgen(foundationPos, false, ownerType)) {
-                        return false;
-                    }
-                }
-            }
+            int ground = writer.terrainY(x, z);
+            if (prepared.baseY() - ground > 64) return false;
         }
         return true;
     }
@@ -241,20 +209,14 @@ public final class StarterCivilizationChunkGenerator {
             double dx = b.x() - a.x(), dz = b.z() - a.z();
             double distance = Math.hypot(dx, dz);
             int steps = Math.max(1, (int) Math.ceil(distance));
-            double nx = distance < 1.0e-9 ? 1 : -dz / distance;
-            double nz = distance < 1.0e-9 ? 0 : dx / distance;
-            int half = Math.max(0, width / 2);
             for (int i = 0; i <= steps; i++) {
                 double t = i / (double) steps;
-                double centerX = a.x() + dx * t, centerZ = a.z() + dz * t;
-                for (int side = -half; side <= half; side++) {
-                    int x = (int) Math.round(centerX + nx * side);
-                    int z = (int) Math.round(centerZ + nz * side);
-                    long packed = (((long) x) << 32) ^ (z & 0xffffffffL);
-                    if (!visited.add(packed) || !writer.insideCurrentChunk(x, z)) continue;
-                    if (writeRoadDeck(writer, factionId, x, z, false, false, Integer.MIN_VALUE,
-                            AuthoredOwnerType.SETTLEMENT_ROAD)) writes++;
-                }
+                int centerX = (int) Math.round(a.x() + dx * t);
+                int centerZ = (int) Math.round(a.z() + dz * t);
+                writes += writeRoadBrush(
+                        writer, factionId, centerX, centerZ, Math.max(1, width),
+                        false, false, Integer.MIN_VALUE,
+                        AuthoredOwnerType.SETTLEMENT_ROAD, visited);
             }
         }
         return writes;
@@ -336,18 +298,45 @@ public final class StarterCivilizationChunkGenerator {
         StarterRegionalRoutePlanner.RoutePlan route = routeSlice.route();
         int writes = 0;
         Set<Long> visited = new HashSet<>();
+        int width = route.rural() ? 3 : 5;
         for (StarterRegionalRouteGeometryIndex.PlannedPoint point : routeSlice.points()) {
-            int px = point.x(), pz = point.z();
-            int nx = point.dz() == 0 ? 0 : Integer.signum(point.dz());
-            int nz = point.dx() == 0 ? 0 : -Integer.signum(point.dx());
-            if (nx == 0 && nz == 0) nx = 1;
-            int half = route.rural() ? 0 : 2;
-            for (int side = -half; side <= half; side++) {
-                int x = px + nx * side, z = pz + nz * side;
+            writes += writeRoadBrush(
+                    writer, route.factionId(), point.x(), point.z(), width,
+                    route.rural(), true, point.deckY(),
+                    AuthoredOwnerType.INTERCITY_ROUTE, visited);
+        }
+        return writes;
+    }
+
+    /**
+     * Stamps a filled road surface around each rasterized center point. The previous normal-only
+     * cross-section left diagonal roads and bridges as a checkerboard/ladder because successive
+     * rounded center points did not cover the cells between them.
+     */
+    private static int writeRoadBrush(
+            WorldgenFabricBlockWriter writer,
+            long factionId,
+            int centerX,
+            int centerZ,
+            int width,
+            boolean rural,
+            boolean regional,
+            int plannedDeckY,
+            AuthoredOwnerType ownerType,
+            Set<Long> visited) {
+        int minOffset = -(width / 2);
+        int maxOffset = (width - 1) / 2;
+        int writes = 0;
+        for (int ox = minOffset; ox <= maxOffset; ox++) {
+            for (int oz = minOffset; oz <= maxOffset; oz++) {
+                int x = centerX + ox;
+                int z = centerZ + oz;
                 long packed = (((long) x) << 32) ^ (z & 0xffffffffL);
                 if (!visited.add(packed) || !writer.insideCurrentChunk(x, z)) continue;
-                if (writeRoadDeck(writer, route.factionId(), x, z, route.rural(), true,
-                        point.deckY(), AuthoredOwnerType.INTERCITY_ROUTE)) writes++;
+                if (writeRoadDeck(
+                        writer, factionId, x, z, rural, regional, plannedDeckY, ownerType)) {
+                    writes++;
+                }
             }
         }
         return writes;
